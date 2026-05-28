@@ -1,0 +1,31 @@
+/*Luna: Title NodeView shared design variables with inline Source Reveal overlay*/
+:root {
+  --luna-source-reveal-radius: 8px;
+  --luna-source-reveal-chrome-fg: color-mix(in srgb, var(--text-muted) 88%, var(--text-primary));
+  --luna-source-reveal-chrome-bg: color-mix(in srgb, var(--surface-panel) 76%, var(--surface-editor));
+  --luna-source-reveal-surface-bg: color-mix(in srgb, var(--surface-panel) 86%, var(--code-bg));
+  --luna-source-reveal-border: color-mix(in srgb, var(--border-subtle) 78%, var(--accent) 10%);
+  --luna-source-reveal-shadow: 0 12px 44px color-mix(in srgb, #000 18%, transparent);
+  --luna-source-reveal-ease: cubic-bezier(0.24, 0.82, 0.28, 1);
+  --luna-source-reveal-font-mono: var(--font-mono);
+  --luna-source-reveal-caret: var(--accent);
+  /*Table cells are aligned by default (horizontal + vertical); per-cell overridden by inline style or [align] on td/th*/
+  --luna-table-cell-text-align: center;
+  --luna-table-cell-vertical-align: top;
+  /*Global scroll bar*/
+  --luna-scrollbar-size: 8px;
+  --luna-scrollbar-track: transparent;
+  --luna-scrollbar-thumb: color-mix(in srgb, var(--text-muted) 38%, transparent);
+  --luna-scrollbar-thumb-hover: color-mix(in srgb, var(--text-muted) 58%, transparent);
+  --luna-scrollbar-thumb-active: color-mix(in srgb, var(--accent) 42%, var(--text-muted) 28%);
+  /*Sidebar: The thin scroll bar is attached to the right edge and coincides with the column dividing line*/
+  --luna-sidebar-scrollbar-size: 4px;
+  --luna-sidebar-scrollbar-thumb: color-mix(in srgb, var(--text-muted) 46%, var(--border-subtle));
+  --luna-sidebar-scrollbar-thumb-hover: color-mix(in srgb, var(--text-muted) 62%, var(--border-subtle));
+  /*Editor tab strip: thin horizontal bar below tabs (hover to reveal)*/
+  --luna-tabs-scrollbar-size: 4px;
+  --luna-tabs-scrollbar-thumb: color-mix(in srgb, var(--text-muted) 32%, transparent);
+  --luna-tabs-scrollbar-thumb-hover: color-mix(in srgb, var(--text-muted) 52%, transparent);
+  --luna-tabs-scrollbar-thumb-active: color-mix(in srgb, var(--accent) 36%, var(--text-muted) 24%);
+}
+

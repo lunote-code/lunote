@@ -1,0 +1,22 @@
+name: Install Linux Tauri dependencies
+description: System packages for Tauri v2 Linux builds (WebKitGTK 4.1, aligned with official prerequisites)
+runs:
+  using: composite
+  steps:
+    - name: apt install
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          curl \
+          wget \
+          file \
+          pkg-config \
+          libwebkit2gtk-4.1-dev \
+          libgtk-3-dev \
+          libxdo-dev \
+          libssl-dev \
+          libayatana-appindicator3-dev \
+          librsvg2-dev \
+          patchelf

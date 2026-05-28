@@ -1,0 +1,247 @@
+mod app_settings;
+mod clipboard;
+mod commands;
+mod core;
+mod luna_paths;
+mod pdf_render;
+mod theme;
+mod app_menu;
+
+pub(crate) use app_menu::handle_native_shell_menu;
+
+use std::collections::HashMap;
+use std::sync::Mutex;
+
+use rusqlite::Connection;
+use tauri::image::Image;
+use tauri::{AppHandle, Emitter, Manager, Runtime};
+
+/// Deliver `app-menu` to the front end: priority is given to the current focus window to avoid repeated processing of multiple WebViews.
+fn emit_app_menu<R: Runtime>(app: &AppHandle<R>, payload: serde_json::Value) {
+  let wins = app.webview_windows();
+  if wins.is_empty() {
+    let _ = app.emit("app-menu", payload);
+    return;
+  }
+  let focused = wins
+    .iter()
+    .find_map(|(_, w)| w.is_focused().ok().filter(|&f| f).map(|_| w.clone()));
+  if let Some(win) = focused {
+    let _ = win.emit("app-menu", payload);
+    return;
+  }
+  if let Some(win) = app.get_webview_window("main") {
+    let _ = win.emit("app-menu", payload);
+    return;
+  }
+  if let Some((_, w)) = wins.iter().next() {
+    let _ = w.emit("app-menu", payload);
+  }
+}
+
+/// Help menu external links
+const HELP_URL_PRIVACY: &str = "https://github.com/lunote-code/lunote#local-first-by-design";
+const HELP_URL_WEBSITE: &str = "https://github.com/lunote-code/lunote";
+const HELP_URL_FEEDBACK: &str = "https://github.com/lunote-code/lunote/issues/new/choose";
+
+pub struct AppState {
+  pub search_conn: Mutex<Connection>,
+  pub indexed_root: Mutex<Option<String>>,
+  pub note_index_fingerprints: Mutex<HashMap<String, (u64, u64)>>,
+  /// Serialize index_notes to avoid concurrent FTS rebuilds.
+  pub index_notes_lock: Mutex<()>,
+}
+
+/// Path list synchronized with the "File → Recent Files" submenu (full path, consistent with front-end localStorage)
+pub struct RecentMenuPaths(pub Mutex<Vec<String>>);
+
+/// List of file names synchronized with the "Theme → Theme/*.css" sub-item (consistent with the front-end scan results)
+pub struct ThemeMenuCssNames(pub Mutex<Vec<String>>);
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+  tauri::Builder::default()
+    .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+      if let Some(win) = app.get_webview_window("main") {
+        let _ = win.unminimize();
+        let _ = win.show();
+        let _ = win.set_focus();
+      }
+    }))
+    .plugin(tauri_plugin_opener::init())
+    .plugin(tauri_plugin_process::init())
+    .plugin(tauri_plugin_dialog::init())
+    .setup(|app| {
+      if cfg!(debug_assertions) {
+        app.handle().plugin(
+          tauri_plugin_log::Builder::default()
+            .level(log::LevelFilter::Info)
+            .build(),
+        )?;
+      }
+
+      let conn = Connection::open_in_memory()?;
+      luna_paths::ensure_luna_dirs()?;
+      core::search::init_schema(&conn)?;
+      app.manage(AppState {
+        search_conn: Mutex::new(conn),
+        indexed_root: Mutex::new(None),
+        note_index_fingerprints: Mutex::new(HashMap::new()),
+        index_notes_lock: Mutex::new(()),
+      });
+      app.manage(core::workspace_watch::WorkspaceWatchState::new());
+      app.manage(RecentMenuPaths(Mutex::new(Vec::new())));
+      app.manage(ThemeMenuCssNames(Mutex::new(Vec::new())));
+
+      if let Some(win) = app.get_webview_window("main") {
+        let icon_bytes = include_bytes!("../icons/32x32.png");
+        if let Ok(icon) = Image::from_bytes(icon_bytes) {
+          if let Err(e) = win.set_icon(icon) {
+            log::warn!("set window icon: {e}");
+          }
+        } else {
+          log::warn!("decode window icon PNG failed");
+        }
+      }
+
+      app.on_menu_event(|app, event| {
+        let id = event.id().as_ref();
+        if handle_native_shell_menu(app, id) {
+          return;
+        }
+        if id == "theme-open-folder" {
+          let _ = theme::reveal_theme_directory(app.clone());
+          return;
+        }
+        if id == "theme-refresh-css-list" {
+          emit_app_menu(
+            app,
+            serde_json::json!({ "action": "theme-refresh-css-list" }),
+          );
+          return;
+        }
+        if id == "help-privacy" {
+          emit_app_menu(
+            app,
+            serde_json::json!({ "action": "help-open-url", "url": HELP_URL_PRIVACY }),
+          );
+          return;
+        }
+        if id == "help-website" {
+          emit_app_menu(
+            app,
+            serde_json::json!({ "action": "help-open-url", "url": HELP_URL_WEBSITE }),
+          );
+          return;
+        }
+        if id == "help-feedback" {
+          emit_app_menu(
+            app,
+            serde_json::json!({ "action": "help-open-url", "url": HELP_URL_FEEDBACK }),
+          );
+          return;
+        }
+        if let Some(rest) = id.strip_prefix("theme-css-") {
+          if let Ok(idx) = rest.parse::<usize>() {
+            if let Ok(names) = app.state::<ThemeMenuCssNames>().0.lock() {
+              if let Some(n) = names.get(idx) {
+                emit_app_menu(
+                  app,
+                  serde_json::json!({ "action": "theme-css-select", "name": n }),
+                );
+              }
+            }
+          }
+          return;
+        }
+        if id == "recent-placeholder" {
+          return;
+        }
+        if let Some(rest) = id.strip_prefix("recent-") {
+          if let Ok(idx) = rest.parse::<usize>() {
+            let recent_state = app.state::<RecentMenuPaths>();
+            let paths = match recent_state.0.lock() {
+              Ok(g) => g,
+              Err(_) => return,
+            };
+            if let Some(p) = paths.get(idx) {
+              emit_app_menu(
+                app,
+                serde_json::json!({ "action": "open-recent", "path": p }),
+              );
+            }
+          }
+          return;
+        }
+        emit_app_menu(app, serde_json::json!({ "action": id }));
+      });
+
+      Ok(())
+    })
+    .invoke_handler(tauri::generate_handler![
+      clipboard::read_clipboard_text,
+      clipboard::read_clipboard_image,
+      commands::ensure_luna_dirs,
+      commands::get_luna_paths,
+      commands::read_luna_workspace,
+      commands::write_luna_workspace,
+      commands::append_luna_log,
+      commands::save_luna_asset_file,
+      commands::read_luna_asset_index,
+      commands::write_luna_asset_index,
+      commands::scan_luna_asset_index,
+      commands::path_exists,
+      commands::register_workspace_asset_scope,
+      commands::watch_workspace,
+      commands::unwatch_workspace,
+      commands::note_file_stat,
+      commands::open_trusted_path,
+      commands::open_external_url,
+      commands::pick_import_files_base64,
+      commands::import_markdown_via_dialog,
+      commands::list_markdown_files,
+      commands::list_workspace_tree,
+      commands::read_note,
+      commands::save_note,
+      commands::save_note_asset,
+      commands::note_asset_exists,
+      commands::read_workspace_file_base64,
+      commands::sync_recent_menu,
+      commands::sync_theme_css_menu,
+      commands::sync_view_fullscreen_menu_checked,
+      commands::get_app_settings,
+      commands::save_app_settings,
+      commands::index_notes,
+      commands::search_notes,
+      commands::delete_note,
+      commands::rename_note,
+      commands::move_note,
+      commands::create_new_note,
+      commands::create_note,
+      commands::create_new_note_in_parent,
+      commands::create_workspace_folder,
+      commands::export_note,
+      commands::export_note_binary,
+      commands::render_html_to_pdf_base64,
+      commands::render_html_to_pdf_to_path,
+      commands::reveal_in_explorer,
+      theme::ensure_theme_directory,
+      theme::ensure_theme_snippets_directory,
+      theme::ensure_theme_export_directory,
+      theme::list_theme_stylesheets,
+      theme::list_theme_snippets,
+      theme::list_theme_export_styles,
+      theme::read_theme_stylesheet,
+      theme::read_theme_snippet,
+      theme::read_theme_export_style,
+      theme::reveal_theme_directory,
+      theme::reveal_theme_snippets_directory,
+      theme::reveal_theme_export_directory,
+      theme::reveal_custom_theme_directory,
+      theme::list_custom_theme_files,
+      theme::read_custom_theme_json,
+      theme::save_custom_theme_json
+    ])
+    .run(tauri::generate_context!())
+    .expect("error while running tauri application");
+}

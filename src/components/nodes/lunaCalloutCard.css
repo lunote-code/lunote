@@ -1,0 +1,168 @@
+/*GitHub + Obsidian integration: card callout, dark and light theme tokens, only within the editor ProseMirror*/
+
+.preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout.luna-callout-card {
+  --lc-accent: var(--accent);
+  --lc-accent-mid: color-mix(in srgb, var(--lc-accent) 42%, var(--text-primary));
+  --lc-bg: color-mix(in srgb, var(--lc-accent) 7%, var(--surface-editor));
+  --lc-bg-2: color-mix(in srgb, var(--lc-accent) 4%, var(--surface-panel));
+  --lc-border: color-mix(in srgb, var(--lc-accent) 22%, var(--border-subtle));
+  --lc-border-hover: color-mix(in srgb, var(--lc-accent) 38%, var(--border-subtle));
+  --lc-title: color-mix(in srgb, var(--lc-accent) 58%, var(--text-primary));
+  --lc-shadow: 0 2px 14px color-mix(in srgb, #000 6%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--border-subtle) 55%, transparent);
+
+  box-sizing: border-box;
+  width: 100%;
+  max-width: min(var(--editor-column-width), 100%);
+  margin: 0.9rem auto;
+  padding: 14px 16px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--lc-border);
+  border-left: 4px solid var(--lc-accent);
+  background: linear-gradient(165deg, var(--lc-bg), var(--lc-bg-2));
+  backdrop-filter: saturate(140%) blur(10px);
+  box-shadow: var(--lc-shadow);
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout.luna-callout-card:hover {
+  border-color: var(--lc-border-hover);
+  box-shadow: 0 3px 18px color-mix(in srgb, #000 8%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--lc-accent) 18%, var(--border-subtle));
+}
+
+/*Type color (light color: pastel tint)*/
+.preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='note'],
+.preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='info'] {
+  --lc-accent: #3b82f6;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='tip'] {
+  --lc-accent: #22c55e;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='important'] {
+  --lc-accent: #a855f7;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='warning'] {
+  --lc-accent: #ea580c;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='caution'],
+.preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='danger'] {
+  --lc-accent: #dc2626;
+}
+
+/*Dark color: low saturation, translucent, avoid glare*/
+html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout.luna-callout-card {
+  --lc-bg: color-mix(in srgb, var(--lc-accent) 12%, var(--surface-editor));
+  --lc-bg-2: color-mix(in srgb, var(--lc-accent) 7%, var(--surface-panel));
+  --lc-border: color-mix(in srgb, var(--lc-accent) 28%, var(--border-subtle));
+  --lc-border-hover: color-mix(in srgb, var(--lc-accent) 44%, var(--border-subtle));
+  --lc-title: color-mix(in srgb, var(--lc-accent) 45%, var(--text-primary));
+  --lc-shadow: 0 2px 20px color-mix(in srgb, #000 28%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--border-subtle) 40%, transparent);
+}
+
+html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='note'],
+html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='info'] {
+  --lc-accent: #60a5fa;
+}
+
+html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='tip'] {
+  --lc-accent: #4ade80;
+}
+
+html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='important'] {
+  --lc-accent: #c084fc;
+}
+
+html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='warning'] {
+  --lc-accent: #fb923c;
+}
+
+html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='caution'],
+html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='danger'] {
+  --lc-accent: #f87171;
+}
+
+/*Header/Text*/
+.preview-pane.markdown-visual-editor .ProseMirror .luna-callout-card__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+  padding: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--lc-title);
+  user-select: none;
+  line-height: 1.25;
+  cursor: default;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-callout-card__header--interactive {
+  cursor: pointer;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-callout-card__header--interactive:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--lc-accent) 55%, transparent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-callout-card__icon {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--lc-accent-mid);
+  opacity: 0.95;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-callout-card__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  opacity: 0.98;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-callout-card__chevron {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  opacity: 0.55;
+  transition: opacity 120ms ease, transform 150ms ease;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-callout-card__header--interactive:hover .luna-callout-card__chevron {
+  opacity: 0.85;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-callout-card__body {
+  margin: 0;
+  padding: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-callout-card__content {
+  font-size: var(--size-body);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-primary);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-callout-card__content > *:first-child {
+  margin-top: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-callout-card__content > *:last-child {
+  margin-bottom: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-callout-card--collapsed .luna-callout-card__body {
+  display: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-callout-card--collapsed .luna-callout-card__header {
+  margin-bottom: 0;
+}

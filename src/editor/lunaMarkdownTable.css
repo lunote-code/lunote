@@ -1,0 +1,499 @@
+/**
+ * Luna Markdown table: unified vision for editor (ProseMirror) and reading/exporting (.markdown-body).
+ * Cardized outer layer, soft separation, GFM align, dark and light themes; do not set overflow-x on .pm-luna-table-wrap with chrome.
+ */
+
+/* -------------------------------------------------------------------------- */
+/*Design tokens (along with html[data-theme] and theme-presets already have CSS variables)*/
+/* -------------------------------------------------------------------------- */
+:root {
+  --luna-md-table-radius: 14px;
+  --luna-md-table-cell-pad-x: 16px;
+  --luna-md-table-cell-pad-y: 12px;
+  --luna-md-table-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --luna-md-table-ease-ms: 140ms;
+  --luna-md-table-card-border: color-mix(in srgb, var(--border-subtle, #d0d7de) 55%, transparent);
+  --luna-md-table-card-bg: color-mix(
+    in srgb,
+    var(--surface-panel, #f6f8fa) 38%,
+    var(--surface-editor, #ffffff)
+  );
+  --luna-md-table-card-shadow:
+    0 1px 0 color-mix(in srgb, var(--text-primary, #24292f) 4%, transparent),
+    0 14px 36px -22px color-mix(in srgb, var(--text-primary, #24292f) 16%, transparent);
+  --luna-md-table-inner-line: color-mix(in srgb, var(--border-subtle, #d0d7de) 42%, transparent);
+  --luna-md-table-thead-bg: color-mix(in srgb, var(--text-primary, #24292f) 5.5%, var(--surface-editor, #ffffff));
+  --luna-md-table-zebra: color-mix(in srgb, var(--text-primary, #24292f) 3.2%, var(--surface-editor, #ffffff));
+  --luna-md-table-row-hover: color-mix(in srgb, var(--accent, #0969da) 9%, var(--surface-editor, #ffffff));
+}
+
+html[data-theme='dark'],
+body.markdown-export-root[data-theme='dark'] {
+  --luna-md-table-card-border: color-mix(in srgb, var(--border-subtle, #30363d) 70%, transparent);
+  --luna-md-table-card-bg: color-mix(
+    in srgb,
+    var(--surface-panel, #161b22) 52%,
+    var(--surface-editor, #0d1117)
+  );
+  --luna-md-table-card-shadow:
+    0 1px 0 color-mix(in srgb, #fff 5%, transparent),
+    0 18px 48px -24px color-mix(in srgb, #000 55%, transparent);
+  --luna-md-table-inner-line: color-mix(in srgb, var(--border-subtle, #30363d) 58%, transparent);
+  --luna-md-table-thead-bg: color-mix(in srgb, var(--text-primary, #e6edf3) 7%, var(--surface-editor, #0d1117));
+  --luna-md-table-zebra: color-mix(in srgb, #fff 3.5%, var(--surface-editor, #0d1117));
+  --luna-md-table-row-hover: color-mix(in srgb, var(--accent, #58a6ff) 12%, var(--surface-editor, #0d1117));
+}
+
+/*When exporting HTML independently without App :root: cell alignment is consistent with GFM*/
+body.markdown-export-root {
+  --luna-table-cell-text-align: center;
+  --luna-table-cell-vertical-align: top;
+}
+
+/* -------------------------------------------------------------------------- */
+/*GFM alignment baseline (horizontal default center by :root --luna-table-cell-text-align)*/
+/* -------------------------------------------------------------------------- */
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table th,
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table td,
+.preview-pane:not(.markdown-visual-editor) table th,
+.preview-pane:not(.markdown-visual-editor) table td,
+.markdown-body table th,
+.markdown-body table td {
+  text-align: var(--luna-table-cell-text-align);
+  vertical-align: var(--luna-table-cell-vertical-align);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table :is(th, td)[align='left'],
+.preview-pane:not(.markdown-visual-editor) table :is(th, td)[align='left'],
+.markdown-body table :is(th, td)[align='left'] {
+  text-align: left;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table :is(th, td)[align='center'],
+.preview-pane:not(.markdown-visual-editor) table :is(th, td)[align='center'],
+.markdown-body table :is(th, td)[align='center'] {
+  text-align: center;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table :is(th, td)[align='right'],
+.preview-pane:not(.markdown-visual-editor) table :is(th, td)[align='right'],
+.markdown-body table :is(th, td)[align='right'] {
+  text-align: right;
+}
+
+/* -------------------------------------------------------------------------- */
+/*ProseMirror — outer wrap (do not overflow-x, avoid cutting negative top table chrome)*/
+/* -------------------------------------------------------------------------- */
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap {
+  position: relative;
+  width: 100%;
+  max-width: min(var(--editor-column-width), 100%);
+  box-sizing: border-box;
+}
+
+/*Card + horizontal scrolling: only includes table*/
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap .pm-luna-table-scroll.luna-md-table-card {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--luna-md-table-radius);
+  border: var(--hairline, 1px) solid var(--luna-md-table-card-border);
+  background: var(--luna-md-table-card-bg);
+  box-shadow: var(--luna-md-table-card-shadow);
+  transition:
+    border-color var(--luna-md-table-ease-ms) var(--luna-md-table-ease),
+    box-shadow var(--luna-md-table-ease-ms) var(--luna-md-table-ease);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-table-chrome {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -34px;
+  height: 30px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  z-index: 4;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap.pm-luna-table-wrap--active .pm-luna-table-chrome {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-table-toolbar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  max-width: min(100%, 200px);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-table-toolbar-btn,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-table-delete {
+  box-sizing: border-box;
+  height: 26px;
+  min-width: 26px;
+  padding: 0 6px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--surface-editor) 92%, var(--border-subtle));
+  border: var(--hairline, 1px) solid color-mix(in srgb, var(--border-subtle, #d0d7de) 80%, transparent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-table-toolbar-btn:hover,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-table-delete:hover {
+  color: var(--text-primary);
+  background: var(--surface-editor);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border-subtle));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-table-delete {
+  position: absolute;
+  right: 0;
+  top: 0;
+  padding: 0 8px;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap--active .pm-luna-table-scroll.luna-md-table-card {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--luna-md-table-card-border));
+  box-shadow:
+    var(--luna-md-table-card-shadow),
+    0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table {
+  table-layout: fixed;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: visible;
+  background: transparent;
+  box-sizing: border-box;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.55;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table td,
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table th {
+  min-width: 0;
+  min-height: 2.75rem;
+  transition:
+    background-color var(--luna-md-table-ease-ms) var(--luna-md-table-ease),
+    box-shadow var(--luna-md-table-ease-ms) var(--luna-md-table-ease);
+}
+
+/*Inactive: light hover of the entire line (does not overlap with active script line hover !important)*/
+.preview-pane.markdown-visual-editor
+  .ProseMirror
+  .tableWrapper.pm-luna-table-wrap:not(.pm-luna-table-wrap--active)
+  table.pm-luna-table
+  tbody
+  tr:hover
+  > :is(td, th) {
+  background: var(--luna-md-table-row-hover);
+}
+
+/*Activation: Script driven whole row/column hover (lunaTable.ts)*/
+.preview-pane.markdown-visual-editor
+  .ProseMirror
+  .tableWrapper.pm-luna-table-wrap--active
+  table.pm-luna-table
+  tbody
+  tr.pm-luna-tr--hover
+  > td,
+.preview-pane.markdown-visual-editor
+  .ProseMirror
+  .tableWrapper.pm-luna-table-wrap--active
+  table.pm-luna-table
+  tbody
+  tr.pm-luna-tr--hover
+  > th {
+  background: color-mix(in srgb, var(--accent) 11%, var(--surface-editor)) !important;
+}
+
+.preview-pane.markdown-visual-editor
+  .ProseMirror
+  .tableWrapper.pm-luna-table-wrap--active
+  table.pm-luna-table
+  tbody
+  td.pm-luna-td--col-hover,
+.preview-pane.markdown-visual-editor
+  .ProseMirror
+  .tableWrapper.pm-luna-table-wrap--active
+  table.pm-luna-table
+  tbody
+  th.pm-luna-td--col-hover {
+  background: color-mix(in srgb, var(--accent) 13%, var(--surface-editor)) !important;
+}
+
+.preview-pane.markdown-visual-editor
+  .ProseMirror
+  .tableWrapper.pm-luna-table-wrap--active
+  table.pm-luna-table
+  tbody
+  tr.pm-luna-tr--hover
+  > td.pm-luna-td--col-hover,
+.preview-pane.markdown-visual-editor
+  .ProseMirror
+  .tableWrapper.pm-luna-table-wrap--active
+  table.pm-luna-table
+  tbody
+  tr.pm-luna-tr--hover
+  > th.pm-luna-td--col-hover {
+  background: color-mix(in srgb, var(--accent) 24%, var(--surface-editor)) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table .selectedCell::after {
+  background: color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table :is(th, td) {
+  position: relative;
+  padding: var(--luna-md-table-cell-pad-y) var(--luna-md-table-cell-pad-x);
+  border-right: var(--hairline, 1px) solid var(--luna-md-table-inner-line);
+  border-bottom: var(--hairline, 1px) solid var(--luna-md-table-inner-line);
+  font-size: 13px;
+  line-height: 1.55;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table thead th:last-child,
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table tbody :is(td, th):last-child {
+  border-right: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table tbody tr:last-child :is(td, th) {
+  border-bottom: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table thead th {
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: color-mix(in srgb, var(--text-secondary, #57606a) 88%, var(--text-primary, #24292f));
+  background: var(--luna-md-table-thead-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  vertical-align: top;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  box-shadow: 0 1px 0 var(--luna-md-table-inner-line);
+  padding-top: calc(var(--luna-md-table-cell-pad-y) + 2px);
+  padding-bottom: calc(var(--luna-md-table-cell-pad-y) + 2px);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table tbody tr:nth-child(even) :is(td, th) {
+  background: var(--luna-md-table-zebra);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table pre,
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table .hljs {
+  max-width: 100%;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table pre {
+  overflow-x: auto;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table img {
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table p {
+  margin: 0;
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table p + p {
+  margin-top: 0.35em;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table code {
+  font-size: 0.92em;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table ul,
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table ol {
+  margin: 0.25em 0;
+  padding-left: 1.15em;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table li {
+  margin: 0.12em 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table li p {
+  margin: 0;
+  text-align: inherit;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+/* -------------------------------------------------------------------------- */
+/*Reading state/Export HTML: rehype package .markdown-table-wrap.luna-md-table-card*/
+/* -------------------------------------------------------------------------- */
+.markdown-table-wrap.luna-md-table-card {
+  margin: 12px 0;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--luna-md-table-radius);
+  border: var(--hairline, 1px) solid var(--luna-md-table-card-border);
+  background: var(--luna-md-table-card-bg);
+  box-shadow: var(--luna-md-table-card-shadow);
+  transition:
+    border-color var(--luna-md-table-ease-ms) var(--luna-md-table-ease),
+    box-shadow var(--luna-md-table-ease-ms) var(--luna-md-table-ease);
+}
+
+.markdown-table-wrap.luna-md-table-card table {
+  margin: 0;
+}
+
+.preview-pane:not(.markdown-visual-editor) .markdown-table-wrap.luna-md-table-card table,
+.markdown-body .markdown-table-wrap.luna-md-table-card table {
+  width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.55;
+  letter-spacing: 0.02em;
+}
+
+.preview-pane:not(.markdown-visual-editor) .markdown-table-wrap.luna-md-table-card thead th,
+.markdown-body .markdown-table-wrap.luna-md-table-card thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--text-secondary, #57606a) 88%, var(--text-primary, #24292f));
+  background: var(--luna-md-table-thead-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 1px 0 var(--luna-md-table-inner-line);
+  vertical-align: top;
+  padding: calc(var(--luna-md-table-cell-pad-y) + 2px) var(--luna-md-table-cell-pad-x);
+  transition: background var(--luna-md-table-ease-ms) var(--luna-md-table-ease);
+}
+
+.preview-pane:not(.markdown-visual-editor) .markdown-table-wrap.luna-md-table-card :is(th, td),
+.markdown-body .markdown-table-wrap.luna-md-table-card :is(th, td) {
+  border-right: var(--hairline, 1px) solid var(--luna-md-table-inner-line);
+  border-bottom: var(--hairline, 1px) solid var(--luna-md-table-inner-line);
+  padding: var(--luna-md-table-cell-pad-y) var(--luna-md-table-cell-pad-x);
+  line-height: 1.55;
+  transition: background var(--luna-md-table-ease-ms) var(--luna-md-table-ease);
+}
+
+.preview-pane:not(.markdown-visual-editor) .markdown-table-wrap.luna-md-table-card thead th:last-child,
+.preview-pane:not(.markdown-visual-editor) .markdown-table-wrap.luna-md-table-card tbody :is(td, th):last-child,
+.markdown-body .markdown-table-wrap.luna-md-table-card thead th:last-child,
+.markdown-body .markdown-table-wrap.luna-md-table-card tbody :is(td, th):last-child {
+  border-right: none;
+}
+
+.preview-pane:not(.markdown-visual-editor) .markdown-table-wrap.luna-md-table-card tbody tr:last-child :is(td, th),
+.markdown-body .markdown-table-wrap.luna-md-table-card tbody tr:last-child :is(td, th) {
+  border-bottom: none;
+}
+
+.preview-pane:not(.markdown-visual-editor) .markdown-table-wrap.luna-md-table-card tbody tr:nth-child(even) td,
+.markdown-body .markdown-table-wrap.luna-md-table-card tbody tr:nth-child(even) td {
+  background: var(--luna-md-table-zebra);
+}
+
+.preview-pane:not(.markdown-visual-editor) .markdown-table-wrap.luna-md-table-card tbody tr:hover td,
+.markdown-body .markdown-table-wrap.luna-md-table-card tbody tr:hover td {
+  background: var(--luna-md-table-row-hover);
+}
+
+.preview-pane:not(.markdown-visual-editor) .markdown-table-wrap.luna-md-table-card table pre,
+.markdown-body .markdown-table-wrap.luna-md-table-card table pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.preview-pane:not(.markdown-visual-editor) .markdown-table-wrap.luna-md-table-card table img,
+.markdown-body .markdown-table-wrap.luna-md-table-card table img {
+  max-width: 100%;
+  height: auto;
+}
+
+.preview-pane:not(.markdown-visual-editor) .markdown-table-wrap.luna-md-table-card table p,
+.markdown-body .markdown-table-wrap.luna-md-table-card table p {
+  margin: 0;
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  text-align: inherit;
+}
+
+.preview-pane:not(.markdown-visual-editor) .markdown-table-wrap.luna-md-table-card table p + p,
+.markdown-body .markdown-table-wrap.luna-md-table-card table p + p {
+  margin-top: 0.35em;
+}
+
+.preview-pane:not(.markdown-visual-editor) .markdown-table-wrap.luna-md-table-card table ul,
+.preview-pane:not(.markdown-visual-editor) .markdown-table-wrap.luna-md-table-card table ol,
+.markdown-body .markdown-table-wrap.luna-md-table-card table ul,
+.markdown-body .markdown-table-wrap.luna-md-table-card table ol {
+  margin: 0.25em 0;
+  padding-left: 1.15em;
+}
+
+.preview-pane:not(.markdown-visual-editor) .markdown-table-wrap.luna-md-table-card table li,
+.markdown-body .markdown-table-wrap.luna-md-table-card table li {
+  margin: 0.12em 0;
+}
+
+.preview-pane:not(.markdown-visual-editor) .markdown-table-wrap.luna-md-table-card table li p,
+.markdown-body .markdown-table-wrap.luna-md-table-card table li p {
+  margin: 0;
+}

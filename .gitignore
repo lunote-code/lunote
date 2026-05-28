@@ -1,0 +1,76 @@
+# Environment & local secrets (never commit)
+.env
+.env.*
+!.env.example
+
+# Release signing material (local only)
+*.pem
+*.p12
+*.pfx
+signing/
+
+# Test / coverage / lint cache
+coverage/
+playwright-report/
+test-results/
+.eslintcache
+*.tsbuildinfo
+
+# Cursor / local IDE (optional local rules)
+.cursor/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+src-tauri/target
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# macOS metadata (do not commit — may leak folder layout, previews, paths)
+.DS_Store
+**/.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows metadata (thumbnail cache — may leak folder previews)
+Thumbs.db
+**/Thumbs.db
+
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local / non-CI tooling (see scripts/README.md)
+scripts/maintenance/
+docs/compatibility-fixtures/
+
+# Mode-switch regression harness (npm run verify:mode-switch* — not in GitHub Actions)
+scripts/run-mode-switch-regression.mjs
+scripts/run-mode-switch-contract-tests.mjs
+scripts/mode-switch-regression-baseline.json
+scripts/mode-switch-regression-history.json
+
+tmp/
+
+# Optional: after merging gap/*.json into locale_corpus/ui via fill_locale_gaps.py,
+# you may uncomment the next line to stop uploading duplicate WIP gap files:
+# scripts/locale_corpus/gaps/
+

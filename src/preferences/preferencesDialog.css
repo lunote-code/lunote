@@ -1,0 +1,413 @@
+/* Preferences modal shell. Settings layout and controls live in components/settings/settings.css. */
+
+.prefs-dialog {
+  border: none;
+  padding: 0;
+  margin: auto;
+  max-width: none;
+  width: min(1040px, calc(100vw - 32px));
+  height: min(680px, calc(100vh - 48px));
+  background: transparent;
+  color: var(--text-primary);
+  opacity: 0;
+  transform: scale(0.96) translateY(6px);
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    overlay 0.22s allow-discrete,
+    display 0.22s allow-discrete;
+}
+
+.prefs-dialog[open] {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+@starting-style {
+  .prefs-dialog[open] {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+}
+
+.prefs-dialog::backdrop {
+  background: rgba(12, 14, 18, 0.42);
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  opacity: 0;
+  transition:
+    opacity 0.22s ease,
+    overlay 0.22s allow-discrete,
+    display 0.22s allow-discrete;
+}
+
+.prefs-dialog[open]::backdrop {
+  opacity: 1;
+}
+
+@starting-style {
+  .prefs-dialog[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+.prefs-modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  color: var(--text-primary);
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--settings-bg);
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.14),
+    0 1px 6px rgba(0, 0, 0, 0.05);
+}
+
+:root[data-theme='dark'] .prefs-modal,
+.layout[data-dark='true'] .prefs-modal {
+  border-color: #3c3c3c;
+  box-shadow:
+    0 22px 56px rgba(0, 0, 0, 0.48),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.prefs-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-app));
+}
+
+.prefs-modal-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.prefs-modal-close {
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.prefs-modal-close:hover {
+  color: var(--text-primary);
+  background: var(--settings-hover);
+}
+
+.prefs-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.prefs-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.prefs-content-empty {
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.prefs-content-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px;
+}
+
+.prefs-panel-animate {
+  animation: prefs-panel-in 0.2s ease;
+}
+
+.prefs-search-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.prefs-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.prefs-search-input {
+  width: 100%;
+  height: var(--settings-control-height);
+  box-sizing: border-box;
+  padding: 8px 10px 8px 32px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--settings-control-radius);
+  background: var(--settings-control-bg);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.prefs-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.prefs-search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--settings-focus);
+}
+
+.prefs-restart-text {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.prefs-theme-extension {
+  margin-top: 4px;
+}
+
+.prefs-theme-extension-header {
+  margin-bottom: 12px;
+}
+
+.prefs-theme-extension-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.prefs-theme-extension-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.prefs-theme-extension-description {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.prefs-theme-extension-status {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary, var(--text-primary));
+}
+
+.prefs-theme-extension-actions {
+  margin-bottom: 12px;
+}
+
+.prefs-theme-extension-empty {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.prefs-theme-scope-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.prefs-theme-scope-badge--ui {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.prefs-theme-scope-badge--export {
+  color: #0d6e4f;
+  background: color-mix(in srgb, #0d6e4f 14%, transparent);
+}
+
+:root[data-theme='dark'] .prefs-theme-scope-badge--export,
+.layout[data-dark='true'] .prefs-theme-scope-badge--export {
+  color: #6ee7b7;
+  background: color-mix(in srgb, #6ee7b7 16%, transparent);
+}
+
+.prefs-theme-file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.prefs-theme-file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--settings-border);
+  border-radius: 10px;
+  background: var(--settings-control-bg);
+}
+
+.prefs-theme-file-name {
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prefs-theme-file-toggle {
+  flex-shrink: 0;
+  min-width: 72px;
+}
+
+.prefs-shortcuts-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 16px;
+}
+
+.prefs-shortcuts-row-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.prefs-shortcut-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+  padding: 6px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-align: center;
+  border: 1px solid var(--settings-border);
+  border-radius: 8px;
+  background: var(--settings-control-bg);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.prefs-shortcut-key:hover {
+  border-color: var(--accent);
+}
+
+.prefs-shortcut-key.is-recording {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--settings-focus);
+  animation: prefs-shortcut-pulse 1.2s ease-in-out infinite;
+}
+
+.prefs-shortcut-key.has-conflict {
+  border-color: var(--danger, #c62828);
+}
+
+.prefs-shortcut-key--readonly {
+  cursor: default;
+  opacity: 0.92;
+}
+
+.prefs-shortcut-key--readonly:hover {
+  border-color: var(--settings-border);
+}
+
+.prefs-shortcut-hint-error {
+  color: var(--danger, #c62828);
+}
+
+.prefs-shortcut-hint-muted {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.prefs-shortcut-reset-one {
+  flex-shrink: 0;
+}
+
+@keyframes prefs-shortcut-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.72;
+  }
+}
+
+@keyframes prefs-panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 860px) {
+  .prefs-dialog {
+    width: min(760px, calc(100vw - 24px));
+    height: min(720px, calc(100vh - 32px));
+  }
+
+  .prefs-layout {
+    flex-direction: column;
+  }
+
+  .prefs-content-body {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 520px) {
+  .prefs-content-body {
+    padding: 18px;
+  }
+}

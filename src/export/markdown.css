@@ -1,0 +1,511 @@
+/*Export and print common: typography tweaks on top of GitHub Markdown CSS (close to Typora / in-app preview)*/
+html.markdown-export-root,
+body.markdown-export-root,
+div.markdown-export-root {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+body.markdown-export-root,
+div.markdown-export-root {
+  background: #ffffff;
+}
+
+body.markdown-export-root[data-theme='dark'],
+div.markdown-export-root[data-theme='dark'] {
+  background: #0d1117;
+}
+
+.markdown-body.markdown-export-body {
+  box-sizing: border-box;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 28px 24px 56px;
+  font-family: var(--font-reading, var(--font-ui, system-ui, sans-serif));
+  line-height: var(--line-reading, 1.7);
+  letter-spacing: var(--letter-reading, 0);
+}
+
+.markdown-body.markdown-export-body pre code.hljs {
+  font-feature-settings: 'liga' 0, 'calt' 0;
+}
+
+.markdown-body.markdown-export-body pre {
+  box-sizing: border-box;
+  margin: 1.15rem 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-lg, 12px);
+  background: var(--code-bg, #f6f8fa);
+  background-color: var(--code-bg, #f6f8fa);
+  box-shadow:
+    inset 0 0 0 var(--hairline, 1px) color-mix(in srgb, var(--border-subtle, #d0d7de) 78%, transparent),
+    var(--shadow-soft, 0 10px 24px rgba(0, 0, 0, 0.08));
+  overflow: hidden;
+}
+
+.markdown-body.markdown-export-body pre > code,
+.markdown-body.markdown-export-body pre code.hljs {
+  display: block;
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+  background: transparent !important;
+  color: inherit;
+  font-family: var(--font-mono, ui-monospace, monospace) !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+  letter-spacing: 0.02em;
+}
+
+.markdown-body.markdown-export-body .markdown-pre-figure {
+  --code-block-font-size: 13px;
+  --code-block-line-height: 1.6;
+  --code-gutter-column-gap: 12px;
+  box-sizing: border-box;
+  margin: 1.55rem 0;
+  border: var(--hairline, 1px) solid var(--border-subtle, #d0d7de);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--code-bg, #f6f8fa);
+  background-color: var(--code-bg, #f6f8fa);
+  box-shadow:
+    inset 0 0 0 var(--hairline, 1px) color-mix(in srgb, var(--border-subtle, #d0d7de) 78%, transparent),
+    var(--shadow-soft, 0 10px 24px rgba(0, 0, 0, 0.08));
+  overflow: hidden;
+}
+
+.markdown-body.markdown-export-body .markdown-pre-lang,
+.markdown-body.markdown-export-body .markdown-pre-figure > figcaption {
+  display: flex;
+  align-items: center;
+  padding: 7px 14px;
+  border-bottom: var(--hairline, 1px) solid var(--border-subtle, #d0d7de);
+  background: var(--code-lang-bg, #eef2f6);
+  background-color: var(--code-lang-bg, #eef2f6);
+  color: var(--code-lang-fg, #57606a);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+  user-select: none;
+}
+
+.markdown-body.markdown-export-body .markdown-pre-figure > pre.markdown-pre-inner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 !important;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  background-color: transparent;
+  box-shadow: none;
+  column-gap: var(--code-gutter-column-gap, 12px);
+  overflow: auto;
+}
+
+.markdown-body.markdown-export-body .markdown-pre-linenos {
+  grid-column: 1;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  align-self: start;
+  padding: 14px 8px 14px 12px;
+  border-right: var(--hairline, 1px) solid color-mix(in srgb, var(--border-subtle, #d0d7de) 75%, transparent);
+  background: var(--code-gutter-bg, #f1f4f8);
+  background-color: var(--code-gutter-bg, #f1f4f8);
+  color: var(--code-gutter-fg, #6e7781);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--code-block-font-size, 13px);
+  line-height: var(--code-block-line-height, 1.6);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.markdown-body.markdown-export-body .markdown-pre-lineno {
+  display: block;
+  padding-right: 6px;
+  line-height: var(--code-block-line-height, 1.6);
+}
+
+.markdown-body.markdown-export-body .markdown-pre-figure pre code.hljs,
+.markdown-body.markdown-export-body .markdown-pre-figure pre code {
+  grid-column: 2;
+  min-width: 0;
+  display: block !important;
+  margin: 0 !important;
+  padding: 14px 16px 14px 10px !important;
+  overflow-x: visible;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+  background: transparent !important;
+  color: inherit;
+  font-family: var(--font-mono, ui-monospace, monospace) !important;
+  font-size: var(--code-block-font-size, 13px) !important;
+  line-height: var(--code-block-line-height, 1.6) !important;
+  letter-spacing: 0.02em;
+  font-feature-settings: 'liga' 0, 'calt' 0;
+}
+
+.markdown-body.markdown-export-body :not(pre) > code {
+  display: inline-block;
+  padding: 0.12em 0.34em;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--code-bg, #f6f8fa) 92%, var(--surface-hover, #f3f4f6));
+  background-color: #f6f8fa;
+  color: color-mix(in srgb, var(--text-primary, #24292f) 88%, var(--text-secondary, #57606a));
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.9em;
+}
+
+.markdown-body .md-export-toc {
+  display: flow-root;
+  margin: 1rem 0 1.25rem;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--border-subtle, #d0d7de) 70%, transparent);
+  border-radius: var(--radius-lg, 12px);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent, #0969da) 5%, transparent),
+      transparent 42%
+    ),
+    color-mix(in srgb, var(--surface-panel, #f6f8fa) 48%, var(--surface-editor, #ffffff));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary, #24292f) 4%, transparent),
+    0 8px 22px color-mix(in srgb, #000 5%, transparent);
+  overflow: visible;
+}
+
+.markdown-body .md-export-toc,
+.markdown-body .md-export-toc * {
+  box-sizing: border-box;
+}
+
+.markdown-body .md-export-toc-inner {
+  padding: 14px 14px 12px;
+}
+
+.markdown-body .md-export-toc-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text-secondary, #57606a) 92%, var(--accent, #0969da));
+}
+
+.markdown-body .md-export-toc-title::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent, #0969da) 72%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent, #0969da) 10%, transparent);
+}
+
+.markdown-body .md-export-toc-list,
+.markdown-body .md-export-toc-list.md-export-toc-list--root {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  direction: ltr;
+}
+
+.markdown-body .md-export-toc-list .md-export-toc-list {
+  margin: 2px 0 4px;
+  padding-left: 1.15em;
+  border-left: 1px solid color-mix(in srgb, var(--border-subtle, #d0d7de) 55%, transparent);
+}
+
+.markdown-body .md-export-toc-item {
+  margin: 0;
+  padding: 0;
+}
+
+.markdown-body .md-export-toc-link,
+.markdown-body .md-export-toc-entry {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary, #57606a);
+  font-size: 12.5px;
+  line-height: 1.45;
+  font-weight: 500;
+  font-family: var(--font-ui, system-ui, sans-serif);
+  text-align: left;
+  text-decoration: none;
+  float: none;
+  clear: none;
+  position: static;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: none;
+  cursor: default;
+}
+
+.markdown-body .md-export-toc-link:hover,
+.markdown-body .md-export-toc-link:focus,
+.markdown-body .md-export-toc-link:active {
+  color: var(--text-primary, #24292f);
+  text-decoration: none;
+  background: color-mix(in srgb, var(--text-primary, #24292f) 4%, transparent);
+}
+
+.markdown-body .md-export-toc-item[data-toc-level='1'] > .md-export-toc-link,
+.markdown-body .md-export-toc-item[data-toc-level='1'] > .md-export-toc-entry {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text-primary, #24292f);
+}
+
+.markdown-body .md-export-toc-item[data-toc-level='2'] > .md-export-toc-link,
+.markdown-body .md-export-toc-item[data-toc-level='2'] > .md-export-toc-entry {
+  font-size: 12.75px;
+  font-weight: 580;
+}
+
+.markdown-body .md-export-toc-item[data-toc-level='3'] > .md-export-toc-link,
+.markdown-body .md-export-toc-item[data-toc-level='3'] > .md-export-toc-entry {
+  font-size: 12.5px;
+  font-weight: 520;
+}
+
+.markdown-body .md-export-toc-item[data-toc-level='4'] > .md-export-toc-link,
+.markdown-body .md-export-toc-item[data-toc-level='5'] > .md-export-toc-link,
+.markdown-body .md-export-toc-item[data-toc-level='6'] > .md-export-toc-link,
+.markdown-body .md-export-toc-item[data-toc-level='4'] > .md-export-toc-entry,
+.markdown-body .md-export-toc-item[data-toc-level='5'] > .md-export-toc-entry,
+.markdown-body .md-export-toc-item[data-toc-level='6'] > .md-export-toc-entry {
+  font-size: 12.25px;
+  font-weight: 480;
+}
+
+body.markdown-export-root[data-theme='dark'] .markdown-body .md-export-toc,
+div.markdown-export-root[data-theme='dark'] .markdown-body .md-export-toc {
+  border-color: color-mix(in srgb, var(--border-subtle, #30363d) 70%, transparent);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent, #58a6ff) 6%, transparent),
+      transparent 42%
+    ),
+    color-mix(in srgb, var(--surface-panel, #161b22) 48%, var(--surface-editor, #0d1117));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary, #e6edf3) 4%, transparent),
+    0 8px 22px color-mix(in srgb, #000 18%, transparent);
+}
+
+body.markdown-export-root[data-theme='dark'] .markdown-body .md-export-toc-title,
+div.markdown-export-root[data-theme='dark'] .markdown-body .md-export-toc-title {
+  color: color-mix(in srgb, var(--text-secondary, #8b949e) 92%, var(--accent, #58a6ff));
+}
+
+body.markdown-export-root[data-theme='dark'] .markdown-body .md-export-toc-title::before,
+div.markdown-export-root[data-theme='dark'] .markdown-body .md-export-toc-title::before {
+  background: color-mix(in srgb, var(--accent, #58a6ff) 72%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent, #58a6ff) 12%, transparent);
+}
+
+body.markdown-export-root[data-theme='dark'] .markdown-body .md-export-toc-list .md-export-toc-list,
+div.markdown-export-root[data-theme='dark'] .markdown-body .md-export-toc-list .md-export-toc-list {
+  border-left-color: color-mix(in srgb, var(--border-subtle, #484f58) 55%, transparent);
+}
+
+body.markdown-export-root[data-theme='dark'] .markdown-body .md-export-toc-link,
+body.markdown-export-root[data-theme='dark'] .markdown-body .md-export-toc-entry,
+div.markdown-export-root[data-theme='dark'] .markdown-body .md-export-toc-link,
+div.markdown-export-root[data-theme='dark'] .markdown-body .md-export-toc-entry {
+  color: var(--text-secondary, #8b949e);
+}
+
+body.markdown-export-root[data-theme='dark'] .markdown-body .md-export-toc-item[data-toc-level='1'] > .md-export-toc-link,
+body.markdown-export-root[data-theme='dark'] .markdown-body .md-export-toc-item[data-toc-level='1'] > .md-export-toc-entry,
+div.markdown-export-root[data-theme='dark'] .markdown-body .md-export-toc-item[data-toc-level='1'] > .md-export-toc-link,
+div.markdown-export-root[data-theme='dark'] .markdown-body .md-export-toc-item[data-toc-level='1'] > .md-export-toc-entry {
+  color: var(--text-primary, #e6edf3);
+}
+
+.markdown-export-root .markdown-body .md-export-toc,
+.markdown-export-root .markdown-body .md-export-toc-list {
+  width: 100%;
+  max-width: 100%;
+  text-align: left;
+  direction: ltr;
+}
+
+.markdown-body.markdown-export-body .mermaid-export-diagram {
+  box-sizing: border-box;
+  box-shadow:
+    inset 0 0 0 var(--hairline, 1px) color-mix(in srgb, var(--border-subtle, #d0d7de) 78%, transparent),
+    var(--shadow-soft, 0 10px 24px rgba(0, 0, 0, 0.08));
+}
+
+.markdown-body .md-missing-image-source {
+  display: block;
+  box-sizing: border-box;
+  margin: 0.65rem 0;
+  padding: 0.5rem 0.65rem;
+  border: 1px dashed rgba(128, 128, 128, 0.45);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: rgba(128, 128, 128, 0.08);
+}
+
+.markdown-body .md-mark-highlight {
+  padding: 0.05em 0.18em;
+  border-radius: 0.2em;
+  background: #fff3a3;
+  color: inherit;
+  font-weight: inherit;
+}
+
+body.markdown-export-root[data-theme='dark'] .markdown-body .md-mark-highlight {
+  background: rgba(187, 128, 9, 0.45);
+}
+
+.markdown-body .md-callout {
+  --mc-accent: #64748b;
+  --mc-bg: color-mix(in srgb, var(--mc-accent) 8%, var(--surface-editor, #fff));
+  --mc-border: color-mix(in srgb, var(--mc-accent) 22%, rgba(128, 128, 128, 0.25));
+  margin: 1rem 0;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--mc-border);
+  border-left: 4px solid var(--mc-accent);
+  border-radius: 12px;
+  background: linear-gradient(165deg, var(--mc-bg), color-mix(in srgb, var(--mc-accent) 4%, var(--surface-panel, #f8fafc)));
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), 0 0 0 1px color-mix(in srgb, var(--mc-border) 80%, transparent);
+  backdrop-filter: saturate(130%) blur(8px);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.markdown-body .md-callout:hover {
+  box-shadow: 0 3px 16px rgba(0, 0, 0, 0.08), 0 0 0 1px color-mix(in srgb, var(--mc-accent) 15%, var(--mc-border));
+}
+
+.markdown-body .md-callout > :first-child {
+  margin-top: 0;
+}
+
+.markdown-body .md-callout > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body .md-callout-note,
+.markdown-body .md-callout-info {
+  --mc-accent: #3b82f6;
+}
+
+.markdown-body .md-callout-tip {
+  --mc-accent: #22c55e;
+}
+
+.markdown-body .md-callout-important {
+  --mc-accent: #a855f7;
+}
+
+.markdown-body .md-callout-warning {
+  --mc-accent: #ea580c;
+}
+
+.markdown-body .md-callout-caution {
+  --mc-accent: #dc2626;
+}
+
+.markdown-body .md-callout-danger {
+  --mc-accent: #b91c1c;
+}
+
+body.markdown-export-root[data-theme='dark'] .markdown-body .md-callout {
+  --mc-bg: color-mix(in srgb, var(--mc-accent) 14%, rgba(15, 23, 42, 0.92));
+  box-shadow: 0 2px 18px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+body.markdown-export-root[data-theme='dark'] .markdown-body .md-callout-note,
+body.markdown-export-root[data-theme='dark'] .markdown-body .md-callout-info {
+  --mc-accent: #60a5fa;
+}
+
+body.markdown-export-root[data-theme='dark'] .markdown-body .md-callout-tip {
+  --mc-accent: #4ade80;
+}
+
+body.markdown-export-root[data-theme='dark'] .markdown-body .md-callout-important {
+  --mc-accent: #c084fc;
+}
+
+body.markdown-export-root[data-theme='dark'] .markdown-body .md-callout-warning {
+  --mc-accent: #fb923c;
+}
+
+body.markdown-export-root[data-theme='dark'] .markdown-body .md-callout-caution {
+  --mc-accent: #f87171;
+}
+
+body.markdown-export-root[data-theme='dark'] .markdown-body .md-callout-danger {
+  --mc-accent: #fca5a5;
+}
+
+/*Definition list (remark-definition-list / export HTML)*/
+.markdown-body dl {
+  margin: 0.85rem 0;
+  padding: 0;
+}
+
+.markdown-body dt {
+  margin: 0.55rem 0 0.2rem;
+  font-weight: 700;
+  color: inherit;
+}
+
+.markdown-body dd {
+  margin: 0 0 0.45rem 1.1rem;
+  padding: 0;
+  color: inherit;
+}
+
+.markdown-body dd > p:first-child {
+  margin-top: 0;
+}
+
+.markdown-body dd > p:last-child {
+  margin-bottom: 0;
+}
+
+/*GFM table: For alignment and layout, see lunaMarkdownTable.css (bundledMarkdownStyles inline splicing)*/
+
+/*Export/PDF: Override GitHub Markdown's display:block on table and restore the table layout in Luna card*/
+.markdown-body .markdown-table-wrap.luna-md-table-card > table {
+  display: table;
+  width: 100%;
+  max-width: 100%;
+  overflow: visible;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.markdown-body .markdown-table-wrap.luna-md-table-card > table :is(th, td) {
+  color: var(--text-primary, #24292f);
+}

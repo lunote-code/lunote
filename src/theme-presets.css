@@ -1,0 +1,172 @@
+/**
+ * Three sets of built-in color matching × bright / dark (controlled by html[data-theme-preset] + html[data-theme])
+ * Custom Theme/*.css can still override these CSS variables
+ */
+
+/*—— GitHub (bright) ——*/
+html[data-theme-preset='github'][data-theme='light'] {
+  --surface-app: #f6f8fa;
+  --surface-panel: rgba(255, 255, 255, 0.92);
+  --surface-editor: #ffffff;
+  --surface-preview: #fafbfc;
+  --surface-hover: rgba(31, 35, 40, 0.06);
+  --text-primary: #1f2328;
+  --text-secondary: #59636e;
+  --text-muted: #818b98;
+  --border-subtle: rgba(31, 35, 40, 0.12);
+  --border-strong: rgba(31, 35, 40, 0.2);
+  --accent: #576270;
+  --link: #0969da;
+  --link-hover: #0550ae;
+  --link-visited: #8250df;
+  --focus-ring: rgba(9, 105, 218, 0.18);
+  /*GitHub: neutral to cool*/
+  --code-bg: #ffffff;
+  --code-gutter-fg: #656d76;
+  --code-gutter-bg: #f6f8fa;
+  --code-lang-fg: #57606a;
+  --code-lang-bg: #f6f8fa;
+  --inline-code-bg: #eaeef2;
+  --shadow-soft: 0 1px 2px rgba(31, 35, 40, 0.06);
+  --shadow-panel: 0 8px 24px rgba(31, 35, 40, 0.08);
+}
+
+/*—— GitHub (Dark) ——*/
+html[data-theme-preset='github'][data-theme='dark'] {
+  --surface-app: #0d1117;
+  --surface-panel: rgba(22, 27, 34, 0.92);
+  --surface-editor: #0d1117;
+  --surface-preview: #010409;
+  --surface-hover: rgba(230, 237, 243, 0.08);
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+  --border-subtle: rgba(240, 246, 252, 0.1);
+  --border-strong: rgba(240, 246, 252, 0.16);
+  --accent: #8b949e;
+  --link: #58a6ff;
+  --link-hover: #79b8ff;
+  --link-visited: #d2a8ff;
+  --focus-ring: rgba(88, 166, 255, 0.22);
+  /*GitHub Dark: cool blue-gray tone*/
+  --code-bg: #161b22;
+  --code-gutter-fg: #8b949e;
+  --code-gutter-bg: #0d1117;
+  --code-lang-fg: #8b949e;
+  --code-lang-bg: #0d1117;
+  --inline-code-bg: #30363d;
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-panel: 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+
+/*—— IDEA / IntelliJ (bright) ——*/
+html[data-theme-preset='idea'][data-theme='light'] {
+  --surface-app: #e8e8e8;
+  --surface-panel: rgba(245, 245, 245, 0.95);
+  --surface-editor: #ffffff;
+  --surface-preview: #fcfcfc;
+  --surface-hover: rgba(0, 0, 0, 0.06);
+  --text-primary: #080808;
+  --text-secondary: #5a5a5a;
+  --text-muted: #7a7a7a;
+  --border-subtle: rgba(0, 0, 0, 0.12);
+  --border-strong: rgba(0, 0, 0, 0.2);
+  --accent: #2675bf;
+  --link: #2675bf;
+  --link-hover: #1a5f9a;
+  --link-visited: #6a3ea1;
+  --focus-ring: rgba(38, 117, 191, 0.22);
+  /*IDEA Light: Warm gray, close to JetBrains bright editor texture*/
+  --code-bg: #fcfcfc;
+  --code-gutter-fg: #6a6a6a;
+  --code-gutter-bg: #f2f2f2;
+  --code-lang-fg: #555555;
+  --code-lang-bg: #ededed;
+  --inline-code-bg: #efefef;
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-panel: 0 10px 28px rgba(0, 0, 0, 0.1);
+}
+
+/*—— IDEA Darcula (Dark) ——*/
+html[data-theme-preset='idea'][data-theme='dark'] {
+  --surface-app: #1b1f2a;
+  --surface-panel: rgba(31, 36, 49, 0.96);
+  --surface-editor: #1b1f2a;
+  --surface-preview: #171a24;
+  --surface-hover: rgba(190, 210, 255, 0.08);
+  --text-primary: #cdd6e3;
+  --text-secondary: #aab6c6;
+  --text-muted: #8592a5;
+  --border-subtle: rgba(190, 210, 255, 0.08);
+  --border-strong: rgba(190, 210, 255, 0.14);
+  --accent: #5aa8ff;
+  --link: #5aa8ff;
+  --link-hover: #7bb9ff;
+  --link-visited: #b7a4ff;
+  --focus-ring: rgba(90, 168, 255, 0.22);
+  /*IDEA Dark: blue-tinted, low-contrast finish*/
+  --code-bg: #1a1e28;
+  --code-gutter-fg: #8f9bb0;
+  --code-gutter-bg: #171b24;
+  --code-lang-fg: #bbc7d8;
+  --code-lang-bg: #242a36;
+  --inline-code-bg: #262c39;
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.48);
+  --shadow-panel: 0 14px 40px rgba(0, 0, 0, 0.52);
+}
+
+/*—— Dark series (bright: soft light gray workbench) ——*/
+html[data-theme-preset='dim'][data-theme='light'] {
+  --surface-app: #eceef1;
+  --surface-panel: rgba(255, 255, 255, 0.88);
+  --surface-editor: #f7f8fa;
+  --surface-preview: #f4f5f7;
+  --surface-hover: rgba(15, 23, 42, 0.06);
+  --text-primary: #1c1c1e;
+  --text-secondary: #52525b;
+  --text-muted: #71717a;
+  --border-subtle: rgba(15, 23, 42, 0.1);
+  --border-strong: rgba(15, 23, 42, 0.16);
+  --accent: #6366f1;
+  --link: #4f46e5;
+  --link-hover: #4338ca;
+  --link-visited: #7c3aed;
+  --focus-ring: rgba(99, 102, 241, 0.2);
+  /*Dim Light: Soft cool gray + slight purple tone*/
+  --code-bg: #f8f8fc;
+  --code-gutter-fg: #6f6f7d;
+  --code-gutter-bg: #efeff4;
+  --code-lang-fg: #59596a;
+  --code-lang-bg: #f3f3f9;
+  --inline-code-bg: #e9e9f2;
+  --shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-panel: 0 10px 28px rgba(15, 23, 42, 0.08);
+}
+
+/*——Dark series (dark: deep base + purple embellishment) ——*/
+html[data-theme-preset='dim'][data-theme='dark'] {
+  --surface-app: #0c0c0f;
+  --surface-panel: rgba(24, 24, 30, 0.92);
+  --surface-editor: #12121a;
+  --surface-preview: #0f0f14;
+  --surface-hover: rgba(196, 181, 253, 0.08);
+  --text-primary: #e4e4e7;
+  --text-secondary: #a1a1aa;
+  --text-muted: #787887;
+  --border-subtle: rgba(244, 244, 255, 0.08);
+  --border-strong: rgba(244, 244, 255, 0.14);
+  --accent: #a78bfa;
+  --link: #a78bfa;
+  --link-hover: #c4b5fd;
+  --link-visited: #f0abfc;
+  --focus-ring: rgba(167, 139, 250, 0.22);
+  /*Dim Dark: low-gloss purple-grey, softer contrast than Darcula*/
+  --code-bg: #1b1b28;
+  --code-gutter-fg: #a8a8b5;
+  --code-gutter-bg: #151523;
+  --code-lang-fg: #b9b9c8;
+  --code-lang-bg: #242438;
+  --inline-code-bg: #2b2b42;
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-panel: 0 16px 48px rgba(0, 0, 0, 0.55);
+}

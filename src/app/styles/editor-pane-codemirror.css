@@ -1,0 +1,313 @@
+.editor-pane {
+  position: relative;
+  border-right: none;
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  background: var(--surface-panel);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  --reveal-popover-radius: 10px;
+  --reveal-popover-pad: 8px;
+  --reveal-popover-bg: color-mix(in srgb, var(--surface-panel) 76%, var(--surface-editor));
+  --reveal-popover-border: color-mix(in srgb, var(--border-subtle) 82%, transparent);
+  --reveal-popover-shadow:
+    0 10px 28px color-mix(in srgb, var(--text-primary) 10%, transparent),
+    0 2px 6px color-mix(in srgb, var(--text-primary) 7%, transparent);
+  --reveal-popover-shadow-above:
+    0 -8px 24px color-mix(in srgb, var(--text-primary) 10%, transparent),
+    0 -2px 6px color-mix(in srgb, var(--text-primary) 7%, transparent);
+  --reveal-field-radius: 8px;
+  --reveal-field-pad-x: 10px;
+  --reveal-list-item-bg-active: color-mix(in srgb, var(--accent) 14%, transparent);
+  --reveal-list-item-ring-active: color-mix(in srgb, var(--accent) 10%, transparent);
+  --reveal-list-item-ring-focus: color-mix(in srgb, var(--accent) 14%, transparent);
+  --reveal-list-nested-offset: 12px;
+  --reveal-micro-font-size: 11px;
+  --reveal-micro-font-weight: 600;
+  --reveal-micro-letter-spacing: 0.04em;
+  --reveal-helper-fg: color-mix(in srgb, var(--text-secondary) 92%, var(--text-muted));
+  --reveal-helper-opacity: 0.85;
+  --reveal-group-opacity: 0.92;
+  --reveal-disabled-opacity: 0.72;
+  --reveal-scrollbar-thumb: var(--luna-scrollbar-thumb);
+  --reveal-scrollbar-track: var(--luna-scrollbar-track);
+  --reveal-bg-duration: 140ms;
+  --reveal-shadow-duration: 160ms;
+  --reveal-color-duration: 120ms;
+  --reveal-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.editor-pane > div {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-pane > div[class*='cm-theme'] {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-pane .cm-editor {
+  background: var(--surface-panel);
+  flex: 1 1 0 !important;
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
+.editor-pane .source-cm-pane {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-pane .source-cm-pane > div {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-pane .cm-content {
+  color: var(--text-primary);
+  font-family: var(--editor-content-font-family, var(--font-content));
+  font-size: var(--editor-content-font-size, 17px);
+  text-rendering: optimizeLegibility;
+}
+
+.editor-pane .cm-line {
+  font-family: var(--editor-content-font-family, var(--font-content));
+}
+
+.editor-pane .cm-placeholder {
+  color: color-mix(in srgb, var(--text-muted) 72%, transparent);
+}
+
+.editor-pane .cm-focused {
+  outline: none;
+}
+
+.editor-pane .cm-scroller {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  overflow: auto !important;
+  overscroll-behavior: contain;
+  background: var(--surface-panel);
+}
+
+.editor-pane .cm-cursor {
+  border-left-color: var(--accent) !important;
+}
+
+/*Outline/Anchor Jump: Target line highlight + cursor pulse*/
+.editor-pane .cm-line.cm-navigation-jump-flash {
+  background-color: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-radius: 6px;
+}
+
+.editor-pane .cm-editor.cm-editor--navigation-jump.cm-focused .cm-cursor,
+.editor-pane .cm-editor.cm-editor--navigation-jump.cm-focused .cm-dropCursor {
+  animation: cm-navigation-cursor-pulse 0.52s ease-in-out 4;
+}
+
+@keyframes cm-navigation-cursor-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    border-left-width: 2px;
+  }
+  50% {
+    opacity: 0.2;
+    border-left-width: 3px;
+  }
+}
+
+/*Source code mode: line number gutter changes with --code-gutter-* of html[data-theme]/theme-presets*/
+.editor-pane .cm-gutters {
+  background: var(--code-gutter-bg, var(--surface-panel)) !important;
+  color: var(--code-gutter-fg, var(--text-muted)) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+.editor-pane .cm-gutters.cm-gutters-before {
+  align-self: stretch;
+  border-right: var(--hairline) solid var(--border-subtle) !important;
+}
+
+.editor-pane .cm-gutter {
+  background: var(--code-gutter-bg, var(--surface-panel)) !important;
+}
+
+.editor-pane .cm-lineNumbers {
+  flex: 0 0 3.25rem;
+  min-width: 3.25rem;
+  min-height: 100%;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  background: var(--code-gutter-bg, var(--surface-panel)) !important;
+  color: var(--code-gutter-fg, var(--text-muted)) !important;
+  font-family: var(--editor-content-font-family, var(--font-content));
+  font-size: var(--editor-content-font-size, 17px);
+  font-variant-numeric: tabular-nums;
+}
+
+.editor-pane .cm-lineNumbers .cm-gutterElement {
+  text-align: right;
+  padding: 0 10px 0 4px;
+  min-width: 100%;
+  box-sizing: border-box;
+  font-size: inherit;
+}
+
+.editor-pane .cm-activeLineGutter {
+  color: var(--accent) !important;
+  font-weight: 600;
+}
+
+/*CodeMirror Find (Cmd+F): Card-style panel consistent with the theme*/
+.editor-pane .cm-panels.cm-panels-top {
+  background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-editor));
+  color: var(--text-primary);
+  border-bottom: var(--hairline) solid var(--border-subtle);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.editor-pane .cm-panels.cm-panels-top .cm-panel.cm-search {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 10px 48px 12px 14px;
+  font-family: var(--font-content);
+  font-size: 13px;
+  line-height: 1.4;
+  background: transparent;
+}
+
+.editor-pane .cm-panel.cm-search input,
+.editor-pane .cm-panel.cm-search button,
+.editor-pane .cm-panel.cm-search label {
+  margin: 0;
+}
+
+.editor-pane .cm-panel.cm-search .cm-textfield {
+  flex: 1 1 200px;
+  min-width: 0;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  border: var(--hairline) solid var(--border-subtle);
+  background: var(--surface-editor);
+  color: var(--text-primary);
+  font: inherit;
+  outline: none;
+  box-sizing: border-box;
+  box-shadow: inset 0 1px 1px color-mix(in srgb, var(--text-primary) 5%, transparent);
+}
+
+.editor-pane .cm-panel.cm-search .cm-textfield:focus {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border-subtle));
+  box-shadow:
+    inset 0 1px 1px color-mix(in srgb, var(--text-primary) 5%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.editor-pane .cm-panel.cm-search .cm-button {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  border: var(--hairline) solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-hover) 70%, var(--surface-editor));
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.editor-pane .cm-panel.cm-search .cm-button:hover {
+  background: var(--surface-hover);
+  border-color: color-mix(in srgb, var(--border-strong) 55%, var(--border-subtle));
+}
+
+.editor-pane .cm-panel.cm-search .cm-button:active {
+  transform: translateY(0.5px);
+}
+
+.editor-pane .cm-panel.cm-search label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.editor-pane .cm-panel.cm-search input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.editor-pane .cm-panel.cm-search br {
+  flex-basis: 100%;
+  width: 0;
+  height: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+.editor-pane .cm-panel.cm-search button[name='close'] {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.editor-pane .cm-panel.cm-search button[name='close']:hover {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  color: var(--text-primary);
+}
+
+.preview-pane {
+  overflow: auto;
+  min-height: 0;
+  width: 100%;
+  font-family: var(--font-content);
+}
+
+.preview-pane:not(.markdown-visual-editor) {
+  padding: 28px 28px 72px;
+  background: var(--surface-preview);
+}
+
+.preview-pane:not(.markdown-visual-editor) > * {
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+

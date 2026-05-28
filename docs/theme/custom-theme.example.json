@@ -1,0 +1,22 @@
+{
+  "id": "custom-your-theme-name",
+  "name": "Your Theme Name",
+  "label": "Your Theme",
+  "family": "your-theme",
+  "variant": "dark",
+  "colors": {
+    "background": "#101722",
+    "foreground": "#e6edf7",
+    "primary": "#4ea1ff",
+    "border": "rgba(148, 163, 184, 0.22)",
+    "muted": "#93a4b8"
+  },
+  "radius": {
+    "card": 18,
+    "control": 12
+  },
+  "spacing": {
+    "row": 16,
+    "section": 28
+  }
+}

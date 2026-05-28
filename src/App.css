@@ -1,0 +1,9 @@
+/*App style entrance: split into app/styles/ by area, keeping selectors and rules unchanged*/
+@import './app/styles/tokens.css';
+@import './app/styles/layout-sidebar-outline.css';
+@import './app/styles/command-palette.css';
+@import './app/styles/sidebar-files-chrome.css';
+@import './app/styles/editor-pane-codemirror.css';
+@import './app/styles/editor-visual-core.css';
+@import './app/styles/editor-visual-nodes.css';
+@import './app/styles/editor-misc.css';

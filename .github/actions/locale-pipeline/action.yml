@@ -35,6 +35,10 @@ runs:
       shell: bash
       run: node scripts/build/generate_mac_menu_boot.mjs
 
+    - name: Validate macOS boot menu accelerators
+      shell: bash
+      run: node scripts/validate/validate_mac_menu_boot.mjs
+
     - name: Validate menu and locales
       if: inputs.run-validation == 'true'
       shell: bash
@@ -67,12 +71,18 @@ runs:
         )
         if ! git diff --exit-code HEAD -- "${paths[@]}"; then
           echo "::error::Generated locale/menu files differ from HEAD. Run locally:"
+          echo "  npm run verify:locale-pipeline"
+          echo "Or step by step:"
           echo "  python3 scripts/locale/build_ui_locales.py"
           echo "  python3 scripts/locale/sync_shell_menu_from_ui.py"
           echo "  python3 scripts/locale/export_menu_canonical.py"
           echo "  python3 scripts/locale/export_menu_rust_manifest.py"
           echo "  node scripts/build/generate_mac_menu_boot.mjs"
           echo "Then commit the updated files."
+          echo ""
+          echo "Changed paths:"
+          git diff --name-only HEAD -- "${paths[@]}"
+          echo ""
           git diff --stat HEAD -- "${paths[@]}"
           exit 1
         fi

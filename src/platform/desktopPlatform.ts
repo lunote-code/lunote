@@ -5,7 +5,15 @@ import { type as readOsType } from '@tauri-apps/plugin-os'
 export type DesktopPlatform = 'mac' | 'win' | 'linux' | 'web'
 
 function detectFromNavigator(): DesktopPlatform {
-  if (typeof navigator === 'undefined') return 'web'
+  if (typeof navigator === 'undefined') {
+    // Node/SSR generators (CI locale pipeline): avoid "web" — use host OS baseline.
+    if (typeof process !== 'undefined') {
+      if (process.platform === 'darwin') return 'mac'
+      if (process.platform === 'win32') return 'win'
+      return 'linux'
+    }
+    return 'linux'
+  }
   const platform = navigator.platform ?? ''
   if (/Mac|iPhone|iPod|iPad/i.test(platform) || /Mac OS X/u.test(navigator.userAgent)) {
     return 'mac'
@@ -31,6 +39,10 @@ function mapOsTypeToDesktop(os: ReturnType<typeof readOsType>): DesktopPlatform 
 
 /** Resolve the host OS for shortcut defaults and Cmd/Ctrl hints. */
 export function getDesktopPlatform(): DesktopPlatform {
+  const forced = typeof process !== 'undefined' ? process.env.CROSSPLATNOTE_FORCE_DESKTOP_PLATFORM : undefined
+  if (forced === 'mac' || forced === 'win' || forced === 'linux' || forced === 'web') {
+    return forced
+  }
   if (!isTauri()) return detectFromNavigator()
   try {
     return mapOsTypeToDesktop(readOsType())

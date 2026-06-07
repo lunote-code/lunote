@@ -5,7 +5,8 @@ import type { CommandManifestEntry } from './commandManifest.types'
 import type { MenuBarGroup, MenuLeaf, MenuNode, MenuPathSegment, MenuSchemaRoot } from './menu.types'
 import { resolveMenuCommandSemanticIcon, resolveMenuSubmenuSemanticIcon } from './menuSemanticIcons'
 import { resolveMenuTextColorSwatch } from './menuTextColorSwatch'
-import { getManifestDefaultAccelerator } from './shortcutPlatformDefaults'
+import { type DesktopPlatform, getDesktopPlatform } from '../platform/desktopPlatform'
+import { getManifestDefaultAcceleratorFor } from './shortcutPlatformDefaults'
 
 export function getManifestEntry(id: string): CommandManifestEntry | undefined {
   return COMMAND_MANIFEST[id]
@@ -18,14 +19,15 @@ export function getManifestEntryOrThrow(id: string): CommandManifestEntry {
 }
 
 /** Generate menu leaves from manifest (prohibit external input of label/accelerator/icon)*/
-export function manifestToMenuLeaf(id: string): MenuLeaf {
+export function manifestToMenuLeaf(id: string, platform?: DesktopPlatform): MenuLeaf {
   const m = getManifestEntryOrThrow(id)
   const menuColorSwatch = resolveMenuTextColorSwatch(id)
+  const resolvedPlatform = platform ?? getDesktopPlatform()
   return {
     kind: 'item',
     id: m.id,
     labelKey: m.labelKey,
-    accelerator: getManifestDefaultAccelerator(m.id) ?? m.accelerator,
+    accelerator: getManifestDefaultAcceleratorFor(m.id, resolvedPlatform) ?? m.accelerator,
     menuIcon: m.icon,
     semanticIcon: menuColorSwatch ? undefined : resolveMenuCommandSemanticIcon(id),
     menuColorSwatch,
@@ -36,7 +38,10 @@ export function manifestToMenuLeaf(id: string): MenuLeaf {
   }
 }
 
-function treeToMenuNodes(nodes: typeof MENU_BAR_STRUCTURE[0]['children']): MenuNode[] {
+function treeToMenuNodes(
+  nodes: typeof MENU_BAR_STRUCTURE[0]['children'],
+  platform: DesktopPlatform,
+): MenuNode[] {
   const out: MenuNode[] = []
   for (const n of nodes) {
     if (n.kind === 'separator') {
@@ -44,7 +49,7 @@ function treeToMenuNodes(nodes: typeof MENU_BAR_STRUCTURE[0]['children']): MenuN
       continue
     }
     if (n.kind === 'command') {
-      out.push(manifestToMenuLeaf(n.id))
+      out.push(manifestToMenuLeaf(n.id, platform))
       continue
     }
     out.push({
@@ -52,19 +57,20 @@ function treeToMenuNodes(nodes: typeof MENU_BAR_STRUCTURE[0]['children']): MenuN
       id: n.id,
       labelKey: n.labelKey,
       semanticIcon: resolveMenuSubmenuSemanticIcon(n.id),
-      children: collapseSeparators(treeToMenuNodes(n.children), { trimEnds: false }),
+      children: collapseSeparators(treeToMenuNodes(n.children, platform), { trimEnds: false }),
     })
   }
   return out
 }
 
 /** Generate APP_MENU_SCHEMA from manifest + structure tree*/
-export function buildAppMenuSchema(): MenuSchemaRoot {
+export function buildAppMenuSchema(platform?: DesktopPlatform): MenuSchemaRoot {
+  const resolvedPlatform = platform ?? getDesktopPlatform()
   const bar: MenuBarGroup[] = MENU_BAR_STRUCTURE.map((group) => ({
     kind: 'submenu' as const,
     id: group.id,
     labelKey: group.labelKey,
-    children: collapseSeparators(treeToMenuNodes(group.children), { trimEnds: false }),
+    children: collapseSeparators(treeToMenuNodes(group.children, resolvedPlatform), { trimEnds: false }),
   }))
   return {
     version: 1,

@@ -2,7 +2,7 @@
  * Build macOS startup menu manifest (consumed by scripts/generate_mac_menu_boot.mjs → Rust).
  */
 import { APP_DISPLAY_NAME } from '../../app/workspace/constants'
-import { APP_MENU_SCHEMA } from '../../menu/menu.schema'
+import { buildAppMenuSchema } from '../../menu/commandManifest.build'
 import { formatTyporaMenuTitle } from '../../menu/menu.display'
 import { isLeaf, isSeparator, isSubmenu } from '../../menu/menu.builder'
 import { toTauriAccelerator } from '../../menu/menu.shortcuts'
@@ -102,6 +102,54 @@ function barToBoot(groups: readonly MenuBarGroup[]): MacMenuBootNode[] {
   }))
 }
 
+function collectBootAccelerators(nodes: readonly MacMenuBootNode[]): Map<string, string | undefined> {
+  const map = new Map<string, string | undefined>()
+  for (const node of nodes) {
+    if (node.kind === 'item' || node.kind === 'check') {
+      map.set(node.action, node.tauriAccelerator)
+    } else if (node.kind === 'submenu') {
+      for (const [action, accel] of collectBootAccelerators(node.children)) {
+        map.set(action, accel)
+      }
+    }
+  }
+  return map
+}
+
+function walkMenuLeaves(nodes: readonly MenuNode[], visit: (leaf: MenuLeaf) => void): void {
+  for (const node of nodes) {
+    if (isLeaf(node)) {
+      visit(node)
+      continue
+    }
+    if (isSubmenu(node)) walkMenuLeaves(node.children, visit)
+  }
+}
+
+/** Fail fast when mac-menu-boot.json would embed Win/Linux accelerators (CI runs on Linux). */
+export function assertMacMenuBootUsesMacAccelerators(manifest: Pick<MacMenuBootManifest, 'bar'>): void {
+  const bootAccels = collectBootAccelerators(manifest.bar)
+  const macSchema = buildAppMenuSchema('mac')
+  const mismatches: string[] = []
+
+  for (const group of macSchema.bar) {
+    walkMenuLeaves(group.children, (leaf) => {
+      const action = leaf.action ?? leaf.id
+      const expected = toTauriAccelerator(leaf.accelerator)
+      const actual = bootAccels.get(action)
+      if (expected !== actual) {
+        mismatches.push(`${leaf.id}: expected ${expected ?? '(none)'}, got ${actual ?? '(none)'}`)
+      }
+    })
+  }
+
+  if (mismatches.length > 0) {
+    throw new Error(
+      `mac-menu-boot.json must use macOS accelerators (host platform must not affect generation):\n${mismatches.join('\n')}`,
+    )
+  }
+}
+
 export function collectMacMenuBootLabelKeys(manifest: Omit<MacMenuBootManifest, 'labels'>): Set<string> {
   const keys = new Set<string>()
   const walk = (nodes: MacMenuBootNode[]) => {
@@ -130,10 +178,12 @@ export function collectMacMenuBootLabelKeys(manifest: Omit<MacMenuBootManifest, 
 export function buildMacMenuBootManifest(
   localeMessages: Record<string, Record<string, string>>,
 ): MacMenuBootManifest {
+  // Always resolve macOS accelerators — this manifest is consumed by Rust on Darwin only.
+  const macMenuSchema = buildAppMenuSchema('mac')
   const skeleton: Omit<MacMenuBootManifest, 'labels'> = {
     version: 1,
     productName: APP_DISPLAY_NAME,
-    bar: barToBoot(APP_MENU_SCHEMA.bar),
+    bar: barToBoot(macMenuSchema.bar),
     appSubmenu: {
       about: { id: 'help-about', labelKey: 'menu.native.help.about' },
       preferences: {
@@ -166,6 +216,14 @@ export function buildMacMenuBootManifest(
   }
 
   return { ...skeleton, labels }
+}
+
+export function buildAndValidateMacMenuBootManifest(
+  localeMessages: Record<string, Record<string, string>>,
+): MacMenuBootManifest {
+  const manifest = buildMacMenuBootManifest(localeMessages)
+  assertMacMenuBootUsesMacAccelerators(manifest)
+  return manifest
 }
 
 /** Resolve menu item title the same way as native JS menu builder (glyph prefix). */

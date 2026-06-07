@@ -1,6 +1,7 @@
-import { getManifestEntry } from './commandManifest.build'
+import { COMMAND_MANIFEST } from './commandManifest.entries'
 import {
-  isLinuxDesktopPlatform,
+  type DesktopPlatform,
+  getDesktopPlatform,
   isMacDesktopPlatform,
   isWindowsDesktopPlatform,
 } from '../platform/desktopPlatform'
@@ -24,10 +25,10 @@ export function isWindowsPlatform(): boolean {
   return isWindowsDesktopPlatform()
 }
 
-function resolvePlatformAccel(spec: PlatformAccel): string | undefined {
-  if (isMacDesktopPlatform() && spec.mac) return spec.mac
-  if (isWindowsDesktopPlatform() && spec.win) return spec.win
-  if (isLinuxDesktopPlatform() && spec.linux) return spec.linux
+function resolvePlatformAccelFor(spec: PlatformAccel, platform: DesktopPlatform): string | undefined {
+  if (platform === 'mac' && spec.mac) return spec.mac
+  if (platform === 'win' && spec.win) return spec.win
+  if (platform === 'linux' && spec.linux) return spec.linux
   return spec.win ?? spec.linux ?? spec.mac ?? spec.default
 }
 
@@ -211,11 +212,22 @@ export const SHORTCUT_PREF_SECTIONS: ReadonlyArray<{
   },
 ]
 
-export function getManifestDefaultAccelerator(commandId: string): string | undefined {
+export function getManifestDefaultAcceleratorFor(
+  commandId: string,
+  platform: DesktopPlatform,
+): string | undefined {
   const plat = PLATFORM_ACCELERATORS[commandId]
   if (plat) {
-    const resolved = resolvePlatformAccel(plat)
+    const resolved = resolvePlatformAccelFor(plat, platform)
     if (resolved) return resolved
   }
-  return getManifestEntry(commandId)?.accelerator
+  return manifestEntryAccelerator(commandId)
+}
+
+export function getManifestDefaultAccelerator(commandId: string): string | undefined {
+  return getManifestDefaultAcceleratorFor(commandId, getDesktopPlatform())
+}
+
+function manifestEntryAccelerator(commandId: string): string | undefined {
+  return COMMAND_MANIFEST[commandId]?.accelerator
 }

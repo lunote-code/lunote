@@ -32,6 +32,9 @@ jobs:
           run-validation: "true"
           check-git-clean: "true"
 
+      - name: Platform CI contract tests
+        run: npm run validate:platform-ci-contract
+
       - name: Validate publish paths (no local-only files tracked)
         run: npm run validate:git-publish-paths
 

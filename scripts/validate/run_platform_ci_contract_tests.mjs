@@ -30,12 +30,12 @@ function testPlaywrightRunsBrowserNotTauri() {
   assert(cfg.includes('chromium'), 'playwright: runs Chromium project only')
   assert(!cfg.includes('tauri'), 'playwright: must not claim Tauri WebView coverage')
 
-  const helpers = read('scripts/test/lib/playwright-helpers.ts')
+  const helpers = read('scripts/lib/playwright-helpers.ts')
   assert(helpers.includes("process.platform === 'darwin' ? 'Meta' : 'Control'"), 'modKey: mac Meta, others Control')
 }
 
 function testModKeyMatchesLinuxCi() {
-  const modKeySrc = read('scripts/test/lib/playwright-helpers.ts')
+  const modKeySrc = read('scripts/lib/playwright-helpers.ts')
   assert(modKeySrc.includes("'Control'"), 'Linux CI must map modKey to Control (not Meta)')
 }
 
@@ -75,6 +75,14 @@ function testWorkspaceWatchNormalizesSeparators() {
 
 function testDocumentedE2eNativeGaps() {
   assert(E2E_NATIVE_GAPS.length >= 5, 'E2E native gap list must stay documented')
+}
+
+function testContractTestsUsePublishedPathsOnly() {
+  const src = read('scripts/validate/run_platform_ci_contract_tests.mjs')
+  for (const [, relPath] of src.matchAll(/read\('([^']+)'\)/g)) {
+    assert(!relPath.startsWith('scripts/test/'), `contract test must not read gitignored path: ${relPath}`)
+  }
+  assert(src.includes('scripts/lib/playwright-helpers.ts'), 'contract tests must use published playwright-helpers.ts')
 }
 
 function testMacMenuBootForcesMacPlatform() {
@@ -182,6 +190,7 @@ const tests = [
   ['app-hide/show cross-platform', testAppHideShowCrossPlatform],
   ['workspace watch path normalization', testWorkspaceWatchNormalizesSeparators],
   ['documented e2e native gaps', testDocumentedE2eNativeGaps],
+  ['contract tests use published paths only', testContractTestsUsePublishedPathsOnly],
   ['mac menu boot forces mac platform', testMacMenuBootForcesMacPlatform],
   ['mac menu boot generator validates accelerators', testMacMenuBootGeneratorUsesValidation],
   ['locale pipeline checks committed outputs', testLocalePipelineChecksCommittedOutputs],

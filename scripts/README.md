@@ -93,6 +93,7 @@ Required by [`.github/workflows/ci.yml`](../.github/workflows/ci.yml), [release]
 | `build/export_mac_menu_icons.mjs` | `public/mac-menu-icons/*.png` |
 | `export/render-html-pdf.mjs` | `npm run export:pdf` |
 | `export/chrome-executable-candidates.json` | PDF browser path list |
+| `lib/playwright-helpers.ts` | Playwright E2E modKey helper (published; used by CI contract tests) |
 | `lib/render-html-pdf-core.mjs` | PDF export core |
 | `lib/chrome-executable-candidates.mjs` | Shared Chrome path list |
 | `locale/sync_sponsor_to_readmes.py` | Sync TRC20 sponsor into READMEs |

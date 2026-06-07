@@ -1,22 +1,30 @@
 import { insertNewlineContinueMarkup } from '@codemirror/lang-markdown'
-import { defaultKeymap, indentWithTab, undo, redo } from '@codemirror/commands'
+import { defaultKeymap, undo, redo } from '@codemirror/commands'
 import { keymap, EditorView, scrollPastEnd } from '@codemirror/view'
 import type { Extension } from '@codemirror/state'
+import type { TranslateFn } from '../../i18n'
+import {
+  runSourceMarkdownShiftTab,
+  runSourceMarkdownTab,
+  sourceMarkdownIndentUnit,
+} from '../../editor/cmSourceMarkdownTab'
 import { createVmCmRecorder } from '../../vm/vmCmRecorder'
 import { createCodeMirrorSearchExtensions } from '../../editor/search/editorSearchBindings'
 
 export const markdownUxKeymap: Extension = keymap.of([
+  { key: 'Tab', run: runSourceMarkdownTab, shift: runSourceMarkdownShiftTab },
   { key: 'Enter', run: insertNewlineContinueMarkup },
 ])
 
-export const writerBaseExtensions: Extension[] = [
-  // history() intentionally removed — VM transaction log is the sole undo authority
-  // VmCmRecorder: captures ALL CM transactions (typing, paste, structured ops) for undo/redo
-  createVmCmRecorder(),
-  scrollPastEnd(),
-  ...createCodeMirrorSearchExtensions(),
-  keymap.of([...defaultKeymap.filter((b) => b !== undo && b !== redo), indentWithTab]),
-]
+export function createWriterBaseExtensions(t: TranslateFn): Extension[] {
+  return [
+    sourceMarkdownIndentUnit,
+    createVmCmRecorder(),
+    scrollPastEnd(),
+    ...createCodeMirrorSearchExtensions(t),
+    keymap.of([...defaultKeymap.filter((b) => b !== undo && b !== redo)]),
+  ]
+}
 
 export const comfortableEditorTheme = EditorView.theme({
   '&': {
@@ -46,13 +54,15 @@ export const comfortableEditorTheme = EditorView.theme({
     lineHeight: 'var(--line-content)',
   },
   '.cm-lineNumbers': {
-    fontFamily: 'var(--editor-content-font-family, var(--font-content))',
+    fontFamily: 'var(--font-mono, ui-monospace, monospace)',
     fontSize: 'var(--editor-content-font-size, var(--size-body))',
     lineHeight: 'var(--line-content)',
   },
   '.cm-lineNumbers .cm-gutterElement': {
     lineHeight: 'var(--line-content)',
     fontSize: 'inherit',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
   },
   '.cm-activeLine': {
     backgroundColor: 'color-mix(in srgb, var(--text-primary) 3.5%, transparent)',

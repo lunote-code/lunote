@@ -1,0 +1,48 @@
+# GitHub automatically generated release notes (used when release.yml workflow sets
+# generate_release_notes: true). Assign matching labels on merged PRs.
+# See docs/packaging-strategy.md § Release notes.
+
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+      - skip-changelog
+    authors:
+      - dependabot[bot]
+      - github-actions[bot]
+  categories:
+    - title: Breaking Changes
+      labels:
+        - breaking-change
+        - Semver-Major
+    - title: Bug Fixes
+      labels:
+        - bug
+        - fix
+        - type:bug
+        - type/fix
+    - title: Features
+      labels:
+        - enhancement
+        - feature
+        - feat
+        - type:feature
+        - type:enhancement
+        - Semver-Minor
+    - title: Documentation
+      labels:
+        - documentation
+        - docs
+    - title: Dependencies
+      labels:
+        - dependencies
+        - dependabot
+    - title: Maintenance
+      labels:
+        - chore
+        - refactor
+        - ci
+        - build
+    - title: Other Changes
+      labels:
+        - "*"

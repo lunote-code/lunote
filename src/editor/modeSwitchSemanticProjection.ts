@@ -7,6 +7,7 @@ import type { FrozenGeometryRow, FrozenStructuralIR, SemanticSlice } from './mod
 export type SemanticAnchor = {
   readonly blockIndex: number
   readonly blockPath: HierarchicalSelectionCore['blockPath']
+  readonly rowId?: string
   readonly rowKey: string
   readonly intraOffset: number
 }
@@ -20,6 +21,7 @@ export function pmHierarchicalCoreToSemanticAnchor(h: HierarchicalSelectionCore)
   return Object.freeze({
     blockIndex: h.blockIndex,
     blockPath: h.blockPath,
+    rowId: h.rowId,
     rowKey: h.rowKey,
     intraOffset: h.intraBlockOffset,
   })
@@ -29,6 +31,7 @@ export function semanticAnchorToHierarchicalCore(a: SemanticAnchor): Hierarchica
   return Object.freeze({
     blockIndex: a.blockIndex,
     blockPath: a.blockPath,
+    rowId: a.rowId,
     rowKey: a.rowKey,
     intraBlockOffset: a.intraOffset,
   })
@@ -59,6 +62,7 @@ export function cmPosToSemanticAnchor(cmPos: number, ir: FrozenStructuralIR): Se
     return Object.freeze({
       blockIndex: 0,
       blockPath: Object.freeze([]),
+      rowId: 'root',
       rowKey: 'root',
       intraOffset: 0,
     })
@@ -82,6 +86,7 @@ export function cmPosToSemanticAnchor(cmPos: number, ir: FrozenStructuralIR): Se
     return Object.freeze({
       blockIndex,
       blockPath: row.blockPath,
+      rowId: row.rowId,
       rowKey: row.rowKey,
       intraOffset: row.semanticExtent,
     })
@@ -90,6 +95,7 @@ export function cmPosToSemanticAnchor(cmPos: number, ir: FrozenStructuralIR): Se
     return Object.freeze({
       blockIndex,
       blockPath: row.blockPath,
+      rowId: row.rowId,
       rowKey: row.rowKey,
       intraOffset: slice.semanticFrom,
     })
@@ -99,6 +105,7 @@ export function cmPosToSemanticAnchor(cmPos: number, ir: FrozenStructuralIR): Se
   return Object.freeze({
     blockIndex,
     blockPath: row.blockPath,
+    rowId: row.rowId,
     rowKey: row.rowKey,
     intraOffset: Math.min(intra, row.semanticExtent),
   })

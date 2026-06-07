@@ -3,6 +3,14 @@ import { EDITOR_SEARCH_CLASS } from './editorSearchTheme'
 
 export type EditorSearchOverlayMode = 'find' | 'replace'
 
+export type EditorSearchOverlayLabels = {
+  previous: string
+  next: string
+  replace: string
+  replaceAll: string
+  close: string
+}
+
 type EditorSearchOverlayProps = {
   mode: EditorSearchOverlayMode
   query: string
@@ -11,6 +19,7 @@ type EditorSearchOverlayProps = {
   matchCount: number
   findPlaceholder?: string
   replacePlaceholder?: string
+  labels?: EditorSearchOverlayLabels
   onQueryChange: (query: string) => void
   onReplaceTextChange: (text: string) => void
   onNext: () => void
@@ -28,6 +37,13 @@ export function EditorSearchOverlay({
   matchCount,
   findPlaceholder = 'Find in document',
   replacePlaceholder = 'Replace with',
+  labels = {
+    previous: 'Previous match',
+    next: 'Next match',
+    replace: 'Replace',
+    replaceAll: 'Replace all',
+    close: 'Close search',
+  },
   onQueryChange,
   onReplaceTextChange,
   onNext,
@@ -52,9 +68,35 @@ export function EditorSearchOverlay({
   const current = matchCount > 0 ? activeIndex + 1 : 0
   const showReplace = mode === 'replace'
 
+  const focusFindInput = () => {
+    inputRef.current?.focus()
+  }
+
+  const goNext = () => {
+    onNext()
+    focusFindInput()
+  }
+
+  const goPrevious = () => {
+    onPrevious()
+    focusFindInput()
+  }
+
+  const handleFindEnter = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      onClose()
+      return
+    }
+    if (event.key !== 'Enter') return
+    event.preventDefault()
+    if (event.shiftKey) goPrevious()
+    else goNext()
+  }
+
   return (
     <div
-      className={`${EDITOR_SEARCH_CLASS.overlay}${showReplace ? ' editor-search-overlay--replace' : ''}`}
+      className={`${EDITOR_SEARCH_CLASS.overlay} editor-search-overlay--strip${showReplace ? ' editor-search-overlay--replace' : ''}`}
       contentEditable={false}
       role="search"
     >
@@ -65,18 +107,7 @@ export function EditorSearchOverlay({
         placeholder={findPlaceholder}
         aria-label={findPlaceholder}
         onChange={(event) => onQueryChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === 'Escape') {
-            event.preventDefault()
-            onClose()
-            return
-          }
-          if (event.key === 'Enter' && !showReplace) {
-            event.preventDefault()
-            if (event.shiftKey) onPrevious()
-            else onNext()
-          }
-        }}
+        onKeyDown={handleFindEnter}
       />
       {showReplace ? (
         <input
@@ -99,6 +130,7 @@ export function EditorSearchOverlay({
               } else {
                 onReplaceOne?.()
               }
+              replaceRef.current?.focus()
             }
           }}
         />
@@ -106,10 +138,10 @@ export function EditorSearchOverlay({
       <span className={EDITOR_SEARCH_CLASS.count} aria-live="polite">
         {current}/{matchCount}
       </span>
-      <button className={EDITOR_SEARCH_CLASS.button} type="button" aria-label="Previous match" onClick={onPrevious}>
+      <button className={EDITOR_SEARCH_CLASS.button} type="button" aria-label={labels.previous} onClick={goPrevious}>
         ↑
       </button>
-      <button className={EDITOR_SEARCH_CLASS.button} type="button" aria-label="Next match" onClick={onNext}>
+      <button className={EDITOR_SEARCH_CLASS.button} type="button" aria-label={labels.next} onClick={goNext}>
         ↓
       </button>
       {showReplace ? (
@@ -117,22 +149,22 @@ export function EditorSearchOverlay({
           <button
             className="editor-search-button editor-search-button--text"
             type="button"
-            aria-label="Replace"
+            aria-label={labels.replace}
             onClick={() => onReplaceOne?.()}
           >
-            Replace
+            {labels.replace}
           </button>
           <button
             className="editor-search-button editor-search-button--text"
             type="button"
-            aria-label="Replace all"
+            aria-label={labels.replaceAll}
             onClick={() => onReplaceAll?.()}
           >
-            All
+            {labels.replaceAll}
           </button>
         </>
       ) : null}
-      <button className={EDITOR_SEARCH_CLASS.button} type="button" aria-label="Close search" onClick={onClose}>
+      <button className={EDITOR_SEARCH_CLASS.button} type="button" aria-label={labels.close} onClick={onClose}>
         ×
       </button>
     </div>

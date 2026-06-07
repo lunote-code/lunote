@@ -5,11 +5,13 @@ import {
   flushBlockRenderQueue,
   getBlockRenderGeneration,
   getBlockRenderQueueDepth,
+  preemptLowerPriorityBlockRenderTasks,
 } from './blockRenderQueue'
 import type { RenderPriority } from './renderPriority'
 import { maxRenderPriority } from './renderPriority'
 import { recordRenderCost, recordTransactionDuration } from './runtimeMetrics'
 import { isBlockVirtualized, shouldRenderBlockPreview } from './virtualBlockViewport'
+import { cancelEveryAsyncBlockRender } from './unified/asyncBlockWorker'
 
 const priorityByBlock = new Map<string, RenderPriority>()
 
@@ -61,6 +63,18 @@ export function cancelBlockRender(blockId: string): void {
 export function flushRenderQueue(): void {
   flushBlockRenderQueue()
   priorityByBlock.clear()
+}
+
+/** Drop queued preview work below `minPriority` so user interactions are not starved. */
+export function preemptLowerPriorityBlockRenders(minPriority: RenderPriority): void {
+  preemptLowerPriorityBlockRenderTasks(minPriority)
+}
+
+/** Abort queued and in-flight diagram preview work so UI interactions (e.g. Source tab) are not starved. */
+export function pauseAllBlockPreviewRenders(): void {
+  flushBlockRenderQueue()
+  priorityByBlock.clear()
+  cancelEveryAsyncBlockRender()
 }
 
 export function getScheduledRenderPriority(blockId: string): RenderPriority | undefined {

@@ -24,6 +24,7 @@
     "file_export_image": "Изображение",
     "file_export_pdf": "PDF",
     "file_export_word": "Word",
+    "file_history_bar": "История версий",
     "file_import": "Импорт",
     "file_new": "Создать",
     "file_new_tab": "Новая вкладка",
@@ -82,11 +83,11 @@
     "fmt_strike": "Зачёркнутый",
     "fmt_underline": "Подчёркнутый",
     "format_menu": "Формат",
-    "native_app_hide": "Скрыть Luna Note",
+    "native_app_hide": "Скрыть Lunote",
     "native_app_hide_others": "Скрыть остальные",
     "native_app_show_all": "Показать всё",
-    "native_app_quit": "Выйти из Luna Note",
-    "native_help_about": "О программе Luna Note",
+    "native_app_quit": "Выйти из Lunote",
+    "native_help_about": "О программе Lunote",
     "native_help_bar": "Справка",
     "native_help_feedback": "Отправить отзыв",
     "native_help_privacy": "Конфиденциальность",
@@ -161,7 +162,7 @@
     "window_menu": "Окно"
   },
   "tray": {
-    "placeholder": "Luna Note"
+    "placeholder": "Lunote"
   },
   "dialog": {
     "placeholder": "Reserved"

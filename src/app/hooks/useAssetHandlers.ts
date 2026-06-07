@@ -5,11 +5,7 @@ import { dispatchDocumentCommand } from '../../documentRuntime/documentKernel'
 import { importAsset, revealAssetInFolder, previewAsset } from '../../assets/assetManager'
 import { withLunaAssetPickInFlight } from '../../assets/lunaAssetPickSession'
 import type { AssetStorageConfig } from '../../assets/assetStoragePolicy'
-import {
-  assetTooltip,
-  createAssetMarkdownLink,
-  parseAssetId,
-} from '../../assets/markdownLinkTransformer'
+import { assetTooltip, parseAssetId } from '../../assets/markdownLinkTransformer'
 import { pickLocalAssetFile } from '../../editor/lunaAssetPicker'
 import {
   getAssetMeta,
@@ -26,7 +22,10 @@ import { resetAssetReferenceTracker } from '../../assets/assetReferenceTracker'
 import { DEFAULT_ASSET_STORAGE_CONFIG } from '../../assets/assetStoragePolicy'
 import { workspaceIdFromRoot } from '../../lunaPersistence'
 import { savePastedImageAsset } from '../assets/imagePaste'
-import { registerWorkspaceAssetScope } from '../../platform/tauri/assetService'
+import { applyDroppedFilesToEditor } from '../assets/droppedFilesImport'
+import { ensureWorkspaceAssetScope } from '../../platform/tauri/assetService'
+import type { EditorView } from '@codemirror/view'
+import type { TiptapMarkdownEditorHandle } from '../../editor/tiptapEditorTypes'
 
 export type AssetHandlersDeps = {
   t: TranslateFn
@@ -35,11 +34,24 @@ export type AssetHandlersDeps = {
   assetStorageConfig: AssetStorageConfig
   activePathRef: RefObject<string>
   contentRef: RefObject<string>
+  mainPaneMode: 'visual' | 'source'
+  visualEditorRef: RefObject<TiptapMarkdownEditorHandle | null>
+  editorViewRef: RefObject<EditorView | null>
   setStatus: (msg: string) => void
 }
 
 export function useAssetHandlers(deps: AssetHandlersDeps) {
-  const { t, rootDir, activePath, assetStorageConfig, contentRef, setStatus } = deps
+  const {
+    t,
+    rootDir,
+    activePath,
+    assetStorageConfig,
+    contentRef,
+    mainPaneMode,
+    visualEditorRef,
+    editorViewRef,
+    setStatus,
+  } = deps
 
   const pasteCtxRef = useRef({
     rootDir: '',
@@ -74,7 +86,7 @@ export function useAssetHandlers(deps: AssetHandlersDeps) {
     }
     const workspaceId = workspaceIdFromRoot(rootDir)
     setActiveAssetWorkspace(workspaceId, rootDir)
-    void registerWorkspaceAssetScope(rootDir).catch((error) => {
+    void ensureWorkspaceAssetScope(rootDir).catch((error) => {
       console.error('[LUNA ASSET] register scope failed', error)
     })
     void readWorkspaceAssetIndex(workspaceId).catch((error) => {
@@ -116,7 +128,7 @@ export function useAssetHandlers(deps: AssetHandlersDeps) {
   }, [activePath, assetStorageConfig, contentRef, rootDir, setStatus])
 
   const importDroppedAssets = useCallback(
-    async (files: File[]): Promise<AssetMeta[]> => {
+    async (files: File[], options?: { quiet?: boolean }): Promise<AssetMeta[]> => {
       if (!rootDir || files.length === 0) return []
       const workspaceId = workspaceIdFromRoot(rootDir)
       const documentPath = activePath || `${rootDir.replace(/[/\\]+$/u, '')}/Untitled.md`
@@ -139,18 +151,44 @@ export function useAssetHandlers(deps: AssetHandlersDeps) {
         content: contentRef.current,
         source: 'editor-drop',
       })
-      setStatus(`Imported ${assets.length} file reference(s)`)
+      if (!options?.quiet && assets.length > 0) {
+        setStatus(t('app.drop.importedCount', { count: assets.length }))
+      }
       return assets
     },
-    [activePath, assetStorageConfig, contentRef, rootDir, setStatus],
+    [activePath, assetStorageConfig, contentRef, rootDir, setStatus, t],
   )
 
-  const importDroppedAssetLinks = useCallback(
-    async (files: File[]): Promise<string[]> => {
-      const assets = await importDroppedAssets(files)
-      return assets.map(createAssetMarkdownLink)
+  const dropFilesIntoActiveNote = useCallback(
+    async (files: File[]) => {
+      if (!files.length) return
+      await applyDroppedFilesToEditor({
+        files,
+        rootDir,
+        activePath,
+        assetStorage: assetStorageConfig,
+        mainPaneMode,
+        getVisualEditor: () => visualEditorRef.current?.getEditor() ?? null,
+        getSourceView: () => editorViewRef.current,
+        importDroppedAssets,
+        setStatus,
+        t,
+      })
+      if (mainPaneMode === 'visual') {
+        void visualEditorRef.current?.tryFlushPendingMarkdownSync()
+      }
     },
-    [importDroppedAssets],
+    [
+      activePath,
+      assetStorageConfig,
+      editorViewRef,
+      importDroppedAssets,
+      mainPaneMode,
+      rootDir,
+      setStatus,
+      t,
+      visualEditorRef,
+    ],
   )
 
   const handleLunaAssetLinkClick = useCallback(
@@ -200,7 +238,7 @@ export function useAssetHandlers(deps: AssetHandlersDeps) {
     pasteImageIntoVisualEditor,
     pickAndImportLunaAsset,
     importDroppedAssets,
-    importDroppedAssetLinks,
+    dropFilesIntoActiveNote,
     handleLunaAssetLinkClick,
     getLunaAssetTooltip,
   }

@@ -36,6 +36,7 @@ const CM_COMMAND_IDS = [
   'fmt-bold',
   'fmt-italic',
   'fmt-strike',
+  'fmt-highlight',
   'fmt-inline-code',
   'fmt-link',
   'fmt-image',

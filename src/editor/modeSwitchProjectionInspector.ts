@@ -108,14 +108,15 @@ export function recordPostApplyInspection(
   result: { ok: true } | { ok: false; reason: string },
 ): void {
   ctx.appliedOk = result.ok
-  ctx.applyReason = result.ok ? null : result.reason
-  if (!result.ok) {
+  if ('reason' in result) {
+    ctx.applyReason = result.reason
     ctx.selAfterApply = null
     ctx.deltaExpectedVsLiveAfterApply = null
     ctx.deltaTransactionApply = null
     ctx.resolvedDepthDiffAfterApply = null
     return
   }
+  ctx.applyReason = null
   const st = view.state
   const after = readPmSelection(st)
   ctx.selAfterApply = after

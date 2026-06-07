@@ -1,0 +1,46 @@
+{
+  "darwin": [
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+  ],
+  "win32": [
+    "{ProgramFiles}\\Google\\Chrome\\Application\\chrome.exe",
+    "{ProgramFiles(x86)}\\Google\\Chrome\\Application\\chrome.exe",
+    "{ProgramFiles}\\Microsoft\\Edge\\Application\\msedge.exe",
+    "{ProgramFiles(x86)}\\Microsoft\\Edge\\Application\\msedge.exe"
+  ],
+  "linux": [
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/usr/local/bin/google-chrome-stable",
+    "/usr/local/bin/google-chrome",
+    "/usr/local/bin/chromium",
+    "/usr/local/bin/chromium-browser",
+    "/usr/bin/microsoft-edge",
+    "/usr/bin/microsoft-edge-stable",
+    "/usr/bin/brave-browser",
+    "/snap/bin/chromium",
+    "/snap/bin/chromium.chromium"
+  ],
+  "linuxRelativeHome": [
+    ".local/share/flatpak/exports/bin/com.google.Chrome",
+    ".local/share/flatpak/exports/bin/org.chromium.Chromium",
+    ".var/app/com.google.Chrome/current/active/export/bin/com.google.Chrome",
+    ".nix-profile/bin/google-chrome-stable",
+    ".nix-profile/bin/chromium",
+    ".nix-profile/bin/chromium-browser"
+  ],
+  "linuxWhichBinaries": [
+    "google-chrome-stable",
+    "google-chrome",
+    "chromium",
+    "chromium-browser",
+    "microsoft-edge",
+    "microsoft-edge-stable",
+    "brave-browser"
+  ]
+}

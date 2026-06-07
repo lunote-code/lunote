@@ -50,6 +50,7 @@ import type { EditorContext, EditorPaneMode } from '../menu/commandContext'
 import type { SourceEditorOp } from '../menu/commandOps.types'
 import { applyPlainTextInsertion } from './inputLayer/inputLayerPaste'
 import {
+  applySourceTextColor,
   insertCodeFenceForLang,
   insertMarkdownImage,
   insertMarkdownLink,
@@ -165,6 +166,10 @@ export function bridgeHasVisualEditor(): boolean {
 
 export function bridgeHasSourceView(): boolean {
   return getSourceView() !== null
+}
+
+export function getBridgeSourceEditorView(): EditorView | null {
+  return getSourceView()
 }
 
 /** Snapshot selection before top bar menu interaction (with preventDefault to prevent focus loss)*/
@@ -750,12 +755,15 @@ function executeBridgeSourceOp(view: EditorView, op: SourceEditorOp): boolean {
         .replace(/\*([^*]+)\*/g, '$1')
         .replace(/`([^`]+)`/g, '$1')
         .replace(/~~([^~]+)~~/g, '$1')
+        .replace(/==([^=]+)==/g, '$1')
         .replace(/<span\b[^>]*\bstyle\s*=\s*["'][^"']*color\s*:[^"']*["'][^>]*>/giu, '')
         .replace(/<\/span>/giu, '')
         .replace(/<\/?u\s*>/giu, '')
       view.dispatch({ changes: { from, to, insert: t } })
       return true
     }
+    case 'set-text-color':
+      return applySourceTextColor(view, op.color)
     case 'insert-literal': {
       const pos = view.state.selection.main.head
       view.dispatch({

@@ -1,4 +1,4 @@
-import { cancelAsyncRender } from '../asyncRenderBridge'
+import { cancelAsyncRender, cancelAllAsyncRenders } from '../asyncRenderBridge'
 import type { RenderPriority } from '../renderPriority'
 import { requireBlockRenderer } from './blockRuntimeRegistry'
 import type { BlockRenderOutput, BlockRendererType } from './blockRenderer'
@@ -54,4 +54,9 @@ export function cancelAllAsyncBlockRender(blockId: string): void {
   for (const type of ['mermaid', 'mindmap'] as const) {
     cancelAsyncBlockRender(type, blockId)
   }
+}
+
+export function cancelEveryAsyncBlockRender(): void {
+  pendingByKey.clear()
+  cancelAllAsyncRenders()
 }

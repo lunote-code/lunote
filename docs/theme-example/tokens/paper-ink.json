@@ -1,0 +1,22 @@
+{
+  "id": "paper-ink",
+  "name": "Paper & Ink",
+  "label": "Paper & Ink",
+  "family": "paper-ink",
+  "variant": "light",
+  "colors": {
+    "background": "#ebe6dc",
+    "foreground": "#2a2520",
+    "primary": "#6b5344",
+    "border": "rgba(42, 37, 32, 0.2)",
+    "muted": "#8a8074"
+  },
+  "radius": {
+    "card": 12,
+    "control": 8
+  },
+  "spacing": {
+    "row": 18,
+    "section": 32
+  }
+}

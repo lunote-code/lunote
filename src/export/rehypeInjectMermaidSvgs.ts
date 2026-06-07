@@ -1,6 +1,10 @@
 import { sanitizeMermaidSvgHtml } from '../editor/mermaid/mermaidSvgSanitize'
-import { getMermaidThemeRevision } from '../editor/markdown/mermaid/mermaidThemeBridge'
+import {
+  getMermaidThemeRevision,
+  resolveMermaidEditorColors,
+} from '../editor/markdown/mermaid/mermaidThemeBridge'
 import { postProcessMermaidSvg } from '../theme/postProcessMermaidSvg'
+import { buildMermaidInitializeOptions } from '../theme/buildMermaidInitializeOptions'
 import {
   buildMermaidExportInitializeOptions,
   resolveMermaidExportColors,
@@ -12,6 +16,8 @@ const MERMAID_CONFIG_REV = 8
 
 export type MermaidExportInjectOptions = {
   dark?: boolean
+  /** In-app preview (e.g. document history): follow Theme Runtime tokens instead of export fallbacks. */
+  useAppTheme?: boolean
 }
 
 /**
@@ -31,14 +37,18 @@ export async function injectMermaidExportDiagrams(
   if (pres.length === 0) return html
 
   const dark = opts?.dark ?? false
-  const colors = resolveMermaidExportColors(dark)
+  const useAppTheme = opts?.useAppTheme === true && typeof window !== 'undefined'
+  const colors = useAppTheme ? resolveMermaidEditorColors() : resolveMermaidExportColors(dark)
   const fenceRe = /```mermaid[ \t]*\r?\n([\s\S]*?)```/gu
   const sources = [...sourceMarkdown.matchAll(fenceRe)].map((m) => m[1]?.trim() ?? '').filter(Boolean)
 
   const mermaid = (await import('mermaid')).default
-  const configRev = MERMAID_CONFIG_REV + getMermaidThemeRevision() + (dark ? 1 : 0)
+  const configRev =
+    MERMAID_CONFIG_REV + getMermaidThemeRevision() + (useAppTheme ? 100 : 0) + (dark ? 1 : 0)
   if (!mermaidInit || mermaidConfigRev !== configRev) {
-    mermaid.initialize(buildMermaidExportInitializeOptions(dark))
+    mermaid.initialize(
+      useAppTheme ? buildMermaidInitializeOptions(dark) : buildMermaidExportInitializeOptions(dark),
+    )
     mermaidInit = true
     mermaidConfigRev = configRev
   }
@@ -55,7 +65,7 @@ export async function injectMermaidExportDiagrams(
       const host = document.createElement('div')
       host.className = 'mermaid-export-diagram pm-mermaid-block mermaid'
       host.setAttribute('data-luna-mermaid-export', '1')
-      host.innerHTML = sanitizeMermaidSvgHtml(svg, { trustedMermaidOutput: true })
+      host.innerHTML = sanitizeMermaidSvgHtml(svg)
       postProcessMermaidSvg(host, colors)
       pre.replaceWith(host)
     } catch {

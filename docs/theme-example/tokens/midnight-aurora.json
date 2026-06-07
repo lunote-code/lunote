@@ -1,0 +1,22 @@
+{
+  "id": "midnight-aurora",
+  "name": "Midnight Aurora",
+  "label": "Midnight Aurora",
+  "family": "midnight-aurora",
+  "variant": "dark",
+  "colors": {
+    "background": "#0b0f14",
+    "foreground": "#e2eaf0",
+    "primary": "#38bdba",
+    "border": "rgba(56, 189, 186, 0.18)",
+    "muted": "#5c7080"
+  },
+  "radius": {
+    "card": 16,
+    "control": 10
+  },
+  "spacing": {
+    "row": 16,
+    "section": 28
+  }
+}

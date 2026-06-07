@@ -2,6 +2,8 @@ import { keymap, type KeyBinding } from '@codemirror/view'
 import { openSearchPanel, search, searchKeymap } from '@codemirror/search'
 import type { Extension } from '@codemirror/state'
 import type { Editor } from '@tiptap/core'
+import type { TranslateFn } from '../../i18n'
+import { createCodeMirrorSearchPhraseExtension } from './codemirrorSearchPhrases'
 import {
   editorSearchPluginKey,
   getEditorSearchState,
@@ -16,8 +18,9 @@ const openCodeMirrorSearchBinding: KeyBinding = {
   },
 }
 
-export function createCodeMirrorSearchExtensions(): Extension[] {
+export function createCodeMirrorSearchExtensions(t: TranslateFn): Extension[] {
   return [
+    createCodeMirrorSearchPhraseExtension(t),
     search({ top: true }),
     keymap.of([openCodeMirrorSearchBinding, ...searchKeymap]),
   ]
@@ -48,7 +51,6 @@ export function moveTiptapSearch(editor: Editor, direction: 1 | -1): void {
     match,
   )
   editor.view.dispatch(tr)
-  editor.view.focus()
 }
 
 export function getTiptapSearchSnapshot(editor: Editor | null) {
@@ -65,7 +67,6 @@ export function replaceCurrentTiptapMatch(editor: Editor, replacement: string): 
     .setMeta(editorSearchPluginKey, { type: 'setQuery', query: state.query } satisfies EditorSearchMeta)
     .scrollIntoView()
   editor.view.dispatch(tr)
-  editor.view.focus()
   return true
 }
 
@@ -80,7 +81,6 @@ export function replaceAllTiptapMatches(editor: Editor, replacement: string): nu
   }
   tr = tr.setMeta(editorSearchPluginKey, { type: 'setQuery', query: state.query } satisfies EditorSearchMeta)
   editor.view.dispatch(tr)
-  editor.view.focus()
   return state.matches.length
 }
 

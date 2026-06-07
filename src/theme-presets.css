@@ -1,10 +1,10 @@
 /**
- * Three sets of built-in color matching × bright / dark (controlled by html[data-theme-preset] + html[data-theme])
- * Custom Theme/*.css can still override these CSS variables
+ * Built-in color presets × light / dark (html[data-theme-preset] + html[data-theme]).
+ * Disabled while an external CSS theme is active (html[data-theme-css-file]).
  */
 
 /*—— GitHub (bright) ——*/
-html[data-theme-preset='github'][data-theme='light'] {
+html:not([data-theme-css-file])[data-theme-preset='github'][data-theme='light'] {
   --surface-app: #f6f8fa;
   --surface-panel: rgba(255, 255, 255, 0.92);
   --surface-editor: #ffffff;
@@ -13,6 +13,7 @@ html[data-theme-preset='github'][data-theme='light'] {
   --text-primary: #1f2328;
   --text-secondary: #59636e;
   --text-muted: #818b98;
+  --text-tertiary: #818b98;
   --border-subtle: rgba(31, 35, 40, 0.12);
   --border-strong: rgba(31, 35, 40, 0.2);
   --accent: #576270;
@@ -32,7 +33,7 @@ html[data-theme-preset='github'][data-theme='light'] {
 }
 
 /*—— GitHub (Dark) ——*/
-html[data-theme-preset='github'][data-theme='dark'] {
+html:not([data-theme-css-file])[data-theme-preset='github'][data-theme='dark'] {
   --surface-app: #0d1117;
   --surface-panel: rgba(22, 27, 34, 0.92);
   --surface-editor: #0d1117;
@@ -41,6 +42,7 @@ html[data-theme-preset='github'][data-theme='dark'] {
   --text-primary: #e6edf3;
   --text-secondary: #8b949e;
   --text-muted: #6e7681;
+  --text-tertiary: #6e7681;
   --border-subtle: rgba(240, 246, 252, 0.1);
   --border-strong: rgba(240, 246, 252, 0.16);
   --accent: #8b949e;
@@ -60,7 +62,7 @@ html[data-theme-preset='github'][data-theme='dark'] {
 }
 
 /*—— IDEA / IntelliJ (bright) ——*/
-html[data-theme-preset='idea'][data-theme='light'] {
+html:not([data-theme-css-file])[data-theme-preset='idea'][data-theme='light'] {
   --surface-app: #e8e8e8;
   --surface-panel: rgba(245, 245, 245, 0.95);
   --surface-editor: #ffffff;
@@ -69,6 +71,7 @@ html[data-theme-preset='idea'][data-theme='light'] {
   --text-primary: #080808;
   --text-secondary: #5a5a5a;
   --text-muted: #7a7a7a;
+  --text-tertiary: #7a7a7a;
   --border-subtle: rgba(0, 0, 0, 0.12);
   --border-strong: rgba(0, 0, 0, 0.2);
   --accent: #2675bf;
@@ -88,7 +91,7 @@ html[data-theme-preset='idea'][data-theme='light'] {
 }
 
 /*—— IDEA Darcula (Dark) ——*/
-html[data-theme-preset='idea'][data-theme='dark'] {
+html:not([data-theme-css-file])[data-theme-preset='idea'][data-theme='dark'] {
   --surface-app: #1b1f2a;
   --surface-panel: rgba(31, 36, 49, 0.96);
   --surface-editor: #1b1f2a;
@@ -97,6 +100,7 @@ html[data-theme-preset='idea'][data-theme='dark'] {
   --text-primary: #cdd6e3;
   --text-secondary: #aab6c6;
   --text-muted: #8592a5;
+  --text-tertiary: #8592a5;
   --border-subtle: rgba(190, 210, 255, 0.08);
   --border-strong: rgba(190, 210, 255, 0.14);
   --accent: #5aa8ff;
@@ -116,7 +120,7 @@ html[data-theme-preset='idea'][data-theme='dark'] {
 }
 
 /*—— Dark series (bright: soft light gray workbench) ——*/
-html[data-theme-preset='dim'][data-theme='light'] {
+html:not([data-theme-css-file])[data-theme-preset='dim'][data-theme='light'] {
   --surface-app: #eceef1;
   --surface-panel: rgba(255, 255, 255, 0.88);
   --surface-editor: #f7f8fa;
@@ -125,6 +129,7 @@ html[data-theme-preset='dim'][data-theme='light'] {
   --text-primary: #1c1c1e;
   --text-secondary: #52525b;
   --text-muted: #71717a;
+  --text-tertiary: #71717a;
   --border-subtle: rgba(15, 23, 42, 0.1);
   --border-strong: rgba(15, 23, 42, 0.16);
   --accent: #6366f1;
@@ -144,7 +149,7 @@ html[data-theme-preset='dim'][data-theme='light'] {
 }
 
 /*——Dark series (dark: deep base + purple embellishment) ——*/
-html[data-theme-preset='dim'][data-theme='dark'] {
+html:not([data-theme-css-file])[data-theme-preset='dim'][data-theme='dark'] {
   --surface-app: #0c0c0f;
   --surface-panel: rgba(24, 24, 30, 0.92);
   --surface-editor: #12121a;
@@ -153,6 +158,7 @@ html[data-theme-preset='dim'][data-theme='dark'] {
   --text-primary: #e4e4e7;
   --text-secondary: #a1a1aa;
   --text-muted: #787887;
+  --text-tertiary: #787887;
   --border-subtle: rgba(244, 244, 255, 0.08);
   --border-strong: rgba(244, 244, 255, 0.14);
   --accent: #a78bfa;

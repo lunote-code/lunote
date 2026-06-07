@@ -1,0 +1,42 @@
+/**
+ * Extra chrome — optional UI snippet
+ *
+ * Additional polish ON TOP of built-in defaults (editor-visual-core.css, etc.).
+ *
+ * Built-in (do not duplicate): text smoothing, heading rhythm, inline img shadow,
+ * hr gradient, editor focus ring, default selection (accent 18%).
+ *
+ * Copy to ~/.luna/theme/snippets/extra-chrome.css → Rescan → enable in UI snippets.
+ * Legacy name editor-polish.css is kept as an alias — see that file.
+ */
+
+/* Export / static preview */
+.markdown-preview-view pre {
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-soft);
+}
+
+.markdown-preview-view img {
+  border-radius: 8px;
+  box-shadow: var(--shadow-soft);
+}
+
+.markdown-preview-view table {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Raw pre in editor (paste edge cases — fenced blocks use .pm-code-block-wrap) */
+.preview-pane.markdown-visual-editor .ProseMirror > pre {
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-soft);
+}
+
+/* Export / static preview tables */
+.markdown-preview-view .markdown-table-wrap.luna-md-table-card,
+.markdown-preview-view table {
+  border-radius: 8px;
+  overflow: hidden;
+}

@@ -66,6 +66,41 @@ export function filterOutPath(list: readonly string[], path: string): string[] {
   return list.filter((item) => !pathsEqual(item, path))
 }
 
+const BUFFER_TAB_PREFIX = 'luna:buf:'
+
+/** Paths eligible for the recent-files list (sidebar, menu, localStorage). */
+export function isValidRecentFilePath(path: unknown): path is string {
+  if (typeof path !== 'string') return false
+  const trimmed = path.trim()
+  if (!trimmed) return false
+  if (trimmed.startsWith(BUFFER_TAB_PREFIX)) return false
+  return true
+}
+
+export function sanitizeRecentFilePaths(list: readonly unknown[]): string[] {
+  const out: string[] = []
+  for (const item of list) {
+    if (!isValidRecentFilePath(item)) continue
+    const path = item.trim()
+    if (out.some((existing) => pathsEqual(existing, path))) continue
+    out.push(path)
+  }
+  return out
+}
+
+/** Whether `filePath` is the directory itself or a file nested inside it */
+export function isPathInsideDirectory(filePath: string, dirPath: string): boolean {
+  if (pathHasParentDirSegment(filePath) || pathHasParentDirSegment(dirPath)) return false
+  const dir = normPathForCompare(dirPath).replace(/\/+$/u, '')
+  const file = normPathForCompare(filePath)
+  if (!dir) return false
+  return file === dir || file.startsWith(`${dir}/`)
+}
+
+export function filterPathsOutsideDirectory(list: readonly string[], dirPath: string): string[] {
+  return list.filter((item) => !isPathInsideDirectory(item, dirPath))
+}
+
 export function replacePathInList(
   list: readonly string[],
   oldPath: string,
@@ -168,6 +203,33 @@ export function parentDirectoryOfFile(filePath: string): string {
   const j = filePath.lastIndexOf('\\')
   if (j > i) i = j
   return i < 0 ? '' : filePath.slice(0, i)
+}
+
+/** After a directory rename, remap a file or nested directory path to the new parent. */
+export function remapPathAfterDirectoryRename(path: string, oldDir: string, newDir: string): string {
+  if (pathsEqual(path, oldDir)) return newDir
+  if (!isPathInsideDirectory(path, oldDir)) return path
+  const oldBase = normPath(oldDir).replace(/\/+$/u, '')
+  const newBase = normPath(newDir).replace(/\/+$/u, '')
+  const fileNorm = normPath(path)
+  const suffix = fileNorm.slice(oldBase.length)
+  return `${newBase}${suffix}`.replace(/\/+/g, '/')
+}
+
+/** Union of ancestor directories for multiple file paths (sidebar expand). */
+export function ancestorDirPathsForPaths(workspaceRoot: string, filePaths: readonly string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const filePath of filePaths) {
+    if (!filePath.trim()) continue
+    for (const dir of ancestorDirPathsForFile(workspaceRoot, filePath)) {
+      const key = pathCompareKey(dir)
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(dir)
+    }
+  }
+  return out
 }
 
 /** A path chain from the workspace root to the file's parent directory, used for sidebar expansion*/

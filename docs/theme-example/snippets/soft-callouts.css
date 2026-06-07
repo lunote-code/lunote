@@ -1,0 +1,42 @@
+/**
+ * Soft callouts — UI snippet
+ *
+ * Gentle hover lift on Luna callout cards. Built-in cards already have 12px radius,
+ * gradient background, and hover shadow — this snippet adds translateY only.
+ *
+ * Copy to ~/.luna/theme/snippets/soft-callouts.css → Rescan → enable in UI snippets.
+ */
+
+@media (hover: hover) {
+  .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout.luna-callout-card:hover {
+    transform: translateY(-1px);
+  }
+}
+
+/* Export / static preview callouts */
+.markdown-preview-view .md-callout,
+.markdown-body .md-callout {
+  border-radius: 10px;
+  padding: 0.65em 1em;
+  border-left-width: 4px;
+}
+
+.markdown-preview-view .md-callout-note,
+.markdown-preview-view .md-callout-info,
+.markdown-body .md-callout-note,
+.markdown-body .md-callout-info {
+  border-left-color: var(--luna-callout-note, var(--link));
+  background: color-mix(in srgb, var(--luna-callout-note, var(--link)) 8%, var(--surface-editor));
+}
+
+.markdown-preview-view .md-callout-tip,
+.markdown-body .md-callout-tip {
+  border-left-color: var(--luna-callout-tip);
+  background: color-mix(in srgb, var(--luna-callout-tip) 10%, var(--surface-editor));
+}
+
+.markdown-preview-view .md-callout-warning,
+.markdown-body .md-callout-warning {
+  border-left-color: var(--luna-callout-warning);
+  background: color-mix(in srgb, var(--luna-callout-warning) 10%, var(--surface-editor));
+}

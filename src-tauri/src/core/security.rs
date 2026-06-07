@@ -28,7 +28,7 @@ fn luna_root() -> Result<PathBuf, String> {
 }
 
 fn theme_root() -> Result<PathBuf, String> {
-  Ok(luna_paths::get_config_path()?.join("Theme"))
+  luna_paths::get_theme_path()
 }
 
 /// Sensitive relative path prefix that prohibits reading and writing in the user's home directory
@@ -76,15 +76,79 @@ fn is_under_any(resolved: &Path, roots: &[PathBuf]) -> bool {
   roots.iter().any(|root| path_safety::ensure_under_allowed_root(resolved, root).is_ok())
 }
 
-fn standard_export_roots(home: &Path) -> Vec<PathBuf> {
-  let mut out = vec![
-    home.join("Downloads"),
-    home.join("Documents"),
-    home.join("Desktop"),
-  ];
-  if let Ok(temp) = std::env::temp_dir().canonicalize() {
-    out.push(temp);
+fn push_unique_root(out: &mut Vec<PathBuf>, path: PathBuf) {
+  if path.as_os_str().is_empty() {
+    return;
   }
+  if !out.iter().any(|existing| existing == &path) {
+    out.push(path);
+  }
+}
+
+fn expand_xdg_user_dir_value(raw: &str, home: &Path) -> PathBuf {
+  let trimmed = raw.trim();
+  if trimmed.starts_with("$HOME/") {
+    return home.join(trimmed.trim_start_matches("$HOME/"));
+  }
+  if trimmed == "$HOME" {
+    return home.to_path_buf();
+  }
+  if trimmed.starts_with('/') {
+    return PathBuf::from(trimmed);
+  }
+  home.join(trimmed)
+}
+
+fn xdg_env_dir(var: &str, home: &Path) -> Option<PathBuf> {
+  let raw = std::env::var(var).ok()?;
+  let trimmed = raw.trim();
+  if trimmed.is_empty() {
+    return None;
+  }
+  Some(expand_xdg_user_dir_value(trimmed, home))
+}
+
+/// Minimal-desktop fallback when `dirs`/xdg-user-dirs is unavailable (see `linux_localized_home_fallbacks`).
+#[cfg(target_os = "linux")]
+fn linux_localized_home_fallbacks(home: &Path) -> Vec<PathBuf> {
+  ["下载", "文档", "桌面"]
+    .into_iter()
+    .map(|name| home.join(name))
+    .collect()
+}
+
+/// User-facing export destinations: workspace + platform-known folders (Downloads/Documents/Desktop) + temp.
+fn standard_export_roots(home: &Path) -> Vec<PathBuf> {
+  let mut out = Vec::new();
+
+  // Resolve via OS known-folder APIs (Windows SHGetKnownFolderPath, Linux XDG user-dirs, macOS NSSearchPath).
+  for dir in [dirs::download_dir(), dirs::document_dir(), dirs::desktop_dir()] {
+    if let Some(path) = dir {
+      push_unique_root(&mut out, path);
+    }
+  }
+
+  // XDG env vars (set by xdg-user-dirs even when `dirs` lookup fails in stripped-down images).
+  for var in ["XDG_DOWNLOAD_DIR", "XDG_DOCUMENTS_DIR", "XDG_DESKTOP_DIR"] {
+    if let Some(path) = xdg_env_dir(var, home) {
+      push_unique_root(&mut out, path);
+    }
+  }
+
+  // English fallbacks when `dirs` cannot resolve (e.g. minimal CI images).
+  for name in ["Downloads", "Documents", "Desktop"] {
+    push_unique_root(&mut out, home.join(name));
+  }
+
+  #[cfg(target_os = "linux")]
+  for path in linux_localized_home_fallbacks(home) {
+    push_unique_root(&mut out, path);
+  }
+
+  if let Ok(temp) = std::env::temp_dir().canonicalize() {
+    push_unique_root(&mut out, temp);
+  }
+
   out
 }
 
@@ -316,7 +380,9 @@ pub fn ensure_export_allowed(path: &str, workspace_root: &str) -> Result<PathBuf
   }
 
   if !is_under_any(&resolved, &allowed) {
-    return Err("The export path must be within the workspace, Downloads, Documents, Desktop or Luna data directory".to_string());
+    return Err(
+      "The export path must be within the workspace, user Downloads/Documents/Desktop folders, or Luna data directory".to_string(),
+    );
   }
 
   Ok(resolved)
@@ -380,6 +446,31 @@ pub fn ensure_user_picked_import_read(path: &str) -> Result<PathBuf, String> {
   let meta = std::fs::metadata(&resolved).map_err(|e| format!("Failed to read file information: {e}"))?;
   if meta.len() as usize > MAX_IMPORT_BYTES {
     return Err("File too large".to_string());
+  }
+  Ok(resolved)
+}
+
+/// OS drag-and-drop source (file or folder) outside the workspace import pipeline.
+pub fn ensure_external_drop_source(path: &str) -> Result<PathBuf, String> {
+  let trimmed = path.trim();
+  if trimmed.is_empty() {
+    return Err("Path is empty".to_string());
+  }
+  let candidate = PathBuf::from(trimmed);
+  path_safety::ensure_no_parent_dir_components(&candidate)?;
+  path_safety::ensure_absolute_path(&candidate)?;
+  if is_system_path(&candidate) {
+    return Err("Not allowed to read system path".to_string());
+  }
+  let home = home_dir()?;
+  let resolved = candidate
+    .canonicalize()
+    .map_err(|e| format!("Unable to resolve path: {e}"))?;
+  if is_sensitive_under_home(&resolved, &home) {
+    return Err("Do not allow reading of sensitive paths".to_string());
+  }
+  if !resolved.is_file() && !resolved.is_dir() {
+    return Err("Path is not a file or folder".to_string());
   }
   Ok(resolved)
 }
@@ -607,7 +698,7 @@ fn strip_event_handler_attrs(html: &str) -> String {
 const PDF_FORBIDDEN_TAGS: &[&str] = &[
   // Keep `<style>`: export HTML is app-generated and relies on inline CSS for code blocks, TOC, etc.
   "script", "iframe", "object", "embed", "form", "input", "button", "textarea", "select", "link",
-  "base", "frame", "frameset", "applet",
+  "base", "frame", "frameset", "applet", "meta",
 ];
 
 pub fn sanitize_pdf_html(html: &str) -> String {
@@ -616,6 +707,110 @@ pub fn sanitize_pdf_html(html: &str) -> String {
     out = strip_tag_block(&out, tag.as_bytes());
   }
   strip_event_handler_attrs(&out)
+}
+
+#[cfg(test)]
+mod export_roots_tests {
+  use super::*;
+  use std::path::Path;
+
+  fn assert_roots_include(roots: &[PathBuf], expected: &Path, label: &str) {
+    assert!(
+      roots.iter().any(|root| root == expected),
+      "{label}: expected {:?} in {:?}",
+      expected,
+      roots
+    );
+  }
+
+  #[test]
+  fn standard_export_roots_includes_platform_known_folders() {
+    let home = home_dir().expect("home");
+    let roots = standard_export_roots(&home);
+    assert!(!roots.is_empty());
+
+    if let Some(downloads) = dirs::download_dir() {
+      assert_roots_include(&roots, &downloads, "download_dir");
+    }
+    if let Some(documents) = dirs::document_dir() {
+      assert_roots_include(&roots, &documents, "document_dir");
+    }
+    if let Some(desktop) = dirs::desktop_dir() {
+      assert_roots_include(&roots, &desktop, "desktop_dir");
+    }
+  }
+
+  #[test]
+  fn standard_export_roots_keeps_english_home_fallbacks() {
+    let home = home_dir().expect("home");
+    let roots = standard_export_roots(&home);
+    for name in ["Downloads", "Documents", "Desktop"] {
+      assert_roots_include(&roots, &home.join(name), name);
+    }
+  }
+
+  #[test]
+  fn expand_xdg_user_dir_value_expands_home_prefix() {
+    let home = PathBuf::from("/home/user");
+    assert_eq!(
+      expand_xdg_user_dir_value("$HOME/下载", &home),
+      PathBuf::from("/home/user/下载")
+    );
+    assert_eq!(
+      expand_xdg_user_dir_value("/absolute/downloads", &home),
+      PathBuf::from("/absolute/downloads")
+    );
+  }
+
+  #[test]
+  fn standard_export_roots_honors_xdg_download_env() {
+    let home = home_dir().expect("home");
+    let custom = home.join("lunote-xdg-export-test");
+    std::env::set_var("XDG_DOWNLOAD_DIR", format!("$HOME/{}", custom.file_name().unwrap().to_string_lossy()));
+    let roots = standard_export_roots(&home);
+    assert_roots_include(&roots, &custom, "XDG_DOWNLOAD_DIR");
+    std::env::remove_var("XDG_DOWNLOAD_DIR");
+  }
+
+  #[test]
+  #[cfg(target_os = "linux")]
+  fn standard_export_roots_includes_localized_chinese_fallbacks() {
+    let home = home_dir().expect("home");
+    let roots = standard_export_roots(&home);
+    assert_roots_include(&roots, &home.join("下载"), "zh download fallback");
+    assert_roots_include(&roots, &home.join("文档"), "zh documents fallback");
+    assert_roots_include(&roots, &home.join("桌面"), "zh desktop fallback");
+  }
+
+  #[test]
+  fn standard_export_roots_deduplicates_identical_paths() {
+    let home = home_dir().expect("home");
+    let roots = standard_export_roots(&home);
+    let mut seen = std::collections::HashSet::new();
+    for root in &roots {
+      assert!(seen.insert(root.clone()), "duplicate export root: {:?}", root);
+    }
+  }
+
+  #[test]
+  fn ensure_export_allowed_accepts_platform_download_dir() {
+    let downloads = dirs::download_dir().expect("download_dir");
+    let export_path = downloads.join("lunote-export-allow-test.pdf");
+    let workspace = std::env::temp_dir().join("lunote-export-workspace-missing");
+    let result = ensure_export_allowed(
+      export_path.to_string_lossy().as_ref(),
+      workspace.to_string_lossy().as_ref(),
+    );
+    assert!(result.is_ok(), "{result:?}");
+  }
+
+  #[test]
+  fn ensure_export_allowed_rejects_random_home_subfolder() {
+    let home = home_dir().expect("home");
+    let outside = home.join("lunote-export-not-allowed-dir").join("out.pdf");
+    let result = ensure_export_allowed(outside.to_string_lossy().as_ref(), "");
+    assert!(result.is_err(), "unexpected allow: {result:?}");
+  }
 }
 
 #[cfg(test)]
@@ -648,6 +843,14 @@ mod sanitize_pdf_tests {
     assert!(out.contains("<style>"));
     assert!(out.contains(".md-export-toc"));
     assert!(out.contains("目录"));
+  }
+
+  #[test]
+  fn sanitize_pdf_html_strips_meta() {
+    let html = r#"<p>ok</p><meta http-equiv="refresh" content="0;url=https://evil.test">"#;
+    let out = sanitize_pdf_html(html);
+    assert!(!out.to_ascii_lowercase().contains("<meta"));
+    assert!(out.contains("ok"));
   }
 
 }

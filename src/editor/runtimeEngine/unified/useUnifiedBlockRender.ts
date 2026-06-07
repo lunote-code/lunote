@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -8,11 +9,17 @@ import {
   type RefObject,
 } from 'react'
 
+import { resolveMermaidEditorColors } from '../../markdown/mermaid/mermaidThemeBridge'
 import { postProcessMermaidSvg } from '../../../theme/postProcessMermaidSvg'
 import { getMermaidThemeRevision, subscribeMermaidTheme } from '../../markdown/mermaid/mermaidThemeBridge'
 import { cancelBlockRender, scheduleBlockRender } from '../renderScheduler'
 import type { RenderPriority } from '../renderPriority'
 import { cancelAllAsyncBlockRender, enqueueAsyncBlockRender } from './asyncBlockWorker'
+import {
+  buildBlockRenderCacheKey,
+  getCachedBlockRender,
+  setCachedBlockRender,
+} from './blockRenderResultCache'
 import {
   clearAsyncCommitGuards,
   clearBlockLayoutMeasure,
@@ -20,7 +27,7 @@ import {
   getViewportRuntimeRevision,
   measureBlockSurface,
   observeBlockViewport,
-  seedBlockViewportIfVisible,
+  primeBlockViewportOnMount,
   subscribeViewportRuntime,
   bumpBlockCommitGeneration,
   openBlockCommitScope,
@@ -30,12 +37,15 @@ import {
   shouldBlockRenderInViewport,
 } from '../../documentRuntime'
 import { destroyBlockLifecycle, mountBlockLifecycle } from './blockLifecycle'
+import type { BlockRenderOutput } from './blockRenderer'
 import type { BlockRendererType } from './blockRenderer'
 import { getRenderHost, releaseRenderHost } from './renderHost'
 import { registerBuiltinBlockRenderers } from './registerBuiltinRenderers'
 import { requireBlockRenderer } from './blockRuntimeRegistry'
 import { clearRuntimeSurface, patchRuntimeSurface } from './runtimeSurface'
+import { getBlockLifecycle } from '../virtualBlockViewport'
 import type { BlockParseResult } from '../incrementalParser'
+import { debugMermaid } from '../../mermaid/mermaidDebug'
 
 registerBuiltinBlockRenderers()
 
@@ -105,13 +115,21 @@ export function useUnifiedBlockRender(options: UseUnifiedBlockRenderOptions): Us
     return observeBlockViewport(blockId, root)
   }, [blockId])
 
+  useLayoutEffect(() => {
+    if (!blockId) return
+    primeBlockViewportOnMount(blockId, wrapRef.current)
+  }, [blockId, viewportRevision])
+
   useEffect(() => {
     if (!blockId) return
     let cancelled = false
-    queueMicrotask(() => {
+    const seed = () => {
       if (cancelled) return
-      seedBlockViewportIfVisible(blockId, wrapRef.current)
-    })
+      primeBlockViewportOnMount(blockId, wrapRef.current)
+    }
+    seed()
+    queueMicrotask(seed)
+    requestAnimationFrame(seed)
     return () => {
       cancelled = true
     }
@@ -122,19 +140,53 @@ export function useUnifiedBlockRender(options: UseUnifiedBlockRenderOptions): Us
     queueMicrotask(() => setHostReady(node != null))
   }, [])
 
+  const commitCachedOutput = useCallback(
+    (output: Extract<BlockRenderOutput, { kind: 'html' }>, renderKey: string) => {
+      const liveHost = getRenderHost(blockId, hostRef.current)
+      liveHost.swapContent(output)
+      measureBlockSurface(blockId, hostRef.current)
+      if (blockType === 'mermaid' || blockType === 'mindmap') {
+        postProcessMermaidSvg(hostRef.current, resolveMermaidEditorColors())
+      }
+      lastCommittedRenderKeyRef.current = renderKey
+      setError(null)
+      patchRuntimeSurface(blockId, { busy: false, error: null, blockType })
+      setBusy(false)
+    },
+    [blockId, blockType],
+  )
+
   useEffect(() => {
     const host = getRenderHost(blockId, hostRef.current)
 
     if (!enabled || !blockId || isEditMode) {
+      if (blockType === 'mermaid') {
+        debugMermaid('render_skipped', {
+          blockId: blockId || null,
+          enabled,
+          isEditMode,
+          reason: !enabled || !blockId ? 'missing_block_id' : 'edit_mode',
+        })
+      }
       setBusy(false)
       setError(null)
-      lastCommittedRenderKeyRef.current = ''
-      host.clear()
-      patchRuntimeSurface(blockId, { busy: false, error: null, blockType, lifecycle: 'hidden' })
+      if (isEditMode) {
+        host.clear()
+        patchRuntimeSurface(blockId, { busy: false, error: null, blockType, lifecycle: 'hidden' })
+      } else {
+        lastCommittedRenderKeyRef.current = ''
+        host.clear()
+        patchRuntimeSurface(blockId, { busy: false, error: null, blockType, lifecycle: 'hidden' })
+      }
       return
     }
 
     if (!source.trim()) {
+      if (blockType === 'mermaid') {
+        debugMermaid('render_empty_source', {
+          blockId,
+        })
+      }
       setBusy(false)
       setError(null)
       lastCommittedRenderKeyRef.current = ''
@@ -143,16 +195,44 @@ export function useUnifiedBlockRender(options: UseUnifiedBlockRenderOptions): Us
       return
     }
 
-    if (!shouldBlockRenderInViewport(blockId)) {
-      setBusy(false)
-      // Remember that this block was skipped by viewport gating; when it becomes visible again,
-      // we boost one render to interaction priority to avoid delayed preview after tab switches.
-      wasViewportBlockedRef.current = true
+    const renderKey = `${source}\0${renderThemeRevision}\0${hostReady ? 1 : 0}`
+    const cacheKey = buildBlockRenderCacheKey(blockType, source, renderThemeRevision)
+    const cached = getCachedBlockRender(cacheKey)
+    const hasLivePreview = Boolean(hostRef.current?.querySelector('svg'))
+
+    if (cached?.kind === 'html') {
+      if (blockType === 'mermaid') {
+        debugMermaid('cache_restore', {
+          blockId,
+          renderKey,
+          hostReady,
+          hadLivePreview: hasLivePreview,
+          viewportBlocked: wasViewportBlockedRef.current,
+        })
+      }
+      const shouldRestoreCachedPreview =
+        !hasLivePreview ||
+        lastCommittedRenderKeyRef.current !== renderKey ||
+        wasViewportBlockedRef.current
+      if (shouldRestoreCachedPreview) {
+        commitCachedOutput(cached, renderKey)
+      }
+      wasViewportBlockedRef.current = false
       return
     }
 
-    const renderKey = `${source}\0${renderThemeRevision}\0${hostReady ? 1 : 0}`
-    const hasLivePreview = Boolean(hostRef.current?.querySelector('svg'))
+    if (!shouldBlockRenderInViewport(blockId)) {
+      if (blockType === 'mermaid') {
+        debugMermaid('viewport_blocked', {
+          blockId,
+          lifecycle: getBlockLifecycle(blockId),
+          hostReady,
+        })
+      }
+      setBusy(false)
+      wasViewportBlockedRef.current = true
+      return
+    }
     if (
       hasLivePreview &&
       lastCommittedRenderKeyRef.current === renderKey &&
@@ -161,8 +241,21 @@ export function useUnifiedBlockRender(options: UseUnifiedBlockRenderOptions): Us
       return
     }
 
+    const lifecycle = getBlockLifecycle(blockId)
+    const requestedPriority =
+      lifecycle === 'background' && priority !== 'interaction' ? 'background' : priority
     const renderPriority =
-      wasViewportBlockedRef.current && priority === 'visible' ? 'interaction' : priority
+      wasViewportBlockedRef.current && requestedPriority === 'visible' ? 'interaction' : requestedPriority
+    if (blockType === 'mermaid') {
+      debugMermaid('schedule_render', {
+        blockId,
+        lifecycle,
+        requestedPriority,
+        renderPriority,
+        hostReady,
+        sourceLength: source.length,
+      })
+    }
     wasViewportBlockedRef.current = false
     const myGen = bumpBlockCommitGeneration(blockId)
     generationRef.current = myGen
@@ -191,12 +284,25 @@ export function useUnifiedBlockRender(options: UseUnifiedBlockRenderOptions): Us
         if (signal.aborted || generationRef.current !== myGen) return
 
         if (output.kind === 'cancelled') {
+          if (blockType === 'mermaid') {
+            debugMermaid('render_cancelled', {
+              blockId,
+              generation: myGen,
+            })
+          }
           setBusy(false)
           patchRuntimeSurface(blockId, { busy: false, blockType })
           return
         }
 
         if (output.kind === 'error') {
+          if (blockType === 'mermaid') {
+            debugMermaid('render_error', {
+              blockId,
+              generation: myGen,
+              message: output.message,
+            })
+          }
           setError(output.message)
           host.clear()
           setBusy(false)
@@ -212,6 +318,8 @@ export function useUnifiedBlockRender(options: UseUnifiedBlockRenderOptions): Us
           return
         }
 
+        setCachedBlockRender(cacheKey, output)
+
         markBarrierComplete(`block:${blockId}`, 'layout')
         scheduleRuntimeTask({
           key: `render-commit:${blockId}:${myGen}`,
@@ -221,16 +329,15 @@ export function useUnifiedBlockRender(options: UseUnifiedBlockRenderOptions): Us
           blockId,
           generation: myGen,
           run: async () => {
-            const liveHost = getRenderHost(blockId, hostRef.current)
-            liveHost.swapContent(output)
-            measureBlockSurface(blockId, hostRef.current)
-            if (blockType === 'mermaid' || blockType === 'mindmap') {
-              postProcessMermaidSvg(hostRef.current)
+            if (generationRef.current !== myGen) return
+            if (blockType === 'mermaid') {
+              debugMermaid('render_commit', {
+                blockId,
+                generation: myGen,
+                renderKey,
+              })
             }
-            lastCommittedRenderKeyRef.current = renderKey
-            setError(null)
-            patchRuntimeSurface(blockId, { busy: false, error: null, blockType })
-            setBusy(false)
+            commitCachedOutput(output, renderKey)
           },
         })
       },
@@ -246,6 +353,7 @@ export function useUnifiedBlockRender(options: UseUnifiedBlockRenderOptions): Us
     renderThemeRevision,
     viewportRevision,
     hostReady,
+    commitCachedOutput,
   ])
 
   return {

@@ -2,7 +2,9 @@ import { useCallback, useEffect, type MutableRefObject, type RefObject } from 'r
 import { isTauri } from '@tauri-apps/api/core'
 
 import type { TranslateFn } from '../../i18n'
+import { syncDocumentFrontmatterFromMarkdown } from '../../editor/documentFrontmatterStore'
 import { setSourceModeIdentity } from '../../editor/sourceModeIdentity'
+import { projectDocumentMemorySurfaces } from '../../lib/editorContentSync'
 import {
   notifyKnowledgeDocumentOpen,
   notifyKnowledgeDocumentSave,
@@ -17,6 +19,14 @@ import { documentIO } from '../../io/documentIO'
 import { installTabBodiesKernelSync } from '../document/tabBodiesStore'
 import { isBufferTabId } from '../workspace/constants'
 import { statNoteFile } from '../../platform/tauri/documentService'
+import {
+  checkBlankContentSuspect,
+  isTabNavLogEnabled,
+  logTabNav,
+  snapshotDocumentBodyMeta,
+} from '../../lib/tabNavigationDebug'
+import { MAX_OPEN_DOCUMENT_TABS } from '../document/openTabLimits'
+import type { AppStatusTone } from './useAppStatus'
 
 export type DocumentKernelEffectsDeps = {
   rootDir: string
@@ -28,7 +38,8 @@ export type DocumentKernelEffectsDeps = {
   bumpColdOpenGeneration: () => void
   updateRecent: (path: string) => void
   logModeSwitchState: (phase: string) => void
-  setStatus: (msg: string) => void
+  setStatus: (msg: string, toneOverride?: AppStatusTone) => void
+  showAppAlert: (opts: { title: string; message: string; okLabel?: string }) => Promise<void>
   t: TranslateFn
 }
 
@@ -44,8 +55,17 @@ export function useDocumentKernelEffects(deps: DocumentKernelEffectsDeps) {
     updateRecent,
     logModeSwitchState,
     setStatus,
+    showAppAlert,
     t,
   } = deps
+
+  const notifyOpenTabLimitReached = useCallback(async () => {
+    await showAppAlert({
+      title: t('app.confirm.openTabLimit.title'),
+      message: t('app.confirm.openTabLimit.message', { max: MAX_OPEN_DOCUMENT_TABS }),
+    })
+    setStatus(t('app.status.openTabLimit', { max: MAX_OPEN_DOCUMENT_TABS }), 'warning')
+  }, [showAppAlert, setStatus, t])
 
   const recordFileStat = useCallback(
     async (path: string) => {
@@ -81,15 +101,38 @@ export function useDocumentKernelEffects(deps: DocumentKernelEffectsDeps) {
         return documentIO.readDocument(root, path)
       },
       setActiveDocument: (path, markdown) => {
+        const projected =
+          path && path !== 'scratch'
+            ? projectDocumentMemorySurfaces(path, markdown)
+            : { editorSurface: markdown, sourceIdentity: markdown }
+        if (isTabNavLogEnabled()) {
+          logTabNav('kernel-set-active', {
+            source: 'capabilities.setActiveDocument',
+            ...snapshotDocumentBodyMeta(path, projected.sourceIdentity),
+          })
+        }
+        checkBlankContentSuspect('capabilities-set-active-document', path, projected.sourceIdentity, {
+          source: 'capabilities.setActiveDocument',
+        })
         activePathRef.current = path
-        contentRef.current = markdown
-        setSourceModeIdentity(path, markdown)
+        contentRef.current = projected.editorSurface
+        setSourceModeIdentity(path, projected.sourceIdentity)
+        if (path && path !== 'scratch') {
+          syncDocumentFrontmatterFromMarkdown(path, projected.sourceIdentity)
+        }
         updateRecent(path)
         setStatus(t('app.status.fileLoaded'))
         focusActiveEditor()
       },
       renderContent: (markdown) => {
-        contentRef.current = markdown
+        const path = activePathRef.current
+        if (!path || path === 'scratch') {
+          contentRef.current = markdown
+          return
+        }
+        const projected = projectDocumentMemorySurfaces(path, markdown)
+        contentRef.current = projected.editorSurface
+        setSourceModeIdentity(path, projected.sourceIdentity)
       },
       setTabs: (tabsOrUpdater) => {
         void tabsOrUpdater
@@ -107,6 +150,9 @@ export function useDocumentKernelEffects(deps: DocumentKernelEffectsDeps) {
           void recordFileStat(path)
         }
       },
+      onOpenTabLimitReached: () => {
+        void notifyOpenTabLimitReached()
+      },
     })
     return () => registerDocumentRuntimeCapabilities(null)
   }, [
@@ -116,6 +162,7 @@ export function useDocumentKernelEffects(deps: DocumentKernelEffectsDeps) {
     fileStatRef,
     focusActiveEditor,
     logModeSwitchState,
+    notifyOpenTabLimitReached,
     recordFileStat,
     resetModeSwitchEditorBootstrap,
     setStatus,

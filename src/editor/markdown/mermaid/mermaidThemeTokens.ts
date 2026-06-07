@@ -5,25 +5,80 @@ export type MermaidResolvedColors = {
   panel: string
   elevated: string
   text: string
+  /** Node / cluster outlines */
   border: string
+  /** Flowchart & sequence connectors (higher contrast than border-subtle) */
+  edge: string
   accent: string
 }
 
+const MERMAID_COLOR_FALLBACKS_LIGHT: MermaidResolvedColors = {
+  background: '#ffffff',
+  panel: '#f3f4f6',
+  elevated: '#e9ecef',
+  text: '#212529',
+  border: '#ced4da',
+  edge: '#495057',
+  accent: '#0d6efd',
+}
+
+const MERMAID_COLOR_FALLBACKS_DARK: MermaidResolvedColors = {
+  background: '#0d1117',
+  panel: '#161b22',
+  elevated: '#21262d',
+  text: '#c9d1d9',
+  border: '#30363d',
+  edge: '#8b949e',
+  accent: '#58a6ff',
+}
+
+function pickResolved(...values: Array<string | undefined>): string | undefined {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim() && !value.startsWith('var(')) return value
+  }
+  return undefined
+}
+
+function resolveWithFallback(
+  values: Array<string | undefined>,
+  fallback: MermaidResolvedColors,
+  key: keyof MermaidResolvedColors,
+): string {
+  return pickResolved(...values) ?? fallback[key]
+}
+
 export function mermaidColorsFromThemeVariables(vars: MermaidThemeVariables): MermaidResolvedColors {
-  const pick = (...values: Array<string | undefined>) => {
-    for (const value of values) {
-      if (typeof value === 'string' && value.trim() && !value.startsWith('var(')) return value
-    }
-    return '#212529'
-  }
+  const background = pickResolved(vars.background, vars.mainBkg)
+  const fallback =
+    background && normalizeColor(background) === '#0d1117'
+      ? MERMAID_COLOR_FALLBACKS_DARK
+      : MERMAID_COLOR_FALLBACKS_LIGHT
+
   return {
-    background: pick(vars.background, vars.mainBkg),
-    panel: pick(vars.primaryColor, vars.mainBkg, vars.actorBkg),
-    elevated: pick(vars.secondBkg, vars.tertiaryColor, vars.clusterBkg, vars.noteBkgColor),
-    text: pick(vars.textColor, vars.primaryTextColor, vars.nodeTextColor),
-    border: pick(vars.primaryBorderColor, vars.lineColor, vars.nodeBorder),
-    accent: pick(vars.secondaryColor, vars.mindmapBranchColor),
+    background: resolveWithFallback([vars.background, vars.mainBkg], fallback, 'background'),
+    panel: resolveWithFallback([vars.primaryColor, vars.mainBkg, vars.actorBkg], fallback, 'panel'),
+    elevated: resolveWithFallback(
+      [vars.secondBkg, vars.tertiaryColor, vars.clusterBkg, vars.noteBkgColor],
+      fallback,
+      'elevated',
+    ),
+    text: resolveWithFallback([vars.textColor, vars.primaryTextColor, vars.nodeTextColor], fallback, 'text'),
+    border: resolveWithFallback(
+      [vars.primaryBorderColor, vars.nodeBorder, vars.clusterBorder, vars.actorBorder],
+      fallback,
+      'border',
+    ),
+    edge: resolveWithFallback(
+      [vars.lineColor, vars.signalColor, vars.primaryBorderColor],
+      fallback,
+      'edge',
+    ),
+    accent: resolveWithFallback([vars.secondaryColor, vars.mindmapBranchColor], fallback, 'accent'),
   }
+}
+
+function normalizeColor(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, '')
 }
 
 export const MERMAID_THEME_TOKEN_MAP = {
@@ -33,7 +88,7 @@ export const MERMAID_THEME_TOKEN_MAP = {
   primaryColor: ['--color-surface-panel', '--color-bg-panel', '--surface-panel'],
   primaryTextColor: '--color-text-primary',
   primaryBorderColor: '--color-border-subtle',
-  lineColor: '--color-border-subtle',
+  lineColor: ['--color-text-muted', '--text-muted', '--color-border-subtle'],
   clusterBkg: ['--color-bg-elevated', '--color-bg-panel', '--surface-panel'],
   clusterBorder: '--color-border-subtle',
   edgeLabelBackground: '--color-bg-surface',
@@ -44,7 +99,7 @@ export const MERMAID_THEME_TOKEN_MAP = {
   actorBkg: ['--color-surface-panel', '--color-bg-panel', '--surface-panel'],
   actorBorder: '--color-border-subtle',
   actorTextColor: '--color-text-primary',
-  signalColor: '--color-border-subtle',
+  signalColor: ['--color-text-muted', '--text-muted', '--color-border-subtle'],
   labelBoxBkgColor: '--color-bg-surface',
   labelBoxBorderColor: '--color-border-subtle',
   labelTextColor: '--color-text-primary',
@@ -69,4 +124,5 @@ export const MERMAID_CSS_PANEL = 'var(--color-surface-panel, var(--color-bg-pane
 export const MERMAID_CSS_ELEVATED = 'var(--color-bg-elevated, var(--color-bg-panel, var(--surface-panel)))'
 export const MERMAID_CSS_TEXT = 'var(--color-text-primary, var(--text-primary))'
 export const MERMAID_CSS_BORDER = 'var(--color-border-subtle, var(--border-subtle))'
+export const MERMAID_CSS_EDGE = 'var(--color-text-muted, var(--text-muted, var(--border-subtle)))'
 export const MERMAID_CSS_ACCENT = 'var(--color-accent-primary, var(--accent))'

@@ -11,6 +11,7 @@ const CALLOUT_SET = new Set<string>(CALLOUT_KINDS)
 const CALLOUT_LABEL: Record<CalloutKind, string> = {
   note: 'Note',
   tip: 'Tip',
+  success: 'Success',
   important: 'Important',
   caution: 'Caution',
   warning: 'Warning',
@@ -22,6 +23,7 @@ const CALLOUT_ICON: Record<CalloutKind, SemanticIconName> = {
   note: 'callout-note',
   info: 'callout-info',
   tip: 'callout-tip',
+  success: 'callout-success',
   important: 'callout-important',
   warning: 'callout-warning',
   caution: 'callout-caution',

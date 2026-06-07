@@ -6,18 +6,9 @@ import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import puppeteer from 'puppeteer-core'
+import { defaultChromeExecutable } from './chrome-executable-candidates.mjs'
 
-export function defaultChromeExecutable() {
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH
-  if (process.platform === 'darwin') {
-    return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-  }
-  if (process.platform === 'win32') {
-    return 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-  }
-  return 'google-chrome-stable'
-}
+export { defaultChromeExecutable } from './chrome-executable-candidates.mjs'
 
 export const DEFAULT_PDF_MARGIN_MM = { top: '18mm', bottom: '18mm', left: '14mm', right: '14mm' }
 

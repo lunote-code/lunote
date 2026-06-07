@@ -1,3 +1,4 @@
+import { logError } from '../lib/lunaLogger'
 import type { AppLanguageSetting } from '../settings/appSettingsTypes'
 import {
   getAppSettingsSnapshot,
@@ -16,6 +17,11 @@ import {
 } from '../export/exportPreset'
 import { normalizeThemeVariant } from '../theme-runtime/themeResolver'
 import { normalizeEditorFontSize, resolveEffectiveEditorFontSize } from './editorTypography'
+import {
+  normalizeEditorColumnWidth,
+  resolveEffectiveEditorColumnWidth,
+} from './editorColumnWidth'
+import { resolveEditorFormatToolbarEnabled } from './editorFormatToolbarEnabled'
 import type { SettingsValue } from './settingsTypes'
 
 type SettingsRuntimeSubscriber = () => void
@@ -38,8 +44,6 @@ function readValue(path: string): SettingsValue {
       return normalizeThemeVariant(snapshot.appearance?.theme?.active)
     case 'theme.cssFile':
       return snapshot.appearance?.theme?.cssFile ?? ''
-    case 'theme.cssCompatMode':
-      return snapshot.appearance?.theme?.cssCompatMode === 'native' ? 'native' : 'obsidian-auto'
     case 'theme.cssSnippets':
       return snapshot.appearance?.theme?.cssSnippets ?? ''
     case 'theme.exportCssSnippets':
@@ -58,6 +62,10 @@ function readValue(path: string): SettingsValue {
       return snapshot.appearance?.editor?.fontFamily ?? ''
     case 'editor.fontSize':
       return String(resolveEffectiveEditorFontSize(snapshot.appearance?.editor?.fontSize))
+    case 'editor.columnWidth':
+      return String(resolveEffectiveEditorColumnWidth(snapshot.appearance?.editor?.columnWidth))
+    case 'editor.formatToolbarEnabled':
+      return resolveEditorFormatToolbarEnabled(snapshot.appearance?.editor)
     case 'editor.autosaveEnabled':
       return snapshot.appearance?.editor?.autosaveEnabled !== false
     case 'editor.autosaveIntervalSec':
@@ -95,20 +103,18 @@ async function writeValue(path: string, value: SettingsValue): Promise<void> {
           typeof value === 'string' ? normPath(value.trim()) : '',
       })
       return
-    case 'general.language':
-      await setAppLanguage(String(value) as AppLanguageSetting)
+    case 'general.language': {
+      const language = String(value) as AppLanguageSetting
+      console.info('[app-settings] set language', { language })
+      await setAppLanguage(language)
+      console.info('[app-settings] set language done', { language })
       return
+    }
     case 'theme.active':
       await setAppearanceSetting('theme.active', normalizeThemeVariant(value))
       return
     case 'theme.cssFile':
       await setAppearanceSetting('theme.cssFile', typeof value === 'string' ? value.trim() : '')
-      return
-    case 'theme.cssCompatMode':
-      await setAppearanceSetting(
-        'theme.cssCompatMode',
-        value === 'native' ? 'native' : 'obsidian-auto',
-      )
       return
     case 'theme.cssSnippets':
       await setAppearanceSetting('theme.cssSnippets', typeof value === 'string' ? value : '')
@@ -143,6 +149,13 @@ async function writeValue(path: string, value: SettingsValue): Promise<void> {
       await setAppearanceSetting('editor.fontSize', normalized)
       return
     }
+    case 'editor.columnWidth': {
+      await setAppearanceSetting('editor.columnWidth', normalizeEditorColumnWidth(value))
+      return
+    }
+    case 'editor.formatToolbarEnabled':
+      await setAppearanceSetting('editor.formatToolbarEnabled', Boolean(value))
+      return
     case 'editor.autosaveEnabled':
       await setAppearanceSetting('editor.autosaveEnabled', Boolean(value))
       return
@@ -171,7 +184,12 @@ export function getSetting(path: string): SettingsValue {
 }
 
 export async function setSetting(path: string, value: SettingsValue): Promise<void> {
-  await writeValue(path, value)
+  try {
+    await writeValue(path, value)
+  } catch (error) {
+    logError('[app-settings] setSetting failed', { path, value, error })
+    throw error
+  }
 }
 
 export function subscribe(path: string, callback: SettingsRuntimeSubscriber): () => void {

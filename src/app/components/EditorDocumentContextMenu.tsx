@@ -1,8 +1,7 @@
-import { useState, type CSSProperties, type RefObject } from 'react'
-import type { AppExportFormat } from '../../markdownExport'
-import { LUNA_TEXT_COLOR_PRESETS } from '../../editor/lunaTextColor'
-import { Icon } from '../../design-system/icons'
+import type { RefObject } from 'react'
 import { useI18n } from '../../i18n'
+import { useContextMenuKeyboardNav } from '../../lib/useContextMenuKeyboardNav'
+import { useClampedMenuPosition } from '../../lib/useClampedMenuPosition'
 import type { EditorDocMenuPick, EditorDocMenuState } from '../workspace/contextMenuTypes'
 
 export function EditorDocumentContextMenu({
@@ -11,28 +10,32 @@ export function EditorDocumentContextMenu({
   diskFileReady,
   canRevealInOs,
   onPick,
-  onExportPick,
-  onColorPick,
 }: {
   state: EditorDocMenuState
   menuRef: RefObject<HTMLDivElement | null>
   diskFileReady: boolean
   canRevealInOs: boolean
   onPick: (action: EditorDocMenuPick) => void
-  onExportPick: (format: AppExportFormat) => void
-  onColorPick: (color: string | null) => void
 }) {
   const { t } = useI18n()
-  const { x, y, hasTextSelection } = state
-  const [exportOpen, setExportOpen] = useState(false)
-  const [colorOpen, setColorOpen] = useState(false)
+  const { x, y } = state
+  const openKey = `${x}:${y}:${diskFileReady}:${canRevealInOs}`
+
+  const { onKeyDown } = useContextMenuKeyboardNav(menuRef, openKey, {
+    autoFocusOnOpen: false,
+  })
+
+  const { x: menuX, y: menuY } = useClampedMenuPosition(menuRef, { x, y }, openKey)
+
   return (
     <div
       ref={menuRef}
       role="menu"
+      tabIndex={-1}
       className="file-ctx-menu"
-      style={{ left: x, top: y }}
+      style={{ left: menuX, top: menuY }}
       onContextMenu={(e) => e.preventDefault()}
+      onKeyDown={onKeyDown}
     >
       <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('cut')}>
         {t('ctx.editor.cut')}
@@ -43,50 +46,6 @@ export function EditorDocumentContextMenu({
       <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('paste')}>
         {t('ctx.editor.paste')}
       </button>
-      <div className="file-ctx-sep" role="separator" />
-      <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('selectAll')}>
-        {t('ctx.editor.selectAll')}
-      </button>
-      <div className="file-ctx-sep" role="separator" />
-      <div
-        className="file-ctx-submenu-wrap"
-        onMouseEnter={() => setColorOpen(true)}
-        onMouseLeave={() => setColorOpen(false)}
-      >
-        <button
-          type="button"
-          role="menuitem"
-          className="file-ctx-item file-ctx-submenu-trigger"
-          disabled={!hasTextSelection}
-          aria-expanded={colorOpen}
-          aria-haspopup="menu"
-        >
-          {t('ctx.editor.textColor')}
-          <Icon name="chevron-right" className="file-ctx-submenu-chevron" size="sm" stroke="strong" />
-        </button>
-        {colorOpen && hasTextSelection ? (
-          <div className="file-ctx-submenu file-ctx-submenu--text-color" role="menu" aria-label={t('ctx.editor.textColorSubmenu')}>
-            <div className="file-ctx-color-grid" role="presentation">
-              {LUNA_TEXT_COLOR_PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  role="menuitem"
-                  className="file-ctx-color-swatch"
-                  title={t(preset.labelKey)}
-                  aria-label={t(preset.labelKey)}
-                  style={{ '--swatch-color': preset.value } as CSSProperties}
-                  onClick={() => onColorPick(preset.value)}
-                />
-              ))}
-            </div>
-            <div className="file-ctx-sep" role="separator" />
-            <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onColorPick(null)}>
-              {t('ctx.editor.textColorDefault')}
-            </button>
-          </div>
-        ) : null}
-      </div>
       <div className="file-ctx-sep" role="separator" />
       <button type="button" role="menuitem" className="file-ctx-item" disabled={!diskFileReady} onClick={() => onPick('openTab')}>
         {t('ctx.editor.openTab')}
@@ -107,43 +66,6 @@ export function EditorDocumentContextMenu({
       <button type="button" role="menuitem" className="file-ctx-item" disabled={!canRevealInOs} onClick={() => onPick('reveal')}>
         {t('ctx.editor.reveal')}
       </button>
-      <div className="file-ctx-sep" role="separator" />
-      <div
-        className="file-ctx-submenu-wrap"
-        onMouseEnter={() => setExportOpen(true)}
-        onMouseLeave={() => setExportOpen(false)}
-      >
-        <button
-          type="button"
-          role="menuitem"
-          className="file-ctx-item file-ctx-submenu-trigger"
-          disabled={!diskFileReady}
-          aria-expanded={exportOpen}
-          aria-haspopup="menu"
-        >
-          {t('ctx.editor.export')}
-          <Icon name="chevron-right" className="file-ctx-submenu-chevron" size="sm" stroke="strong" />
-        </button>
-        {exportOpen && diskFileReady ? (
-          <div className="file-ctx-submenu" role="menu" aria-label={t('ctx.editor.exportSubmenu')}>
-            <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onExportPick('pdf')}>
-              {t('ctx.editor.exportPdf')}
-            </button>
-            <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onExportPick('html')}>
-              {t('ctx.editor.exportHtml')}
-            </button>
-            <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onExportPick('htmlPlain')}>
-              {t('ctx.editor.exportHtmlPlain')}
-            </button>
-            <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onExportPick('image')}>
-              {t('ctx.editor.exportImage')}
-            </button>
-            <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onExportPick('word')}>
-              {t('ctx.editor.exportWord')}
-            </button>
-          </div>
-        ) : null}
-      </div>
     </div>
   )
 }

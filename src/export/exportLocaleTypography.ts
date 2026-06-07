@@ -1,5 +1,6 @@
 import { getAppSettingsSnapshot } from '../settings/appSettingsStore'
 import { resolveEffectiveUiLocale, type UiLocaleId } from '../i18n/resolveLocale'
+import { getCachedTauriOsLocaleTag } from '../i18n/systemLocale'
 
 const FONT_UI_LATIN =
   'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
@@ -51,5 +52,5 @@ export function exportFontStackForLocale(localeId: UiLocaleId): string {
 export function resolveExportUiLocale(): UiLocaleId {
   const settings = getAppSettingsSnapshot()
   const nav = typeof navigator !== 'undefined' ? navigator.language : undefined
-  return resolveEffectiveUiLocale(settings.language, nav)
+  return resolveEffectiveUiLocale(settings.language, nav, getCachedTauriOsLocaleTag() ?? null)
 }

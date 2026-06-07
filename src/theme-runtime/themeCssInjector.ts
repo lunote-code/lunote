@@ -1,12 +1,17 @@
 import type { ThemeDefinition } from './themeTypes'
 import { bridgeLegacyCSSVariables, normalizeThemeInput } from './themeCompatibilityLayer'
 
+const TOKEN_STYLE_TAG_ID = 'luna-theme-tokens'
+
 const APPLIED_VARIABLES = [
   '--color-bg-surface',
   '--color-bg-panel',
+  '--color-bg-elevated',
+  '--color-surface-panel',
   '--color-bg-editor',
   '--color-text-primary',
   '--color-text-muted',
+  '--color-text-tertiary',
   '--color-accent-primary',
   '--color-border-subtle',
   '--bg',
@@ -24,6 +29,7 @@ const APPLIED_VARIABLES = [
   '--text-primary',
   '--text-secondary',
   '--text-muted',
+  '--text-tertiary',
   '--border-subtle',
   '--border-strong',
   '--accent',
@@ -41,35 +47,16 @@ const APPLIED_VARIABLES = [
   '--settings-control-radius',
   '--settings-section-gap',
   '--settings-row-gap',
-  '--background-primary',
-  '--background-primary-alt',
-  '--background-secondary',
-  '--background-secondary-alt',
-  '--background-modifier-border',
-  '--background-modifier-border-hover',
-  '--background-modifier-hover',
-  '--background-modifier-form-field',
-  '--background-modifier-form-field-highlighted',
-  '--background-modifier-box-shadow',
-  '--background-accent',
-  '--text-normal',
-  '--text-faint',
-  '--text-accent',
-  '--text-accent-hover',
-  '--interactive-accent',
-  '--interactive-accent-hover',
-  '--interactive-normal',
-  '--text-on-accent',
-  '--scrollbar-bg',
-  '--scrollbar-thumb-bg',
-  '--scrollbar-active-thumb-bg',
-  '--font-interface-theme',
-  '--font-text-theme',
-  '--font-monospace-theme',
+  '--surface-elevated',
+  '--shadow-soft',
+  '--shadow-panel',
 ] as const
 
-function set(root: HTMLElement, name: string, value: string): void {
-  root.style.setProperty(name, value)
+export type ApplyThemeCssOptions = {
+  /** When true, token variables are omitted so external CSS can own the palette. */
+  externalCssActive?: boolean
+  themePreset?: string
+  themeMode?: 'light' | 'dark'
 }
 
 function translucent(hexOrColor: string, alpha: number): string {
@@ -82,84 +69,148 @@ function translucent(hexOrColor: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
+function escapeCssString(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+}
+
+function buildTokenSelector(preset: string, mode: 'light' | 'dark'): string {
+  const presetAttr = escapeCssString(preset)
+  const modeAttr = escapeCssString(mode)
+  return `html:not([data-theme-css-file])[data-theme-preset='${presetAttr}'][data-theme='${modeAttr}']`
+}
+
+function buildTokenModeSelector(mode: 'light' | 'dark'): string {
+  const modeAttr = escapeCssString(mode)
+  return `html:not([data-theme-css-file])[data-theme='${modeAttr}']`
+}
+
+function shadowTokensForMode(mode: 'light' | 'dark'): { soft: string; panel: string } {
+  if (mode === 'light') {
+    return {
+      soft: '0 1px 2px rgba(31, 35, 40, 0.06)',
+      panel: '0 8px 24px rgba(31, 35, 40, 0.08)',
+    }
+  }
+  return {
+    soft: '0 1px 3px rgba(0, 0, 0, 0.45)',
+    panel: '0 12px 40px rgba(0, 0, 0, 0.55)',
+  }
+}
+
+function buildThemeTokenStylesheet(
+  theme: ThemeDefinition,
+  preset: string,
+  mode: 'light' | 'dark',
+): string {
+  const compatibleTheme = normalizeThemeInput(theme)
+  const { colors, radius, spacing } = compatibleTheme
+  const panel = translucent(colors.background, 0.92)
+  const hover = translucent(colors.foreground, 0.08)
+  const legacy = bridgeLegacyCSSVariables(compatibleTheme)
+  const shadows = shadowTokensForMode(mode)
+
+  const vars: Record<string, string> = {
+    '--color-bg-surface': colors.background,
+    '--color-bg-panel': panel,
+    '--color-bg-elevated': panel,
+    '--color-surface-panel': panel,
+    '--color-bg-editor': colors.background,
+    '--color-text-primary': colors.foreground,
+    '--color-text-muted': colors.muted,
+    '--color-text-tertiary': colors.muted,
+    '--color-accent-primary': colors.primary,
+    '--color-border-subtle': colors.border,
+    ...legacy,
+    '--surface-app': colors.background,
+    '--surface': colors.background,
+    '--surface-panel': panel,
+    '--surface-editor': colors.background,
+    '--surface-preview': colors.background,
+    '--surface-hover': hover,
+    '--text-primary': colors.foreground,
+    '--text-secondary': colors.muted,
+    '--text-muted': colors.muted,
+    '--text-tertiary': colors.muted,
+    '--border-subtle': colors.border,
+    '--border-strong': colors.border,
+    '--accent': colors.primary,
+    '--link': colors.primary,
+    '--link-hover': colors.primary,
+    '--link-visited': colors.primary,
+    '--focus-ring': translucent(colors.primary, 0.22),
+    '--input-bg': colors.background,
+    '--panel': panel,
+    '--panel-header': panel,
+    '--radius': `${radius.control}px`,
+    '--radius-md': `${radius.control}px`,
+    '--radius-xl': `${radius.card}px`,
+    '--settings-card-radius': `${radius.card}px`,
+    '--settings-control-radius': `${radius.control}px`,
+    '--settings-section-gap': `${spacing.section}px`,
+    '--settings-row-gap': `${spacing.row}px`,
+    '--surface-elevated': panel,
+    '--shadow-soft': shadows.soft,
+    '--shadow-panel': shadows.panel,
+  }
+
+  const body = Object.entries(vars)
+    .map(([name, value]) => `  ${name}: ${value};`)
+    .join('\n')
+
+  const blocks = [`${buildTokenSelector(preset, mode)} {\n${body}\n}`]
+  if (!theme.builtIn) {
+    blocks.push(`${buildTokenModeSelector(mode)} {\n${body}\n}`)
+  }
+  return `${blocks.join('\n')}\n`
+}
+
+function setTokenStyleTagContent(css: string): void {
+  if (typeof document === 'undefined') return
+  let style = document.getElementById(TOKEN_STYLE_TAG_ID) as HTMLStyleElement | null
+  if (!css.trim()) {
+    style?.remove()
+    return
+  }
+  if (!style) {
+    style = document.createElement('style')
+    style.id = TOKEN_STYLE_TAG_ID
+    const externalStyle = document.getElementById('luna-user-theme-css')
+    if (externalStyle?.parentNode) {
+      externalStyle.parentNode.insertBefore(style, externalStyle)
+    } else {
+      document.head.appendChild(style)
+    }
+  }
+  style.textContent = css
+}
+
+/** Remove legacy inline token variables from a previous runtime version. */
 export function removeThemeTokens(root: HTMLElement = document.documentElement): void {
   for (const name of APPLIED_VARIABLES) {
     root.style.removeProperty(name)
   }
 }
 
-export function applyThemeCssVariables(theme: ThemeDefinition, root: HTMLElement = document.documentElement): void {
+export function clearThemeTokenStyles(): void {
+  removeThemeTokens()
+  setTokenStyleTagContent('')
+}
+
+export function applyThemeCssVariables(
+  theme: ThemeDefinition,
+  options: ApplyThemeCssOptions = {},
+  root: HTMLElement = document.documentElement,
+): void {
   removeThemeTokens(root)
 
-  const compatibleTheme = normalizeThemeInput(theme)
-  const { colors, radius, spacing } = compatibleTheme
-  const panel = translucent(colors.background, 0.92)
-  const hover = translucent(colors.foreground, 0.08)
-
-  set(root, '--color-bg-surface', colors.background)
-  set(root, '--color-bg-panel', panel)
-  set(root, '--color-bg-editor', colors.background)
-  set(root, '--color-text-primary', colors.foreground)
-  set(root, '--color-text-muted', colors.muted)
-  set(root, '--color-accent-primary', colors.primary)
-  set(root, '--color-border-subtle', colors.border)
-
-  for (const [name, value] of Object.entries(bridgeLegacyCSSVariables(compatibleTheme))) {
-    set(root, name, value)
+  if (options.externalCssActive) {
+    // Palette tokens come from external CSS; mode-derived tokens still apply via
+    // static src/theme/modeThemeTokens.css (html[data-theme] selectors).
+    setTokenStyleTagContent('')
+    return
   }
 
-  set(root, '--surface-app', colors.background)
-  set(root, '--surface', colors.background)
-  set(root, '--surface-panel', panel)
-  set(root, '--surface-editor', colors.background)
-  set(root, '--surface-preview', colors.background)
-  set(root, '--surface-hover', hover)
-  set(root, '--text-primary', colors.foreground)
-  set(root, '--text-secondary', colors.muted)
-  set(root, '--text-muted', colors.muted)
-  set(root, '--border-subtle', colors.border)
-  set(root, '--border-strong', colors.border)
-  set(root, '--accent', colors.primary)
-  set(root, '--link', colors.primary)
-  set(root, '--link-hover', colors.primary)
-  set(root, '--link-visited', colors.primary)
-  set(root, '--focus-ring', translucent(colors.primary, 0.22))
-  set(root, '--input-bg', colors.background)
-  set(root, '--panel', panel)
-  set(root, '--panel-header', panel)
-
-  set(root, '--radius', `${radius.control}px`)
-  set(root, '--radius-md', `${radius.control}px`)
-  set(root, '--radius-xl', `${radius.card}px`)
-  set(root, '--settings-card-radius', `${radius.card}px`)
-  set(root, '--settings-control-radius', `${radius.control}px`)
-  set(root, '--settings-section-gap', `${spacing.section}px`)
-  set(root, '--settings-row-gap', `${spacing.row}px`)
-
-  // Bridge the most common Obsidian community theme variables to Luna semantic tokens.
-  set(root, '--background-primary', 'var(--surface-editor)')
-  set(root, '--background-primary-alt', 'var(--surface-app)')
-  set(root, '--background-secondary', 'var(--surface-panel)')
-  set(root, '--background-secondary-alt', 'var(--surface-hover)')
-  set(root, '--background-modifier-border', 'var(--border-subtle)')
-  set(root, '--background-modifier-border-hover', 'var(--border-strong)')
-  set(root, '--background-modifier-hover', 'var(--surface-hover)')
-  set(root, '--background-modifier-form-field', 'var(--input-bg)')
-  set(root, '--background-modifier-form-field-highlighted', 'var(--surface-hover)')
-  set(root, '--background-modifier-box-shadow', 'var(--focus-ring)')
-  set(root, '--background-accent', 'var(--accent)')
-  set(root, '--text-normal', 'var(--text-primary)')
-  set(root, '--text-faint', 'var(--text-secondary)')
-  set(root, '--text-accent', 'var(--link)')
-  set(root, '--text-accent-hover', 'var(--link-hover)')
-  set(root, '--interactive-accent', 'var(--accent)')
-  set(root, '--interactive-accent-hover', 'var(--link-hover)')
-  set(root, '--interactive-normal', 'var(--surface-hover)')
-  set(root, '--text-on-accent', 'var(--surface-app)')
-  set(root, '--scrollbar-bg', 'transparent')
-  set(root, '--scrollbar-thumb-bg', 'color-mix(in srgb, var(--text-muted) 38%, transparent)')
-  set(root, '--scrollbar-active-thumb-bg', 'color-mix(in srgb, var(--accent) 42%, var(--text-muted) 28%)')
-  set(root, '--font-interface-theme', 'var(--font-ui)')
-  set(root, '--font-text-theme', 'var(--font-reading)')
-  set(root, '--font-monospace-theme', 'var(--font-mono)')
+  const preset = options.themePreset ?? 'github'
+  const mode = options.themeMode ?? 'dark'
+  setTokenStyleTagContent(buildThemeTokenStylesheet(theme, preset, mode))
 }

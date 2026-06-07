@@ -56,7 +56,12 @@ export {
   subscribeViewportRuntime,
   shouldBlockRenderInViewport,
 } from './viewportRuntime'
-export { isElementLikelyInViewport, seedBlockViewportIfVisible } from './seedBlockViewport'
+export {
+  isElementLikelyInViewport,
+  isElementNearViewport,
+  primeBlockViewportOnMount,
+  seedBlockViewportIfVisible,
+} from './seedBlockViewport'
 export type { RuntimeTask, RuntimeTaskKind } from './runtimeScheduler'
 export {
   cancelRuntimeTask,

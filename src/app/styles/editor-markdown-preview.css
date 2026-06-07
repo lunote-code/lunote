@@ -1,0 +1,267 @@
+/*Text Markdown: distinguished from catalog cards, unified reading width*/
+.preview-pane .markdown-body {
+  max-width: min(var(--editor-column-width), 100%);
+  margin-left: auto;
+  margin-right: auto;
+  font-family: var(--font-reading);
+  font-size: var(--editor-content-font-size, 17px);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  letter-spacing: var(--letter-reading);
+  line-height: var(--line-reading);
+  overflow-wrap: break-word;
+  word-break: normal;
+  font-kerning: normal;
+  font-variant-numeric: proportional-nums;
+}
+
+/*Text link: underline + hover to avoid the ugly blue-purple style of the default browser*/
+.markdown-body a {
+  color: var(--link);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+  text-decoration-color: color-mix(in srgb, var(--link) 42%, transparent);
+  transition:
+    color 0.15s ease,
+    text-decoration-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.markdown-body a:hover {
+  color: var(--link-hover);
+  text-decoration-color: color-mix(in srgb, var(--link-hover) 72%, transparent);
+}
+
+.markdown-body a:visited {
+  color: var(--link-visited);
+  text-decoration-color: color-mix(in srgb, var(--link-visited) 38%, transparent);
+}
+
+.markdown-body a:focus-visible {
+  outline: none;
+  box-shadow: var(--luna-focus-ring);
+  border-radius: 2px;
+}
+
+.markdown-body a code {
+  color: inherit;
+  text-decoration: none;
+}
+
+.markdown-body strong {
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.markdown-body hr {
+  border: none;
+  height: 1px;
+  margin: 2.25rem 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--border-strong) 55%, transparent),
+    transparent
+  );
+}
+
+.markdown-body del {
+  opacity: 0.72;
+}
+
+.preview-toc {
+  padding: 16px 18px 14px;
+  border-radius: var(--radius-xl);
+  border: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 90%, transparent);
+  background: color-mix(in srgb, var(--surface-panel) 82%, transparent);
+  box-shadow: var(--shadow-soft);
+  margin-bottom: 1.75rem;
+}
+
+.preview-toc-title {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.preview-toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.preview-toc-item {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.preview-toc-item a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  margin: -5px -8px;
+  display: inline-block;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.preview-toc-item a:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.preview-toc-level-1 a {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.preview-toc-level-2 {
+  padding-left: 14px;
+}
+
+.preview-toc-level-2 a {
+  font-weight: 500;
+}
+
+.preview-toc-level-3 {
+  padding-left: 28px;
+}
+
+.preview-toc-level-3 a {
+  font-weight: 400;
+}
+
+.preview-toc-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.preview-pane:not(.markdown-visual-editor) img,
+.markdown-body img {
+  display: block;
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  margin: 1em auto;
+  border-radius: 4px;
+  border: none;
+  /*Close to Typora Text: no stroke, light shadow, centered*/
+  box-shadow: 0 1px 6px color-mix(in srgb, var(--text-primary) 11%, transparent);
+}
+
+.preview-img-loading {
+  display: block;
+  min-width: 48px;
+  min-height: 48px;
+  margin-left: auto;
+  margin-right: auto;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+}
+
+.preview-pane:not(.markdown-visual-editor) h1,
+.markdown-body h1 {
+  font-size: 1.9rem;
+  line-height: 1.25;
+  letter-spacing: -0.03em;
+  margin: 0.25rem 0 1.1rem;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.preview-pane:not(.markdown-visual-editor) h2,
+.markdown-body h2 {
+  font-size: 1.28rem;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  margin: 2rem 0 0.75rem;
+  padding-bottom: 0.45rem;
+  color: var(--text-primary);
+  font-weight: 650;
+  border-bottom: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 85%, transparent);
+}
+
+.preview-pane:not(.markdown-visual-editor) h3,
+.markdown-body h3 {
+  font-size: 1.06rem;
+  line-height: 1.4;
+  margin: 1.5rem 0 0.55rem;
+  color: var(--text-primary);
+  font-weight: 620;
+}
+
+.preview-pane:not(.markdown-visual-editor) h4,
+.preview-pane:not(.markdown-visual-editor) h5,
+.preview-pane:not(.markdown-visual-editor) h6,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  color: var(--text-primary);
+  margin: 1.15rem 0 0.45rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.preview-pane:not(.markdown-visual-editor) p,
+.preview-pane:not(.markdown-visual-editor) li,
+.markdown-body p,
+.markdown-body li {
+  color: var(--text-primary);
+  line-height: var(--line-reading);
+  font-size: var(--editor-content-font-size, 17px);
+  letter-spacing: var(--letter-reading);
+}
+
+.preview-pane:not(.markdown-visual-editor) p,
+.markdown-body p {
+  margin: 0.65rem 0;
+  text-align: start;
+}
+
+/*NBSP segments inserted by preserveExtraBlankLinesOutsideFences: guaranteed visible placeholders*/
+.preview-pane:not(.markdown-visual-editor) p:empty,
+.markdown-body p:empty {
+  min-height: 1em;
+}
+
+.preview-pane:not(.markdown-visual-editor) ul,
+.preview-pane:not(.markdown-visual-editor) ol,
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0.65rem 0 1.1rem;
+  padding-left: 1.25rem;
+}
+
+.markdown-body li::marker {
+  color: color-mix(in srgb, var(--accent) 75%, var(--text-muted));
+}
+
+.preview-pane:not(.markdown-visual-editor) ul ul,
+.preview-pane:not(.markdown-visual-editor) ol ol,
+.markdown-body ul ul,
+.markdown-body ol ol {
+  margin: 0.35rem 0 0.5rem;
+}
+
+.preview-pane code,
+.markdown-body code {
+  background: var(--inline-code-bg, color-mix(in srgb, var(--code-bg) 92%, var(--surface-hover)));
+  padding: 0.12rem 0.42rem;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  letter-spacing: 0.02em;
+  font-feature-settings: 'liga' 0;
+  border: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
+}

@@ -1,0 +1,45 @@
+/*Mind map preview (dagre layout)*/
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-preview-host {
+  overflow: auto;
+  padding: 0.35rem 0;
+  background: var(--color-bg-surface, var(--surface-app)) !important;
+  background-color: var(--color-bg-surface, var(--surface-app)) !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  background: var(--color-bg-surface, var(--surface-app)) !important;
+  background-color: var(--color-bg-surface, var(--surface-app)) !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-node rect,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-node circle,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-node polygon,
+.preview-pane.markdown-visual-editor .ProseMirror .mindmap-node rect,
+.preview-pane.markdown-visual-editor .ProseMirror .mindmap-node circle,
+.preview-pane.markdown-visual-editor .ProseMirror .mindmap-node polygon {
+  fill: var(--color-bg-elevated, var(--color-bg-panel, var(--surface-panel))) !important;
+  stroke: var(--color-border-subtle, var(--border-subtle)) !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-node text,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-node tspan,
+.preview-pane.markdown-visual-editor .ProseMirror .mindmap-node text,
+.preview-pane.markdown-visual-editor .ProseMirror .mindmap-node tspan {
+  fill: var(--color-text-primary, var(--text-primary)) !important;
+  color: var(--color-text-primary, var(--text-primary)) !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-link,
+.preview-pane.markdown-visual-editor .ProseMirror .mindmap-link,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-edges path {
+  stroke: var(--color-accent-primary, var(--accent)) !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-empty {
+  font-size: 0.82rem;
+  color: var(--text-tertiary, var(--text-muted));
+  padding: 0.5rem 0;
+}

@@ -1,0 +1,260 @@
+/*Footnote: Typora/Obsidian style [¹]*/
+.preview-pane.markdown-visual-editor .ProseMirror .react-renderer:has(.pm-footnote-ref-wrap) {
+  display: inline;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  vertical-align: baseline;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .react-renderer:has(.pm-footnote-ref-wrap) > [data-node-view-wrapper] {
+  display: inline;
+  width: auto;
+  margin: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .react-renderer.ProseMirror-selectednode:has(.pm-footnote-ref-wrap) {
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-footnote-ref-wrap {
+  display: inline;
+  vertical-align: baseline;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror sup.pm-footnote-ref {
+  display: inline-block;
+  font-size: 0.72em;
+  font-weight: 580;
+  line-height: 1;
+  vertical-align: super;
+  color: var(--luna-footnote-ref-fg);
+  cursor: text;
+  text-decoration: none;
+  user-select: none;
+  padding: 0 calc(var(--reveal-chip-pad-x) * 0.4);
+  border-radius: var(--reveal-chip-radius);
+  transition:
+    color var(--reveal-color-duration, 110ms) var(--reveal-ease, ease),
+    background-color var(--reveal-bg-duration, 120ms) var(--reveal-ease, ease);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror sup.pm-footnote-ref:hover {
+  color: color-mix(in srgb, var(--accent) 90%, var(--text-secondary));
+  background: var(--reveal-hover-bg);
+  text-decoration: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-footnote-def-wrap {
+  margin: 0.35rem 0 0.65rem;
+  padding: var(--reveal-block-pad-y) calc(var(--reveal-block-pad-x) + 0.1rem);
+  border-left: var(--reveal-block-bar-width) solid var(--luna-footnote-def-border);
+  background: var(--reveal-block-index-bg);
+  border-radius: 0 var(--reveal-block-radius) var(--reveal-block-radius) 0;
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-footnote-def-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-footnote-def-marker {
+  flex: 0 0 auto;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.76rem;
+  color: var(--luna-footnote-def-marker-fg);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-footnote-def-body {
+  flex: 1 1 12rem;
+  min-width: 0;
+  color: var(--text-secondary);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-footnote-def-body p {
+  margin: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-footnote-def-flash {
+  outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 2px;
+}
+
+/*Luna table: see src/editor/lunaMarkdownTable.css (main entry loading)*/
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline.pm-link-mail {
+  font-weight: 400;
+  color: var(--luna-link-mail-fg);
+  text-decoration-color: var(--luna-link-mail-decoration);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline.pm-link-mail:hover {
+  color: var(--link-hover);
+  text-decoration-color: color-mix(in srgb, var(--link-hover) 55%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline.pm-link-mail::before {
+  content: '📧';
+  display: inline-block;
+  width: auto;
+  height: auto;
+  margin-right: 0.28em;
+  vertical-align: -0.08em;
+  opacity: 0.9;
+  font-size: 0.88em;
+  line-height: 1;
+  background: none !important;
+  mask: none !important;
+  -webkit-mask: none !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline.pm-link-mail.pm-link-modifier-hint::before {
+  opacity: 1;
+}
+
+/*luna-asset attachment link: displays different icons by file type*/
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline.pm-link-asset {
+  color: var(--luna-link-asset-fg);
+  text-decoration-style: dashed;
+  text-decoration-color: var(--luna-link-asset-decoration);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline.pm-link-asset::before {
+  content: '';
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  margin-right: 0.28em;
+  vertical-align: -0.08em;
+  opacity: 0.88;
+  background-color: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpolyline points='14 2 14 8 20 8'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpolyline points='14 2 14 8 20 8'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline.pm-link-asset--pdf::before {
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpolyline points='14 2 14 8 20 8'/%3E%3Cline x1='8' y1='13' x2='16' y2='13'/%3E%3Cline x1='8' y1='17' x2='16' y2='17'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpolyline points='14 2 14 8 20 8'/%3E%3Cline x1='8' y1='13' x2='16' y2='13'/%3E%3Cline x1='8' y1='17' x2='16' y2='17'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline.pm-link-asset--word::before {
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpolyline points='14 2 14 8 20 8'/%3E%3Cline x1='8' y1='13' x2='16' y2='13'/%3E%3Cline x1='8' y1='17' x2='13' y2='17'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpolyline points='14 2 14 8 20 8'/%3E%3Cline x1='8' y1='13' x2='16' y2='13'/%3E%3Cline x1='8' y1='17' x2='13' y2='17'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline.pm-link-asset--zip::before {
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 8v13H3V8'/%3E%3Cpath d='M1 3h22v5H1z'/%3E%3Cpath d='M10 12h4'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 8v13H3V8'/%3E%3Cpath d='M1 3h22v5H1z'/%3E%3Cpath d='M10 12h4'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline.pm-link-asset--image::before {
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpath d='M21 15l-5-5L5 21'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpath d='M21 15l-5-5L5 21'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+/*Inline link: chain icon + title text*/
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline {
+  pointer-events: auto;
+  display: inline;
+  vertical-align: baseline;
+  color: var(--luna-link-inline-fg);
+  font-weight: 480;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  text-decoration-color: var(--luna-link-inline-decoration);
+  cursor: text;
+  transition:
+    color var(--reveal-color-duration, 110ms) var(--reveal-ease, ease),
+    text-decoration-color var(--reveal-bg-duration, 120ms) var(--reveal-ease, ease);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline:not(.pm-link-mail):not(.pm-link-asset)::before {
+  content: '';
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  margin-right: 0.28em;
+  vertical-align: -0.08em;
+  opacity: 0.88;
+  background-color: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline:hover {
+  color: color-mix(in srgb, var(--link) 82%, var(--text-primary));
+  text-decoration-color: color-mix(in srgb, var(--link) 46%, transparent);
+}
+
+/*Typora superscript/subscript: ^…^, ~…~*/
+.preview-pane.markdown-visual-editor .ProseMirror sup,
+.preview-pane.markdown-visual-editor .ProseMirror sub {
+  font-size: 0.78em;
+  line-height: 1;
+}
+
+/*External links that can be opened by Cmd/Ctrl hovering: pointer + light stroke, title set by script to "Cmd/Ctrl + Click..."*/
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline.pm-link-modifier-hint {
+  cursor: pointer;
+  color: var(--link-hover);
+  text-decoration-color: color-mix(in srgb, var(--link-hover) 72%, transparent);
+  outline: 1px dashed color-mix(in srgb, var(--link) 48%, transparent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.preview-pane.markdown-visual-editor .tiptap-editor-shell {
+  position: relative;
+}
+
+/*Markdown link reference definition [label]: url — double-click to edit source code (same column as title/code block)*/
+.preview-pane.markdown-visual-editor .ProseMirror > .pm-link-reference-def {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: min(var(--editor-column-width), 100%);
+  /*Do not use margin to abbreviate left and right as 0, otherwise it will overwrite the margin-left/right: auto of ProseMirror > **/
+  margin: 0.35rem auto 0.65rem;
+  padding: var(--reveal-block-pad-y) calc(var(--reveal-block-pad-x) + 0.1rem);
+  border-left: var(--reveal-block-bar-width) solid var(--luna-link-ref-def-border);
+  background: var(--reveal-block-index-bg);
+  border-radius: 0 var(--reveal-block-radius) var(--reveal-block-radius) 0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.76rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+  letter-spacing: 0.005em;
+  box-shadow: var(--luna-link-ref-def-shadow);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror > .pm-link-reference-def:hover {
+  color: color-mix(in srgb, var(--text-primary) 90%, var(--text-secondary));
+  background: var(--reveal-hover-bg);
+  box-shadow: none;
+}

@@ -1,0 +1,22 @@
+{
+  "id": "mocha-cream",
+  "name": "Mocha Cream",
+  "label": "Mocha Cream",
+  "family": "mocha-cream",
+  "variant": "dark",
+  "colors": {
+    "background": "#1e1e2e",
+    "foreground": "#cdd6f4",
+    "primary": "#cba6f7",
+    "border": "rgba(205, 214, 244, 0.12)",
+    "muted": "#6c7086"
+  },
+  "radius": {
+    "card": 18,
+    "control": 12
+  },
+  "spacing": {
+    "row": 16,
+    "section": 28
+  }
+}

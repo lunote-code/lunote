@@ -26,10 +26,12 @@ export type RenameDialogState = {
   root: string
   oldPath: string
   isDirectory: boolean
-  mode: 'rename' | 'newFolder' | 'newNote'
+  mode: 'rename' | 'newFolder' | 'newNote' | 'newNoteFromTemplate'
   parentPath: string
   /** Whether to open the new note in a tab after it is completed*/
   openInTab?: boolean
+  /** Optional template used to generate the new note body */
+  templatePath?: string
 }
 export type DeleteConfirmDialogState = {
   title: string

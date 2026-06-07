@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/core'
-import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import {
   acquireBlockTextareaFocus,
@@ -11,6 +11,7 @@ import { reconcileRemoteQueue, resumeRemotePatch } from '../../editor/codeBlockR
 import { useCodeBlockDraft } from '../../editor/codeBlockRuntime/useCodeBlock'
 import { setTextareaComposing } from '../../editor/nativeInput/selectionCycle'
 import { resetSelectionFrameForBlock } from '../../editor/nativeInput/selectionCycle/v2'
+import { debugMermaid } from '../../editor/mermaid/mermaidDebug'
 import { useMermaidSourceSession } from '../../editor/mermaid/MermaidSourceSession'
 import { installMermaidSourceTextareaHandlers } from '../../editor/mermaid/mermaidSourceTextareaHandlers'
 
@@ -18,6 +19,7 @@ type Props = {
   blockId: string
   editor: Editor
   isActive: boolean
+  preferredHeight?: number
 }
 
 /** CBR document stream textarea (Selection Cycle v2 frame barrier)*/
@@ -25,12 +27,16 @@ export const MermaidBlockSourceEditor = memo(function MermaidBlockSourceEditor({
   blockId,
   editor,
   isActive,
+  preferredHeight,
 }: Props) {
+  const minEditorHeight = 180
   const { setDraft, setComposing, setActiveBlockId } = useMermaidSourceSession()
   const draft = useCodeBlockDraft(blockId)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const manualHeightRef = useRef<number | null>(null)
   /** Frame N: Synchronize with DOM to avoid controlled value rolling back before N+1 commit*/
   const [pipelineDraft, setPipelineDraft] = useState<string | null>(null)
+  const [manualHeightVersion, setManualHeightVersion] = useState(0)
 
   const onDomAuthority = useCallback((value: string) => {
     setPipelineDraft(value)
@@ -48,10 +54,19 @@ export const MermaidBlockSourceEditor = memo(function MermaidBlockSourceEditor({
     setPipelineDraft(null)
   }, [])
 
+  const displayValue = pipelineDraft ?? draft
+
   useEffect(() => {
     const ta = textareaRef.current
     if (ta) resetSelectionFrameForBlock(ta, blockId)
   }, [blockId])
+
+  useLayoutEffect(() => {
+    const ta = textareaRef.current
+    if (!ta) return
+    const targetHeight = manualHeightRef.current ?? preferredHeight ?? 0
+    ta.style.height = `${Math.max(minEditorHeight, targetHeight)}px`
+  }, [blockId, preferredHeight, manualHeightVersion])
 
   useEffect(() => {
     const ta = textareaRef.current
@@ -64,9 +79,17 @@ export const MermaidBlockSourceEditor = memo(function MermaidBlockSourceEditor({
     })
   }, [blockId, onDomAuthority, syncNativeEdit, onPipelineComplete])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isActive) return
-    textareaRef.current?.focus()
+    debugMermaid('source_editor_activate', {
+      blockId,
+    })
+    const raf = requestAnimationFrame(() => {
+      const ta = textareaRef.current
+      if (!ta) return
+      ta.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(raf)
   }, [isActive, blockId])
 
   const onChange = useCallback(
@@ -96,8 +119,11 @@ export const MermaidBlockSourceEditor = memo(function MermaidBlockSourceEditor({
 
   const onFocus = useCallback(
     (e: React.FocusEvent<HTMLTextAreaElement>) => {
+      debugMermaid('source_editor_focus', {
+        blockId,
+        valueLength: e.currentTarget.value.length,
+      })
       acquireBlockTextareaFocus(blockId, e.currentTarget, editor)
-      editor.commands.blur()
       setActiveBlockId(blockId)
     },
     [editor, blockId, setActiveBlockId],
@@ -105,6 +131,10 @@ export const MermaidBlockSourceEditor = memo(function MermaidBlockSourceEditor({
 
   const onBlur = useCallback(
     (e: React.FocusEvent<HTMLTextAreaElement>) => {
+      debugMermaid('source_editor_blur', {
+        blockId,
+        valueLength: e.currentTarget.value.length,
+      })
       releaseBlockTextareaFocus(e.currentTarget, editor)
       resumeRemotePatch(blockId)
       reconcileRemoteQueue(blockId)
@@ -112,25 +142,63 @@ export const MermaidBlockSourceEditor = memo(function MermaidBlockSourceEditor({
     [editor, blockId],
   )
 
-  const displayValue = pipelineDraft ?? draft
+  const onResizeHandleMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const ta = textareaRef.current
+      if (!ta) return
+      const startY = e.clientY
+      const startHeight = ta.getBoundingClientRect().height
+      const prevUserSelect = document.body.style.userSelect
+      const prevCursor = document.body.style.cursor
+      document.body.style.userSelect = 'none'
+      document.body.style.cursor = 'ns-resize'
+
+      const onMove = (event: MouseEvent) => {
+        const nextHeight = Math.max(minEditorHeight, Math.round(startHeight + event.clientY - startY))
+        manualHeightRef.current = nextHeight
+        ta.style.height = `${nextHeight}px`
+      }
+      const onUp = () => {
+        document.body.style.userSelect = prevUserSelect
+        document.body.style.cursor = prevCursor
+        setManualHeightVersion((value) => value + 1)
+        window.removeEventListener('mousemove', onMove)
+        window.removeEventListener('mouseup', onUp)
+      }
+
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
+    },
+    [minEditorHeight],
+  )
 
   return (
-    <textarea
-      ref={textareaRef}
-      className={`code-block-input pm-mermaid-source-panel ${CODE_BLOCK_INPUT_CLASS}`}
-      data-mermaid-block-id={blockId}
-      data-code-block-input=""
-      data-native-input=""
-      tabIndex={0}
-      value={displayValue}
-      onChange={onChange}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      draggable={false}
-      onCompositionStart={onCompositionStart}
-      onCompositionEnd={onCompositionEnd}
-      spellCheck={false}
-      aria-label="Mermaid source code"
-    />
+    <div className="pm-mermaid-source-frame">
+      <textarea
+        ref={textareaRef}
+        className={`code-block-input pm-mermaid-source-panel ${CODE_BLOCK_INPUT_CLASS}`}
+        data-mermaid-block-id={blockId}
+        data-code-block-input=""
+        data-native-input=""
+        tabIndex={0}
+        value={displayValue}
+        onChange={onChange}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        draggable={false}
+        onCompositionStart={onCompositionStart}
+        onCompositionEnd={onCompositionEnd}
+        spellCheck={false}
+        aria-label="Mermaid source code"
+      />
+      <div
+        className="pm-mermaid-source-resize-handle"
+        role="presentation"
+        aria-hidden="true"
+        onMouseDown={onResizeHandleMouseDown}
+      />
+    </div>
   )
 })

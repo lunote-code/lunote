@@ -22,6 +22,7 @@ export const LunaCodeToolbarButton = memo(
       children,
       className = '',
       onMouseDown,
+      onPointerDown,
       ...rest
     },
     ref,
@@ -29,14 +30,31 @@ export const LunaCodeToolbarButton = memo(
     const v = variant === 'chip' ? 'luna-btn--chip' : 'luna-btn--icon'
     const merged = ['luna-btn', v, className].filter(Boolean).join(' ')
 
-    const handleMouseDown = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const stopBubbleToPm = (e: React.SyntheticEvent<HTMLButtonElement>) => {
       e.stopPropagation()
+    }
+
+    const handleMouseDown = (e: React.MouseEvent<HTMLButtonElement>) => {
+      stopBubbleToPm(e)
       if (preventMouseDownDefault) e.preventDefault()
       onMouseDown?.(e)
     }
 
+    const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+      stopBubbleToPm(e)
+      onPointerDown?.(e)
+    }
+
     return (
-      <button ref={ref} type="button" className={merged} aria-pressed={pressed} {...rest} onMouseDown={handleMouseDown}>
+      <button
+        ref={ref}
+        type="button"
+        className={merged}
+        aria-pressed={pressed}
+        {...rest}
+        onPointerDown={handlePointerDown}
+        onMouseDown={handleMouseDown}
+      >
         {children}
       </button>
     )

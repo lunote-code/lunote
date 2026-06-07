@@ -143,6 +143,25 @@ export function resolveCanonicalLanguageId(raw: string): string | null {
   return null
 }
 
+/** CJK-heavy samples should not use highlightAuto (word splitting breaks gutter line metrics). */
+export function shouldAvoidHighlightAuto(text: string): boolean {
+  if (!text.length) return false
+  let cjk = 0
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0
+    if (
+      (code >= 0x4e00 && code <= 0x9fff) ||
+      (code >= 0x3400 && code <= 0x4dbf) ||
+      (code >= 0xf900 && code <= 0xfaff) ||
+      (code >= 0x3040 && code <= 0x30ff) ||
+      (code >= 0xac00 && code <= 0xd7af)
+    ) {
+      cjk += 1
+    }
+  }
+  return cjk / text.length >= 0.12
+}
+
 /** Cmd+Shift+K / Plain text code block: no lowlight syntax coloring (to avoid highlightAuto word splitting causing Chinese baseline dislocation)*/
 export function isPlainCodeBlockLanguage(raw: string | null | undefined): boolean {
   const c = norm(String(raw ?? ''))

@@ -1,0 +1,197 @@
+/**
+ * Pre-React boot shell + ready crossfade. Linked from index.html before JS;
+ * also @import from src/index.css after bundle load.
+ */
+.boot-stage {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.boot-shell-layer,
+.boot-app-layer {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.boot-shell-layer {
+  z-index: 1;
+  opacity: 1;
+  transition: opacity 160ms ease-out;
+}
+
+.boot-shell-layer--exit {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.boot-app-layer {
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease-out;
+}
+
+.boot-app-layer--enter {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-shell-layer,
+  .boot-app-layer {
+    transition: none;
+  }
+}
+
+.boot-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface-app, #0d1117);
+}
+
+.boot-shell-layout {
+  --boot-sidebar-width: 310px;
+  --boot-toolbar-h: 40px;
+  --boot-tabs-h: 36px;
+  display: grid;
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.boot-shell-layout.with-sidebar {
+  grid-template-columns: minmax(0, var(--boot-sidebar-width)) 6px minmax(0, 1fr);
+}
+
+.boot-shell-sidebar {
+  background: var(--surface-panel, rgba(22, 27, 34, 0.92));
+  border-right: none;
+}
+
+.boot-shell-splitter {
+  background: transparent;
+}
+
+.boot-shell-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface-editor, #0d1117);
+}
+
+.boot-shell-toolbar {
+  flex-shrink: 0;
+  height: var(--boot-toolbar-h);
+  border-bottom: 0.5px solid var(--border-subtle, rgba(240, 246, 252, 0.1));
+  background: var(--surface-panel, rgba(22, 27, 34, 0.92));
+}
+
+.boot-shell-tabs {
+  flex-shrink: 0;
+  height: var(--boot-tabs-h);
+  border-bottom: 0.5px solid var(--border-subtle, rgba(240, 246, 252, 0.1));
+  background: color-mix(in srgb, var(--surface-panel, rgba(22, 27, 34, 0.92)) 88%, var(--surface-app, #0d1117));
+}
+
+.boot-shell-editor {
+  flex: 1 1 0;
+  min-height: 0;
+  background: var(--surface-editor, #0d1117);
+}
+
+/* Fallback panel colors before theme-presets.css (html attrs set by boot-early-theme.js) */
+html:not([data-theme-css-file])[data-theme-preset='github'][data-theme='light'] .boot-shell {
+  background: #f6f8fa;
+}
+html:not([data-theme-css-file])[data-theme-preset='github'][data-theme='light'] .boot-shell-sidebar,
+html:not([data-theme-css-file])[data-theme-preset='github'][data-theme='light'] .boot-shell-toolbar {
+  background: rgba(255, 255, 255, 0.92);
+}
+html:not([data-theme-css-file])[data-theme-preset='github'][data-theme='light'] .boot-shell-tabs {
+  background: color-mix(in srgb, rgba(255, 255, 255, 0.92) 88%, #f6f8fa);
+}
+html:not([data-theme-css-file])[data-theme-preset='github'][data-theme='light'] .boot-shell-main,
+html:not([data-theme-css-file])[data-theme-preset='github'][data-theme='light'] .boot-shell-editor {
+  background: #ffffff;
+}
+
+html:not([data-theme-css-file])[data-theme-preset='github'][data-theme='dark'] .boot-shell {
+  background: #0d1117;
+}
+html:not([data-theme-css-file])[data-theme-preset='github'][data-theme='dark'] .boot-shell-sidebar,
+html:not([data-theme-css-file])[data-theme-preset='github'][data-theme='dark'] .boot-shell-toolbar {
+  background: rgba(22, 27, 34, 0.92);
+}
+html:not([data-theme-css-file])[data-theme-preset='github'][data-theme='dark'] .boot-shell-tabs {
+  background: color-mix(in srgb, rgba(22, 27, 34, 0.92) 88%, #0d1117);
+}
+html:not([data-theme-css-file])[data-theme-preset='github'][data-theme='dark'] .boot-shell-main,
+html:not([data-theme-css-file])[data-theme-preset='github'][data-theme='dark'] .boot-shell-editor {
+  background: #0d1117;
+}
+
+html:not([data-theme-css-file])[data-theme-preset='idea'][data-theme='light'] .boot-shell {
+  background: #e8e8e8;
+}
+html:not([data-theme-css-file])[data-theme-preset='idea'][data-theme='light'] .boot-shell-sidebar,
+html:not([data-theme-css-file])[data-theme-preset='idea'][data-theme='light'] .boot-shell-toolbar {
+  background: rgba(245, 245, 245, 0.95);
+}
+html:not([data-theme-css-file])[data-theme-preset='idea'][data-theme='light'] .boot-shell-main,
+html:not([data-theme-css-file])[data-theme-preset='idea'][data-theme='light'] .boot-shell-editor {
+  background: #ffffff;
+}
+
+html:not([data-theme-css-file])[data-theme-preset='idea'][data-theme='dark'] .boot-shell {
+  background: #2b2b2b;
+}
+html:not([data-theme-css-file])[data-theme-preset='idea'][data-theme='dark'] .boot-shell-sidebar,
+html:not([data-theme-css-file])[data-theme-preset='idea'][data-theme='dark'] .boot-shell-toolbar {
+  background: rgba(43, 43, 43, 0.96);
+}
+html:not([data-theme-css-file])[data-theme-preset='idea'][data-theme='dark'] .boot-shell-main,
+html:not([data-theme-css-file])[data-theme-preset='idea'][data-theme='dark'] .boot-shell-editor {
+  background: #2b2b2b;
+}
+
+html:not([data-theme-css-file])[data-theme-preset='dim'][data-theme='light'] .boot-shell {
+  background: #d8dee9;
+}
+html:not([data-theme-css-file])[data-theme-preset='dim'][data-theme='light'] .boot-shell-sidebar,
+html:not([data-theme-css-file])[data-theme-preset='dim'][data-theme='light'] .boot-shell-toolbar {
+  background: rgba(236, 239, 244, 0.95);
+}
+html:not([data-theme-css-file])[data-theme-preset='dim'][data-theme='light'] .boot-shell-main,
+html:not([data-theme-css-file])[data-theme-preset='dim'][data-theme='light'] .boot-shell-editor {
+  background: #eceff4;
+}
+
+html:not([data-theme-css-file])[data-theme-preset='dim'][data-theme='dark'] .boot-shell {
+  background: #1e2030;
+}
+html:not([data-theme-css-file])[data-theme-preset='dim'][data-theme='dark'] .boot-shell-sidebar,
+html:not([data-theme-css-file])[data-theme-preset='dim'][data-theme='dark'] .boot-shell-toolbar {
+  background: rgba(35, 38, 52, 0.96);
+}
+html:not([data-theme-css-file])[data-theme-preset='dim'][data-theme='dark'] .boot-shell-main,
+html:not([data-theme-css-file])[data-theme-preset='dim'][data-theme='dark'] .boot-shell-editor {
+  background: #232634;
+}

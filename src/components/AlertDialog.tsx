@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import { useFocusTrap } from '../lib/useFocusTrap'
 
 export type AlertDialogProps = {
   open: boolean
@@ -9,6 +10,11 @@ export type AlertDialogProps = {
 }
 
 export function AlertDialog({ open, title, message, okLabel, onClose }: AlertDialogProps) {
+  const dialogRef = useRef<HTMLDivElement | null>(null)
+  const okButtonRef = useRef<HTMLButtonElement | null>(null)
+
+  useFocusTrap(open, dialogRef.current, { initialFocus: okButtonRef.current, onEscape: onClose })
+
   useEffect(() => {
     if (!open) return
     const onKey = (event: KeyboardEvent) => {
@@ -23,6 +29,7 @@ export function AlertDialog({ open, title, message, okLabel, onClose }: AlertDia
   return (
     <div className="about-modal-backdrop confirm-modal-backdrop" role="presentation" onClick={onClose}>
       <div
+        ref={dialogRef}
         className="about-modal confirm-modal"
         role="alertdialog"
         aria-modal="true"
@@ -43,7 +50,12 @@ export function AlertDialog({ open, title, message, okLabel, onClose }: AlertDia
         <p id="alert-dialog-desc" className="about-modal-desc confirm-modal-desc alert-modal-desc">
           {message}
         </p>
-        <button type="button" className="about-modal-close confirm-modal-single-ok" onClick={onClose}>
+        <button
+          ref={okButtonRef}
+          type="button"
+          className="about-modal-close confirm-modal-single-ok"
+          onClick={onClose}
+        >
           {okLabel}
         </button>
       </div>

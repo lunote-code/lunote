@@ -1,166 +1,167 @@
 /**
- * Visual code block syntax highlighting color (consistent with github / github-dark used by export).
- * LunaLowlightPlugin labels the token with .hljs-* class through Decoration, and the corresponding colors are provided here.
+ * Visual code block syntax highlighting — semantic theme tokens (follow preset + light/dark).
+ * LunaLowlightPlugin applies .hljs-* classes via Decoration; fenced figures reuse the same palette.
  */
 
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content.hljs {
-  color: #24292e;
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content.hljs,
+.preview-pane .markdown-pre-figure pre code.hljs,
+.markdown-body .markdown-pre-figure pre code.hljs {
+  color: var(--text-primary);
 }
 
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-doctag,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-keyword,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-meta .hljs-keyword,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-template-tag,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-template-variable,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-type,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-variable.language_ {
-  color: #d73a49;
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-doctag,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-keyword,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-meta .hljs-keyword,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-template-tag,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-template-variable,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-type,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-variable.language_,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-doctag,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-keyword,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-meta .hljs-keyword,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-template-tag,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-template-variable,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-type,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-variable.language_,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-doctag,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-keyword,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-meta .hljs-keyword,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-template-tag,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-template-variable,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-type,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-variable.language_ {
+  color: color-mix(in srgb, var(--luna-color-danger) 82%, var(--text-primary));
 }
 
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-title,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-title.class_,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-title.class_.inherited__,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-title.function_ {
-  color: #6f42c1;
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-title,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-title.class_,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-title.class_.inherited__,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-title.function_,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-title,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-title.class_,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-title.class_.inherited__,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-title.function_,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-title,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-title.class_,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-title.class_.inherited__,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-title.function_ {
+  color: var(--link-visited);
 }
 
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-attr,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-attribute,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-literal,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-meta,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-number,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-operator,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-selector-attr,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-selector-class,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-selector-id,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-variable {
-  color: #005cc5;
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-attr,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-attribute,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-literal,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-meta,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-number,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-operator,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-selector-attr,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-selector-class,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-selector-id,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-variable,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-attr,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-attribute,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-literal,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-meta,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-number,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-operator,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-selector-attr,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-selector-class,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-selector-id,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-variable,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-attr,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-attribute,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-literal,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-meta,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-number,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-operator,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-selector-attr,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-selector-class,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-selector-id,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-variable {
+  color: var(--link);
 }
 
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-meta .hljs-string,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-regexp,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-string {
-  color: #032f62;
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-meta .hljs-string,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-regexp,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-string,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-meta .hljs-string,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-regexp,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-string,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-meta .hljs-string,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-regexp,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-string {
+  color: color-mix(in srgb, var(--link) 68%, var(--text-secondary));
 }
 
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-built_in,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-symbol {
-  color: #e36209;
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-built_in,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-symbol,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-built_in,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-symbol,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-built_in,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-symbol {
+  color: var(--luna-color-warning);
 }
 
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-code,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-comment,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-formula {
-  color: #6a737d;
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-code,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-comment,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-formula,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-code,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-comment,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-formula,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-code,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-comment,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-formula {
+  color: var(--text-muted);
 }
 
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-name,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-quote,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-selector-pseudo,
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-selector-tag {
-  color: #22863a;
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-name,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-quote,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-selector-pseudo,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-selector-tag,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-name,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-quote,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-selector-pseudo,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-selector-tag,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-name,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-quote,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-selector-pseudo,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-selector-tag {
+  color: var(--luna-color-success);
 }
 
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-subst {
-  color: #24292e;
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-subst,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-emphasis,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-strong,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-subst,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-emphasis,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-strong,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-subst,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-emphasis,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-strong {
+  color: var(--text-primary);
 }
 
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-section {
-  color: #005cc5;
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-section,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-section,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-section {
+  color: var(--link);
   font-weight: 700;
 }
 
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-bullet {
-  color: #735c0f;
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-bullet,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-bullet,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-bullet {
+  color: var(--luna-color-warning-muted, var(--luna-color-warning));
 }
 
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-emphasis {
-  color: #24292e;
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-emphasis,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-emphasis,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-emphasis {
   font-style: italic;
 }
 
-html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-strong {
-  color: #24292e;
-  font-weight: 700;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content.hljs {
-  color: #c9d1d9;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-doctag,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-keyword,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-meta .hljs-keyword,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-template-tag,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-template-variable,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-type,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-variable.language_ {
-  color: #ff7b72;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-title,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-title.class_,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-title.class_.inherited__,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-title.function_ {
-  color: #d2a8ff;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-attr,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-attribute,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-literal,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-meta,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-number,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-operator,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-selector-attr,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-selector-class,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-selector-id,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-variable {
-  color: #79c0ff;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-meta .hljs-string,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-regexp,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-string {
-  color: #a5d6ff;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-built_in,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-symbol {
-  color: #ffa657;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-code,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-comment,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-formula {
-  color: #8b949e;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-name,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-quote,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-selector-pseudo,
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-selector-tag {
-  color: #7ee787;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-subst {
-  color: #c9d1d9;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-section {
-  color: #1f6feb;
-  font-weight: 700;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-bullet {
-  color: #f2cc60;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-emphasis {
-  color: #c9d1d9;
-  font-style: italic;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-strong {
-  color: #c9d1d9;
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .hljs-strong,
+.preview-pane .markdown-pre-figure pre code.hljs .hljs-strong,
+.markdown-body .markdown-pre-figure pre code.hljs .hljs-strong {
   font-weight: 700;
 }

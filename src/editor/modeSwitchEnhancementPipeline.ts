@@ -5,6 +5,9 @@ import {
   reportModeSwitchFreezeFailure,
 } from './modeSwitchFreezeFailure'
 import type { ModeSwitchAnchorPayload } from './modeSwitchFSM'
+import { projectModeSwitchSourceBuffer } from '../lib/editorContentSync'
+import { syncDocumentFrontmatterFromMarkdown } from './documentFrontmatterStore'
+import { sourceSelectionToBodySelection, splitFullSourceMarkdown } from './documentFrontmatterOffsets'
 import { getSourceModeIdentity, setSourceModeIdentity } from './sourceModeIdentity'
 import { freezeReturningToVisualSnapshot } from './modeSwitchSnapshot'
 import type { CaptureVisualToSourceResult, TiptapMarkdownEditorHandle } from './TiptapMarkdownEditor'
@@ -42,7 +45,7 @@ export type SourceToVisualEnhancementCtx = {
  */
 export function runVisualToSourceEnhancement(ctx: VisualToSourceEnhancementCtx): void {
   const dk = ctx.documentKey
-  const markdown = getSourceModeIdentity(dk) ?? ctx.contentFallback
+  const projected = projectModeSwitchSourceBuffer(dk, getSourceModeIdentity(dk) ?? ctx.contentFallback)
   let sourceEnter: SourceModeEnterAnchor | null = null
 
   const v = ctx.visualEditor
@@ -53,12 +56,23 @@ export function runVisualToSourceEnhancement(ctx: VisualToSourceEnhancementCtx):
     }
   }
 
-  ctx.renderContent(markdown)
+  ctx.renderContent(projected.editorSurface)
 
   if (sourceEnter) {
+    const prefix = projected.frontmatterPrefixLength
+    const shiftedEnter: SourceModeEnterAnchor =
+      prefix > 0
+        ? {
+            ...sourceEnter,
+            cmAnchor: sourceEnter.cmAnchor + prefix,
+            cmHead: sourceEnter.cmHead + prefix,
+            bufferLength: projected.sourceIdentity.length,
+            frontmatterPrefixLengthAtCapture: prefix,
+          }
+        : sourceEnter
     ctx.pendingSourceModeAnchorRef.current = sourceEnter
     try {
-      viewportAnchorEngine.recordAnchorLeavingEditor(sourceEnter)
+      viewportAnchorEngine.recordAnchorLeavingEditor(shiftedEnter)
     } catch (e) {
       reportModeSwitchFreezeFailure(e, { documentKey: dk, phase: 'recordAnchorLeavingEditor' })
     }
@@ -66,7 +80,7 @@ export function runVisualToSourceEnhancement(ctx: VisualToSourceEnhancementCtx):
     ctx.onApplyingAnchor()
     const cm = ctx.editorView
     if (cm) {
-      ctx.runCmEnterPipeline(cm, sourceEnter)
+      ctx.runCmEnterPipeline(cm, shiftedEnter)
     }
   } else {
     ctx.pendingSourceModeAnchorRef.current = null
@@ -81,7 +95,10 @@ export function runSourceToVisualEnhancement(ctx: SourceToVisualEnhancementCtx):
   const dk = ctx.documentKey
   const cm = ctx.editorView
   const md = cm?.state.doc.toString() ?? ''
-  if (md) setSourceModeIdentity(dk, md)
+  if (md) {
+    setSourceModeIdentity(dk, md)
+    syncDocumentFrontmatterFromMarkdown(dk, md)
+  }
 
   const pend = ctx.pendingSourceModeAnchorRef.current
   ctx.pendingSourceModeAnchorRef.current = null
@@ -108,20 +125,27 @@ export function runSourceToVisualEnhancement(ctx: SourceToVisualEnhancementCtx):
 
   const cmAnchor = cm.state.selection.main.anchor
   const cmHead = cm.state.selection.main.head
+  const { body: editorSurface, frontmatterPrefixLength } = splitFullSourceMarkdown(md)
+  const bodySel = sourceSelectionToBodySelection(
+    cmAnchor,
+    cmHead,
+    frontmatterPrefixLength,
+    editorSurface.length,
+  )
 
   try {
     const merged = freezeReturningToVisualSnapshot(pend.modeSwitchSnapshot, {
-      markdown: md,
-      anchor: cmAnchor,
-      head: cmHead,
+      markdown: editorSurface,
+      anchor: bodySel.bodyAnchor,
+      head: bodySel.bodyHead,
     })
     const frozenMd = merged.canonicalBuffer
     const visualRestore: VisualModeRestorePayload = {
       documentKey: dk,
       bufferLength: frozenMd.length,
-      bridgeId: makeModeBridgeId(dk, cmAnchor, cmHead),
-      cmAnchor,
-      cmHead,
+      bridgeId: makeModeBridgeId(dk, bodySel.bodyAnchor, bodySel.bodyHead),
+      cmAnchor: bodySel.bodyAnchor,
+      cmHead: bodySel.bodyHead,
       hierarchical: merged.hierarchical ?? pend.hierarchical ?? null,
       captureFrameId: merged.captureFrameId,
       modeSwitchSnapshot: merged,

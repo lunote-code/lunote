@@ -24,6 +24,7 @@
     "file_export_image": "Image",
     "file_export_pdf": "PDF",
     "file_export_word": "Word",
+    "file_history_bar": "Historique des versions",
     "file_import": "Importer",
     "file_new": "Nouveau",
     "file_new_tab": "Nouvel onglet",
@@ -82,11 +83,11 @@
     "fmt_strike": "Barré",
     "fmt_underline": "Souligné",
     "format_menu": "Format",
-    "native_app_hide": "Masquer Luna Note",
+    "native_app_hide": "Masquer Lunote",
     "native_app_hide_others": "Masquer les autres",
     "native_app_show_all": "Tout afficher",
-    "native_app_quit": "Quitter Luna Note",
-    "native_help_about": "À propos de Luna Note",
+    "native_app_quit": "Quitter Lunote",
+    "native_help_about": "À propos de Lunote",
     "native_help_bar": "Aide",
     "native_help_feedback": "Envoyer des commentaires",
     "native_help_privacy": "Confidentialité",
@@ -161,7 +162,7 @@
     "window_menu": "Fenêtre"
   },
   "tray": {
-    "placeholder": "Luna Note"
+    "placeholder": "Lunote"
   },
   "dialog": {
     "placeholder": "Reserved"

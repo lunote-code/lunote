@@ -184,6 +184,33 @@ export function unescapeWikiLinksInMarkdown(text: string): string {
   return text.replace(/\\\[\\\[/gu, '[[').replace(/\\\]\\\]/gu, ']]')
 }
 
+const WIKI_LINK_SPAN_RE = /(!)?\[\[[^\]]*\]\]/gu
+
+/** Remove serializer/legacy `\^` block-ref escapes inside wiki links so PM text and markdown align.*/
+export function normalizeWikiLinkBlockRefEscapesInMarkdown(text: string): string {
+  return text.replace(WIKI_LINK_SPAN_RE, (wiki) => wiki.replace(/\\(\^)/gu, '$1'))
+}
+
+/** Remap a source-mode offset after {@link normalizeWikiLinkBlockRefEscapesInMarkdown}.*/
+export function originalToNormalizedAfterWikiBlockRefUnescape(original: string, pos: number): number {
+  if (!Number.isFinite(pos) || pos <= 0) return Math.max(0, pos)
+  let delta = 0
+  WIKI_LINK_SPAN_RE.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = WIKI_LINK_SPAN_RE.exec(original)) !== null) {
+    if (m.index >= pos) break
+    const wiki = m[0]
+    const wikiStart = m.index
+    for (let j = 0; j < wiki.length - 1; j += 1) {
+      if (wiki[j] === '\\' && wiki[j + 1] === '^') {
+        const abs = wikiStart + j
+        if (abs < pos) delta += 1
+      }
+    }
+  }
+  return Math.max(0, pos - delta)
+}
+
 export function parseDocumentKnowledge(content: string): {
   frontmatter: Record<string, unknown>
   body: string

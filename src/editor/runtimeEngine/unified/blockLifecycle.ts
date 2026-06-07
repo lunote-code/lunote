@@ -21,7 +21,6 @@ const suspendedBlocks = new Set<string>()
 export function mountBlockLifecycle(blockId: string): void {
   if (!blockId) return
   suspendedBlocks.delete(blockId)
-  markBlockNearViewport(blockId)
   transitionBlockPhase(blockId, 'mount')
 }
 

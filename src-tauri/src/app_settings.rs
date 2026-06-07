@@ -122,12 +122,24 @@ pub fn read_app_settings(app: &AppHandle) -> AppSettings {
 
 pub fn read_app_settings_from_disk() -> AppSettings {
   let Ok(path) = settings_path() else {
+    log::warn!("[app-settings] read_app_settings: settings path unavailable");
     return AppSettings::default();
   };
   let Ok(bytes) = fs::read(&path) else {
+    log::warn!(
+      "[app-settings] read_app_settings: missing file {}",
+      path.display()
+    );
     return AppSettings::default();
   };
-  serde_json::from_slice(&bytes).unwrap_or_default()
+  let settings: AppSettings = serde_json::from_slice(&bytes).unwrap_or_default();
+  log::info!(
+    "[app-settings] read_app_settings language={} last_workspace_root={:?} last_workspace_id={:?}",
+    settings.language,
+    settings.last_workspace_root,
+    settings.last_workspace_id
+  );
+  settings
 }
 
 pub fn write_app_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), String> {

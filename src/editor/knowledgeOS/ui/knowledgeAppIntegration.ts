@@ -10,6 +10,11 @@ import {
   parseChangedDocument,
   vaultIdFromRoot,
 } from '../../knowledgeRuntime'
+import {
+  clearDocumentFrontmatter,
+  migrateDocumentFrontmatterPath,
+  syncDocumentFrontmatterFromMarkdown,
+} from '../../documentFrontmatterStore'
 import { persistKnowledgeUILayout } from '../knowledgeWorkspaceRuntime'
 import {
   absolutePathToDocKeyOs,
@@ -110,15 +115,18 @@ export function indexWorkspaceFiles(
 }
 
 export function notifyKnowledgeDocumentOpen(path: AbsoluteDocPath, content: string, rootDir: string): void {
+  syncDocumentFrontmatterFromMarkdown(path, content)
   parseChangedDocument(path, content, rootDir)
   openNoteInWorkspace(path, absolutePathToDocKeyOs(path, rootDir))
 }
 
 export function notifyKnowledgeDocumentSave(path: AbsoluteDocPath, content: string): void {
+  syncDocumentFrontmatterFromMarkdown(path, content)
   onKnowledgeDocumentSaved(path, content)
 }
 
 export function notifyKnowledgeDocumentRename(fromPath: AbsoluteDocPath, toPath: AbsoluteDocPath): void {
+  migrateDocumentFrontmatterPath(fromPath, toPath)
   onKnowledgeDocumentRenamed(fromPath, toPath)
 }
 
@@ -141,6 +149,7 @@ export function syncKnowledgeVaultFilePathChange(
 }
 
 export function notifyKnowledgeDocumentRemove(path: AbsoluteDocPath): void {
+  clearDocumentFrontmatter(path)
   onKnowledgeDocumentRemoved(path)
 }
 

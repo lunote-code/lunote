@@ -3,8 +3,14 @@ import type { Extension } from '@codemirror/state'
 import { EditorSelection } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 
-import { scrollCodeMirrorViewToPos } from './caretAnchorScroll'
+import { applyCodeMirrorCaretAnchorScroll, scrollCodeMirrorToLineBlock } from './caretAnchorScroll'
 import { createModeSwitchEditorState } from './createModeSwitchEditorState'
+import {
+  MODE_SWITCH_POST_SELECTION_STABLE_FRAMES,
+  POST_SCROLL_CARET_REFINE_FRAMES,
+  PRE_FOCUS_STABLE_FRAMES,
+  waitLayoutStabilizationBarrier,
+} from './layoutStabilization'
 import { debugModeSwitch, describeScrollMetrics, describeSelectionInText } from './modeSwitchDebug'
 import { EditorOpenReason, type EditorOpenReason as EditorSurfaceOpenReason } from './editorOpenReason'
 
@@ -22,7 +28,7 @@ export type SourceCodeMirrorPaneProps = {
   extensions: Extension[]
   onChange: (value: string) => void
   onViewReady?: (view: EditorView) => void
-  onFilesDrop?: (files: File[]) => Promise<string[]>
+  onFilesDrop?: (files: File[]) => Promise<void>
   className?: string
   style?: CSSProperties
 }
@@ -30,8 +36,24 @@ export type SourceCodeMirrorPaneProps = {
 /**
  * Source editor: **Single** `EditorState.create` every time `mountKey` changes.
  * ColdOpen: only doc+extensions, no dispatch/focus/scroll.
- * There is `restoreSelection`: the selection is written in create; the viewport is written in `scrollIntoView` in `requestMeasure`.
+ * There is `restoreSelection`: the selection is written in create; the viewport follows the same caret-anchor path as visual mode restore.
  */
+function applySourceScrollRatio(
+  scrollDOM: HTMLElement,
+  tabScrollTop: number | null,
+  tabScrollRatio: number | null,
+): void {
+  const max = Math.max(0, scrollDOM.scrollHeight - scrollDOM.clientHeight)
+  if (max <= 0) return
+  if (tabScrollTop != null) {
+    scrollDOM.scrollTop = Math.max(0, Math.min(tabScrollTop, max))
+    return
+  }
+  if (tabScrollRatio != null) {
+    scrollDOM.scrollTop = Math.max(0, Math.min(max * tabScrollRatio, max))
+  }
+}
+
 export function SourceCodeMirrorPane({
   mountKey,
   doc,
@@ -62,8 +84,10 @@ export function SourceCodeMirrorPane({
     if (!wrapper || !root) return
 
     if (import.meta.env.DEV) {
-       
-      console.warn('[CM_DOM_INSTANCE]', { mountKey, node: wrapper })
+      debugModeSwitch('[mode-switch][source-pane][dom-instance]', {
+        mountKey,
+        hasNode: Boolean(wrapper),
+      })
     }
 
     const syncExt: Extension = EditorView.updateListener.of((vu) => {
@@ -74,13 +98,14 @@ export function SourceCodeMirrorPane({
     const effectiveRestore = restoreSelection ?? null
 
     if (openReason === EditorOpenReason.ColdOpen && effectiveRestore != null && import.meta.env.DEV) {
-       
-      console.warn('[CM_COLD_OPEN_WITH_RESTORE]', { mountKey, restoreSelection: effectiveRestore })
+      debugModeSwitch('[mode-switch][source-pane][cold-open-with-restore]', {
+        mountKey,
+        restoreSelection: effectiveRestore,
+      })
     }
 
     if (import.meta.env.DEV) {
-       
-      console.warn('[CM_BOOT]', {
+      debugModeSwitch('[mode-switch][source-pane][boot]', {
         mountKey,
         hasRestoreSelection: effectiveRestore != null,
         restoreSelection: effectiveRestore,
@@ -134,15 +159,11 @@ export function SourceCodeMirrorPane({
         effectiveRestore.scrollRatio != null && Number.isFinite(effectiveRestore.scrollRatio)
           ? Math.max(0, Math.min(1, effectiveRestore.scrollRatio))
           : null
-
-      const waitForViewportReady = (attempt: number, run: () => void): void => {
-        const h = view.scrollDOM.clientHeight
-        if (h > 0 || attempt >= MAX_VIEWPORT_RESTORE_RAF_RETRIES) {
-          run()
-          return
-        }
-        requestAnimationFrame(() => waitForViewportReady(attempt + 1, run))
-      }
+      const head = EditorSelection.single(
+        Math.max(0, Math.min(effectiveRestore.from, len)),
+        Math.max(0, Math.min(effectiveRestore.to, len)),
+      ).main.head
+      const cancelled = () => Boolean((view as unknown as { destroyed?: boolean }).destroyed)
 
       const logViewportRestore = (result: 'scroll_nearby' | 'scroll_centered' | 'scroll_skipped', extra?: object) => {
         debugModeSwitch('[mode-switch][source-pane][viewport-restore]', {
@@ -160,32 +181,83 @@ export function SourceCodeMirrorPane({
         })
       }
 
-      if (tabScrollTop != null || tabScrollRatio != null) {
-        waitForViewportReady(0, () => {
-          const max = Math.max(0, view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight)
-          const nextTop =
-            tabScrollTop != null ? Math.max(0, Math.min(tabScrollTop, max)) : Math.max(0, Math.min(max * (tabScrollRatio ?? 0), max))
-          view.scrollDOM.scrollTop = nextTop
-          view.focus()
-          logViewportRestore('scroll_nearby', { appliedScrollTop: nextTop })
+      const restoreViewport = async () => {
+        for (let attempt = 0; attempt <= MAX_VIEWPORT_RESTORE_RAF_RETRIES; attempt++) {
+          if (cancelled()) return
+          if (view.scrollDOM.clientHeight > 0) break
+          const ready = await waitLayoutStabilizationBarrier(1, cancelled)
+          if (!ready) return
+        }
+        if (cancelled()) return
+
+        const layoutStable = await waitLayoutStabilizationBarrier(
+          MODE_SWITCH_POST_SELECTION_STABLE_FRAMES,
+          cancelled,
+        )
+        if (!layoutStable || cancelled()) return
+
+        const focusStable = await waitLayoutStabilizationBarrier(PRE_FOCUS_STABLE_FRAMES, cancelled)
+        if (!focusStable || cancelled()) return
+
+        const calibrationEl = view.contentDOM as HTMLElement
+        let result: 'scroll_nearby' | 'scroll_centered' | 'scroll_skipped' = 'scroll_skipped'
+        let centerReason = 'skipped'
+
+        let centered = applyCodeMirrorCaretAnchorScroll({
+          view,
+          scrollDOM: view.scrollDOM,
+          docPos: head,
+          calibrationEl,
+          includeWindowScroll: false,
         })
-      } else {
-        const head = EditorSelection.single(
-          Math.max(0, Math.min(effectiveRestore.from, len)),
-          Math.max(0, Math.min(effectiveRestore.to, len)),
-        ).main.head
-        waitForViewportReady(0, () => {
-          requestAnimationFrame(() => {
-            if ((view as unknown as { destroyed?: boolean }).destroyed) return
-            try {
-              scrollCodeMirrorViewToPos(view, head, { select: false, focus: true })
-              logViewportRestore('scroll_centered', { head })
-            } catch {
-              logViewportRestore('scroll_skipped', { head })
+
+        if (centered.ok) {
+          result = 'scroll_centered'
+          centerReason = 'caret'
+        } else if (tabScrollTop != null || tabScrollRatio != null) {
+          applySourceScrollRatio(view.scrollDOM, tabScrollTop, tabScrollRatio)
+          result = 'scroll_nearby'
+          centerReason = 'scroll_ratio'
+          const retryStable = await waitLayoutStabilizationBarrier(1, cancelled)
+          if (retryStable && !cancelled()) {
+            centered = applyCodeMirrorCaretAnchorScroll({
+              view,
+              scrollDOM: view.scrollDOM,
+              docPos: head,
+              calibrationEl,
+              includeWindowScroll: false,
+            })
+            if (centered.ok) {
+              result = 'scroll_centered'
+              centerReason = 'caret_after_ratio'
             }
+          }
+        } else if (scrollCodeMirrorToLineBlock(view, head)) {
+          result = 'scroll_centered'
+          centerReason = 'line_block'
+        }
+
+        const refineStable = await waitLayoutStabilizationBarrier(POST_SCROLL_CARET_REFINE_FRAMES, cancelled)
+        if (refineStable && !cancelled()) {
+          applyCodeMirrorCaretAnchorScroll({
+            view,
+            scrollDOM: view.scrollDOM,
+            docPos: head,
+            calibrationEl,
+            includeWindowScroll: false,
           })
-        })
+        }
+
+        try {
+          view.focus()
+        } catch {
+          /* ignore */
+        }
+
+        logViewportRestore(result, { head, centerReason })
       }
+
+      void restoreViewport()
     }
 
     return () => {
@@ -204,23 +276,10 @@ export function SourceCodeMirrorPane({
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     const files = Array.from(event.dataTransfer.files ?? [])
     const handler = onFilesDropRef.current
-    const view = viewRef.current
-    if (!files.length || !handler || !view) return
+    if (!files.length || !handler) return
     event.preventDefault()
-    const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.selection.main.from
-    void (async () => {
-      const snippets = await handler(files)
-      if (!snippets.length) return
-      view.dispatch({
-        changes: {
-          from: pos,
-          to: pos,
-          insert: snippets.join('\n'),
-        },
-        selection: EditorSelection.cursor(pos + snippets.join('\n').length),
-      })
-      view.focus()
-    })()
+    event.stopPropagation()
+    void handler(files)
   }
 
   return (

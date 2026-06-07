@@ -1,0 +1,221 @@
+/*KaTeX / @tiptap/extension-mathematics What you see is what you get*/
+.preview-pane.markdown-visual-editor .ProseMirror .tiptap-mathematics-render {
+  display: inline-block;
+  vertical-align: middle;
+  max-width: 100%;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror [data-type='block-math'],
+.preview-pane.markdown-visual-editor .ProseMirror [data-type='block-math'] .tiptap-mathematics-render {
+  display: block;
+  margin: 0.75rem auto;
+  max-width: min(var(--editor-column-width), 100%);
+  overflow-x: auto;
+  text-align: center;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror [data-type='block-math'] .katex-display {
+  margin: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-block {
+  display: block;
+  position: relative;
+  margin: 0.75rem auto;
+  max-width: min(var(--editor-column-width), 100%);
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--luna-math-block-border);
+  background: var(--luna-math-block-bg);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--surface-hover) 40%, transparent);
+  transition: border-color 140ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-block:hover {
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--border-subtle));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-source-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: var(--reveal-source-btn-height);
+  padding: 0 var(--reveal-source-btn-pad-x);
+  border-radius: var(--reveal-source-btn-radius);
+  border: 1px solid var(--reveal-source-btn-border);
+  background: var(--reveal-source-btn-bg);
+  color: var(--reveal-source-btn-fg);
+  font-size: var(--reveal-micro-font-size);
+  font-weight: var(--reveal-micro-font-weight);
+  letter-spacing: var(--reveal-micro-letter-spacing);
+  line-height: 1;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background-color var(--reveal-bg-duration, 120ms) var(--reveal-ease, ease),
+    border-color var(--reveal-bg-duration, 120ms) var(--reveal-ease, ease),
+    color var(--reveal-color-duration, 110ms) var(--reveal-ease, ease),
+    box-shadow var(--reveal-shadow-duration, 150ms) var(--reveal-ease, ease);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-source-button:hover {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+  color: var(--text-primary);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-source-button:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 54%, var(--border-subtle));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-block--quick-active {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border-subtle));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-block-inner {
+  display: inline-block;
+  min-width: 1ch;
+  text-align: left;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-preview-hit {
+  cursor: text;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-quick-editor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 18;
+  border-radius: var(--reveal-popover-radius);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--reveal-popover-border));
+  background: var(--reveal-popover-bg);
+  box-shadow: var(--reveal-popover-shadow);
+  padding: var(--reveal-popover-pad);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-quick-title {
+  font-size: var(--reveal-micro-font-size);
+  font-weight: var(--reveal-micro-font-weight);
+  letter-spacing: var(--reveal-micro-letter-spacing);
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--reveal-badge-fg);
+  margin: 0 0 var(--reveal-micro-gap);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-quick-textarea {
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  border-radius: var(--reveal-field-radius);
+  border: 1px solid var(--reveal-field-border);
+  background: var(--reveal-field-bg);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.55;
+  padding: var(--reveal-field-pad-y) var(--reveal-field-pad-x);
+  outline: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-quick-textarea:focus,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-quick-textarea:focus-visible {
+  border-color: var(--reveal-field-border-focus);
+  box-shadow: 0 0 0 2px var(--reveal-field-ring);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-block--editable {
+  padding: 12px;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-block--editable:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border-subtle));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent),
+    0 6px 22px color-mix(in srgb, #000 10%, transparent);
+  background: color-mix(in srgb, var(--surface-panel) 72%, var(--surface-editor));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-surface {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  row-gap: 8px;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-label {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: var(--reveal-badge-height);
+  padding: 0 var(--reveal-badge-pad-x);
+  border-radius: var(--reveal-badge-radius);
+  border: 1px solid var(--reveal-badge-border);
+  background: var(--reveal-badge-bg);
+  color: var(--reveal-badge-fg);
+  font-size: var(--reveal-micro-font-size);
+  font-weight: var(--reveal-micro-font-weight);
+  letter-spacing: var(--reveal-micro-letter-spacing);
+  line-height: 1;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-editor {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 85%, transparent);
+  background: var(--luna-math-editor-bg);
+  color: var(--text-primary);
+  caret-color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.58;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 140ms ease, box-shadow 160ms ease, background 140ms ease;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-editor:focus,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-editor:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 54%, var(--border-subtle));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-preview {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 56px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px dashed color-mix(in srgb, var(--border-subtle) 70%, transparent);
+  background: var(--luna-math-preview-bg);
+  overflow-x: auto;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-block--empty .pm-math-preview,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-block--empty:not(.pm-math-block--editable) {
+  color: var(--text-muted);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-inline {
+  display: inline-block;
+  vertical-align: middle;
+  max-width: 100%;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-fallback {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.88em;
+  color: color-mix(in srgb, var(--text-primary) 78%, var(--accent));
+}

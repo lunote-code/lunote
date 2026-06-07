@@ -68,7 +68,9 @@ export function clearBlockViewport(blockId?: string): void {
 export function shouldRenderBlockPreview(blockId: string): boolean {
   const s = states.get(blockId)
   if (!s || s.lifecycle === 'destroyed' || s.lifecycle === 'hidden') return false
-  return s.lifecycle === 'visible' || s.lifecycle === 'background' || s.lifecycle === 'mount'
+  // Do not render on initial mount — wait for IntersectionObserver / seedBlockViewportIfVisible.
+  // Otherwise every Mermaid block in a long document queues preview work on cold open and blocks UI.
+  return s.lifecycle === 'visible' || s.lifecycle === 'background'
 }
 
 /** Is it possible to skip heavy diagram rendering entirely?*/

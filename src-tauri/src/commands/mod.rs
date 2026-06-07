@@ -13,6 +13,8 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_dialog::FilePath;
 
+pub(crate) mod document_history;
+
 #[derive(serde::Deserialize)]
 pub struct RootPayload {
   pub root: String,
@@ -174,8 +176,12 @@ pub fn write_luna_workspace(payload: WorkspaceSnapshotPayload) -> Result<(), Str
 }
 
 #[tauri::command]
-pub fn append_luna_log(line: String) -> Result<(), String> {
-  luna_paths::append_app_log(&security::clamp_log_line(&line))
+pub fn append_luna_log(line: String, kind: Option<String>) -> Result<(), String> {
+  let clamped = security::clamp_log_line(&line);
+  match kind.as_deref() {
+    Some("crash") => luna_paths::append_crash_log(&clamped),
+    _ => luna_paths::append_app_log(&clamped),
+  }
 }
 
 fn safe_workspace_id(workspace_id: &str) -> Result<String, String> {
@@ -440,45 +446,16 @@ pub struct PickedImportFile {
 
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PickImportFilesPayload {
-  pub title: String,
-  #[serde(default)]
-  pub multiple: bool,
-  #[serde(default)]
-  pub extensions: Option<Vec<String>>,
+pub struct ReadImportFilesPayload {
+  pub paths: Vec<String>,
 }
 
+/// Read user-selected paths (from JS `open()` dialog) into base64 payloads.
 #[tauri::command]
-pub fn pick_import_files_base64(
-  app: AppHandle,
-  payload: PickImportFilesPayload,
-) -> Result<Vec<PickedImportFile>, String> {
-  let mut builder = app.dialog().file().set_title(payload.title.trim());
-  if let Some(ref exts) = payload.extensions {
-    if !exts.is_empty() {
-      let refs: Vec<&str> = exts.iter().map(String::as_str).collect();
-      builder = builder.add_filter("files", &refs);
-    }
-  }
-
-  let picked_paths: Vec<String> = if payload.multiple {
-    match builder.blocking_pick_files() {
-      Some(paths) => paths
-        .into_iter()
-        .map(dialog_file_path_to_string)
-        .collect::<Result<Vec<_>, _>>()?,
-      None => return Ok(Vec::new()),
-    }
-  } else {
-    match builder.blocking_pick_file() {
-      Some(path) => vec![dialog_file_path_to_string(path)?],
-      None => return Ok(Vec::new()),
-    }
-  };
-
-  let mut out = Vec::with_capacity(picked_paths.len());
-  for path in picked_paths {
-    let (file_name, data_base64) = read_picked_file_base64(&path)?;
+pub fn read_import_files_base64(payload: ReadImportFilesPayload) -> Result<Vec<PickedImportFile>, String> {
+  let mut out = Vec::with_capacity(payload.paths.len());
+  for path in &payload.paths {
+    let (file_name, data_base64) = read_picked_file_base64(path)?;
     out.push(PickedImportFile {
       file_name: file_name.clone(),
       mime_type: guess_import_mime(&file_name),
@@ -857,6 +834,35 @@ pub fn create_workspace_folder(mut payload: files::CreateFolderPayload) -> Resul
 }
 
 #[tauri::command]
+pub fn import_external_paths_into_workspace(
+  mut payload: files::ImportExternalPathsPayload,
+) -> Result<files::ImportExternalPathsResult, String> {
+  payload.root = resolve_workspace_root(&payload.root)?;
+  files::import_external_paths_into_workspace(&payload)
+}
+
+#[tauri::command]
+pub fn import_dropped_file_bytes(
+  mut payload: files::ImportDroppedFileBytesPayload,
+) -> Result<String, String> {
+  payload.root = resolve_workspace_root(&payload.root)?;
+  files::import_dropped_file_bytes(&payload)
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspacePathPayload {
+  pub root: String,
+  pub path: String,
+}
+
+#[tauri::command]
+pub fn workspace_path_is_directory(mut payload: WorkspacePathPayload) -> Result<bool, String> {
+  payload.root = resolve_workspace_root(&payload.root)?;
+  files::workspace_path_is_directory(&payload.root, &payload.path)
+}
+
+#[tauri::command]
 pub fn import_markdown_via_dialog(app: AppHandle, root: String) -> Result<Option<String>, String> {
   let root = resolve_workspace_root(&root)?;
   let picked = app
@@ -938,3 +944,4 @@ pub fn save_app_settings(app: AppHandle, settings: AppSettings) -> Result<(), St
   app_settings::write_app_settings(&app, &settings)?;
   Ok(())
 }
+

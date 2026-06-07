@@ -6,6 +6,8 @@ import { isBufferTabId } from '../workspace/constants'
 import { getDocumentRuntimeSnapshot } from '../../documentRuntime/documentKernel'
 import { isTauri } from '@tauri-apps/api/core'
 import type { TranslateFn } from '../../i18n'
+import { isAutosaveSuspended } from '../../documentHistory/historyRestoreState'
+import type { AppStatusTone } from './useAppStatus'
 
 export type AutosaveScope = 'allDirty' | 'activeOnly'
 
@@ -15,6 +17,7 @@ export type AutosaveSettings = {
   scope: AutosaveScope
 }
 
+/** Default autosave scope is active tab only; allDirty must be opted in via settings. */
 const DEFAULT_AUTOSAVE: AutosaveSettings = {
   enabled: true,
   intervalSec: 120,
@@ -37,10 +40,10 @@ export function readAutosaveSettings(): AutosaveSettings {
 type Params = {
   rootDir: string
   activePath: string
-  setStatus: (msg: string) => void
+  setStatus: (msg: string, toneOverride?: AppStatusTone) => void
   t: TranslateFn
-  saveAllDirtyDocuments: () => Promise<boolean>
-  saveDocumentAtPath: (path: string) => Promise<boolean>
+  saveAllDirtyDocuments: (mode?: 'manual' | 'autosave') => Promise<boolean>
+  saveDocumentAtPath: (path: string, mode?: 'manual' | 'autosave') => Promise<boolean>
 }
 
 export function useAutosave({
@@ -75,16 +78,17 @@ export function useAutosave({
       const run =
         cfg.scope === 'allDirty'
           ? (async () => {
-              const dirty = listDirtyDocumentPaths().filter((p) => !isBufferTabId(p))
+              const dirty = listDirtyDocumentPaths().filter((p) => !isBufferTabId(p) && !isAutosaveSuspended(p))
               if (dirty.length === 0) return true
-              return saveAllDirtyDocuments()
+              return saveAllDirtyDocuments('autosave')
             })()
           : (async () => {
               // Read active path from kernel snapshot at tick time to avoid
               // saving a stale React closure path during rapid tab switching.
               const targetPath = getDocumentRuntimeSnapshot().activePath
               if (!targetPath || isBufferTabId(targetPath) || !isPathDirty(targetPath)) return true
-              return saveDocumentAtPath(targetPath)
+              if (isAutosaveSuspended(targetPath)) return true
+              return saveDocumentAtPath(targetPath, 'autosave')
             })()
 
       void run
@@ -95,7 +99,7 @@ export function useAutosave({
           const activeStillDirty =
             latestActivePath && !isBufferTabId(latestActivePath) ? isPathDirty(latestActivePath) : false
           if (!stillDirty || (cfg.scope === 'activeOnly' && !activeStillDirty)) {
-            setStatus(t('app.status.autosaved'))
+            setStatus(t('app.status.autosaved'), 'success')
           }
         })
         .finally(() => {

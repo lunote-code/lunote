@@ -19,22 +19,8 @@ export function notifyNavigationShadowScheduler(
   registerNavigationEvent(event)
   startNavigationCausalTrace(event, expectedSideEffectsForEvent(event))
   recordNavigationTemporalEvent(event)
-  console.log('[NAV DIFF] event received', {
-    id: event.id,
-    type: event.type,
-    source: event.source,
-    path: event.path,
-    docKey: event.docKey,
-    pointer: timeline.pointer,
-    eventCount: timeline.events.length,
-  })
-  console.log('[NAV DIFF] expected vs actual', {
-    id: event.id,
-    type: event.type,
-    mode: 'diff',
-    expectedSideEffects: expectedSideEffectsForEvent(event),
-    mismatchCount: validateNavigationEvent(event).length,
-  })
+  void timeline
+  validateNavigationEvent(event)
 }
 
 export function processEvent(event: NavigationEvent): void {

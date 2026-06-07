@@ -1,7 +1,10 @@
-import type { InputHTMLAttributes } from 'react'
+import { forwardRef, type InputHTMLAttributes } from 'react'
 
 type SettingsInputProps = InputHTMLAttributes<HTMLInputElement>
 
-export function SettingsInput({ className = '', ...props }: SettingsInputProps) {
-  return <input className={`settings-input ${className}`.trim()} {...props} />
-}
+export const SettingsInput = forwardRef<HTMLInputElement, SettingsInputProps>(function SettingsInput(
+  { className = '', ...props },
+  ref,
+) {
+  return <input ref={ref} className={`settings-input ${className}`.trim()} {...props} />
+})

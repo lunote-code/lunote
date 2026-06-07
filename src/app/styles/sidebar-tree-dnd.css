@@ -1,0 +1,272 @@
+.tree-node {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tree-node.tree-folder-drop-target {
+  border-radius: calc(var(--radius-sm) + 2px);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  outline: 1px dashed color-mix(in srgb, var(--accent) 50%, transparent);
+  outline-offset: -1px;
+}
+
+.tree-file-drop-target,
+.file-list-flat-item.tree-file-drop-target {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-hover));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+.file-list.file-list--root-drop-target {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  outline: 1px dashed color-mix(in srgb, var(--accent) 40%, transparent);
+  outline-offset: -4px;
+}
+
+.file-list.file-list--workspace-drag {
+  min-height: 120px;
+}
+
+.tree-node-children {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-height: 4px;
+}
+
+.tree-folder {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: calc(var(--radius-sm) + 2px);
+  padding: 6px 8px;
+  min-height: 32px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.tree-folder-inner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+.tree-folder:hover {
+  background: color-mix(in srgb, var(--surface-hover) 90%, var(--accent) 4%);
+  color: var(--text-primary);
+}
+
+.tree-folder-drop-target {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface-hover) 84%);
+  color: var(--text-primary);
+  outline: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: -1px;
+}
+
+.tree-file[draggable='true'],
+.file-list-flat-item[draggable='true'] {
+  -webkit-user-drag: element;
+}
+
+.workspace-drag-folder-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 8px;
+  padding: 8px;
+  border: var(--hairline) solid color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-hover) 72%, var(--surface-panel));
+}
+
+.workspace-drag-folder-row {
+  margin: 0;
+}
+
+body.is-workspace-file-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+body.is-workspace-file-dragging .sidebar-scroll {
+  cursor: grabbing;
+}
+
+.tree-file-dragging,
+.tree-folder-dragging,
+.file-list-flat-item.tree-file-dragging {
+  opacity: 0.55;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-hover));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.workspace-drag-folder-row-inner {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+}
+
+.tree-file {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.tree-folder,
+.tree-file,
+.note-item,
+.tree-label,
+.file-list-flat-label,
+.file-list-flat-sublabel {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/*.note-item uses column layout and will overwhelm .tree-file; the side column file lines must remain horizontally arranged.*/
+.file-list .tree-file.note-item {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.file-list .tree-file.note-item .tree-label {
+  color: var(--text-primary);
+}
+
+.tree-chevron {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--text-muted);
+  transition: transform 0.16s ease, color 0.14s ease, background 0.14s ease;
+}
+
+.tree-folder:hover .tree-chevron {
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--surface-hover) 70%, transparent);
+}
+
+.tree-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  color: color-mix(in srgb, var(--text-muted) 88%, var(--accent) 12%);
+  opacity: 0.92;
+}
+
+.tree-folder-assets .tree-icon {
+  color: color-mix(in srgb, var(--accent) 72%, var(--text-muted));
+}
+
+/*Sidebar document row: icon aligned with file name (tree view single-line rows only)*/
+.file-list .tree-file.note-item {
+  align-items: center;
+}
+
+.file-list .tree-file.note-item .tree-label,
+.file-list-flat-item .file-list-flat-label {
+  line-height: 1.35;
+}
+
+.tree-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.note-item {
+  position: relative;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 7px 8px 7px 10px;
+  min-height: 32px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition:
+    background 0.14s ease,
+    color 0.14s ease,
+    box-shadow 0.14s ease;
+}
+
+.note-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 5px;
+  bottom: 5px;
+  width: 2px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background 0.14s ease, opacity 0.14s ease;
+}
+
+.note-item:hover:not(.active) {
+  background: color-mix(in srgb, var(--text-primary) 4.5%, transparent);
+}
+
+.note-item:hover:not(.active)::before {
+  background: color-mix(in srgb, var(--text-muted) 42%, transparent);
+  opacity: 0.85;
+}
+
+.note-item.active {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-panel) 90%);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.note-item.active:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-panel) 88%);
+}
+
+.note-item.active::before {
+  background: var(--accent);
+  opacity: 1;
+}
+
+.file-list .tree-file.note-item.active .tree-label {
+  color: var(--text-primary);
+  font-weight: 560;
+}
+
+.file-list .tree-file.note-item.active .tree-icon {
+  color: color-mix(in srgb, var(--accent) 68%, var(--text-secondary) 32%);
+  opacity: 1;
+}
+
+.note-item span:not(.file-list-flat-label):not(.file-list-flat-sublabel):not(.file-list-flat-text) {
+  color: var(--text-secondary);
+  font-size: var(--size-caption);
+}
+
+.note-item mark {
+  background: rgba(255, 208, 0, 0.35);
+}

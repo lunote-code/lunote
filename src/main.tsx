@@ -1,8 +1,27 @@
 import './index.css'
 import './theme-presets.css'
+import './theme/modeThemeTokens.css'
+import './theme/calloutThemeTokens.css'
+import 'katex/dist/katex.min.css'
+import './editor/katexEditorTheme.css'
 import './editor/hljsEditorTheme.css'
 import './editor/lunaMarkdownTable.css'
 import { mountApp } from './app/BootRoot'
+import { installGlobalErrorHandlers } from './lib/lunaLogger'
+import { QaCodeBlockCmPlayground } from './app/QaCodeBlockCmPlayground'
+import { QaDocumentEditorPlayground } from './app/QaDocumentEditorPlayground'
+import { QaExportPlayground } from './app/QaExportPlayground'
+import { QaKnowledgePlayground } from './app/QaKnowledgePlayground'
+import { QaMermaidPlayground } from './app/QaMermaidPlayground'
+import { QaModeSwitchPlayground } from './app/QaModeSwitchPlayground'
+import { QaOverlayPlayground } from './app/QaOverlayPlayground'
+import { QaSnapshotPlayground } from './app/QaSnapshotPlayground'
+import { QaPreferencesPlayground } from './app/QaPreferencesPlayground'
+import { QaStartupPlayground } from './app/QaStartupPlayground'
+import { QaUiPlayground } from './app/QaUiPlayground'
+import { QaMenuPlayground } from './app/QaMenuPlayground'
+import { QaMultiTabPlayground } from './app/QaMultiTabPlayground'
+import { createRoot } from 'react-dom/client'
 
 function isTauriRuntime(): boolean {
   const g = globalThis as {
@@ -12,8 +31,61 @@ function isTauriRuntime(): boolean {
   return Boolean(g.__TAURI__ || g.__TAURI_INTERNALS__)
 }
 
+function isQaOverlayRoute(): boolean {
+  return new URLSearchParams(window.location.search).get('qa') === 'overlays'
+}
+
+function isQaCodeBlockCmRoute(): boolean {
+  const qa = new URLSearchParams(window.location.search).get('qa')
+  return qa === 'codeblock-cm' || qa === 'codeblock-gutter'
+}
+
+function isQaSnapshotRoute(): boolean {
+  return new URLSearchParams(window.location.search).get('qa') === 'snapshot'
+}
+
+function isQaExportRoute(): boolean {
+  return new URLSearchParams(window.location.search).get('qa') === 'export'
+}
+
+function isQaKnowledgeRoute(): boolean {
+  return new URLSearchParams(window.location.search).get('qa') === 'knowledge'
+}
+
+function isQaPreferencesRoute(): boolean {
+  return new URLSearchParams(window.location.search).get('qa') === 'preferences'
+}
+
+function isQaDocumentEditorRoute(): boolean {
+  return new URLSearchParams(window.location.search).get('qa') === 'document-editor'
+}
+
+function isQaMermaidRoute(): boolean {
+  return new URLSearchParams(window.location.search).get('qa') === 'mermaid'
+}
+
+function isQaModeSwitchRoute(): boolean {
+  return new URLSearchParams(window.location.search).get('qa') === 'mode-switch'
+}
+
+function isQaStartupRoute(): boolean {
+  return new URLSearchParams(window.location.search).get('qa') === 'startup'
+}
+
+function isQaUiRoute(): boolean {
+  return new URLSearchParams(window.location.search).get('qa') === 'ui'
+}
+
+function isQaMenuRoute(): boolean {
+  return new URLSearchParams(window.location.search).get('qa') === 'menu'
+}
+
+function isQaMultiTabRoute(): boolean {
+  return new URLSearchParams(window.location.search).get('qa') === 'multi-tab'
+}
+
 function renderRuntimeBlockedMessage(message: string): void {
-  document.body.innerHTML = `<div style="padding:24px;font-family:system-ui;line-height:1.6;color:#b42318;background:#fff1f3;border:1px solid #fecdca;border-radius:12px;margin:24px;">${message}</div>`
+  document.body.innerHTML = `<div class="luna-runtime-blocked">${message}</div>`
 }
 
 /** WebView2 on Windows can report incorrect `dvh`; pin shell height to innerHeight. */
@@ -67,10 +139,41 @@ function installProductionInteractionGuard(): void {
 const rootEl = document.getElementById('root')
 if (!rootEl) {
   document.body.innerHTML =
-    '<div style="padding:24px;font-family:system-ui">Missing #root element — cannot start Luna Note.</div>'
+    '<div class="luna-runtime-blocked luna-runtime-blocked--neutral">Missing #root element — cannot start Lunote.</div>'
 } else if (import.meta.env.DEV) {
-  if (isTauriRuntime()) installAppViewportHeightSync()
-  mountApp(rootEl, { strict: true })
+  if (isTauriRuntime()) {
+    installAppViewportHeightSync()
+    installGlobalErrorHandlers()
+  }
+  if (isQaOverlayRoute()) {
+    createRoot(rootEl).render(<QaOverlayPlayground />)
+  } else if (isQaCodeBlockCmRoute()) {
+    createRoot(rootEl).render(<QaCodeBlockCmPlayground />)
+  } else if (isQaDocumentEditorRoute()) {
+    createRoot(rootEl).render(<QaDocumentEditorPlayground />)
+  } else if (isQaMermaidRoute()) {
+    createRoot(rootEl).render(<QaMermaidPlayground />)
+  } else if (isQaKnowledgeRoute()) {
+    createRoot(rootEl).render(<QaKnowledgePlayground />)
+  } else if (isQaExportRoute()) {
+    createRoot(rootEl).render(<QaExportPlayground />)
+  } else if (isQaSnapshotRoute()) {
+    createRoot(rootEl).render(<QaSnapshotPlayground />)
+  } else if (isQaPreferencesRoute()) {
+    createRoot(rootEl).render(<QaPreferencesPlayground />)
+  } else if (isQaModeSwitchRoute()) {
+    createRoot(rootEl).render(<QaModeSwitchPlayground />)
+  } else if (isQaStartupRoute()) {
+    createRoot(rootEl).render(<QaStartupPlayground />)
+  } else if (isQaUiRoute()) {
+    createRoot(rootEl).render(<QaUiPlayground />)
+  } else if (isQaMenuRoute()) {
+    createRoot(rootEl).render(<QaMenuPlayground />)
+  } else if (isQaMultiTabRoute()) {
+    createRoot(rootEl).render(<QaMultiTabPlayground />)
+  } else {
+    mountApp(rootEl, { strict: true })
+  }
 } else {
   if (!isTauriRuntime()) {
     renderRuntimeBlockedMessage(
@@ -80,5 +183,6 @@ if (!rootEl) {
   }
   installAppViewportHeightSync()
   installProductionInteractionGuard()
+  installGlobalErrorHandlers()
   mountApp(rootEl)
 }

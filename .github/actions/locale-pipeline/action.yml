@@ -1,0 +1,79 @@
+name: Locale & menu pipeline
+description: Build UI/shell locales from corpus, export menu manifests, optional validation and git cleanliness check
+inputs:
+  run-validation:
+    description: Run menu/locale validators and Chrome candidate check (locale CI job)
+    required: false
+    default: "false"
+  check-git-clean:
+    description: Fail if generated locale/menu files differ from HEAD
+    required: false
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Build UI locales from corpus
+      shell: bash
+      run: python3 scripts/locale/build_ui_locales.py
+
+    - name: Sync shell menu from UI locales
+      shell: bash
+      run: python3 scripts/locale/sync_shell_menu_from_ui.py
+
+    - name: Export menu canonical + Rust manifest
+      shell: bash
+      run: |
+        python3 scripts/locale/export_menu_canonical.py
+        python3 scripts/locale/export_menu_rust_manifest.py
+
+    - name: Generate macOS boot menu manifest
+      shell: bash
+      run: node scripts/build/generate_mac_menu_boot.mjs
+
+    - name: Validate menu and locales
+      if: inputs.run-validation == 'true'
+      shell: bash
+      run: |
+        python3 scripts/locale/validate_menu_i18n_sync.py
+        python3 scripts/locale/validate_menu_runtime.py
+        python3 scripts/locale/validate_locale.py --strict --check-min-translated
+        python3 scripts/locale/validate_shell_locale.py
+
+    - name: Validate Chrome executable candidates
+      if: inputs.run-validation == 'true'
+      shell: bash
+      run: npm run validate:chrome-candidates
+
+    - name: Require committed locale/menu outputs
+      if: inputs.check-git-clean == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
+          echo "No git HEAD yet; skipping committed-output check."
+          exit 0
+        fi
+        paths=(
+          src/i18n/locales
+          src-tauri/i18n
+          scripts/locale/menu_canonical.json
+          src-tauri/src/menu_manifest.rs
+          src-tauri/resources/mac-menu-boot.json
+        )
+        if ! git diff --exit-code HEAD -- "${paths[@]}"; then
+          echo "::error::Generated locale/menu files differ from HEAD. Run locally:"
+          echo "  python3 scripts/locale/build_ui_locales.py"
+          echo "  python3 scripts/locale/sync_shell_menu_from_ui.py"
+          echo "  python3 scripts/locale/export_menu_canonical.py"
+          echo "  python3 scripts/locale/export_menu_rust_manifest.py"
+          echo "  node scripts/build/generate_mac_menu_boot.mjs"
+          echo "Then commit the updated files."
+          git diff --stat HEAD -- "${paths[@]}"
+          exit 1
+        fi
+        echo "Locale/menu generated outputs match HEAD."

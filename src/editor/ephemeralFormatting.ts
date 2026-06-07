@@ -2,7 +2,7 @@ import type { Editor } from '@tiptap/core'
 import { TextSelection } from '@tiptap/pm/state'
 
 /** Inline ephemeral format (not structured formats such as link/math/footnote)*/
-export type EphemeralCommandType = 'bold' | 'italic' | 'underline' | 'strike' | 'code'
+export type EphemeralCommandType = 'bold' | 'italic' | 'underline' | 'strike' | 'code' | 'highlight'
 
 export type EphemeralSessionState = 'active'
 
@@ -63,6 +63,8 @@ function unsetEphemeralMark(
       return chain.unsetStrike()
     case 'code':
       return chain.unsetCode()
+    case 'highlight':
+      return chain.unsetMark('highlight')
     default:
       return chain
   }
@@ -83,6 +85,8 @@ function setEphemeralMark(
       return chain.setStrike()
     case 'code':
       return chain.setCode()
+    case 'highlight':
+      return chain.setMark('highlight')
     default:
       return chain
   }
@@ -95,16 +99,30 @@ function extendEphemeralMarkRange(
   return chain.extendMarkRange(commandType)
 }
 
-function sessionContentRange(session: EphemeralSession): { from: number; to: number } {
+export function ephemeralSessionContentRange(session: EphemeralSession): { from: number; to: number } {
   const from = session.range.from
   const to = session.snapshot.length > 0 ? from + session.snapshot.length : session.range.to
   return { from, to }
 }
 
+export function selectionTouchesEphemeralSession(editor: Editor, session: EphemeralSession): boolean {
+  const { from, to } = ephemeralSessionContentRange(session)
+  const { from: selFrom, to: selTo } = editor.state.selection
+  return selFrom <= to && selTo >= from
+}
+
+/** End ephemeral formatting when the caret/selection leaves the session range. */
+export function commitEphemeralSessionIfSelectionLeft(editor: Editor): boolean {
+  const session = sessions.get(editor)
+  if (!session) return false
+  if (selectionTouchesEphemeralSession(editor, session)) return false
+  return commitEphemeralSession(editor)
+}
+
 function restoreSession(editor: Editor, session: EphemeralSession, focusNoScroll: boolean): boolean {
   const focusOpts = focusNoScroll ? FOCUS_NO_SCROLL : undefined
   const { snapshot, commandType } = session
-  const { from, to } = sessionContentRange(session)
+  const { from, to } = ephemeralSessionContentRange(session)
   const docSize = editor.state.doc.content.size
   if (!Number.isFinite(from) || !Number.isFinite(to)) return false
   const safeFrom = Math.max(0, Math.min(from, docSize))

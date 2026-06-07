@@ -1,5 +1,8 @@
-/** Code Block Runtime — Document flow embedded code/mermaid block unified state*/
-
+/**
+ * Code Block Runtime — document-flow embedded block state.
+ * Runtime edit/preview is active for **Mermaid** (`mermaidBlock`).
+ * `'code'` in `CodeBlockType` is reserved for PM scan compatibility; fenced `codeBlock` edits inline in ProseMirror.
+ */
 export type CodeBlockType = 'mermaid' | 'code' | 'json' | 'sql'
 
 export type CodeBlockMode = 'edit' | 'preview'

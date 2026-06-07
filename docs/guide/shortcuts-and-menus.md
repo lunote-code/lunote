@@ -45,16 +45,17 @@ On desktop, Lunote uses a classic menu bar:
 
 | Menu | Examples |
 |------|----------|
-| **File** | New note, open folder, save, import/export, preferences |
+| **File** | New note, open folder, save, import/export (PDF, Markdown, HTML, …), print, preferences |
 | **Edit** | Undo/redo, clipboard, find & replace, emoji |
 | **Paragraph** | Headings (H1–H6), lists, quote, code block, table, math |
 | **Format** | Bold, italic, underline, strike, link, image, clear formatting |
 | **View** | Source mode, focus mode, sidebars, search panel, zoom, fullscreen |
 | **Window** | Minimize, zoom, tiling (platform-dependent) |
-| **Theme** | Built-in theme, open Theme folder, rescan CSS |
-| **Help** | About |
+| **Help** | About, privacy policy, website, feedback |
 
 Assigned shortcuts appear on the right side of menu items.
+
+**Theme & appearance** (built-in theme, external CSS, Theme folder, rescan CSS) are in **File → Preferences → Appearance**, not a separate top-bar Theme menu.
 
 ---
 
@@ -80,9 +81,19 @@ Some entries are **read-only** (system defaults). A few commands use different k
 | Find & replace | `Cmd+Option+F` | `Ctrl+H` |
 | Toggle source / visual mode | `Cmd+/` | `Ctrl+/` |
 | Focus mode | `F8` | `F8` |
+| Today's daily note (in-app) | `Cmd+Shift+D` | `Ctrl+Shift+D` |
 | Bold / Italic / Underline | `Cmd+B` / `Cmd+I` / `Cmd+U` | `Ctrl+B` / `Ctrl+I` / `Ctrl+U` |
 
 See **Preferences → Shortcuts** for the complete list.
+
+### Quick capture (desktop tray)
+
+On **macOS, Windows, and Linux** desktop builds:
+
+- **System tray**: left-click opens today's daily note; right-click shows **Today's daily note**, **Show main window**, and **Quit**.
+- **Global shortcut**: same as **File → Today's daily note** (`Cmd+Shift+D` / `Ctrl+Shift+D`) — works even when Lunote is in the background (raises the main window, then opens or creates today's note in the current workspace).
+
+If no workspace folder is open, the app shows a status hint to open one first.
 
 ---
 
@@ -157,6 +168,12 @@ Use the slash menu item **table** for a quick default grid; use the **`/table` �
 ## Editor toolbar
 
 The toolbar offers one-click formatting and mode controls. Shortcuts and `/` are usually faster once you know them; the toolbar is optional.
+
+In **visual** mode, the format toolbar includes a **Callout** dropdown (tip, suggestion, important, warning, caution) — the same insert commands as **Paragraph → Callout**. The toolbar is not shown in source mode.
+
+- **Show or hide the toolbar:** **File → Preferences → Typography → Formatting toolbar** (off by default preference is saved for the next launch)
+- **Reading column width:** same panel — Narrow (720 px), Standard (860 px), or Wide (960 px) for visual mode and Markdown preview
+- **Font family and size:** also under **Preferences → Typography**
 
 ---
 

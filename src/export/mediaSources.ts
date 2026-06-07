@@ -23,6 +23,13 @@ export function isFileMediaUrl(src: string): boolean {
   return /^file:/iu.test(src.trim())
 }
 
+export function isAbsoluteLocalMediaPath(src: string): boolean {
+  const trimmed = src.trim()
+  if (!trimmed) return false
+  if (trimmed.startsWith('//')) return false
+  return trimmed.startsWith('/') || /^[A-Za-z]:[\\/]/u.test(trimmed) || trimmed.startsWith('\\\\')
+}
+
 export function isExternalOrDataSrc(src: string): boolean {
   if (isBlockedMediaScheme(src)) return true
   return /^(?:[a-z][a-z0-9+.-]*:|#|\/\/)/iu.test(src)
@@ -101,6 +108,11 @@ export function resolveMarkdownMediaSrc(
     const absolute = filePathFromFileUrl(raw)
     if (!absolute) return raw
     return resolveToDisplayUrl(absolute, opts)
+  }
+
+  if (isAbsoluteLocalMediaPath(raw)) {
+    if (pathHasParentDirSegment(raw)) return raw
+    return resolveToDisplayUrl(normPath(raw), opts)
   }
 
   if (isExternalOrDataSrc(raw) || !sourcePath || pathHasParentDirSegment(raw)) return raw

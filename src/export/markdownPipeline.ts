@@ -1,4 +1,5 @@
 import DOMPurify from 'dompurify'
+import { LUNA_EMBEDDED_HTML_PURIFY } from '../editor/lunaHtmlSanitize'
 import type { UiLocaleId } from '../i18n/resolveLocale'
 import type { ExportTocMode } from './exportPreset'
 
@@ -11,6 +12,7 @@ import { createUnifiedExportProcessor, normalizeMarkdownForExport } from '../mar
 const exportPurify = (html: string) =>
   DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true },
+    FORBID_ATTR: LUNA_EMBEDDED_HTML_PURIFY.FORBID_ATTR,
     ADD_TAGS: ['table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'colgroup', 'col', 'caption'],
     ADD_ATTR: ['class', 'id', 'colspan', 'rowspan', 'align', 'style', 'data-language', 'data-luna-callout', 'aria-hidden'],
   })
@@ -103,11 +105,14 @@ function injectExportToc(html: string, localeId?: UiLocaleId, tocMode: ExportToc
  */
 export async function markdownToHtmlFragment(
   md: string,
-  opts?: { dark?: boolean; localeId?: UiLocaleId; tocMode?: ExportTocMode },
+  opts?: { dark?: boolean; localeId?: UiLocaleId; tocMode?: ExportTocMode; useAppTheme?: boolean },
 ): Promise<string> {
   const normalized = normalizeMarkdownForExport(md)
   const file = await createUnifiedExportProcessor().use(rehypeWrapMarkdownTables).process(normalized)
   const purified = exportPurify(String(file))
   const withToc = injectExportToc(purified, opts?.localeId, opts?.tocMode)
-  return injectMermaidExportDiagrams(withToc, normalized, { dark: opts?.dark })
+  return injectMermaidExportDiagrams(withToc, normalized, {
+    dark: opts?.dark,
+    useAppTheme: opts?.useAppTheme,
+  })
 }

@@ -34,6 +34,8 @@
  */
 import { Extension } from '@tiptap/core'
 import { Plugin } from '@tiptap/pm/state'
+
+import { isCodeBlockCmFocused } from '../editor/codeBlock/cm/codeBlockCmFocus'
 import type { VMCommand, SelectionContext } from './vmCommands'
 import { vmReduce } from './vmReducer'
 import { applyVMSteps } from '../editor/editorMutationBridge'
@@ -106,6 +108,7 @@ export const VmInputRouter = Extension.create({
        * Runs BEFORE ProseMirror's native cut handler.
        */
       'Mod-x': ({ editor }) => {
+        if (isCodeBlockCmFocused()) return false
         const { from, to, empty } = editor.state.selection
         if (empty) return false
 

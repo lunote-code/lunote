@@ -1,4 +1,5 @@
 import type { CommandGroup, CommandManifestEntry, CommandRuntimeKind, CommandUiMeta } from './commandManifest.types'
+import { LUNA_TEXT_COLOR_PRESETS } from '../editor/lunaTextColor'
 
 type DefOpts = {
   group?: CommandGroup
@@ -44,11 +45,48 @@ export const COMMAND_MANIFEST_LIST: readonly CommandManifestEntry[] = Object.fre
     accelerator: 'Mod+n',
     ui: M({ palette: true, paletteKeywords: ['new', 'xin', '新建'] }),
   }),
+  def('file-new-from-template', 'menu.file.newFromTemplate', {
+    group: 'file',
+    ui: M({ palette: true, paletteKeywords: ['new', 'template', '模板', '新建模板'] }),
+  }),
   def('file-new-tab', 'menu.file.newTab'),
   def('file-new-window', 'menu.file.newWindow', { accelerator: 'Mod+Shift+n' }),
+  def('daily-note-open', 'menu.file.dailyNote', {
+    group: 'file',
+    accelerator: 'Mod+Shift+d',
+    ui: M({ palette: true, paletteKeywords: ['daily', 'journal', '日记', '今日'] }),
+  }),
+  def('daily-note-open-yesterday', 'menu.file.dailyNoteYesterday', {
+    group: 'file',
+    ui: M({ palette: true, paletteKeywords: ['daily', 'journal', '日记', '昨天'] }),
+  }),
+  def('daily-note-open-tomorrow', 'menu.file.dailyNoteTomorrow', {
+    group: 'file',
+    ui: M({ palette: true, paletteKeywords: ['daily', 'journal', '日记', '明天'] }),
+  }),
+  def('template-edit-default', 'menu.file.templateDefault', {
+    group: 'file',
+    ui: M({ palette: true, paletteKeywords: ['template', '模板', 'default', '默认'] }),
+  }),
+  def('template-edit-daily', 'menu.file.templateDaily', {
+    group: 'file',
+    ui: M({ palette: true, paletteKeywords: ['template', '模板', 'daily', '日记'] }),
+  }),
+  def('template-open-folder', 'menu.file.templateFolder', {
+    group: 'file',
+    ui: M({ palette: true, paletteKeywords: ['template', '模板', 'folder', '文件夹'] }),
+  }),
+  def('template-preferences', 'menu.file.templatePreferences', {
+    group: 'file',
+    ui: M({ palette: true, paletteKeywords: ['template', '模板', 'settings', '设置', 'preferences'] }),
+  }),
   def('file-open-file', 'menu.file.openFile', { accelerator: 'Mod+o' }),
   def('open-folder', 'menu.file.openFolder', { ui: M({ toolbar: true, toolbarSlot: 'sidebar-header' }) }),
   def('file-recent-placeholder', 'menu.file.recent'),
+  def('file-clear-recent', 'menu.file.clearRecent', {
+    group: 'file',
+    ui: M({ menu: false, palette: true, paletteKeywords: ['recent', 'clear', '最近'] }),
+  }),
   def('file-show-intro', 'menu.file.showIntro'),
   def('file-reveal', 'menu.file.openLocation'),
   def('file-delete', 'menu.file.delete'),
@@ -63,13 +101,15 @@ export const COMMAND_MANIFEST_LIST: readonly CommandManifestEntry[] = Object.fre
   def('app-quit', 'menu.native.app.quit', { runtime: 'app-quit', ui: M({ menu: false }) }),
   def('file-copy-path', 'menu.file.copyPath'),
   def('file-rename', 'menu.file.rename'),
+  def('file-history-open', 'menu.file.history.open'),
+  def('file-history-create-snapshot', 'menu.file.history.createSnapshot'),
   def('file-revert', 'menu.file.revert'),
   def('file-save-all', 'menu.file.saveAll'),
   def('file-import', 'menu.file.import'),
   def('file-export-pdf', 'menu.file.export.pdf', { ui: M({ palette: true, paletteKeywords: ['pdf', '导出'] }) }),
   def('file-export-markdown', 'commandPalette.exportMd', {
     action: 'file-export-markdown',
-    ui: M({ menu: false, palette: true, paletteKeywords: ['markdown', 'md', '导出'] }),
+    ui: M({ palette: true, paletteKeywords: ['markdown', 'md', '导出'] }),
   }),
   def('file-export-html', 'menu.file.export.html', { ui: M({ palette: true, paletteKeywords: ['html', '导出'] }) }),
   def('file-export-html-plain', 'menu.file.export.htmlPlain', { ui: M({ palette: true }) }),
@@ -92,10 +132,16 @@ export const COMMAND_MANIFEST_LIST: readonly CommandManifestEntry[] = Object.fre
   def('edit-delete', 'menu.edit.delete'),
   def('edit-delete-block', 'menu.edit.deleteBlock'),
   def('edit-delete-line', 'menu.edit.deleteLine'),
-  def('edit-eol-crlf', 'menu.edit.eol.crlf', { runtime: 'noop' }),
-  def('edit-eol-lf', 'menu.edit.eol.lf', { runtime: 'noop' }),
-  def('edit-indent-first-line', 'menu.edit.indentFirst', { runtime: 'noop' }),
-  def('edit-show-br', 'menu.edit.showBr', { runtime: 'noop' }),
+  def('edit-eol-crlf', 'menu.edit.eol.crlf', {
+    ui: M({ palette: true, paletteKeywords: ['crlf', 'eol', '换行', '行尾'] }),
+  }),
+  def('edit-eol-lf', 'menu.edit.eol.lf', {
+    ui: M({ palette: true, paletteKeywords: ['lf', 'eol', '换行', '行尾'] }),
+  }),
+  def('edit-indent-first-line', 'menu.edit.indentFirst', {
+    ui: M({ palette: true, paletteKeywords: ['indent', '首行', '缩进'] }),
+  }),
+  def('edit-show-br', 'menu.edit.showBr', { ui: M({ palette: true, paletteKeywords: ['line break', 'newline', '换行'] }) }),
   def('edit-find', 'menu.edit.find.find', { accelerator: 'Mod+f', action: 'edit-find', ui: M({ palette: true }) }),
   def('edit-find-prev', 'menu.edit.find.prev', { accelerator: 'Shift+F3' }),
   def('edit-find-next', 'menu.edit.find.next', { accelerator: 'F3' }),
@@ -162,8 +208,23 @@ export const COMMAND_MANIFEST_LIST: readonly CommandManifestEntry[] = Object.fre
     accelerator: 'Alt+Shift+5',
     ui: M({ toolbar: true, toolbarSlot: 'editor-format' }),
   }),
+  def('fmt-highlight', 'menu.fmt.highlight', {
+    icon: 'H',
+    accelerator: 'Mod+Shift+H',
+    ui: M({ toolbar: true, toolbarSlot: 'editor-format' }),
+  }),
   def('fmt-comment', 'menu.fmt.comment'),
   def('fmt-link', 'menu.fmt.link', { accelerator: 'Mod+k', ui: M({ toolbar: true, toolbarSlot: 'editor-format' }) }),
+  def('toolbar-callout', 'menu.toolbar.callout', {
+    group: 'insert',
+    runtime: 'noop',
+    ui: M({
+      toolbar: true,
+      toolbarSlot: 'editor-format',
+      menu: false,
+      palette: false,
+    }),
+  }),
   def('fmt-link-open', 'menu.fmt.linkOpen'),
   def('fmt-link-copy', 'menu.fmt.linkCopy'),
   def('fmt-image', 'menu.fmt.image.insert', { accelerator: 'Mod+Shift+i', action: 'fmt-image', group: 'insert' }),
@@ -181,7 +242,7 @@ export const COMMAND_MANIFEST_LIST: readonly CommandManifestEntry[] = Object.fre
   def('fmt-image-as-md', 'menu.fmt.image.conv.md'),
   def('fmt-image-delete', 'menu.fmt.image.delete'),
   def('fmt-image-copy-to', 'menu.fmt.image.copyTo'),
-  def('fmt-image-rename', 'menu.fmt.image.rename', { runtime: 'noop' }),
+  def('fmt-image-rename', 'menu.fmt.image.rename', { ui: M({ palette: true, paletteKeywords: ['image', 'rename', '图片'] }) }),
   def('fmt-image-upload', 'menu.fmt.image.upload'),
   def('fmt-image-copy-all', 'menu.fmt.image.copyAll'),
   def('fmt-image-move-all', 'menu.fmt.image.moveAll'),
@@ -192,11 +253,19 @@ export const COMMAND_MANIFEST_LIST: readonly CommandManifestEntry[] = Object.fre
   def('fmt-image-root-dir', 'menu.fmt.image.root'),
   def('fmt-image-global-settings', 'menu.fmt.image.global'),
   def('fmt-clear-style', 'menu.fmt.clear', { accelerator: 'Mod+\\' }),
+  ...LUNA_TEXT_COLOR_PRESETS.map((preset) =>
+    def(`fmt-text-color-${preset.id}`, preset.labelKey, {
+      ui: M({ palette: true, paletteKeywords: ['color', 'text', '文字颜色', 'colour'] }),
+    }),
+  ),
+  def('fmt-text-color-default', 'ctx.editor.textColorDefault', {
+    ui: M({ palette: true, paletteKeywords: ['color', 'text', 'default', '默认', '文字颜色'] }),
+  }),
 
   def('toggle-source-mode', 'menu.view.source', {
     accelerator: 'Mod+/',
     runtime: 'app-mode-toggle',
-    ui: M({ palette: true, paletteKeywords: ['source', '源码', 'wysiwyg'], toolbar: true, toolbarSlot: 'sidebar-header' }),
+    ui: M({ palette: true, paletteKeywords: ['source', '源码', 'wysiwyg'] }),
   }),
   def('toggle-focus', 'menu.view.focus', { accelerator: 'F8', runtime: 'app-focus-mode', ui: M({ palette: true }) }),
   def('command-palette-open', 'menu.palette.open', {
@@ -214,7 +283,10 @@ export const COMMAND_MANIFEST_LIST: readonly CommandManifestEntry[] = Object.fre
   def('view-zoom-in', 'menu.view.zoomIn', { accelerator: 'Mod+=', runtime: 'menu' }),
   def('view-zoom-out', 'menu.view.zoomOut', { accelerator: 'Mod+-', runtime: 'menu' }),
   def('toggle-sidebar', 'menu.view.sidebar', { ui: M({ palette: true }) }),
-  def('view-sidebar-outline', 'menu.view.outline', { action: 'toggle-sidebar-outline', ui: M({ palette: true }) }),
+  def('view-sidebar-outline', 'menu.view.outline', {
+    action: 'toggle-sidebar-outline',
+    ui: M({ palette: true, toolbar: true, toolbarSlot: 'sidebar-header' }),
+  }),
   def('view-sidebar-files', 'menu.view.docList', { action: 'toggle-sidebar-files' }),
   def('view-search', 'menu.view.search', {
     accelerator: 'Mod+Shift+f',
@@ -223,7 +295,10 @@ export const COMMAND_MANIFEST_LIST: readonly CommandManifestEntry[] = Object.fre
   }),
   def('view-word-count', 'menu.view.wordCount'),
   def('view-fullscreen', 'menu.view.fullscreen', { accelerator: 'F11', runtime: 'menu' }),
-  def('view-live-preview', 'menu.view.livePreview', { action: 'view-live-preview' }),
+  def('view-live-preview', 'menu.view.livePreview', {
+    action: 'view-live-preview',
+    ui: M({ palette: true, paletteHint: 'menu.view.livePreview.hint' }),
+  }),
 
   def('win-minimize', 'menu.win.min'),
   def('win-zoom', 'menu.win.zoom'),
@@ -233,12 +308,15 @@ export const COMMAND_MANIFEST_LIST: readonly CommandManifestEntry[] = Object.fre
   def('win-move-resize-half-bottom', 'menu.win.half.bottom'),
   def('win-tile-full', 'menu.win.tile'),
 
+  def('help-shortcuts', 'menu.native.help.shortcuts', {
+    ui: M({ palette: true, paletteKeywords: ['shortcuts', 'keyboard', '快捷键'] }),
+  }),
   def('help-about', 'menu.native.help.about', {
     ui: M({ palette: true, paletteKeywords: ['about', '关于'] }),
   }),
-  def('help-privacy', 'menu.native.help.privacy', { ui: M({ menu: false }) }),
-  def('help-website', 'menu.native.help.website', { ui: M({ menu: false }) }),
-  def('help-feedback', 'menu.native.help.feedback', { ui: M({ menu: false }) }),
+  def('help-privacy', 'menu.native.help.privacy'),
+  def('help-website', 'menu.native.help.website'),
+  def('help-feedback', 'menu.native.help.feedback'),
 ])
 
 export const COMMAND_MANIFEST: Readonly<Record<string, CommandManifestEntry>> = Object.freeze(

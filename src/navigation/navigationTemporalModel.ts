@@ -50,20 +50,6 @@ function dependencyBetween(prev: NavigationEvent | null, next: NavigationEvent):
 
 function pushAnomaly(anomaly: NavigationTemporalAnomaly): void {
   anomalies.push(anomaly)
-  console.log('[NAV TEMPORAL] ordering anomaly', anomaly)
-  console.log('[NAV TEMPORAL ROOT CAUSE]', {
-    earliestConflictingEvent: anomaly.relatedEventId
-      ? nodes.get(anomaly.relatedEventId)?.event ?? null
-      : nodes.get(anomaly.eventId)?.event ?? null,
-    brokenDependencyChain: getNavigationTemporalChain().map((node) => ({
-      eventId: node.eventId,
-      type: node.event.type,
-      dependencyType: node.dependencyType,
-    })),
-    overwrittenNavigationState: anomaly.type === 'restore_overwrite' ? nodes.get(anomaly.eventId)?.event ?? null : null,
-    cascadeFailureOrigin: nodes.get(anomaly.relatedEventId ?? anomaly.eventId)?.event ?? null,
-    detail: anomaly.detail,
-  })
 }
 
 function detectAnomalies(prev: NavigationTemporalNode | null, node: NavigationTemporalNode): void {
@@ -130,29 +116,6 @@ export function recordNavigationTemporalEvent(event: NavigationEvent): Navigatio
 
   nodes.set(event.id, node)
   sequence.push(event.id)
-
-  if (sequence.length === 1) {
-    console.log('[NAV TEMPORAL] sequence start', {
-      eventId: event.id,
-      type: event.type,
-      source: event.source,
-    })
-  }
-
-  console.log('[NAV TEMPORAL] dependency chain', {
-    eventId: event.id,
-    prevEventId: node.prevEventId,
-    dependencyType,
-    target: targetKey(event),
-  })
-  if (dependencyType === 'conflict') {
-    console.log('[NAV TEMPORAL] conflict detection', {
-      eventId: event.id,
-      prevEventId: node.prevEventId,
-      target: targetKey(event),
-      previousTarget: prev?.event ? targetKey(prev.event) : null,
-    })
-  }
 
   detectAnomalies(prev, node)
   return node

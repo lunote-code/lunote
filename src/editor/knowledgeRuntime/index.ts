@@ -29,6 +29,7 @@ export {
   resolveDocKey,
   listDocumentKeys,
   listDocumentMetas,
+  listVaultAliasLabels,
   getActiveVault,
   getKnowledgeRegistryRevision,
   resetKnowledgeRegistry,
@@ -41,6 +42,8 @@ export {
   parseFrontmatter,
   docKeyFromWikiTarget,
   unescapeWikiLinksInMarkdown,
+  normalizeWikiLinkBlockRefEscapesInMarkdown,
+  originalToNormalizedAfterWikiBlockRefUnescape,
 } from './wikiLinkParser'
 
 export {

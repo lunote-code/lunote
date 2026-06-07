@@ -1,0 +1,384 @@
+/* ── Dialog / modal shell (see tokens.css --luna-overlay-*) ──
+ * Backdrop + panel chrome + confirm/delete/rename/about variants.
+ */
+
+.about-modal-backdrop,
+.app-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--luna-overlay-backdrop);
+  backdrop-filter: blur(6px);
+}
+
+.about-modal-backdrop {
+  z-index: var(--z-overlay-modal-base);
+}
+
+.app-dialog-backdrop {
+  z-index: var(--z-overlay-dialog);
+}
+
+.confirm-modal-backdrop,
+.delete-modal-backdrop {
+  z-index: var(--z-overlay-dialog-confirm);
+}
+
+.luna-dialog-panel,
+.app-dialog,
+.about-modal,
+.confirm-modal,
+.delete-modal,
+.rename-modal {
+  border-radius: var(--radius-xl);
+  background: var(--luna-overlay-panel-bg);
+  border: var(--hairline) solid var(--luna-overlay-panel-border);
+  box-shadow: var(--luna-overlay-panel-shadow);
+  color: var(--text-primary);
+}
+
+.app-dialog {
+  width: min(720px, 96vw);
+  max-height: min(90vh, 860px);
+  overflow: auto;
+  padding: 24px;
+}
+
+.app-dialog-title {
+  margin: 0 0 8px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.app-dialog-message {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.app-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.about-modal {
+  width: 100%;
+  max-width: 400px;
+  padding: 28px 28px 24px;
+  text-align: center;
+}
+
+.about-modal-title {
+  margin: 0 0 8px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.about-modal-version {
+  margin: 0 0 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.about-modal-desc {
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.about-modal-update-status {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.about-modal-update-status--checking {
+  color: var(--text-muted);
+}
+
+.about-modal-update-status--latest {
+  color: color-mix(in srgb, var(--luna-color-success) 88%, var(--text-secondary));
+}
+
+.about-modal-update-status--available {
+  color: color-mix(in srgb, var(--accent) 92%, var(--text-primary));
+}
+
+.about-modal-update-status--error {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.about-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.about-modal-download {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface-panel));
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border-subtle));
+}
+
+/* Dialog action button (confirm / cancel / close — shared class name) */
+.about-modal-close {
+  width: 100%;
+  padding: 11px 16px;
+  border-radius: var(--radius-md);
+  border: var(--hairline) solid var(--border-subtle);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-panel));
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.12s ease;
+}
+
+.about-modal-close:hover {
+  background: color-mix(in srgb, var(--accent) 20%, var(--surface-hover));
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+}
+
+.about-modal-close:active {
+  transform: scale(0.98);
+}
+
+.about-modal-close:focus-visible {
+  outline: none;
+  box-shadow: var(--luna-focus-ring);
+}
+
+.about-modal-close:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.rename-modal {
+  max-width: 460px;
+  text-align: left;
+}
+
+.rename-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.rename-modal-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.rename-modal-template-status {
+  margin: 0;
+}
+
+.rename-modal-actions-single {
+  grid-template-columns: 1fr 1fr;
+}
+
+.rename-modal-input {
+  width: 100%;
+  height: var(--luna-field-height);
+  padding: 0 12px;
+  border-radius: var(--luna-field-radius);
+  border: var(--hairline) solid var(--luna-field-border);
+  background: var(--luna-field-bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-ui);
+  box-sizing: border-box;
+}
+
+.rename-modal-actions {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.rename-modal-error {
+  margin: 10px 0 0;
+  color: var(--luna-danger-fg);
+  font-size: 12px;
+}
+
+.rename-modal-cancel {
+  background: transparent;
+}
+
+.delete-modal {
+  max-width: 440px;
+  text-align: left;
+}
+
+.delete-modal-title {
+  margin-bottom: 6px;
+}
+
+.delete-modal-desc {
+  margin-bottom: 0;
+}
+
+.delete-modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 14px;
+  border-radius: var(--radius-lg);
+  background: var(--luna-danger-icon-bg);
+  color: var(--luna-danger-icon-fg);
+  box-shadow: none;
+}
+
+.delete-modal-file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin: 18px 0 22px;
+  padding: 11px 12px;
+  border-radius: var(--radius-md);
+  border: var(--hairline) solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-panel) 88%, var(--accent) 4%);
+}
+
+.delete-modal-file-icon {
+  flex: 0 0 auto;
+  display: flex;
+  color: var(--accent);
+}
+
+.delete-modal-file-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.delete-modal-actions {
+  margin-top: 0;
+}
+
+.delete-modal-confirm {
+  background: var(--luna-color-danger);
+  border-color: color-mix(in srgb, var(--luna-color-danger) 72%, #000);
+  color: var(--luna-on-danger);
+}
+
+.delete-modal-confirm:hover {
+  background: color-mix(in srgb, var(--luna-color-danger-soft) 55%, var(--luna-color-danger));
+  border-color: color-mix(in srgb, var(--luna-color-danger) 80%, #000);
+  color: var(--luna-on-danger);
+}
+
+.delete-modal-confirm:active {
+  transform: scale(0.98);
+}
+
+.confirm-modal {
+  max-width: 440px;
+  text-align: left;
+}
+
+.confirm-modal-title {
+  margin-bottom: 6px;
+}
+
+.confirm-modal-desc {
+  margin-bottom: 0;
+}
+
+.confirm-modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 14px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-panel));
+  color: var(--accent);
+  box-shadow: none;
+}
+
+.confirm-modal-icon-info {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-panel));
+}
+
+.confirm-modal-warning .confirm-modal-icon {
+  background: var(--luna-warning-icon-bg);
+  color: var(--luna-warning-icon-fg);
+  box-shadow: none;
+}
+
+.confirm-modal-actions {
+  margin-top: 22px;
+}
+
+.confirm-modal-actions-multi {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.confirm-modal-actions-multi .about-modal-close {
+  width: auto;
+  min-width: 96px;
+  flex: 0 1 auto;
+}
+
+.confirm-modal-confirm {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.confirm-modal-confirm:hover {
+  filter: brightness(1.05);
+}
+
+.confirm-modal-confirm-warning {
+  background: var(--luna-color-warning);
+  color: var(--luna-on-warning);
+}
+
+.confirm-modal-confirm-warning:hover {
+  background: color-mix(in srgb, var(--luna-color-warning) 88%, #000);
+}
+
+.confirm-modal-single-ok {
+  margin-top: 22px;
+  width: 100%;
+}
+
+.alert-modal-desc {
+  white-space: pre-wrap;
+}

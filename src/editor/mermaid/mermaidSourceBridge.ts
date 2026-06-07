@@ -1,6 +1,7 @@
 import type { Editor } from '@tiptap/core'
 
 import { flushAllBlocksToPm } from '../codeBlockRuntime/bridge/cbrToPmSync'
+import { preserveProseMirrorScrollDuring } from '../preserveProseMirrorScroll'
 import { clearMermaidSourceStore, flushAllMermaidBlocks } from './mermaidSourceStore'
 
 export type MermaidFlushReason =
@@ -37,7 +38,9 @@ export function getMermaidSourceBoundEditor(): Editor | null {
 }
 
 export function flushMermaidSourceForSerialize(editor: Editor): void {
-  flushAllBlocksToPm(editor, 'serialize')
+  preserveProseMirrorScrollDuring(editor, () => {
+    flushAllBlocksToPm(editor, 'serialize')
+  })
 }
 
 export function flushMermaidSourceForDocumentSwitch(editor: Editor): void {

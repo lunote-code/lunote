@@ -1,0 +1,259 @@
+/* ── Scrollbar tiers (see tokens.css) ──
+ * 1. Sidebar file list — 4px, square thumb (.sidebar-scroll .file-list)
+ * 2. Tabs (horizontal, hover-reveal) — editor-tabs.css, knowledgePanels .kos-rail-tabs
+ * 3. Code blocks (hover-reveal) — editor-markdown-fence.css, editor-node-code-block.css (.pm-code-body-col, .pm-code-block-cm .cm-scroller)
+ * 4. Standard overlay/panel — selectors below (+ opt-in .luna-overlay-scroll)
+ */
+
+/*Sidebar file list scroll bar: stick to the right edge, thin*/
+.sidebar-scroll .file-list {
+  scrollbar-gutter: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--luna-sidebar-scrollbar-thumb) transparent;
+}
+
+.sidebar-scroll .file-list::-webkit-scrollbar {
+  width: var(--luna-sidebar-scrollbar-size);
+  height: var(--luna-sidebar-scrollbar-size);
+}
+
+.sidebar-scroll .file-list::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 0;
+}
+
+.sidebar-scroll .file-list::-webkit-scrollbar-thumb {
+  background: var(--luna-sidebar-scrollbar-thumb);
+  border-radius: 2px;
+  border: none;
+  background-clip: border-box;
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--border-subtle) 55%, transparent);
+}
+
+.sidebar-scroll .file-list::-webkit-scrollbar-thumb:hover {
+  background: var(--luna-sidebar-scrollbar-thumb-hover);
+}
+
+.sidebar-scroll .file-list::-webkit-scrollbar-thumb:active {
+  background: var(--luna-sidebar-scrollbar-thumb-active, var(--luna-sidebar-scrollbar-thumb-hover));
+}
+
+/*── Standard 8px scrollbars (editor, panels, overlays, menus) ──*/
+.luna-overlay-scroll,
+.command-palette-list,
+.template-picker-list,
+.sidebar-outline-scroll,
+.preview-pane,
+.editor-pane .cm-scroller,
+.preview-pane.markdown-visual-editor .ProseMirror,
+.kos-backlink-scroll,
+.kos-rail-body,
+.kos-frontmatter-panel,
+.kos-embed-panel,
+.kos-frontmatter-suggestion,
+.prefs-content-body,
+.settings-sidebar-nav,
+.settings-select-content,
+.prefs-theme-file-scroll,
+.document-history-list,
+.document-history-preview-body,
+.document-history-preview-body--diff,
+.file-ctx-menu,
+.file-ctx-submenu,
+.file-ctx-submenu-portal,
+.app-dialog,
+.app-menubar-panel,
+.luna-emoji-picker__grid,
+.save-conflict-merge,
+.preview-pane.markdown-visual-editor .pm-slash-menu,
+.editor-pane .pm-slash-menu,
+.luna-code-lang-palette__list,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-panel,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-preview-host,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-block-pre {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--luna-scrollbar-thumb) var(--luna-scrollbar-track);
+}
+
+.luna-overlay-scroll::-webkit-scrollbar,
+.command-palette-list::-webkit-scrollbar,
+.template-picker-list::-webkit-scrollbar,
+.sidebar-outline-scroll::-webkit-scrollbar,
+.preview-pane::-webkit-scrollbar,
+.editor-pane .cm-scroller::-webkit-scrollbar,
+.preview-pane.markdown-visual-editor .ProseMirror::-webkit-scrollbar,
+.kos-backlink-scroll::-webkit-scrollbar,
+.kos-rail-body::-webkit-scrollbar,
+.kos-frontmatter-panel::-webkit-scrollbar,
+.kos-embed-panel::-webkit-scrollbar,
+.kos-frontmatter-suggestion::-webkit-scrollbar,
+.prefs-content-body::-webkit-scrollbar,
+.settings-sidebar-nav::-webkit-scrollbar,
+.settings-select-content::-webkit-scrollbar,
+.prefs-theme-file-scroll::-webkit-scrollbar,
+.document-history-list::-webkit-scrollbar,
+.document-history-preview-body::-webkit-scrollbar,
+.document-history-preview-body--diff::-webkit-scrollbar,
+.file-ctx-menu::-webkit-scrollbar,
+.file-ctx-submenu::-webkit-scrollbar,
+.file-ctx-submenu-portal::-webkit-scrollbar,
+.app-dialog::-webkit-scrollbar,
+.app-menubar-panel::-webkit-scrollbar,
+.luna-emoji-picker__grid::-webkit-scrollbar,
+.save-conflict-merge::-webkit-scrollbar,
+.preview-pane.markdown-visual-editor .pm-slash-menu::-webkit-scrollbar,
+.editor-pane .pm-slash-menu::-webkit-scrollbar,
+.luna-code-lang-palette__list::-webkit-scrollbar,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-panel::-webkit-scrollbar,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-preview-host::-webkit-scrollbar,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-block-pre::-webkit-scrollbar {
+  width: var(--luna-scrollbar-size);
+  height: var(--luna-scrollbar-size);
+}
+
+.luna-overlay-scroll::-webkit-scrollbar-track,
+.command-palette-list::-webkit-scrollbar-track,
+.template-picker-list::-webkit-scrollbar-track,
+.sidebar-outline-scroll::-webkit-scrollbar-track,
+.preview-pane::-webkit-scrollbar-track,
+.editor-pane .cm-scroller::-webkit-scrollbar-track,
+.preview-pane.markdown-visual-editor .ProseMirror::-webkit-scrollbar-track,
+.kos-backlink-scroll::-webkit-scrollbar-track,
+.kos-rail-body::-webkit-scrollbar-track,
+.kos-frontmatter-panel::-webkit-scrollbar-track,
+.kos-embed-panel::-webkit-scrollbar-track,
+.kos-frontmatter-suggestion::-webkit-scrollbar-track,
+.prefs-content-body::-webkit-scrollbar-track,
+.settings-sidebar-nav::-webkit-scrollbar-track,
+.settings-select-content::-webkit-scrollbar-track,
+.prefs-theme-file-scroll::-webkit-scrollbar-track,
+.document-history-list::-webkit-scrollbar-track,
+.document-history-preview-body::-webkit-scrollbar-track,
+.document-history-preview-body--diff::-webkit-scrollbar-track,
+.file-ctx-menu::-webkit-scrollbar-track,
+.file-ctx-submenu::-webkit-scrollbar-track,
+.file-ctx-submenu-portal::-webkit-scrollbar-track,
+.app-dialog::-webkit-scrollbar-track,
+.app-menubar-panel::-webkit-scrollbar-track,
+.luna-emoji-picker__grid::-webkit-scrollbar-track,
+.save-conflict-merge::-webkit-scrollbar-track,
+.preview-pane.markdown-visual-editor .pm-slash-menu::-webkit-scrollbar-track,
+.editor-pane .pm-slash-menu::-webkit-scrollbar-track,
+.luna-code-lang-palette__list::-webkit-scrollbar-track,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-panel::-webkit-scrollbar-track,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-preview-host::-webkit-scrollbar-track,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-block-pre::-webkit-scrollbar-track {
+  background: var(--luna-scrollbar-track);
+  border-radius: 999px;
+}
+
+.luna-overlay-scroll::-webkit-scrollbar-thumb,
+.command-palette-list::-webkit-scrollbar-thumb,
+.template-picker-list::-webkit-scrollbar-thumb,
+.sidebar-outline-scroll::-webkit-scrollbar-thumb,
+.preview-pane::-webkit-scrollbar-thumb,
+.editor-pane .cm-scroller::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror::-webkit-scrollbar-thumb,
+.kos-backlink-scroll::-webkit-scrollbar-thumb,
+.kos-rail-body::-webkit-scrollbar-thumb,
+.kos-frontmatter-panel::-webkit-scrollbar-thumb,
+.kos-embed-panel::-webkit-scrollbar-thumb,
+.kos-frontmatter-suggestion::-webkit-scrollbar-thumb,
+.prefs-content-body::-webkit-scrollbar-thumb,
+.settings-sidebar-nav::-webkit-scrollbar-thumb,
+.settings-select-content::-webkit-scrollbar-thumb,
+.prefs-theme-file-scroll::-webkit-scrollbar-thumb,
+.document-history-list::-webkit-scrollbar-thumb,
+.document-history-preview-body::-webkit-scrollbar-thumb,
+.document-history-preview-body--diff::-webkit-scrollbar-thumb,
+.file-ctx-menu::-webkit-scrollbar-thumb,
+.file-ctx-submenu::-webkit-scrollbar-thumb,
+.file-ctx-submenu-portal::-webkit-scrollbar-thumb,
+.app-dialog::-webkit-scrollbar-thumb,
+.app-menubar-panel::-webkit-scrollbar-thumb,
+.luna-emoji-picker__grid::-webkit-scrollbar-thumb,
+.save-conflict-merge::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .pm-slash-menu::-webkit-scrollbar-thumb,
+.editor-pane .pm-slash-menu::-webkit-scrollbar-thumb,
+.luna-code-lang-palette__list::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-panel::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-preview-host::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-block-pre::-webkit-scrollbar-thumb {
+  background: var(--luna-scrollbar-thumb);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.luna-overlay-scroll::-webkit-scrollbar-thumb:hover,
+.command-palette-list::-webkit-scrollbar-thumb:hover,
+.template-picker-list::-webkit-scrollbar-thumb:hover,
+.sidebar-outline-scroll::-webkit-scrollbar-thumb:hover,
+.preview-pane::-webkit-scrollbar-thumb:hover,
+.editor-pane .cm-scroller::-webkit-scrollbar-thumb:hover,
+.preview-pane.markdown-visual-editor .ProseMirror::-webkit-scrollbar-thumb:hover,
+.kos-backlink-scroll::-webkit-scrollbar-thumb:hover,
+.kos-rail-body::-webkit-scrollbar-thumb:hover,
+.kos-frontmatter-panel::-webkit-scrollbar-thumb:hover,
+.kos-embed-panel::-webkit-scrollbar-thumb:hover,
+.kos-frontmatter-suggestion::-webkit-scrollbar-thumb:hover,
+.prefs-content-body::-webkit-scrollbar-thumb:hover,
+.settings-sidebar-nav::-webkit-scrollbar-thumb:hover,
+.settings-select-content::-webkit-scrollbar-thumb:hover,
+.prefs-theme-file-scroll::-webkit-scrollbar-thumb:hover,
+.document-history-list::-webkit-scrollbar-thumb:hover,
+.document-history-preview-body::-webkit-scrollbar-thumb:hover,
+.document-history-preview-body--diff::-webkit-scrollbar-thumb:hover,
+.file-ctx-menu::-webkit-scrollbar-thumb:hover,
+.file-ctx-submenu::-webkit-scrollbar-thumb:hover,
+.file-ctx-submenu-portal::-webkit-scrollbar-thumb:hover,
+.app-dialog::-webkit-scrollbar-thumb:hover,
+.app-menubar-panel::-webkit-scrollbar-thumb:hover,
+.luna-emoji-picker__grid::-webkit-scrollbar-thumb:hover,
+.save-conflict-merge::-webkit-scrollbar-thumb:hover,
+.preview-pane.markdown-visual-editor .pm-slash-menu::-webkit-scrollbar-thumb:hover,
+.editor-pane .pm-slash-menu::-webkit-scrollbar-thumb:hover,
+.luna-code-lang-palette__list::-webkit-scrollbar-thumb:hover,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-panel::-webkit-scrollbar-thumb:hover,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-preview-host::-webkit-scrollbar-thumb:hover,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-block-pre::-webkit-scrollbar-thumb:hover {
+  background: var(--luna-scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+.luna-overlay-scroll::-webkit-scrollbar-thumb:active,
+.command-palette-list::-webkit-scrollbar-thumb:active,
+.template-picker-list::-webkit-scrollbar-thumb:active,
+.sidebar-outline-scroll::-webkit-scrollbar-thumb:active,
+.preview-pane::-webkit-scrollbar-thumb:active,
+.editor-pane .cm-scroller::-webkit-scrollbar-thumb:active,
+.preview-pane.markdown-visual-editor .ProseMirror::-webkit-scrollbar-thumb:active,
+.kos-backlink-scroll::-webkit-scrollbar-thumb:active,
+.kos-rail-body::-webkit-scrollbar-thumb:active,
+.kos-frontmatter-panel::-webkit-scrollbar-thumb:active,
+.kos-embed-panel::-webkit-scrollbar-thumb:active,
+.kos-frontmatter-suggestion::-webkit-scrollbar-thumb:active,
+.prefs-content-body::-webkit-scrollbar-thumb:active,
+.settings-sidebar-nav::-webkit-scrollbar-thumb:active,
+.settings-select-content::-webkit-scrollbar-thumb:active,
+.prefs-theme-file-scroll::-webkit-scrollbar-thumb:active,
+.document-history-list::-webkit-scrollbar-thumb:active,
+.document-history-preview-body::-webkit-scrollbar-thumb:active,
+.document-history-preview-body--diff::-webkit-scrollbar-thumb:active,
+.file-ctx-menu::-webkit-scrollbar-thumb:active,
+.file-ctx-submenu::-webkit-scrollbar-thumb:active,
+.file-ctx-submenu-portal::-webkit-scrollbar-thumb:active,
+.app-dialog::-webkit-scrollbar-thumb:active,
+.app-menubar-panel::-webkit-scrollbar-thumb:active,
+.luna-emoji-picker__grid::-webkit-scrollbar-thumb:active,
+.save-conflict-merge::-webkit-scrollbar-thumb:active,
+.preview-pane.markdown-visual-editor .pm-slash-menu::-webkit-scrollbar-thumb:active,
+.editor-pane .pm-slash-menu::-webkit-scrollbar-thumb:active,
+.luna-code-lang-palette__list::-webkit-scrollbar-thumb:active,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-panel::-webkit-scrollbar-thumb:active,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-preview-host::-webkit-scrollbar-thumb:active,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-block-pre::-webkit-scrollbar-thumb:active {
+  background: var(--luna-scrollbar-thumb-active);
+  background-clip: padding-box;
+}

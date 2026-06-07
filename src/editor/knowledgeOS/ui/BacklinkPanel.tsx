@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef } from 'react'
-import { Icon } from '../../../design-system/icons'
+import { EmptyState } from '../../../design-system/EmptyState'
 import { useBacklinkSlice } from './useKnowledgeOSSlice'
 import {
   backlinkIdForDoc,
@@ -14,6 +14,7 @@ import { resolveClickIntent } from '../../navigation/clickIntentResolver'
 import { asMetadataResolvedTarget, dispatchKnowledgeNavigate } from './interactionTransaction'
 import { resolveWikiTarget } from '../wikiLinkRuntime'
 import { useI18n } from '../../../i18n'
+import { KnowledgePanelLoading } from './KnowledgePanelLoading'
 
 type Props = {
   docKey: string | null
@@ -180,16 +181,14 @@ export function BacklinkPanel({ docKey }: Props) {
   if (!docKey) {
     return (
       <div className="kos-surface-host kos-surface-host--empty" ref={hostRef}>
-        <Icon name="backlinks" size="display" tone="muted" />
-        <p className="kos-panel-empty">{t('knowledge.backlinks.emptyDoc')}</p>
+        <EmptyState variant="compact" icon="backlinks" title={t('knowledge.backlinks.emptyDoc')} />
       </div>
     )
   }
   if (!panel) {
     return (
-      <div className="kos-surface-host kos-surface-host--empty" ref={hostRef}>
-        <Icon name="backlinks" size="display" tone="muted" />
-        <p className="kos-panel-empty">{t('knowledge.backlinks.loading')}</p>
+      <div className="kos-surface-host" ref={hostRef}>
+        <KnowledgePanelLoading message={t('knowledge.backlinks.loading')} />
       </div>
     )
   }

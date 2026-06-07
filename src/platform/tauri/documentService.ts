@@ -15,8 +15,11 @@ export type SaveNoteOptions = {
 
 export type CreateNotePayload = {
   root: string
-  parentPath: string
-  stem: string
+  parentPath?: string
+  stem?: string
+  content?: string
+  /** Vault-relative path, e.g. Daily/2026-05-28.md */
+  relativePath?: string
 }
 
 export type RenameNotePayload = {

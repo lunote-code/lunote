@@ -4,10 +4,17 @@ import {
   registryCommandMatchesEventWithOverrides,
 } from './shortcutCustomization'
 import { eventMatchesAccelerator } from './menu.shortcuts'
-import { isNonEditorTextInputTarget } from '../editor/webviewPasteFocus'
+import { isCodeBlockCmFocused } from '../editor/codeBlock/cm/codeBlockCmFocus'
+import { isEditorPasteFocusTarget, isNonEditorTextInputTarget } from '../editor/webviewPasteFocus'
 
-/** Mod+V in the editor is handed over to the native paste event (clipboardData) to avoid navigator.clipboard.read from popping up the system Paste menu.*/
-const NATIVE_PASTE_COMMAND_IDS = new Set<string>(['edit-paste'])
+/** Mod+V: native paste (clipboardData) in the webview. */
+const NATIVE_CLIPBOARD_ALWAYS_COMMAND_IDS = new Set<string>(['edit-paste'])
+/** Mod+C / Mod+X in ProseMirror/CodeMirror: native copy/cut so images & rich nodes serialize correctly. */
+const NATIVE_CLIPBOARD_IN_EDITOR_COMMAND_IDS = new Set<string>(['edit-copy', 'edit-cut'])
+/** Mod+A in embedded code-block CM: let CodeMirror selectAll run (registry capture would PM-select a stale paragraph). */
+const NATIVE_SELECT_ALL_IN_CODE_CM_COMMAND_IDS = new Set<string>(['edit-select-all'])
+/** Mod+Z / Mod+Shift+Z in embedded code-block CM: route through CM keymap → VM undo (PM native history is off). */
+const NATIVE_UNDO_IN_CODE_CM_COMMAND_IDS = new Set<string>(['edit-undo', 'edit-redo'])
 const INPUT_SAFE_RUNTIMES = new Set<CommandManifestEntry['runtime']>(['app-mode-toggle'])
 
 export type RegistryShortcutHandlers = {
@@ -72,11 +79,14 @@ export function createRegistryShortcutHandler(
   return (event: KeyboardEvent) => {
     if (event.defaultPrevented) return
 
-    const bound = listBoundShortcutCommands().filter((c) => !NATIVE_PASTE_COMMAND_IDS.has(c.id))
+    const bound = listBoundShortcutCommands().filter((c) => !NATIVE_CLIPBOARD_ALWAYS_COMMAND_IDS.has(c.id))
     for (const def of bound) {
       if (!def.accelerator) continue
       if (!eventMatchesAccelerator(event, def.accelerator)) continue
       if (handlers.isBlocked?.() && def.runtime !== 'app-mode-toggle') continue
+      if (NATIVE_CLIPBOARD_IN_EDITOR_COMMAND_IDS.has(def.id) && isEditorPasteFocusTarget()) continue
+      if (NATIVE_SELECT_ALL_IN_CODE_CM_COMMAND_IDS.has(def.id) && isCodeBlockCmFocused()) continue
+      if (NATIVE_UNDO_IN_CODE_CM_COMMAND_IDS.has(def.id) && isCodeBlockCmFocused()) continue
       //Find/replace box, sidebar search, etc.: Prioritize keeping native input shortcut keys and not triggering global commands
       if (isNonEditorTextInputTarget() && !INPUT_SAFE_RUNTIMES.has(def.runtime)) continue
       event.preventDefault()

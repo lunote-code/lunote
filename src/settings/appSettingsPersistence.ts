@@ -3,26 +3,58 @@ import type { AppSettingsState } from './appSettingsTypes'
 import { DEFAULT_APP_SETTINGS } from './appSettingsTypes'
 import { normalizeAssetStorageConfig } from '../assets/assetStoragePolicy'
 import { normalizeEditorFontSize } from '../settings-runtime/editorTypography'
+import { normalizeEditorColumnWidth } from '../settings-runtime/editorColumnWidth'
+import {
+  clearLegacyFormatToolbarPinnedStorage,
+  migrateLegacyFormatToolbarPinned,
+  needsFormatToolbarSettingsMigration,
+  normalizeEditorFormatToolbarEnabled,
+} from '../settings-runtime/editorFormatToolbarEnabled'
 import { normalizeThemeVariant } from '../theme-runtime/themeResolver'
 import { isShortcutCustomizable } from '../menu/shortcutPlatformDefaults'
+import { mirrorAppSettingsLocalCache } from '../platform/bootEarlyTheme'
 import { getAppSettings, saveAppSettings } from '../platform/tauri/settingsService'
 
-const WEB_STORAGE_KEY = 'CrossPlatNote:appSettings:v1'
+const LEGACY_WEB_STORAGE_KEY = 'CrossPlatNote:appSettings:v1'
+const WEB_STORAGE_KEY = 'Lunote:appSettings:v1'
 
 type EditorAppearance = NonNullable<NonNullable<AppSettingsState['appearance']>['editor']>
 
 function normalizeEditorAppearance(editor: Partial<EditorAppearance> | undefined) {
   const familyRaw = typeof editor?.fontFamily === 'string' ? editor.fontFamily.trim() : ''
   const fontSize = normalizeEditorFontSize(editor?.fontSize)
+  const columnWidth = normalizeEditorColumnWidth(editor?.columnWidth)
+  const legacyToolbarEnabled = migrateLegacyFormatToolbarPinned()
+  const formatToolbarEnabled = normalizeEditorFormatToolbarEnabled(
+    editor?.formatToolbarEnabled,
+    (editor as { formatToolbarMode?: unknown } | undefined)?.formatToolbarMode ?? legacyToolbarEnabled,
+  )
+  if (legacyToolbarEnabled !== undefined) clearLegacyFormatToolbarPinnedStorage()
+  const autosaveScope: 'allDirty' | 'activeOnly' =
+    editor?.autosaveScope === 'allDirty' ? 'allDirty' : 'activeOnly'
+  const { formatToolbarMode: _legacyFormatToolbarMode, ...editorRest } =
+    (editor as { formatToolbarMode?: unknown } | undefined) ?? {}
   return {
-    ...(editor ?? {}),
+    ...editorRest,
     fontFamily: familyRaw || undefined,
     fontSize,
+    columnWidth,
+    formatToolbarEnabled,
+    autosaveScope,
+  }
+}
+
+export function normalizeAppSettingsState(settings: AppSettingsState): AppSettingsState {
+  return {
+    ...settings,
+    assetStorage: normalizeAssetStorageConfig(settings.assetStorage),
+    appearance: normalizeAppearance(settings.appearance),
   }
 }
 
 function normalizeAppearance(appearance: AppSettingsState['appearance']): AppSettingsState['appearance'] {
-  const existingTheme = appearance?.theme ?? {}
+  const existingTheme = { ...(appearance?.theme ?? {}) }
+  delete (existingTheme as Record<string, unknown>).cssCompatMode
   const existingEditor = normalizeEditorAppearance(appearance?.editor)
   return {
     ...(appearance ?? {}),
@@ -67,28 +99,72 @@ function normalizeShortcutOverrides(
   return Object.keys(out).length > 0 ? out : undefined
 }
 
-export async function loadAppSettingsFromDisk(): Promise<AppSettingsState> {
+export async function loadAppSettingsFromDisk(options?: { fallbackOnError?: boolean }): Promise<AppSettingsState> {
+  const fallbackOnError = options?.fallbackOnError ?? true
   if (isTauri()) {
     try {
       const settings = await getAppSettings()
-      return {
+      const needsThemeCompatMigration = Boolean(
+        (settings.appearance?.theme as Record<string, unknown> | undefined)?.cssCompatMode,
+      )
+      const normalized = normalizeAppSettingsState({
         ...DEFAULT_APP_SETTINGS,
         ...settings,
-        assetStorage: normalizeAssetStorageConfig(settings.assetStorage),
-        appearance: normalizeAppearance(settings.appearance),
         shortcutOverrides: normalizeShortcutOverrides(settings.shortcutOverrides),
+      })
+      const needsFormatToolbarMigration = needsFormatToolbarSettingsMigration(settings.appearance?.editor)
+      if (needsThemeCompatMigration || needsFormatToolbarMigration) {
+        void saveAppSettings(normalized).catch((error) => {
+          console.warn('[app-settings] Failed to migrate legacy appearance settings.', error)
+        })
       }
-    } catch {
+      mirrorAppSettingsLocalCache(JSON.stringify(normalized))
+      return normalized
+    } catch (error) {
+      if (!fallbackOnError) throw error
       return { ...DEFAULT_APP_SETTINGS }
     }
   }
-  return parse(localStorage.getItem(WEB_STORAGE_KEY))
+  let raw = localStorage.getItem(WEB_STORAGE_KEY)
+  if (!raw) {
+    raw = localStorage.getItem(LEGACY_WEB_STORAGE_KEY)
+    if (raw) {
+      localStorage.setItem(WEB_STORAGE_KEY, raw)
+      localStorage.removeItem(LEGACY_WEB_STORAGE_KEY)
+    }
+  }
+  let needsThemeCompatMigration = false
+  let needsFormatToolbarMigration: boolean
+  if (raw) {
+    try {
+      const stored = JSON.parse(raw) as Partial<AppSettingsState>
+      needsThemeCompatMigration = Boolean(
+        (stored.appearance?.theme as Record<string, unknown> | undefined)?.cssCompatMode,
+      )
+      needsFormatToolbarMigration = needsFormatToolbarSettingsMigration(stored.appearance?.editor)
+    } catch {
+      needsThemeCompatMigration = false
+      needsFormatToolbarMigration = false
+    }
+  } else {
+    needsFormatToolbarMigration = true
+  }
+  const parsed = parse(raw)
+  if (needsThemeCompatMigration || needsFormatToolbarMigration) {
+    void saveAppSettingsToDisk(parsed)
+  } else if (raw) {
+    mirrorAppSettingsLocalCache(JSON.stringify(parsed))
+  }
+  return parsed
 }
 
 export async function saveAppSettingsToDisk(settings: AppSettingsState): Promise<void> {
+  const normalized = normalizeAppSettingsState(settings)
+  const serialized = JSON.stringify(normalized)
   if (isTauri()) {
-    await saveAppSettings(settings)
+    await saveAppSettings(normalized)
+    mirrorAppSettingsLocalCache(serialized)
     return
   }
-  localStorage.setItem(WEB_STORAGE_KEY, JSON.stringify(settings))
+  localStorage.setItem(WEB_STORAGE_KEY, serialized)
 }

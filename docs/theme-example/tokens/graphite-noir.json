@@ -1,0 +1,22 @@
+{
+  "id": "graphite-noir",
+  "name": "Graphite Noir",
+  "label": "Graphite Noir",
+  "family": "graphite-noir",
+  "variant": "dark",
+  "colors": {
+    "background": "#141417",
+    "foreground": "#ececef",
+    "primary": "#6366f1",
+    "border": "rgba(236, 236, 239, 0.1)",
+    "muted": "#71717a"
+  },
+  "radius": {
+    "card": 16,
+    "control": 10
+  },
+  "spacing": {
+    "row": 14,
+    "section": 24
+  }
+}

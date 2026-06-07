@@ -27,18 +27,6 @@ export function startNavigationCausalTrace(
   }
   nodes.set(event.id, node)
 
-  console.log('[NAV CAUSAL] event start', {
-    eventId: event.id,
-    type: event.type,
-    source: event.source,
-    path: event.path,
-    docKey: event.docKey,
-  })
-  console.log('[NAV CAUSAL] expected effects', {
-    eventId: event.id,
-    expectedEffects: node.expectedEffects,
-  })
-
   return node
 }
 
@@ -47,21 +35,11 @@ export function recordNavigationCausalEffect(
   actual: NavigationActualSideEffect,
 ): NavigationCausalNode | null {
   if (!eventId) {
-    console.log('[NAV CAUSAL] actual effects', {
-      eventId: null,
-      actualEffect: actual.kind,
-      orphan: true,
-    })
     return null
   }
 
   const node = nodes.get(eventId)
   if (!node) {
-    console.log('[NAV CAUSAL] actual effects', {
-      eventId,
-      actualEffect: actual.kind,
-      orphan: true,
-    })
     return null
   }
 
@@ -80,21 +58,6 @@ export function recordNavigationCausalEffect(
       ...node.actualEffects.filter((kind) => !node.expectedEffects.includes(kind)),
     ]),
   ]
-
-  console.log('[NAV CAUSAL] actual effects', {
-    eventId,
-    actualEffects: node.actualEffects,
-  })
-  console.log('[NAV CAUSAL] missing effects', {
-    eventId,
-    missingEffects: node.missingEffects,
-  })
-  if (node.missingEffects.length === 0) {
-    console.log('[NAV CAUSAL] completed trace', {
-      eventId,
-      node,
-    })
-  }
 
   return node
 }

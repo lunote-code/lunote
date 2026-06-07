@@ -1,4 +1,4 @@
-import { Node, mergeAttributes } from '@tiptap/core'
+import { Node, mergeAttributes, type Editor } from '@tiptap/core'
 import { ReactNodeViewRenderer } from '@tiptap/react'
 import { MermaidView } from '../../components/nodes/MermaidView'
 import { isNativeInputDom } from '../documentRuntime/nativeInput'
@@ -83,4 +83,17 @@ export const MermaidBlock = Node.create({
 export function ensureMermaidBlockId(attrs: { blockId?: string | null; source?: string }): string {
   const existing = String(attrs.blockId ?? '').trim()
   return existing || newMermaidBlockId()
+}
+
+export function ensureMermaidBlockIdAtPos(
+  editor: Editor,
+  pos: number,
+  attrs: { blockId?: string | null; source?: string },
+): string {
+  const blockId = ensureMermaidBlockId(attrs)
+  if (String(attrs.blockId ?? '').trim()) return blockId
+  editor.view.dispatch(
+    editor.view.state.tr.setNodeMarkup(pos, undefined, { ...attrs, blockId }),
+  )
+  return blockId
 }

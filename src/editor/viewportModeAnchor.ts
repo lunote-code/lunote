@@ -43,6 +43,8 @@ export type SourceModeEnterAnchor = {
   modeSwitchSnapshot?: ModeSwitchSnapshot
   /** Explicitly marks whether this source-enter anchor is strict or degraded.*/
   resultKind?: Exclude<ModeSwitchPrepareResultKind, 'hard_fail'>
+  /** YAML prefix length when leaving visual; stabilizes scroll/offset maps if YAML edits later in source.*/
+  frontmatterPrefixLengthAtCapture?: number
 }
 
 export type VisualModeRestorePayload = {

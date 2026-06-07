@@ -1,5 +1,6 @@
 import Image from '@tiptap/extension-image'
 import { mergeAttributes } from '@tiptap/core'
+import { NodeSelection } from '@tiptap/pm/state'
 import {
   NodeViewWrapper,
   ReactNodeViewRenderer,
@@ -16,7 +17,8 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from 'react'
-import { isExternalOrDataSrc } from '../export/mediaSources'
+import { isAbsoluteLocalMediaPath, isExternalOrDataSrc } from '../export/mediaSources'
+import { useI18n } from '../i18n'
 import { noteAssetExists } from '../platform/tauri/documentService'
 
 const VIDEO_PATH_RE = /\.(mp4|webm|ogv|ogg|mov|m4v)(\?|#|$)/i
@@ -87,6 +89,7 @@ function parseMarkdownImageLine(line: string): { alt: string; src: string; title
 }
 
 const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
+  const { t } = useI18n()
   const { node, updateAttributes, selected } = props
   const src = String(node.attrs.src ?? '')
   const alt = String(node.attrs.alt ?? '')
@@ -122,7 +125,7 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
       setAssetPresence('skip')
       return
     }
-    if (isExternalOrDataSrc(raw)) {
+    if (isExternalOrDataSrc(raw) || isAbsoluteLocalMediaPath(raw)) {
       setAssetPresence('skip')
       return
     }
@@ -155,10 +158,39 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
   const showMdSource = assetPresence === 'missing' || loadError
   const snippet = useMemo(() => mdImageSnippet(alt, src, title), [alt, src, title])
 
-  /** The properties panel will only be expanded after the user clicks on the image; failure/missing will no longer be automatically expanded (to avoid focus grabbing the distant cursor every time PM is updated)*/
-  const showSourcePanel = assetPresence !== 'pending' && showBar
+  /** Card chrome always on; Markdown source bar only after double-click. */
+  const cardReady = assetPresence !== 'pending'
+  const showSourcePanel = cardReady && showBar
 
   const prevShowBarRef = useRef(false)
+
+  /** Prevent WebKit from painting ::selection over img alt / inline paragraph text when clicking the card. */
+  const onPreviewMouseDown = useCallback(
+    (e: ReactMouseEvent<HTMLElement>) => {
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.altKey) return
+      if ((e.target as HTMLElement).closest('.pm-image-card-source-input')) return
+
+      e.preventDefault()
+      e.stopPropagation()
+
+      const getPos = props.getPos
+      if (typeof getPos !== 'function') return
+      const pos = getPos()
+      if (typeof pos !== 'number') return
+
+      const { editor } = props
+      const { selection } = editor.state
+      const alreadySelected =
+        selection instanceof NodeSelection && selection.from === pos
+
+      if (!alreadySelected) {
+        editor.chain().focus(undefined, { scrollIntoView: false }).setNodeSelection(pos).run()
+      }
+
+      document.getSelection()?.removeAllRanges()
+    },
+    [props.editor, props.getPos],
+  )
 
   const commitSnippet = useCallback(() => {
     const parsed = parseMarkdownImageLine(textDraft)
@@ -270,12 +302,12 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
     )
   }
 
-  const cardOpen = showSourcePanel
+  const cardOpen = cardReady
 
   return (
     <NodeViewWrapper
       as="span"
-      className={`pm-image-node-root pm-image-card${cardOpen ? ' pm-image-card--open' : ''}${selected || showBar ? ' pm-image-card--focus' : ''}`}
+      className={`pm-image-node-root pm-image-card${cardOpen ? ' pm-image-card--open' : ''}${showSourcePanel ? ' pm-image-card--source-open' : ''}${selected || showBar ? ' pm-image-card--focus' : ''}`}
       ref={wrapRef}
       contentEditable={false}
     >
@@ -291,21 +323,26 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
             value={textDraft}
             spellCheck={false}
             rows={1}
-            aria-label="Markdown image syntax"
+            aria-label={t('editor.image.syntaxAria')}
             onChange={(e) => {
               setTextDraft(e.target.value)
               requestAnimationFrame(() => adjustSourceHeight())
             }}
-            onBlur={commitSnippet}
+            onBlur={() => {
+              commitSnippet()
+              setShowBar(false)
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
                 e.preventDefault()
                 setTextDraft(snippet)
+                setShowBar(false)
                 e.currentTarget.blur()
               }
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
                 commitSnippet()
+                setShowBar(false)
                 props.editor.commands.focus()
               }
             }}
@@ -313,13 +350,16 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
         </div>
       ) : null}
       {assetPresence === 'pending' ? (
-        <div className="pm-image-card-preview pm-image-card-preview--pending">
+        <div
+          className="pm-image-card-preview pm-image-card-preview--pending"
+          onMouseDown={onPreviewMouseDown}
+        >
           <span className="pm-image-pending-line" aria-live="polite">
-            Checking local images…
+            {t('editor.image.checkingPending')}
           </span>
         </div>
       ) : (
-        <div className="pm-image-card-preview">
+        <div className="pm-image-card-preview" onMouseDown={onPreviewMouseDown}>
           {shouldMountImg ? (
             <img
               ref={imgRef}
@@ -329,9 +369,11 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
               title={title || undefined}
               decoding="async"
               draggable={false}
-              onClick={(e) => {
+              onMouseDown={onPreviewMouseDown}
+              onDoubleClick={(e) => {
                 e.stopPropagation()
-                setShowBar((v) => !v)
+                e.preventDefault()
+                setShowBar(true)
               }}
               onError={() => {
                 markImageFailed()
@@ -343,24 +385,31 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
           ) : (
             <div
               className="pm-image-broken-placeholder"
-              role="img"aria-label={loadError ? `Picture loading failed: ${alt || displaySrc || 'picture'}` : undefined}
-              onClick={(e) => {
+              role="img"
+              aria-label={
+                loadError
+                  ? t('editor.image.loadFailedAria', { alt: alt || displaySrc || t('editor.image.noAddress') })
+                  : undefined
+              }
+              onMouseDown={onPreviewMouseDown}
+              onDoubleClick={(e) => {
                 e.stopPropagation()
-                setShowBar((v) => !v)
+                e.preventDefault()
+                setShowBar(true)
               }}
             >
               {assetPresence === 'missing' ? (
                 <>
-                  <span className="pm-image-broken-placeholder-title">Local image does not exist</span>
+                  <span className="pm-image-broken-placeholder-title">{t('editor.image.missingLocal')}</span>
                   {alt? <span className="pm-image-broken-placeholder-meta">alt：{alt}</span> : null}
                 </>
               ) : loadError ? (
                 <>
-                  <span className="pm-image-broken-placeholder-title">Image loading failed</span>
+                  <span className="pm-image-broken-placeholder-title">{t('editor.image.loadFailed')}</span>
                   {alt? <span className="pm-image-broken-placeholder-meta">alt：{alt}</span> : null}
                 </>
               ) : (
-                <span className="pm-image-broken-placeholder-title">No picture address</span>
+                <span className="pm-image-broken-placeholder-title">{t('editor.image.noAddress')}</span>
               )}
             </div>
           )}

@@ -1,0 +1,119 @@
+/* ── Button tiers (see tokens.css --luna-btn-*) ──
+ * 1. Icon chrome — square bordered toolbar buttons (.icon-btn)
+ * 2. Ghost icon — borderless icon buttons (.luna-icon-btn-ghost, .document-history-icon-btn)
+ * 3. Text actions — dialog / settings buttons (.settings-button, see settings.css)
+ */
+
+/*── Tier 1: icon chrome ──*/
+.icon-btn {
+  border: var(--hairline) solid var(--luna-btn-border);
+  border-radius: var(--luna-btn-radius);
+  cursor: pointer;
+  width: var(--luna-btn-icon-size);
+  height: var(--luna-btn-icon-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 180ms ease,
+    transform 150ms ease,
+    color 150ms ease;
+}
+
+.icon-btn:hover {
+  background: var(--luna-btn-hover-bg);
+}
+
+.icon-btn:focus-visible {
+  outline: none;
+  border-color: var(--luna-field-border-focus);
+  box-shadow: var(--luna-focus-ring);
+}
+
+.ghost-btn {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--luna-btn-border);
+}
+
+.primary-btn {
+  background: var(--accent);
+  color: var(--luna-on-accent);
+  border-color: transparent;
+}
+
+.icon-btn.icon-btn-active {
+  background: var(--luna-btn-active-bg);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--luna-btn-border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.sidebar-footer-btn:disabled,
+.icon-btn:disabled {
+  opacity: var(--luna-btn-disabled-opacity);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.sidebar-footer-btn:disabled:hover,
+.icon-btn:disabled:hover {
+  transform: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+/*── Tier 2: ghost icon ──*/
+.luna-icon-btn-ghost,
+.document-history-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: none;
+  border-radius: var(--luna-btn-radius);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.luna-icon-btn-ghost:hover,
+.document-history-icon-btn:hover {
+  background: var(--luna-btn-hover-bg);
+  color: var(--text-primary);
+}
+
+.luna-icon-btn-ghost:focus-visible,
+.document-history-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--luna-focus-ring);
+}
+
+.luna-icon-btn-ghost:disabled,
+.document-history-icon-btn:disabled {
+  opacity: var(--luna-btn-disabled-opacity);
+  cursor: not-allowed;
+}
+
+/*── Tier 3: text buttons (settings.css owns layout; shared disabled + focus) ──*/
+.settings-button:disabled {
+  opacity: var(--luna-btn-disabled-opacity);
+  cursor: not-allowed;
+  filter: none;
+}
+
+.settings-button:disabled:hover {
+  background: var(--settings-control-bg);
+  border-color: var(--border-subtle);
+}
+
+.settings-button-primary:disabled:hover {
+  background: var(--accent);
+  filter: none;
+}

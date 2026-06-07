@@ -1,0 +1,37 @@
+/**
+ * Reading comfort — UI snippet
+ *
+ * Looser line height and paragraph spacing for long-form reading.
+ * Intentionally overrides built-in ProseMirror line-height (1.7) and p margin (0.55em).
+ *
+ * Copy to ~/.luna/theme/snippets/reading-comfort.css → Rescan → enable in UI snippets.
+ */
+
+.preview-pane.markdown-visual-editor .ProseMirror,
+.markdown-preview-view {
+  line-height: 1.85;
+  letter-spacing: 0.012em;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror > p,
+.markdown-preview-view p {
+  margin-block: 0.65em 0.85em;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l1 .pm-heading-content,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l2 .pm-heading-content,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l3 .pm-heading-content,
+.preview-pane.markdown-visual-editor .ProseMirror > h1,
+.preview-pane.markdown-visual-editor .ProseMirror > h2,
+.preview-pane.markdown-visual-editor .ProseMirror > h3,
+.markdown-preview-view h1,
+.markdown-preview-view h2,
+.markdown-preview-view h3 {
+  line-height: 1.35;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l1,
+.preview-pane.markdown-visual-editor .ProseMirror > h1:not(:first-child),
+.markdown-preview-view h1:not(:first-child) {
+  margin-top: 1.35em;
+}

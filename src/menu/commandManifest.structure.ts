@@ -1,4 +1,5 @@
 import type { MenuBarStructureGroup, MenuTreeNode, ToolbarLayout } from './commandManifest.types'
+import { LUNA_TEXT_COLOR_PRESETS } from '../editor/lunaTextColor'
 
 const S = (): MenuTreeNode => ({ kind: 'separator' })
 const C = (id: string): MenuTreeNode => ({ kind: 'command', id })
@@ -22,6 +23,12 @@ const fmtImageZoom: MenuTreeNode[] = [
   C('fmt-image-zoom-150'),
 ]
 
+const fmtTextColor: MenuTreeNode[] = [
+  ...LUNA_TEXT_COLOR_PRESETS.map((preset) => C(`fmt-text-color-${preset.id}`)),
+  S(),
+  C('fmt-text-color-default'),
+]
+
 /** Top bar menu tree: only command id + submenu structure, no label/icon/shortcut*/
 export const MENU_BAR_STRUCTURE: readonly MenuBarStructureGroup[] = [
   {
@@ -31,6 +38,19 @@ export const MENU_BAR_STRUCTURE: readonly MenuBarStructureGroup[] = [
       C('file-new'),
       C('file-new-tab'),
       C('file-new-window'),
+      C('daily-note-open'),
+      C('daily-note-open-yesterday'),
+      C('daily-note-open-tomorrow'),
+      S(),
+      sub('sub-templates', 'menu.file.templates', [
+        C('file-new-from-template'),
+        S(),
+        C('template-edit-default'),
+        C('template-edit-daily'),
+        C('template-open-folder'),
+        S(),
+        C('template-preferences'),
+      ]),
       S(),
       sub('sub-open', 'menu.file.open', [C('file-open-file'), C('open-folder')]),
       C('file-recent-placeholder'),
@@ -49,12 +69,18 @@ export const MENU_BAR_STRUCTURE: readonly MenuBarStructureGroup[] = [
       C('file-copy-path'),
       C('file-rename'),
       S(),
-      C('file-revert'),
+      sub('sub-file-history', 'menu.file.history', [
+        C('file-history-open'),
+        C('file-history-create-snapshot'),
+        S(),
+        C('file-revert'),
+      ]),
       C('file-save-all'),
       S(),
       C('file-import'),
       sub('sub-export', 'menu.file.export', [
         C('file-export-pdf'),
+        C('file-export-markdown'),
         C('file-export-html'),
         C('file-export-html-plain'),
         C('file-export-image'),
@@ -88,9 +114,6 @@ export const MENU_BAR_STRUCTURE: readonly MenuBarStructureGroup[] = [
       C('edit-delete'),
       sub('sub-edit-del-range', 'menu.edit.deleteRange', [C('edit-delete-block'), C('edit-delete-line')]),
       S(),
-      sub('sub-edit-eol', 'menu.edit.eol', [C('edit-eol-crlf'), C('edit-eol-lf')]),
-      sub('sub-edit-space', 'menu.edit.space', [C('edit-indent-first-line'), C('edit-show-br')]),
-      S(),
       sub('sub-edit-find', 'menu.edit.find', [
         C('edit-find'),
         C('edit-find-prev'),
@@ -103,6 +126,11 @@ export const MENU_BAR_STRUCTURE: readonly MenuBarStructureGroup[] = [
       ]),
       S(),
       C('edit-emoji'),
+      S(),
+      sub('sub-edit-eol', 'menu.edit.eol', [C('edit-eol-crlf'), C('edit-eol-lf')]),
+      C('edit-indent-first-line'),
+      S(),
+      C('edit-show-br'),
     ],
   },
   {
@@ -174,6 +202,7 @@ export const MENU_BAR_STRUCTURE: readonly MenuBarStructureGroup[] = [
       S(),
       C('fmt-inline-math'),
       C('fmt-strike'),
+      C('fmt-highlight'),
       C('fmt-comment'),
       S(),
       C('fmt-link'),
@@ -183,13 +212,13 @@ export const MENU_BAR_STRUCTURE: readonly MenuBarStructureGroup[] = [
         C('fmt-image-insert-local'),
         S(),
         C('fmt-image-reveal'),
+        C('fmt-image-rename'),
         sub('sub-fmt-image-zoom', 'menu.fmt.image.scale', fmtImageZoom),
         sub('sub-fmt-image-conv', 'menu.fmt.image.conv', [C('fmt-image-as-html'), C('fmt-image-as-md')]),
         S(),
         C('fmt-image-delete'),
         S(),
         C('fmt-image-copy-to'),
-        C('fmt-image-rename'),
         C('fmt-image-upload'),
         S(),
         C('fmt-image-copy-all'),
@@ -205,6 +234,8 @@ export const MENU_BAR_STRUCTURE: readonly MenuBarStructureGroup[] = [
         C('fmt-image-root-dir'),
         C('fmt-image-global-settings'),
       ]),
+      S(),
+      sub('sub-fmt-text-color', 'ctx.editor.textColorSubmenu', fmtTextColor),
       S(),
       C('fmt-clear-style'),
     ],
@@ -253,13 +284,39 @@ export const MENU_BAR_STRUCTURE: readonly MenuBarStructureGroup[] = [
     id: 'bar-help',
     labelKey: 'menu.native.help',
     children: [
+      C('help-shortcuts'),
+      S(),
       C('help-about'),
+      S(),
+      C('help-privacy'),
+      C('help-website'),
+      C('help-feedback'),
     ],
   },
 ]
 
+/** Toolbar dropdown trigger id → child manifest command ids (children are not ui.toolbar).*/
+export const TOOLBAR_DROPDOWN_CHILDREN: Partial<Record<string, readonly string[]>> = {
+  'toolbar-callout': [
+    'para-callout-tip',
+    'para-callout-suggestion',
+    'para-callout-important',
+    'para-callout-warning',
+    'para-callout-caution',
+  ],
+}
+
 /** toolbar slot → command id list*/
 export const TOOLBAR_LAYOUT: ToolbarLayout = {
-  'sidebar-header': ['open-folder', 'toggle-source-mode'],
-  'editor-format': ['fmt-bold', 'fmt-italic', 'fmt-underline', 'fmt-inline-code', 'fmt-strike', 'fmt-link'],
+  'sidebar-header': ['open-folder', 'view-sidebar-outline'],
+  'editor-format': [
+    'fmt-bold',
+    'fmt-italic',
+    'fmt-underline',
+    'fmt-inline-code',
+    'fmt-strike',
+    'fmt-highlight',
+    'fmt-link',
+    'toolbar-callout',
+  ],
 }

@@ -1,0 +1,46 @@
+/*TipTap React node view: The outer layer .react-renderer is the direct child node of ProseMirror and must occupy the main column.*/
+.preview-pane.markdown-visual-editor .ProseMirror > .react-renderer {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: min(var(--editor-column-width), 100%);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror > .react-renderer > [data-node-view-wrapper] {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/*Code Block NodeView: Avoid the entire ProseMirror-selectednode blue stroke flashing when clicking on the toolbar*/
+.preview-pane.markdown-visual-editor .ProseMirror-selectednode:has(.pm-code-block-wrap),
+.preview-pane.markdown-visual-editor .ProseMirror > .react-renderer.ProseMirror-selectednode:has(.pm-code-block-wrap),
+.preview-pane.markdown-visual-editor .ProseMirror .react-renderer.ProseMirror-selectednode:has(.pm-code-block-wrap) {
+  outline: none;
+}
+
+/*Mermaid NodeView: Avoid selecting strokes from interfering with source code editing*/
+.preview-pane.markdown-visual-editor .ProseMirror-selectednode:has(.pm-mermaid-wrap),
+.preview-pane.markdown-visual-editor .ProseMirror > .react-renderer.ProseMirror-selectednode:has(.pm-mermaid-wrap),
+.preview-pane.markdown-visual-editor .ProseMirror .react-renderer.ProseMirror-selectednode:has(.pm-mermaid-wrap) {
+  outline: none;
+}
+
+.preview-pane.markdown-visual-editor .tiptap-editor-shell {
+  position: relative;
+}
+
+/*Picture NodeView: the selected stroke must be removed to avoid a wide/"scroll bar-like" bottom border.*/
+.preview-pane.markdown-visual-editor .ProseMirror > .react-renderer.ProseMirror-selectednode:has(.pm-image-node-root),
+.preview-pane.markdown-visual-editor .ProseMirror .react-renderer.ProseMirror-selectednode:has(.pm-image-node-root),
+.preview-pane.markdown-visual-editor .ProseMirror > .react-renderer.ProseMirror-selectednode:has(.pm-heading-block),
+.preview-pane.markdown-visual-editor .ProseMirror .react-renderer.ProseMirror-selectednode:has(.pm-heading-block) {
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}

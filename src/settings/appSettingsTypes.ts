@@ -24,7 +24,6 @@ export type AppSettingsState = {
     theme?: {
       active?: string
       cssFile?: string
-      cssCompatMode?: 'native' | 'obsidian-auto'
       cssSnippets?: string
       exportCssSnippets?: string
       customThemeFile?: string
@@ -35,6 +34,10 @@ export type AppSettingsState = {
       fontFamily?: string
       /** px，1–60 */
       fontSize?: number
+      /** Reading column max width in px (720 / 860 / 960). */
+      columnWidth?: number
+      /** Show the formatting toolbar row in visual mode. */
+      formatToolbarEnabled?: boolean
       autosaveEnabled?: boolean
       /** seconds, 30–600*/
       autosaveIntervalSec?: number
@@ -56,7 +59,6 @@ export const DEFAULT_APP_SETTINGS: AppSettingsState = {
     theme: {
       active: 'github-dark',
       cssFile: '',
-      cssCompatMode: 'obsidian-auto',
       cssSnippets: '',
       exportCssSnippets: '',
     },
@@ -64,6 +66,13 @@ export const DEFAULT_APP_SETTINGS: AppSettingsState = {
       preset: 'print-a4',
       tocMode: 'marker-only',
       pageBreakMode: 'avoid-blocks',
+    },
+    editor: {
+      autosaveEnabled: true,
+      autosaveIntervalSec: 120,
+      autosaveScope: 'activeOnly',
+      columnWidth: 860,
+      formatToolbarEnabled: true,
     },
   },
 }

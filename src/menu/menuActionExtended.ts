@@ -19,12 +19,19 @@ import { exportBinaryPayload } from '../lib/tauriScopedInvoke'
 import { isPathUnderWorkspace, parentDirectoryOfFile, pathsEqual } from '../lib/workspacePathUtils'
 import type { AppMenuContext, AppMenuFileTreeNode, AppMenuUiDeps } from './menu.types'
 import { redoLastTransaction, undoLastTransaction } from './commandTransaction'
-import { bridgeOpenSearchPanel, bridgeReplaceNextInDocument, bridgeRunEditorCommand, bridgeScrollToSelection, bridgeWithSourceView } from '../editor/editorMutationBridge'
+import { bridgeOpenSearchPanel, bridgeReplaceNextInDocument, bridgeRunEditorCommand, bridgeScrollToSelection, bridgeWithSourceView, getBridgePaneMode, getBridgeSourceEditorView } from '../editor/editorMutationBridge'
+import { toggleShowLineBreaks } from '../editor/cmShowLineBreaks'
+import { insertPrefixLine } from '../editor/markdownInsertHelpers'
 import { openLunaEmojiPickerFromSourceView } from '../editor/lunaEmojiPicker'
-import { deleteNote, exportBinaryNote, readWorkspaceFileBase64 } from '../platform/tauri/documentService'
+import { deleteNote, exportBinaryNote, readWorkspaceFileBase64, renameNote } from '../platform/tauri/documentService'
 import { revealInExplorer, syncViewFullscreenMenuCheckedByHost } from '../platform/tauri/platformShellService'
+import { usesNativeMacAppMenu } from '../app/shellPlatform'
+import { syncMacNativeFullscreenMenu } from '../platform/tauri/macNativeAppMenu'
 import { listWorkspaceTree } from '../platform/tauri/workspaceService'
 
+function imageMenuSuffix(m: AppMenuContext, usedSelection: boolean): string {
+  return usedSelection ? m.t('app.ext.image.fromSelection') : ''
+}
 
 function normalizeLinkForExternalAction(rawHref: string): string | null {
   const trimmed = rawHref.trim()
@@ -101,6 +108,10 @@ export async function syncViewFullscreenMenuChecked(): Promise<void> {
   if (!isTauri()) return
   try {
     const checked = await getCurrentWindow().isFullscreen()
+    if (usesNativeMacAppMenu()) {
+      await syncMacNativeFullscreenMenu(checked)
+      return
+    }
     await syncViewFullscreenMenuCheckedByHost(checked)
   } catch (error) {
     console.error('[fullscreen] sync menu checked failed:', error)
@@ -409,6 +420,22 @@ function resolveWorkspaceImagePath(rootDir: string, notePath: string, src: strin
   return isPathUnderWorkspace(rootDir, resolved) ? resolved : null
 }
 
+function relativePathFromDirectory(baseDir: string, targetPath: string): string {
+  const baseParts = normalizePath(baseDir).split('/').filter(Boolean)
+  const targetParts = normalizePath(targetPath).split('/').filter(Boolean)
+  let shared = 0
+  while (
+    shared < baseParts.length &&
+    shared < targetParts.length &&
+    baseParts[shared].toLowerCase() === targetParts[shared].toLowerCase()
+  ) {
+    shared += 1
+  }
+  const ups = baseParts.length - shared
+  const rel = [...Array(Math.max(0, ups)).fill('..'), ...targetParts.slice(shared)]
+  return rel.join('/') || basename(targetPath)
+}
+
 function fileFromBase64(base64: string, fileName: string, mimeType: string): File {
   const binary = atob(base64)
   const bytes = new Uint8Array(binary.length)
@@ -616,11 +643,38 @@ export async function tryDispatchExtendedMenuAction(
       console.warn(`[CommandVM] edit command "${action}" bypassed resolver — check pipeline`)
       return true
     case 'edit-eol-crlf':
-    case 'edit-eol-lf':
-    case 'edit-indent-first-line':
-    case 'edit-show-br':
-      // runtime:'noop' in manifest — handled by noop-explicit resolver, should not reach here
+      m.setStatus(m.t('app.ext.eolCrlfNote'))
       return true
+    case 'edit-eol-lf':
+      m.setStatus(m.t('app.ext.eolLfNote'))
+      return true
+    case 'edit-indent-first-line': {
+      if (getBridgePaneMode() !== 'source') {
+        m.setStatus(m.t('app.ext.indentFirstNeedSource'))
+        return true
+      }
+      const FIRST_LINE_INDENT = '　　'
+      const applied = bridgeWithSourceView((view) => {
+        const line = view.state.doc.lineAt(view.state.selection.main.head)
+        if (line.text.startsWith(FIRST_LINE_INDENT)) return true
+        return insertPrefixLine(FIRST_LINE_INDENT)(view)
+      })
+      m.setStatus(
+        applied
+          ? m.t('app.ext.indentFirstApplied')
+          : m.t('app.status.editorCommandNotReady'),
+      )
+      return true
+    }
+    case 'edit-show-br': {
+      if (getBridgePaneMode() !== 'source') {
+        m.setStatus(m.t('app.ext.showBrSourceOnly'))
+        return true
+      }
+      const enabled = toggleShowLineBreaks(getBridgeSourceEditorView())
+      m.setStatus(enabled ? m.t('app.ext.showBrEnabled') : m.t('app.ext.showBrDisabled'))
+      return true
+    }
     case 'edit-find-prev':
       m.findPreviousInDocument()
       return true
@@ -715,13 +769,18 @@ export async function tryDispatchExtendedMenuAction(
         preferred.matches.map((it) => ({ start: it.start, end: it.end, text: '' })),
       )
       await updateActiveMarkdown(m, next, 'menu-image-delete')
-      m.setStatus(`Deleted ${preferred.matches.length} image reference(s)${preferred.usedSelection ? ' (from current selection)' : ''}`)
+      m.setStatus(
+        m.t('app.ext.image.deletedRefs', {
+          count: String(preferred.matches.length),
+          suffix: imageMenuSuffix(m, preferred.usedSelection),
+        }),
+      )
       return true
     }
     case 'fmt-image-as-html': {
       const images = collectMarkdownImages(m.content)
       if (!images.length) {
-        m.setStatus('No convertible Markdown images found')
+        m.setStatus(m.t('app.ext.image.noMarkdownConvert'))
         return true
       }
       const preferred = preferMatchesBySourceSelection(m, images)
@@ -734,13 +793,18 @@ export async function tryDispatchExtendedMenuAction(
         })),
       )
       await updateActiveMarkdown(m, next, 'menu-image-as-html')
-      m.setStatus(`Converted ${preferred.matches.length} image(s) to HTML${preferred.usedSelection ? ' (from current selection)' : ''}`)
+      m.setStatus(
+        m.t('app.ext.image.convertedToHtml', {
+          count: String(preferred.matches.length),
+          suffix: imageMenuSuffix(m, preferred.usedSelection),
+        }),
+      )
       return true
     }
     case 'fmt-image-as-md': {
       const htmlImages = collectHtmlImageTags(m.content)
       if (!htmlImages.length) {
-        m.setStatus('No convertible HTML images found')
+        m.setStatus(m.t('app.ext.image.noHtmlConvert'))
         return true
       }
       const preferred = preferMatchesBySourceSelection(m, htmlImages)
@@ -751,12 +815,62 @@ export async function tryDispatchExtendedMenuAction(
         replacements.push({ start: hit.start, end: hit.end, text: md })
       }
       if (!replacements.length) {
-        m.setStatus('HTML image missing src; cannot convert')
+        m.setStatus(m.t('app.ext.image.htmlMissingSrc'))
         return true
       }
       const next = applyReplacements(m.content, replacements)
       await updateActiveMarkdown(m, next, 'menu-image-as-md')
-      m.setStatus(`Converted ${replacements.length} image(s) to Markdown${preferred.usedSelection ? ' (from current selection)' : ''}`)
+      m.setStatus(
+        m.t('app.ext.image.convertedToMd', {
+          count: String(replacements.length),
+          suffix: imageMenuSuffix(m, preferred.usedSelection),
+        }),
+      )
+      return true
+    }
+    case 'fmt-image-rename': {
+      if (!m.rootDir || !m.activePath) {
+        m.setStatus(m.t('app.ext.imageRenameNeedWorkspace'))
+        return true
+      }
+      const preferred = preferMatchesBySourceSelection(m, collectMarkdownImages(m.content))
+      const img = preferred.matches[0]
+      if (!img) {
+        m.setStatus(m.t('app.ext.imageRenameNoImage'))
+        return true
+      }
+      const localPath = resolveWorkspaceImagePath(m.rootDir, m.activePath, img.src)
+      if (!localPath) {
+        m.setStatus(m.t('app.ext.imageRenameRemoteOnly'))
+        return true
+      }
+      const currentName = basename(localPath)
+      const nextName = window.prompt(m.t('app.ext.imageRenamePrompt'), currentName)?.trim()
+      if (!nextName || nextName === currentName) return true
+      if (nextName.includes('/') || nextName.includes('\\')) {
+        m.setStatus(m.t('app.ext.imageRenameInvalidName'))
+        return true
+      }
+      try {
+        const newPath = await renameNote({ root: m.rootDir, oldPath: localPath, newName: nextName })
+        const trimmedSrc = img.src.trim()
+        const absSrc = /^[a-zA-Z]:[\\/]/u.test(trimmedSrc) || trimmedSrc.startsWith('/')
+        const newSrc = absSrc
+          ? normalizePath(newPath)
+          : relativePathFromDirectory(parentDirectoryOfFile(m.activePath), newPath)
+        const next = applyReplacements(m.content, [
+          {
+            start: img.start,
+            end: img.end,
+            text: buildMarkdownImage({ alt: img.alt, src: newSrc, title: img.title }),
+          },
+        ])
+        await updateActiveMarkdown(m, next, 'menu-image-rename')
+        m.setStatus(m.t('app.ext.imageRenamed', { name: nextName }))
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        m.setStatus(m.t('app.ext.imageRenameFailed', { message }))
+      }
       return true
     }
     case 'fmt-image-reveal': {
@@ -764,12 +878,12 @@ export async function tryDispatchExtendedMenuAction(
       const first = preferred.matches.find((img) =>
         resolveWorkspaceImagePath(m.rootDir, m.activePath, img.src))
       if (!first) {
-        m.setStatus('No local images found in workspace')
+        m.setStatus(m.t('app.ext.image.noLocalInWorkspace'))
         return true
       }
       const localPath = resolveWorkspaceImagePath(m.rootDir, m.activePath, first.src)
       if (!localPath) {
-        m.setStatus('No local images found in workspace')
+        m.setStatus(m.t('app.ext.image.noLocalInWorkspace'))
         return true
       }
       await revealInExplorer(localPath, m.rootDir)
@@ -778,11 +892,11 @@ export async function tryDispatchExtendedMenuAction(
     case 'fmt-image-copy-all': {
       const images = collectMarkdownImages(m.content)
       if (!images.length) {
-        m.setStatus('No image references in this document')
+        m.setStatus(m.t('app.ext.image.noRefsInDoc'))
         return true
       }
       await navigator.clipboard.writeText(images.map((it) => it.src).join('\n'))
-      m.setStatus(`Copied ${images.length} image URL(s)`)
+      m.setStatus(m.t('app.ext.image.copiedUrls', { count: String(images.length) }))
       return true
     }
     case 'fmt-image-copy-to': {
@@ -791,10 +905,14 @@ export async function tryDispatchExtendedMenuAction(
         return true
       }
       if (!m.rootDir || !m.activePath) {
-        m.setStatus('Open a workspace file first')
+        m.setStatus(m.t('app.ext.image.needWorkspaceFile'))
         return true
       }
-      const targetDir = await open({ directory: true, multiple: false, title: 'Choose folder to copy images into' })
+      const targetDir = await open({
+        directory: true,
+        multiple: false,
+        title: m.t('app.ext.image.chooseCopyFolder'),
+      })
       if (!targetDir || Array.isArray(targetDir)) return true
       const preferred = preferMatchesBySourceSelection(m, collectMarkdownImages(m.content))
       const images = preferred.matches
@@ -828,8 +946,11 @@ export async function tryDispatchExtendedMenuAction(
       }
       m.setStatus(
         copied > 0
-          ? `Copied ${copied} image(s) to target folder${preferred.usedSelection ? ' (from current selection)' : ''}`
-          : 'No local images to copy',
+          ? m.t('app.ext.image.copiedToFolder', {
+              count: String(copied),
+              suffix: imageMenuSuffix(m, preferred.usedSelection),
+            })
+          : m.t('app.ext.image.noLocalToCopy'),
       )
       return true
     }
@@ -841,8 +962,18 @@ export async function tryDispatchExtendedMenuAction(
         deleteOriginal: false,
         matches: preferred.matches,
       })
-      if (r.uploaded > 0) m.setStatus(`Uploaded ${r.uploaded} image(s) and updated references${preferred.usedSelection ? ' (from current selection)' : ''}`)
-      else m.setStatus(r.touched > 0 ? 'Upload failed; check file permissions or settings' : 'No local images to upload')
+      if (r.uploaded > 0) {
+        m.setStatus(
+          m.t('app.ext.image.uploadedUpdated', {
+            count: String(r.uploaded),
+            suffix: imageMenuSuffix(m, preferred.usedSelection),
+          }),
+        )
+      } else {
+        m.setStatus(
+          r.touched > 0 ? m.t('app.ext.image.uploadFailed') : m.t('app.ext.image.noLocalToUpload'),
+        )
+      }
       return true
     }
     case 'fmt-image-upload-all-local': {
@@ -853,8 +984,19 @@ export async function tryDispatchExtendedMenuAction(
         deleteOriginal: false,
         matches: preferred.matches,
       })
-      if (r.uploaded > 0) m.setStatus(`Uploaded ${r.uploaded} image(s)${r.failed ? `, failed ${r.failed}` : ''}${preferred.usedSelection ? ' (from current selection)' : ''}`)
-      else m.setStatus(r.touched > 0 ? 'Upload failed; check file permissions or settings' : 'No local images to upload')
+      if (r.uploaded > 0) {
+        m.setStatus(
+          m.t('app.ext.image.uploaded', {
+            count: String(r.uploaded),
+            failedSuffix: r.failed ? m.t('app.ext.image.uploadFailedCount', { failed: String(r.failed) }) : '',
+            suffix: imageMenuSuffix(m, preferred.usedSelection),
+          }),
+        )
+      } else {
+        m.setStatus(
+          r.touched > 0 ? m.t('app.ext.image.uploadFailed') : m.t('app.ext.image.noLocalToUpload'),
+        )
+      }
       return true
     }
     case 'fmt-image-move-all': {
@@ -866,9 +1008,17 @@ export async function tryDispatchExtendedMenuAction(
         matches: preferred.matches,
       })
       if (r.uploaded > 0) {
-        m.setStatus(`Moved ${r.uploaded} image(s) to asset library${r.deleted ? `, deleted ${r.deleted} source file(s)` : ''}${preferred.usedSelection ? ' (from current selection)' : ''}`)
+        m.setStatus(
+          m.t('app.ext.image.movedToLibrary', {
+            count: String(r.uploaded),
+            deletedSuffix: r.deleted
+              ? m.t('app.ext.image.deletedSources', { deleted: String(r.deleted) })
+              : '',
+            suffix: imageMenuSuffix(m, preferred.usedSelection),
+          }),
+        )
       } else {
-        m.setStatus(r.touched > 0 ? 'Move failed; check file permissions or settings' : 'No local images to move')
+        m.setStatus(r.touched > 0 ? m.t('app.ext.image.moveFailed') : m.t('app.ext.image.noLocalToMove'))
       }
       return true
     }
@@ -876,7 +1026,7 @@ export async function tryDispatchExtendedMenuAction(
       const preferred = preferMatchesBySourceSelection(m, collectMarkdownImages(m.content))
       const images = preferred.matches
       if (!images.length) {
-        m.setStatus('No image references in this document')
+        m.setStatus(m.t('app.ext.image.noRefsInDoc'))
         return true
       }
       const stamp = Date.now()
@@ -891,27 +1041,36 @@ export async function tryDispatchExtendedMenuAction(
       })
       const next = applyReplacements(m.content, replacements)
       await updateActiveMarkdown(m, next, 'menu-image-reload-all')
-      m.setStatus(`Reloaded ${images.length} image reference(s)${preferred.usedSelection ? ' (from current selection)' : ''}`)
+      m.setStatus(
+        m.t('app.ext.image.reloaded', {
+          count: String(images.length),
+          suffix: imageMenuSuffix(m, preferred.usedSelection),
+        }),
+      )
       return true
     }
     case 'fmt-image-on-insert-copy':
       await setSetting('assets.storage.mode', 'relative_to_document')
-      m.setStatus('Set: copy images into document assets folder on insert')
+      m.setStatus(m.t('app.ext.image.onInsertCopy'))
       return true
     case 'fmt-image-on-insert-upload':
       await setSetting('assets.storage.mode', 'absolute_path')
-      m.setStatus('Set: upload images to global assets folder on insert')
+      m.setStatus(m.t('app.ext.image.onInsertUpload'))
       return true
     case 'fmt-image-root-dir': {
-      const picked = await open({ directory: true, multiple: false, title: 'Choose global assets folder' })
+      const picked = await open({
+        directory: true,
+        multiple: false,
+        title: m.t('app.ext.image.chooseGlobalFolder'),
+      })
       if (!picked || Array.isArray(picked)) return true
       await setSetting('assets.absolute.path', String(picked))
       await setSetting('assets.storage.mode', 'absolute_path')
-      m.setStatus('Global assets folder updated')
+      m.setStatus(m.t('app.ext.image.globalFolderUpdated'))
       return true
     }
     case 'fmt-image-global-settings':
-      ui.openPreferencesDialog()
+      ui.openPreferencesDialog('import')
       return true
     case 'view-word-count': {
       ui.setStatusbarVisible((v) => !v)
@@ -932,7 +1091,7 @@ export async function tryDispatchExtendedMenuAction(
     }
     case 'view-fullscreen': {
       const result = await toggleFullscreenByHostRuntime()
-      if (!result.ok) {
+      if (result.ok === false) {
         const message = result.errorMessage.trim()
         m.setStatus(
           isTauri()
@@ -946,7 +1105,7 @@ export async function tryDispatchExtendedMenuAction(
     case 'win-minimize': {
       console.log('[WindowAction]', action)
       const result = await minimizeWindowByHostRuntime()
-      if (!result.ok) {
+      if (result.ok === false) {
         m.setStatus(
           isTauri()
             ? m.t('app.ext.windowMinimizeFailed', { message: result.errorMessage })
@@ -958,7 +1117,7 @@ export async function tryDispatchExtendedMenuAction(
     case 'win-zoom': {
       console.log('[WindowAction]', action)
       const result = await toggleMaximizeWindowByHostRuntime()
-      if (!result.ok) {
+      if (result.ok === false) {
         m.setStatus(
           isTauri()
             ? m.t('app.ext.windowZoomFailed', { message: result.errorMessage })
@@ -982,7 +1141,7 @@ export async function tryDispatchExtendedMenuAction(
     case 'win-tile-full': {
       console.log('[WindowAction]', action)
       const result = await toggleWindowFullscreenByHostRuntime()
-      if (!result.ok) {
+      if (result.ok === false) {
         m.setStatus(
           isTauri()
             ? m.t('app.ext.fullscreenFailed', { message: result.errorMessage })
@@ -1001,7 +1160,7 @@ export async function tryDispatchExtendedMenuAction(
     if (!Number.isFinite(ratio) || ratio <= 0) return true
     const images = collectMarkdownImages(m.content)
     if (!images.length) {
-      m.setStatus('No image references in this document')
+      m.setStatus(m.t('app.ext.image.noRefsInDoc'))
       return true
     }
     const preferred = preferMatchesBySourceSelection(m, images)
@@ -1014,7 +1173,13 @@ export async function tryDispatchExtendedMenuAction(
       })),
     )
     await updateActiveMarkdown(m, next, 'menu-image-zoom')
-    m.setStatus(`Scaled ${preferred.matches.length} image(s) to ${ratio}%${preferred.usedSelection ? ' (from current selection)' : ''}`)
+    m.setStatus(
+      m.t('app.ext.image.scaled', {
+        count: String(preferred.matches.length),
+        ratio: String(ratio),
+        suffix: imageMenuSuffix(m, preferred.usedSelection),
+      }),
+    )
     return true
   }
 

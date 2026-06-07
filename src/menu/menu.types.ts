@@ -1,8 +1,11 @@
 import type { SetStateAction } from 'react'
+import type { SemanticIconName } from '../design-system/icons'
+import type { PrefsTabId } from '../preferences/types'
 import type { EditorContext, EditorPaneMode } from './commandContext'
 import type { SourceModeEnterAnchor } from '../editor/viewportModeAnchor'
 import type { AppExportFormat } from '../markdownExport'
 import type { DocumentCommand } from '../documentRuntime/documentTypes'
+import type { OpenDailyNoteOutcome } from '../templates/dailyNoteService'
 
 /** Aligned subset of Electron `MenuItemConstructorOptions` (for future integration into Electron or documentation)*/
 export type ElectronCompatibleMenuItem = {
@@ -31,6 +34,10 @@ export type MenuLeaf = {
   accelerator?: string
   /** Typora style menu prefix icon (from commandRegistry)*/
   menuIcon?: string
+  /** Lucide icon for in-app menu bar (when menuIcon glyph is absent)*/
+  semanticIcon?: SemanticIconName
+  /** Preset text color dot for format → text color menu items*/
+  menuColorSwatch?: string | 'default'
   /** appears in the command panel*/
   palette?: boolean
   /** Command panel supplement search terms*/
@@ -44,6 +51,7 @@ export type MenuSubmenu = {
   kind: 'submenu'
   id: string
   labelKey: string
+  semanticIcon?: SemanticIconName
   children: MenuNode[]
 }
 
@@ -106,6 +114,7 @@ export type AppMenuContext = {
   saveCurrent: (manual?: boolean) => Promise<void>
   saveAsCurrent?: () => Promise<void>
   saveAllOpenTabs: () => Promise<void>
+  flushEditorToMemory: () => Promise<boolean>
   refreshFileTree: () => Promise<void>
   setFileTree: (u: SetStateAction<AppMenuFileTreeNode[]>) => void
   setExpandedDirs: (u: SetStateAction<Set<string>>) => void
@@ -115,7 +124,8 @@ export type AppMenuContext = {
   updateRecent: (p: string) => void
   setRecentFiles: (u: SetStateAction<string[]>) => void
   openRenameDialog: (root: string, oldPath: string, isDirectory: boolean) => void
-  openNewNoteDialog: (root: string, parentPath: string, openInTab?: boolean) => void
+  openNewNoteDialog: (root: string, parentPath: string, openInTab?: boolean, templatePath?: string) => void
+  openNewNoteFromTemplateDialog: (root: string, parentPath: string, openInTab?: boolean) => void
   confirmDeleteFile: (options: {
     title: string
     message: string
@@ -130,8 +140,11 @@ export type AppMenuContext = {
   }) => Promise<boolean>
   showAppAlert: (options: { title: string; message: string; okLabel?: string }) => Promise<void>
   runAppExportFormat: (f: AppExportFormat) => Promise<void>
+  runAppPrint: () => Promise<void>
   scratchNewDocument: () => Promise<void>
   scratchNewTab: () => Promise<void>
+  /** dayOffset 0 = today, -1 = yesterday, 1 = tomorrow */
+  openDailyNote: (dayOffset?: number) => Promise<OpenDailyNoteOutcome>
   toggleMainPaneMode: () => void
   openFindPanel: () => void
   findNextInDocument: () => void
@@ -160,7 +173,8 @@ export type AppMenuUiDeps = {
   setCommandPaletteOpen: (u: SetStateAction<boolean>) => void
   setCommandPaletteQuery: (u: SetStateAction<string>) => void
   setCommandPaletteIndex: (u: SetStateAction<number>) => void
-  openPreferencesDialog: () => void
+  openDocumentHistoryDialog: (root: string, path: string) => void
+  openPreferencesDialog: (tab?: PrefsTabId) => void
   setMainPaneMode: (mode: 'visual' | 'source') => void
   pendingSourceModeAnchorRef: { current: SourceModeEnterAnchor | null }
   /** Clear mode switch bootstrap (source code initial selection / WYSIWYG atom entry payload)*/
@@ -186,4 +200,20 @@ export type ToolbarCommandDef = {
   title: string
   icon?: string
   shortcut?: string
+}
+
+export type ToolbarButtonItem = { kind: 'button' } & ToolbarCommandDef
+
+export type ToolbarDropdownItem = {
+  kind: 'dropdown'
+  id: string
+  label: string
+  title: string
+  items: ToolbarCommandDef[]
+}
+
+export type ToolbarItemDef = ToolbarButtonItem | ToolbarDropdownItem
+
+export function isToolbarButton(item: ToolbarItemDef): item is ToolbarButtonItem {
+  return item.kind === 'button'
 }

@@ -1,4 +1,5 @@
 import type { Editor } from '@tiptap/core'
+import { runAfterReactCommit } from '../reactCommitScheduler'
 
 export type MermaidInputFocusToken = {
   blockId: string
@@ -17,14 +18,19 @@ function lockPmInput(editor: Editor): void {
   if (!pmEditableRestore.has(editor)) {
     pmEditableRestore.set(editor, editor.isEditable)
   }
-  if (editor.isEditable) editor.setEditable(false)
+  runAfterReactCommit(() => {
+    if (!pmEditableRestore.has(editor)) return
+    if (editor.isEditable) editor.setEditable(false)
+  })
 }
 
 function unlockPmInput(editor: Editor): void {
   const restore = pmEditableRestore.get(editor)
   if (restore === undefined) return
-  editor.setEditable(restore)
-  pmEditableRestore.delete(editor)
+  runAfterReactCommit(() => {
+    editor.setEditable(restore)
+    pmEditableRestore.delete(editor)
+  })
 }
 
 /** focus synchronously grants input rights (without microtask / rAF)*/

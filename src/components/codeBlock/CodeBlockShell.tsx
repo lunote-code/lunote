@@ -1,6 +1,7 @@
 import { memo, type MouseEvent, type ReactNode } from 'react'
 
 import type { CodeBlockMode, CodeBlockType } from '../../editor/codeBlockRuntime'
+import { useI18n } from '../../i18n'
 
 function stopPmPointer(e: MouseEvent): void {
   e.stopPropagation()
@@ -13,6 +14,7 @@ type Props = {
   mode: CodeBlockMode
   showToolbar?: boolean
   onEdit: () => void
+  onEditPointerDown?: () => void
   onPreview: () => void
   children: ReactNode
   className?: string
@@ -25,10 +27,12 @@ export const CodeBlockShell = memo(function CodeBlockShell({
   mode,
   showToolbar = true,
   onEdit,
+  onEditPointerDown,
   onPreview,
   children,
   className,
 }: Props) {
+  const { t } = useI18n()
   const typeLabel = type === 'mermaid' ? 'Mermaid' : type.toUpperCase()
 
   return (
@@ -48,7 +52,7 @@ export const CodeBlockShell = memo(function CodeBlockShell({
         <div
           className="code-header"
           role="tablist"
-          aria-label={`${typeLabel} view`}
+          aria-label={t('editor.codeBlock.viewAria', { type: typeLabel })}
           contentEditable={false}
           onMouseDown={stopPmPointer}
         >
@@ -59,10 +63,13 @@ export const CodeBlockShell = memo(function CodeBlockShell({
               role="tab"
               aria-selected={mode === 'edit'}
               className={mode === 'edit' ? 'is-active' : ''}
-              onMouseDown={stopPmPointer}
+              onMouseDown={(e) => {
+                stopPmPointer(e)
+                onEditPointerDown?.()
+              }}
               onClick={onEdit}
             >
-              Source
+              {t('editor.codeBlock.source')}
             </button>
             <button
               type="button"
@@ -72,7 +79,7 @@ export const CodeBlockShell = memo(function CodeBlockShell({
               onMouseDown={stopPmPointer}
               onClick={onPreview}
             >
-              Preview
+              {t('editor.codeBlock.preview')}
             </button>
           </span>
         </div>

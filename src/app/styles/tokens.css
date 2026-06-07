@@ -1,17 +1,71 @@
-/*Luna: Title NodeView shared design variables with inline Source Reveal overlay*/
+/*Luna: shared overlay / panel design tokens*/
 :root {
-  --luna-source-reveal-radius: 8px;
-  --luna-source-reveal-chrome-fg: color-mix(in srgb, var(--text-muted) 88%, var(--text-primary));
-  --luna-source-reveal-chrome-bg: color-mix(in srgb, var(--surface-panel) 76%, var(--surface-editor));
-  --luna-source-reveal-surface-bg: color-mix(in srgb, var(--surface-panel) 86%, var(--code-bg));
-  --luna-source-reveal-border: color-mix(in srgb, var(--border-subtle) 78%, var(--accent) 10%);
-  --luna-source-reveal-shadow: 0 12px 44px color-mix(in srgb, #000 18%, transparent);
-  --luna-source-reveal-ease: cubic-bezier(0.24, 0.82, 0.28, 1);
-  --luna-source-reveal-font-mono: var(--font-mono);
-  --luna-source-reveal-caret: var(--accent);
-  /*Table cells are aligned by default (horizontal + vertical); per-cell overridden by inline style or [align] on td/th*/
-  --luna-table-cell-text-align: center;
+  /* Text token bridges: editor (--text-*) ↔ design system (--color-text-*) */
+  --text-tertiary: var(--text-muted);
+  --color-text-primary: var(--text-primary);
+  --color-text-muted: var(--text-muted);
+  --color-text-tertiary: var(--text-tertiary);
+  /* Flat overlay surfaces (command palette, context menu, search modals) */
+  --luna-overlay-backdrop: color-mix(in srgb, var(--surface-app) 40%, #000 60%);
+  --luna-overlay-panel-bg: var(--surface-panel);
+  --luna-overlay-panel-border: var(--border-subtle);
+  --luna-overlay-panel-shadow: var(--shadow-lg, 0 16px 48px color-mix(in srgb, #000 22%, transparent));
+
+  --luna-menu-item-hover-bg: color-mix(in srgb, var(--surface-hover) 88%, var(--accent) 8%);
+  --luna-menu-item-focus-bg: color-mix(in srgb, var(--surface-hover) 84%, var(--accent) 12%);
+  --luna-focus-ring: 0 0 0 3px var(--focus-ring);
+
+  --reveal-popover-radius: 10px;
+  --reveal-popover-pad: 8px;
+  --reveal-popover-bg: color-mix(in srgb, var(--luna-overlay-panel-bg) 76%, var(--surface-editor));
+  --reveal-popover-border: color-mix(in srgb, var(--luna-overlay-panel-border) 82%, transparent);
+  --reveal-popover-shadow: var(--luna-overlay-panel-shadow);
+  --reveal-popover-shadow-above:
+    0 -8px 24px color-mix(in srgb, var(--text-primary) 10%, transparent),
+    0 -2px 6px color-mix(in srgb, var(--text-primary) 7%, transparent);
+
+  /* Semantic status colors */
+  --luna-color-success: #2e9d5c;
+  --luna-color-warning: #d97706;
+  --luna-color-warning-muted: #c78311;
+  --luna-color-danger: #dc2626;
+  --luna-color-danger-muted: #b91c1c;
+  --luna-color-danger-soft: #fca5a5;
+  --luna-color-feature: var(--accent);
+
+  /* Text on filled accent / semantic buttons */
+  --luna-on-accent: var(--surface-editor);
+  --luna-on-danger: #fff;
+  --luna-on-warning: #fff;
+  --accent-contrast: var(--luna-on-accent);
+
+  /* Categorical file/tag hues (distinct from accent) */
+  --luna-tag-orange: #e67e22;
+  --luna-tag-purple: #8b5cf6;
+  --luna-tag-green: #10b981;
+
+  /*Table cells default to left alignment (GFM per-cell [align] still overrides via inline style)*/
+  --luna-table-cell-text-align: left;
   --luna-table-cell-vertical-align: top;
+  /*Form / panel text fields*/
+  --luna-field-height: 38px;
+  --luna-field-height-compact: 34px;
+  --luna-field-height-dense: 30px;
+  --luna-field-radius: 10px;
+  --luna-field-radius-compact: var(--radius-md);
+  --luna-field-bg: color-mix(in srgb, var(--input-bg) 86%, var(--surface-editor));
+  --luna-field-bg-editor: var(--surface-editor);
+  --luna-field-border: var(--border-subtle);
+  --luna-field-border-hover: color-mix(in srgb, var(--accent) 42%, var(--border-subtle));
+  --luna-field-border-focus: var(--accent);
+  --luna-field-focus-ring: 0 0 0 3px var(--focus-ring);
+  /*Buttons*/
+  --luna-btn-icon-size: 34px;
+  --luna-btn-radius: var(--radius-md);
+  --luna-btn-border: var(--border-subtle);
+  --luna-btn-hover-bg: color-mix(in srgb, var(--surface-hover) 82%, transparent);
+  --luna-btn-active-bg: color-mix(in srgb, var(--accent) 12%, transparent);
+  --luna-btn-disabled-opacity: 0.38;
   /*Global scroll bar*/
   --luna-scrollbar-size: 8px;
   --luna-scrollbar-track: transparent;
@@ -27,5 +81,10 @@
   --luna-tabs-scrollbar-thumb: color-mix(in srgb, var(--text-muted) 32%, transparent);
   --luna-tabs-scrollbar-thumb-hover: color-mix(in srgb, var(--text-muted) 52%, transparent);
   --luna-tabs-scrollbar-thumb-active: color-mix(in srgb, var(--accent) 36%, var(--text-muted) 24%);
+  /*Code block pre: thin scrollbar, hidden until hover / scroll / focus*/
+  --luna-code-block-scrollbar-size: 4px;
+  --luna-code-block-scrollbar-thumb: color-mix(in srgb, var(--text-muted) 32%, transparent);
+  --luna-code-block-scrollbar-thumb-hover: color-mix(in srgb, var(--text-muted) 52%, transparent);
+  --luna-code-block-scrollbar-thumb-active: color-mix(in srgb, var(--accent) 36%, var(--text-muted) 24%);
 }
 

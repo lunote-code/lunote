@@ -14,6 +14,10 @@ import { assertProjectionPurity, computeSelection } from './modeSwitchProjection
 import { deriveHierarchicalFromCmSelection } from './modeSwitchSemanticProjection'
 import { buildFrozenStructuralIR, type FrozenStructuralIR } from './modeSwitchStructuralIR'
 import { canonicalMarkdownSemantics } from '../markdown/canonicalMarkdownSemantics'
+import {
+  normalizeWikiLinkBlockRefEscapesInMarkdown,
+  originalToNormalizedAfterWikiBlockRefUnescape,
+} from './knowledgeRuntime/wikiLinkParser'
 
 export type { ModeSwitchDocumentIdentity } from './modeSwitchDocumentProjection'
 
@@ -115,8 +119,9 @@ export function freezeModeSwitchSnapshot(args: {
   /** Source code true value: used for CM and selection mapping, prohibiting PM serialize from introducing \\ escape*/
   identityMarkdown?: string
 }): ModeSwitchSnapshot {
-  const canonicalBuffer =
+  const rawCanonical =
     args.identityMarkdown ?? canonicalMarkdownSemantics.serializeForModeBridge(args.doc, args.schema)
+  const canonicalBuffer = normalizeWikiLinkBlockRefEscapesInMarkdown(rawCanonical)
   const hierarchical = withCanonicalBufferHash(args.hierarchical, canonicalBuffer)
   const frozenStructuralIR = buildFrozenStructuralIR({ canonicalBuffer, hierarchical, doc: args.doc })
   const pmInner = pmRootInnerSize(args.doc)
@@ -130,6 +135,15 @@ export function freezeModeSwitchSnapshot(args: {
   const selection = args.cmSelectionOverride
     ? Object.freeze({ ...args.cmSelectionOverride })
     : Object.freeze({ anchor: coords.cmAnchor, head: coords.cmHead })
+  const enrichedHierarchical = hierarchical
+    ? withCanonicalBufferHash(
+        {
+          bufferHash: hierarchical.bufferHash,
+          ...deriveHierarchicalFromCmSelection(selection.anchor, selection.head, frozenStructuralIR),
+        },
+        canonicalBuffer,
+      )
+    : null
   const documentIdentity = buildModeSwitchDocumentIdentity(canonicalBuffer, args.doc)
 
   const snap = Object.freeze({
@@ -138,7 +152,7 @@ export function freezeModeSwitchSnapshot(args: {
     canonicalBuffer,
     documentIdentity,
     frozenStructuralIR,
-    hierarchical,
+    hierarchical: enrichedHierarchical,
     selection,
     expectedPmAnchor: coords.pmAnchor,
     expectedPmHead: coords.pmHead,
@@ -160,17 +174,15 @@ export function freezeReturningToVisualSnapshot(
 ): ModeSwitchSnapshot {
   const schema = getOutlineParseSchema()
   const doc = canonicalMarkdownSemantics.parse(sourceRead.markdown, schema)
-  const canonicalBuffer = sourceRead.markdown
+  const canonicalBuffer = normalizeWikiLinkBlockRefEscapesInMarkdown(sourceRead.markdown)
+  const cmAnchor = originalToNormalizedAfterWikiBlockRefUnescape(sourceRead.markdown, sourceRead.anchor)
+  const cmHead = originalToNormalizedAfterWikiBlockRefUnescape(sourceRead.markdown, sourceRead.head)
   const frozenStructuralIR = buildFrozenStructuralIR({
     canonicalBuffer,
     hierarchical: visualExitSnapshot.hierarchical,
     doc,
   })
-  const cmHierarchical = deriveHierarchicalFromCmSelection(
-    sourceRead.anchor,
-    sourceRead.head,
-    frozenStructuralIR,
-  )
+  const cmHierarchical = deriveHierarchicalFromCmSelection(cmAnchor, cmHead, frozenStructuralIR)
   return freezeModeSwitchSnapshot({
     captureFrameId: visualExitSnapshot.captureFrameId,
     documentKey: visualExitSnapshot.documentKey,
@@ -182,7 +194,7 @@ export function freezeReturningToVisualSnapshot(
     doc,
     schema,
     sourceMode: 'source',
-    cmSelectionOverride: { anchor: sourceRead.anchor, head: sourceRead.head },
-    identityMarkdown: sourceRead.markdown,
+    cmSelectionOverride: { anchor: cmAnchor, head: cmHead },
+    identityMarkdown: canonicalBuffer,
   })
 }

@@ -1,3 +1,4 @@
+import type { RefObject } from 'react'
 import type { TranslateFn } from '../i18n'
 import { SettingsInput, SettingsSidebar, type SettingsSidebarGroup } from '../components/settings'
 import { Icon } from '../design-system/icons'
@@ -10,12 +11,15 @@ type Props = {
   searchQuery: string
   onSearchChange: (q: string) => void
   visibleTabs: readonly PrefsTabId[]
+  searchInputRef?: RefObject<HTMLInputElement | null>
 }
 
 const TAB_I18N: Record<PrefsTabId, string> = {
   general: 'settings.sidebar.general',
   appearance: 'settings.sidebar.appearance',
   export: 'settings.sidebar.export',
+  import: 'settings.sidebar.import',
+  templates: 'settings.sidebar.templates',
   editor: 'settings.sidebar.editor',
   language: 'settings.sidebar.language',
   shortcuts: 'settings.sidebar.shortcuts',
@@ -28,6 +32,8 @@ const SIDEBAR_GROUPS: readonly SettingsSidebarGroup<PrefsTabId>[] = [
       { id: 'general', label: '', icon: 'settings' },
       { id: 'appearance', label: '', icon: 'appearance' },
       { id: 'export', label: '', icon: 'export' },
+      { id: 'import', label: '', icon: 'import' },
+      { id: 'templates', label: '', icon: 'note-new' },
       { id: 'editor', label: '', icon: 'editor' },
     ],
   },
@@ -47,6 +53,7 @@ export function PreferencesSidebar({
   searchQuery,
   onSearchChange,
   visibleTabs,
+  searchInputRef,
 }: Props) {
   const groups = SIDEBAR_GROUPS.map((group) => ({
     ...group,
@@ -69,6 +76,7 @@ export function PreferencesSidebar({
         <div className="prefs-search-wrap">
           <Icon name="search" className="prefs-search-icon" size="md" tone="muted" />
           <SettingsInput
+            ref={searchInputRef}
             type="search"
             className="prefs-search-input"
             placeholder={t('prefs.search.placeholder')}

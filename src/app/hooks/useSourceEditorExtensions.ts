@@ -17,6 +17,7 @@ import {
   cmManifestKeymap,
   reconfigureCmManifestKeymap,
 } from '../../editor/cmManifestBridge'
+import { createShowLineBreaksCompartmentExtension } from '../../editor/cmShowLineBreaks'
 import { createCmWebviewPasteExtension } from '../../editor/cmWebviewPasteBridge'
 import { createCmWikiLinkSuggestExtension } from '../../editor/cmWikiLinkSuggest'
 import {
@@ -27,9 +28,10 @@ import type { WikiLinkTarget } from '../../editor/knowledgeRuntime/types'
 import { getAppSettingsSnapshot, subscribeAppSettings } from '../../settings/appSettingsStore'
 import {
   comfortableEditorTheme,
+  createWriterBaseExtensions,
   markdownUxKeymap,
-  writerBaseExtensions,
 } from '../codemirror/sourceEditorExtensions'
+import { useI18n } from '../../i18n'
 
 export type SourceEditorExtensionsDeps = {
   isLargeDoc: boolean
@@ -57,6 +59,8 @@ export function useSourceEditorExtensions(deps: SourceEditorExtensionsDeps) {
     pasteImageHandlerRef,
     editorViewRef,
   } = deps
+
+  const { t, effectiveLocale } = useI18n()
 
   useEffect(() => {
     outlineSpyCtxRef.current = { sidebarListMode }
@@ -143,7 +147,7 @@ export function useSourceEditorExtensions(deps: SourceEditorExtensionsDeps) {
   )
 
   const editorExtensions = useMemo(() => {
-    const exts: Extension[] = [...writerBaseExtensions, drawSelection(), highlightActiveLine()]
+    const exts: Extension[] = [...createWriterBaseExtensions(t), drawSelection(), highlightActiveLine()]
     if (!isLargeDoc) {
       exts.push(markdown({ codeLanguages: languages }), lineNumbers())
     }
@@ -151,6 +155,7 @@ export function useSourceEditorExtensions(deps: SourceEditorExtensionsDeps) {
       cmManifestKeymap,
       cmEphemeralEnterCommit,
       markdownUxKeymap,
+      createShowLineBreaksCompartmentExtension(),
       EditorView.lineWrapping,
       comfortableEditorTheme,
       cmNavigationJumpFlashExt,
@@ -163,6 +168,8 @@ export function useSourceEditorExtensions(deps: SourceEditorExtensionsDeps) {
     }
     return exts
   }, [
+    effectiveLocale,
+    t,
     isLargeDoc,
     editorOutlineScrollViewportExt,
     editorOutlineActiveExt,

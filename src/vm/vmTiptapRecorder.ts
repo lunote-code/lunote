@@ -112,6 +112,11 @@ export function setVmTiptapRecorderDocId(docId: string): void {
   activeDocId = docId
 }
 
+/** Active document id for VM undo/redo (set on tab switch). */
+export function getVmTiptapRecorderDocId(): string {
+  return activeDocId
+}
+
 // ─────────────────────────────────────────────────────────────
 // Extension
 // ─────────────────────────────────────────────────────────────

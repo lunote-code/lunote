@@ -1,0 +1,29 @@
+/**
+ * Shared code block typography: scales with document font preferences (--editor-content-font-size)
+ * and mono font choice (--font-mono). Used by Luna NodeView, fenced figures, and CBR textareas.
+ */
+.preview-pane.markdown-visual-editor,
+.preview-pane,
+.markdown-body,
+.editor-pane {
+  --luna-code-block-font-scale: 0.764705882; /* 13px when document default is 17px */
+  --code-block-font-size: calc(var(--editor-content-font-size, 17px) * var(--luna-code-block-font-scale));
+  /* Unitless multiplier — gutter rows and code lines must share one rhythm (px calc drifts). */
+  --code-block-line-height: 1.5;
+  --code-block-row-height: calc(var(--code-block-font-size) * var(--code-block-line-height));
+  --code-block-pad-top: calc(var(--code-block-font-size) * 0.923076923);
+  --code-block-pad-bottom: calc(var(--code-block-font-size) * 1.076923077);
+  /* Breathing room between gutter / line numbers and code text. */
+  --code-block-gutter-content-gap: calc(var(--code-block-font-size) * 0.769230769);
+  --font-code-block: var(
+    --font-mono,
+    ui-monospace,
+    'SF Mono',
+    Menlo,
+    Monaco,
+    Consolas,
+    'Liberation Mono',
+    'Courier New',
+    monospace
+  );
+}

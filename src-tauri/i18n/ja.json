@@ -24,6 +24,7 @@
     "file_export_image": "画像",
     "file_export_pdf": "PDF",
     "file_export_word": "Word",
+    "file_history_bar": "バージョン履歴",
     "file_import": "読み込み",
     "file_new": "新規",
     "file_new_tab": "新しいタブ",
@@ -82,11 +83,11 @@
     "fmt_strike": "取り消し線",
     "fmt_underline": "下線",
     "format_menu": "書式",
-    "native_app_hide": "Luna Note を隠す",
+    "native_app_hide": "Lunote を隠す",
     "native_app_hide_others": "ほかを隠す",
     "native_app_show_all": "すべてを表示",
-    "native_app_quit": "Luna Note を終了",
-    "native_help_about": "Luna Note について",
+    "native_app_quit": "Lunote を終了",
+    "native_help_about": "Lunote について",
     "native_help_bar": "ヘルプ",
     "native_help_feedback": "フィードバックを送信",
     "native_help_privacy": "プライバシー",
@@ -161,7 +162,7 @@
     "window_menu": "ウィンドウ"
   },
   "tray": {
-    "placeholder": "Luna Note"
+    "placeholder": "Lunote"
   },
   "dialog": {
     "placeholder": "Reserved"

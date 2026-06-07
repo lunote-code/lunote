@@ -387,7 +387,7 @@ body.markdown-export-root[data-theme='dark'] .markdown-body .md-mark-highlight {
 }
 
 .markdown-body .md-callout {
-  --mc-accent: #64748b;
+  --mc-accent: var(--text-muted, #64748b);
   --mc-bg: color-mix(in srgb, var(--mc-accent) 8%, var(--surface-editor, #fff));
   --mc-border: color-mix(in srgb, var(--mc-accent) 22%, rgba(128, 128, 128, 0.25));
   margin: 1rem 0;
@@ -415,57 +415,36 @@ body.markdown-export-root[data-theme='dark'] .markdown-body .md-mark-highlight {
 
 .markdown-body .md-callout-note,
 .markdown-body .md-callout-info {
-  --mc-accent: #3b82f6;
+  --mc-accent: var(--luna-callout-note);
 }
 
 .markdown-body .md-callout-tip {
-  --mc-accent: #22c55e;
+  --mc-accent: var(--luna-callout-tip);
+}
+
+.markdown-body .md-callout-success {
+  --mc-accent: var(--luna-callout-success);
 }
 
 .markdown-body .md-callout-important {
-  --mc-accent: #a855f7;
+  --mc-accent: var(--luna-callout-important);
 }
 
 .markdown-body .md-callout-warning {
-  --mc-accent: #ea580c;
+  --mc-accent: var(--luna-callout-warning);
 }
 
 .markdown-body .md-callout-caution {
-  --mc-accent: #dc2626;
+  --mc-accent: var(--luna-callout-caution);
 }
 
 .markdown-body .md-callout-danger {
-  --mc-accent: #b91c1c;
+  --mc-accent: var(--luna-callout-danger);
 }
 
 body.markdown-export-root[data-theme='dark'] .markdown-body .md-callout {
   --mc-bg: color-mix(in srgb, var(--mc-accent) 14%, rgba(15, 23, 42, 0.92));
   box-shadow: 0 2px 18px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
-}
-
-body.markdown-export-root[data-theme='dark'] .markdown-body .md-callout-note,
-body.markdown-export-root[data-theme='dark'] .markdown-body .md-callout-info {
-  --mc-accent: #60a5fa;
-}
-
-body.markdown-export-root[data-theme='dark'] .markdown-body .md-callout-tip {
-  --mc-accent: #4ade80;
-}
-
-body.markdown-export-root[data-theme='dark'] .markdown-body .md-callout-important {
-  --mc-accent: #c084fc;
-}
-
-body.markdown-export-root[data-theme='dark'] .markdown-body .md-callout-warning {
-  --mc-accent: #fb923c;
-}
-
-body.markdown-export-root[data-theme='dark'] .markdown-body .md-callout-caution {
-  --mc-accent: #f87171;
-}
-
-body.markdown-export-root[data-theme='dark'] .markdown-body .md-callout-danger {
-  --mc-accent: #fca5a5;
 }
 
 /*Definition list (remark-definition-list / export HTML)*/

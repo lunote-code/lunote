@@ -3,6 +3,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   type Dispatch,
   type MouseEvent as ReactMouseEvent,
   type MutableRefObject,
@@ -12,10 +13,12 @@ import {
 
 import type { TranslateFn } from '../../i18n'
 import { setWikiLinkSuggestPathProvider } from '../../editor/lunaWikiLinkSuggest'
-import { runWorkspaceSearch } from '../search/workspaceSearch'
-import { pathSetHas, pathsEqual } from '../../lib/workspacePathUtils'
+import { pathInList, pathsEqual } from '../../lib/workspacePathUtils'
 import {
+  collectDirPaths,
+  countFilesInTree,
   filterSidebarWorkspaceTree,
+  filterWorkspaceTreeByQuery,
   flattenWorkspaceFiles,
   noteFileStem,
   sortWorkspaceTree,
@@ -23,13 +26,18 @@ import {
 import {
   WORKSPACE_FILE_DRAG_THRESHOLD_PX,
   collectFolderNodes,
+  isValidBulkMoveDest,
   isValidMoveDest,
-  resolveWorkspaceFilePathUnderPointer,
   type WorkspaceDragTarget,
 } from '../workspace/workspaceDrag'
-import type { FileSortMode, FsTreeNode, SearchResult } from '../workspace/types'
+import { resolveWorkspaceSidebarDropTarget } from '../workspace/workspaceSidebarDropTarget'
+import {
+  collectVisibleFilePathsInTree,
+  computeShiftRangeSelection,
+} from '../workspace/workspaceFileMultiSelect'
+import type { FileSortMode, FsTreeNode } from '../workspace/types'
 import type { EditorDocMenuState, FileContextMenuState } from '../workspace/contextMenuTypes'
-import { isBufferTabId } from '../workspace/constants'
+import { APP_DISPLAY_NAME, isBufferTabId } from '../workspace/constants'
 
 export type WorkspaceSidebarDeps = {
   t: TranslateFn
@@ -38,21 +46,20 @@ export type WorkspaceSidebarDeps = {
   activePath: string
   fileTree: FsTreeNode[]
   fileSortMode: FileSortMode
-  expandedDirs: Set<string>
-  setExpandedDirs: Dispatch<SetStateAction<Set<string>>>
   searchText: string
-  setSearchResults: Dispatch<SetStateAction<SearchResult[]>>
   sidebarListMode: 'files' | 'outline'
-  draggingWorkspaceFile: string | null
-  setDraggingWorkspaceFile: Dispatch<SetStateAction<string | null>>
+  sidebarFileView: 'tree' | 'list'
+  expandedDirs: Set<string>
+  draggingWorkspaceFile: string[] | null
+  setDraggingWorkspaceFile: Dispatch<SetStateAction<string[] | null>>
   dragOverTarget: WorkspaceDragTarget | null
   setDragOverTarget: Dispatch<SetStateAction<WorkspaceDragTarget | null>>
   setEditorDocMenu: Dispatch<SetStateAction<EditorDocMenuState | null>>
   setFileContextMenu: Dispatch<SetStateAction<FileContextMenuState | null>>
-  searchResults: SearchResult[]
-  dispatchOpenDocument: (root: string, path: string) => Promise<void>
-  handleMoveFileToFolder: (filePath: string, destDir: string) => Promise<void>
+  dispatchOpenDocument: (root: string, path: string, reason?: string) => Promise<void>
+  handleMoveFileToFolder: (sourcePath: string | string[], destDir: string, isDirectory?: boolean) => Promise<void>
   toggleDir: (path: string) => void
+  setExpandedDirs: Dispatch<SetStateAction<Set<string>>>
   tabLabel: (path: string) => string
   setStatus: (msg: string) => void
 }
@@ -65,28 +72,43 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
     activePath,
     fileTree,
     fileSortMode,
-    setExpandedDirs,
     searchText,
-    setSearchResults,
     sidebarListMode,
+    sidebarFileView,
+    expandedDirs,
     draggingWorkspaceFile,
     setDraggingWorkspaceFile,
     setDragOverTarget,
     setEditorDocMenu,
     setFileContextMenu,
-    searchResults,
     dispatchOpenDocument,
     handleMoveFileToFolder,
     toggleDir,
+    setExpandedDirs,
     tabLabel,
     setStatus,
   } = deps
 
-  const filePointerSessionRef = useRef<{ path: string; x: number; y: number; active: boolean } | null>(null)
+  const [selectedFilePaths, setSelectedFilePaths] = useState<string[]>([])
+  const selectionAnchorRef = useRef<string | null>(null)
+  const selectedFilePathsRef = useRef<string[]>([])
+  const filePointerSessionRef = useRef<{
+    path: string
+    isDirectory: boolean
+    bulkPaths?: string[]
+    x: number
+    y: number
+    active: boolean
+  } | null>(null)
   const suppressWorkspaceFileClickRef = useRef(false)
-  const openWorkspaceFileFromSidebarRef = useRef<(path: string) => void>(() => {})
   const lastSidebarOpenRef = useRef<{ path: string; at: number } | null>(null)
-  const handleMoveFileToFolderRef = useRef<(filePath: string, destDir: string) => void>(() => {})
+  const handleMoveFileToFolderRef = useRef<
+    (sourcePath: string | string[], destDir: string, isDirectory?: boolean) => void
+  >(() => {})
+
+  useEffect(() => {
+    selectedFilePathsRef.current = selectedFilePaths
+  }, [selectedFilePaths])
 
   const workspaceFolderName = useMemo(() => {
     if (!rootDir.trim()) return t('app.titleBar.noFolder')
@@ -96,19 +118,25 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
   }, [rootDir, t])
 
   const activeDocumentTitle = useMemo(() => {
-    if (!activePath) return t('app.titleBar.noDoc')
+    if (!activePath) {
+      if (!rootDir.trim()) return t('app.titleBar.welcomeTitle', { app: APP_DISPLAY_NAME })
+      return t('app.editor.empty.noNoteTitle')
+    }
     const label = tabLabel(activePath)
     return noteFileStem(label) || label || t('app.tab.unnamed')
-  }, [activePath, tabLabel, t])
+  }, [activePath, rootDir, tabLabel, t])
 
   const activeDocumentSubtitle = useMemo(() => {
-    if (!activePath) return workspaceFolderName
+    if (!activePath) {
+      if (!rootDir.trim()) return t('app.titleBar.welcomeSubtitle')
+      return t('app.titleBar.readySubtitle')
+    }
     const label = tabLabel(activePath)
     const dir = label.replace(/\\/g, '/').replace(/\/?[^/]*$/u, '')
     if (dir) return dir
     if (isBufferTabId(activePath)) return t('app.titleBar.tempDoc')
     return workspaceFolderName
-  }, [activePath, tabLabel, workspaceFolderName, t])
+  }, [activePath, rootDir, tabLabel, workspaceFolderName, t])
 
   const flatWorkspaceFiles = useMemo(
     () => (rootDir && fileTree.length > 0 ? flattenWorkspaceFiles(fileTree, rootDir) : []),
@@ -163,10 +191,34 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
     return next
   }, [flatWorkspaceFiles, fileSortMode])
 
-  const sortedFileTree = useMemo(
+  const baseSortedFileTree = useMemo(
     () => filterSidebarWorkspaceTree(sortWorkspaceTree(fileTree, fileSortMode)),
     [fileTree, fileSortMode],
   )
+
+  const filterQuery = searchText.trim()
+  const isSidebarFiltering = Boolean(filterQuery)
+
+  const sortedFileTree = useMemo(() => {
+    if (!isSidebarFiltering) return baseSortedFileTree
+    return filterWorkspaceTreeByQuery(baseSortedFileTree, filterQuery, rootDir)
+  }, [baseSortedFileTree, filterQuery, isSidebarFiltering, rootDir])
+
+  const filteredFlatWorkspaceFiles = useMemo(() => {
+    if (!isSidebarFiltering) return sortedFlatWorkspaceFiles
+    const q = filterQuery.toLowerCase()
+    return sortedFlatWorkspaceFiles.filter(
+      (f) =>
+        f.label.toLowerCase().includes(q) ||
+        f.relativePath.toLowerCase().includes(q) ||
+        (f.sublabel?.toLowerCase().includes(q) ?? false),
+    )
+  }, [filterQuery, isSidebarFiltering, sortedFlatWorkspaceFiles])
+
+  const sidebarFilterMatchCount = useMemo(() => {
+    if (!isSidebarFiltering) return 0
+    return countFilesInTree(sortedFileTree)
+  }, [isSidebarFiltering, sortedFileTree])
 
   const workspaceFolderNodes = useMemo(() => collectFolderNodes(sortedFileTree), [sortedFileTree])
 
@@ -181,29 +233,40 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
     [sortedFlatWorkspaceFiles],
   )
 
+  const orderedVisibleFilePaths = useMemo(() => {
+    if (sidebarFileView === 'list') {
+      return filteredFlatWorkspaceFiles.map((f) => f.path)
+    }
+    return collectVisibleFilePathsInTree(sortedFileTree, expandedDirs)
+  }, [expandedDirs, filteredFlatWorkspaceFiles, sidebarFileView, sortedFileTree])
+
+  const clearWorkspaceFileSelection = useCallback(() => {
+    setSelectedFilePaths([])
+    selectionAnchorRef.current = null
+  }, [])
+
   useEffect(() => {
-    const rawQuery = searchText.trim()
-    if (!rootDir || !rawQuery) {
-      setSearchResults([])
-      return
-    }
-    let cancelled = false
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        const hits = await runWorkspaceSearch(rootDir, rawQuery, sidebarSearchIndex, 30)
-        if (!cancelled) setSearchResults(hits)
-      })()
-    }, 120)
-    return () => {
-      cancelled = true
-      window.clearTimeout(timer)
-    }
-  }, [rootDir, searchText, setSearchResults, sidebarSearchIndex])
+    clearWorkspaceFileSelection()
+  }, [clearWorkspaceFileSelection, rootDir])
+
+  useEffect(() => {
+    if (!isSidebarFiltering || !rootDir) return
+    const dirs = collectDirPaths(sortedFileTree)
+    if (dirs.length === 0) return
+    setExpandedDirs((prev) => {
+      const next = new Set(prev)
+      for (const d of dirs) next.add(d)
+      return next
+    })
+  }, [isSidebarFiltering, rootDir, sortedFileTree, setExpandedDirs])
 
   const onWorkspaceFilePointerDown = useCallback(
-    (e: ReactPointerEvent, path: string) => {
+    (e: ReactPointerEvent, path: string, isDirectory = false) => {
       if (!rootDir) return
-      filePointerSessionRef.current = { path, x: e.clientX, y: e.clientY, active: false }
+      const selected = selectedFilePathsRef.current
+      const bulkPaths =
+        !isDirectory && pathInList(path, selected) && selected.length > 1 ? [...selected] : undefined
+      filePointerSessionRef.current = { path, isDirectory, bulkPaths, x: e.clientX, y: e.clientY, active: false }
     },
     [rootDir],
   )
@@ -232,8 +295,40 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
     [dispatchOpenDocument, rootDirRef, setStatus, t],
   )
 
-  openWorkspaceFileFromSidebarRef.current = openWorkspaceFileFromSidebar
   handleMoveFileToFolderRef.current = handleMoveFileToFolder
+
+  const isFilePathSelected = useCallback(
+    (path: string) => selectedFilePaths.some((p) => pathsEqual(p, path)),
+    [selectedFilePaths],
+  )
+
+  const handleWorkspaceFileClick = useCallback(
+    (path: string, modifiers: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean }) => {
+      if (modifiers.shiftKey && selectionAnchorRef.current) {
+        const range = computeShiftRangeSelection(
+          orderedVisibleFilePaths,
+          selectionAnchorRef.current,
+          path,
+        )
+        setSelectedFilePaths(range)
+        return
+      }
+      if (modifiers.metaKey || modifiers.ctrlKey) {
+        setSelectedFilePaths((prev) => {
+          if (pathInList(path, prev)) {
+            return prev.filter((p) => !pathsEqual(p, path))
+          }
+          return [...prev, path]
+        })
+        selectionAnchorRef.current = path
+        return
+      }
+      setSelectedFilePaths([path])
+      selectionAnchorRef.current = path
+      openWorkspaceFileFromSidebar(path)
+    },
+    [openWorkspaceFileFromSidebar, orderedVisibleFilePaths],
+  )
 
   const toggleWorkspaceDir = useCallback(
     (path: string) => {
@@ -262,52 +357,33 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
       if (x < pad) x = pad
       if (y < pad) y = pad
       setEditorDocMenu(null)
-      setFileContextMenu({ x, y, path, isDirectory, variant })
+      if (!isDirectory && !pathInList(path, selectedFilePaths)) {
+        setSelectedFilePaths([path])
+        selectionAnchorRef.current = path
+      }
+      const bulkDeletePaths =
+        !isDirectory && pathInList(path, selectedFilePaths) && selectedFilePaths.length > 1
+          ? [...selectedFilePaths]
+          : undefined
+      setFileContextMenu({ x, y, path, isDirectory, variant, bulkDeletePaths })
     },
-    [setEditorDocMenu, setFileContextMenu],
+    [selectedFilePaths, setEditorDocMenu, setFileContextMenu],
   )
 
   const onSidebarBlankContextMenu = useCallback(
     (e: ReactMouseEvent) => {
       if (!rootDir) return
       if (sidebarListMode !== 'files') return
-      if (searchText && searchResults.length > 0) return
       const target = e.target as HTMLElement
       if (target.closest('.note-item, .tree-folder, .tree-file, .file-ctx-menu')) return
       onSidebarFileContextMenu(e, rootDir, true, 'blank')
     },
-    [onSidebarFileContextMenu, rootDir, searchResults.length, searchText, sidebarListMode],
+    [onSidebarFileContextMenu, rootDir, sidebarListMode],
   )
 
   useEffect(() => {
-    const resolveDropTargetUnderPointer = (clientX: number, clientY: number): WorkspaceDragTarget | null => {
-      const normRoot = rootDirRef.current.replace(/[/\\]+$/u, '')
-      const stack = document.elementsFromPoint(clientX, clientY)
-      for (const el of stack) {
-        if (!(el instanceof HTMLElement)) continue
-        if (el.classList.contains('tree-file-dragging')) continue
-
-        const folderEl = el.closest('[data-workspace-folder-path].tree-folder') as HTMLElement | null
-        if (folderEl) {
-          const path = folderEl.getAttribute('data-workspace-folder-path') ?? ''
-          if (path) return { destDir: path, kind: 'folder', anchorPath: path }
-        }
-
-        const fileDropEl = el.closest('[data-workspace-drop-dir]') as HTMLElement | null
-        if (fileDropEl) {
-          const destDir = fileDropEl.getAttribute('data-workspace-drop-dir') ?? ''
-          const anchorPath = fileDropEl.getAttribute('data-workspace-file-path') ?? undefined
-          if (destDir) return { destDir, kind: 'file', anchorPath }
-        }
-
-        const rootEl = el.closest('[data-workspace-root-drop]') as HTMLElement | null
-        if (rootEl && !el.closest('.tree-node')) {
-          const destDir = rootEl.getAttribute('data-workspace-root-drop') ?? normRoot
-          if (destDir) return { destDir, kind: 'root' }
-        }
-      }
-      return null
-    }
+    const resolveDropTargetUnderPointer = (clientX: number, clientY: number): WorkspaceDragTarget | null =>
+      resolveWorkspaceSidebarDropTarget(clientX, clientY, rootDirRef.current)
 
     const onPointerMove = (e: PointerEvent) => {
       const session = filePointerSessionRef.current
@@ -316,17 +392,20 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
         const dist = Math.hypot(e.clientX - session.x, e.clientY - session.y)
         if (dist < WORKSPACE_FILE_DRAG_THRESHOLD_PX) return
         session.active = true
-        setDraggingWorkspaceFile(session.path)
+        const dragPaths = session.bulkPaths ?? [session.path]
+        setDraggingWorkspaceFile(dragPaths)
       }
       const target = resolveDropTargetUnderPointer(e.clientX, e.clientY)
-      setDragOverTarget(target)
-      if (target?.kind === 'folder' && target.anchorPath) {
-        setExpandedDirs((prev) => {
-          if (pathSetHas(prev, target.anchorPath!)) return prev
-          const next = new Set(prev)
-          next.add(target.anchorPath!)
-          return next
-        })
+      const dragPaths = session.bulkPaths ?? [session.path]
+      const canDrop =
+        target &&
+        (session.isDirectory
+          ? isValidMoveDest(session.path, target.destDir)
+          : isValidBulkMoveDest(dragPaths, target.destDir))
+      if (canDrop) {
+        setDragOverTarget(target)
+      } else {
+        setDragOverTarget(null)
       }
     }
 
@@ -336,9 +415,7 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
       filePointerSessionRef.current = null
       if (!session.active) {
         if (suppressWorkspaceFileClickRef.current) return
-        const targetPath =
-          resolveWorkspaceFilePathUnderPointer(e.clientX, e.clientY) ?? session.path
-        openWorkspaceFileFromSidebarRef.current(targetPath)
+        if (session.isDirectory) return
         return
       }
       suppressWorkspaceFileClickRef.current = true
@@ -346,8 +423,18 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
         suppressWorkspaceFileClickRef.current = false
       }, 100)
       const target = resolveDropTargetUnderPointer(e.clientX, e.clientY)
-      if (target && isValidMoveDest(session.path, target.destDir)) {
-        void handleMoveFileToFolderRef.current(session.path, target.destDir)
+      const dragPaths = session.bulkPaths ?? [session.path]
+      const canDrop =
+        target &&
+        (session.isDirectory
+          ? isValidMoveDest(session.path, target.destDir)
+          : isValidBulkMoveDest(dragPaths, target.destDir))
+      if (canDrop) {
+        void handleMoveFileToFolderRef.current(
+          session.isDirectory ? session.path : dragPaths,
+          target.destDir,
+          session.isDirectory,
+        )
       } else {
         setDraggingWorkspaceFile(null)
         setDragOverTarget(null)
@@ -362,7 +449,7 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
       window.removeEventListener('pointerup', finishPointerDrag)
       window.removeEventListener('pointercancel', finishPointerDrag)
     }
-  }, [rootDirRef, setDragOverTarget, setDraggingWorkspaceFile, setExpandedDirs])
+  }, [rootDirRef, setDragOverTarget, setDraggingWorkspaceFile])
 
   useEffect(() => {
     document.body.classList.toggle('is-workspace-file-dragging', Boolean(draggingWorkspaceFile))
@@ -375,14 +462,20 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
     workspaceFolderName,
     activeDocumentTitle,
     activeDocumentSubtitle,
-    sortedFlatWorkspaceFiles,
+    sortedFlatWorkspaceFiles: filteredFlatWorkspaceFiles,
     sortedFileTree,
     workspaceFolderNodes,
     sidebarSearchIndex,
+    sidebarFilterMatchCount,
+    isSidebarFiltering,
     toggleWorkspaceDir,
     openWorkspaceFileFromSidebar,
     onWorkspaceFilePointerDown,
     onSidebarFileContextMenu,
     onSidebarBlankContextMenu,
+    selectedFilePaths,
+    isFilePathSelected,
+    handleWorkspaceFileClick,
+    clearWorkspaceFileSelection,
   }
 }

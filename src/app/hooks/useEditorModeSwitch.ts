@@ -1,16 +1,20 @@
 import { useCallback, useRef, type Dispatch, type MutableRefObject, type RefObject } from 'react'
 import { EditorView } from '@codemirror/view'
 import { reconfigureCmManifestKeymap } from '../../editor/cmManifestBridge'
+import { reconfigureShowLineBreaks } from '../../editor/cmShowLineBreaks'
 import { debugModeSwitch, describeScrollMetrics, describeSelectionInText, summarizeSnapshot } from '../../editor/modeSwitchDebug'
 import { EditorOpenReason } from '../../editor/editorOpenReason'
 import type { ModeSwitchAnchorPayload, ModeSwitchFsmAction, ModeSwitchFsmState } from '../../editor/modeSwitchFSM'
 import { decideModeToggleCommandAction } from '../../editor/modeToggleCommandSemantics'
-import { prepareSourceToVisualTransition, prepareVisualToSourceTransition } from '../../editor/modeSwitchTransitionPrepare'
+import { prepareSourceToVisualTransition, prepareVisualToSourceTransition, type SourceToVisualPrepareResult } from '../../editor/modeSwitchTransitionPrepare'
 import { reportModeSwitchFreezeFailure } from '../../editor/modeSwitchFreezeFailure'
-import { setSourceModeIdentity } from '../../editor/sourceModeIdentity'
 import { VIEWPORT_DOCUMENT_NODE_ID, viewportAnchorEngine } from '../../editor/viewportAnchorEngine'
 import type { SourceModeEnterAnchor } from '../../editor/viewportModeAnchor'
-import { dispatchDocumentCommand } from '../../documentRuntime/documentKernel'
+import {
+  bodyScrollRatioToSourceScrollRatio,
+  sourceScrollRatioToBodyScrollRatio,
+} from '../../editor/documentFrontmatterOffsets'
+import { syncActiveDocumentBodyImmediately } from '../../lib/editorContentSync'
 import { pathsEqual } from '../../lib/workspacePathUtils'
 import type { AtomicVisualDocumentEnter, TiptapMarkdownEditorHandle } from '../../editor/TiptapMarkdownEditor'
 export type EditorModeSwitchRefs = {
@@ -48,24 +52,27 @@ export type UseEditorModeSwitchParams = {
   onModeSwitchEnhancementFailed: (error: unknown) => void
   onModeSwitchApplyingAnchor: () => void
   logModeSwitchState: (phase: string) => void
+  onSourceToVisualPrepared?: (result: SourceToVisualPrepareResult) => void
 }
 
 export function useEditorModeSwitch({
   mainPaneMode,
   modeSwitchFsm,
-  activePath,
+  activePath: _activePath,
   refs,
   setters,
   onModeSwitchAnchorPayload,
   onModeSwitchEnhancementFailed,
   onModeSwitchApplyingAnchor,
   logModeSwitchState,
+  onSourceToVisualPrepared,
 }: UseEditorModeSwitchParams) {
   const {
     activePathRef,
     contentRef,
     visualEditorRef,
     editorViewRef,
+    mainPaneModeRef,
     pendingSourceModeAnchorRef,
     sourceCodeMirrorBootSelectionRef,
     suppressMarkdownSerdeRef,
@@ -80,7 +87,14 @@ export function useEditorModeSwitch({
   } = setters
   const modeToggleInFlightRef = useRef(false)
   const modeToggleCooldownUntilRef = useRef(0)
+  const modeSwitchFsmRef = useRef(modeSwitchFsm)
+  modeSwitchFsmRef.current = modeSwitchFsm
   const MODE_TOGGLE_COOLDOWN_MS = 180
+
+  const readMainPaneMode = useCallback(
+    (): 'visual' | 'source' => mainPaneModeRef.current ?? mainPaneMode,
+    [mainPaneMode, mainPaneModeRef],
+  )
 
   const getModeToggleVisualContext = useCallback(() => {
     const visual = visualEditorRef.current
@@ -100,7 +114,8 @@ export function useEditorModeSwitch({
   }, [activePathRef, mainPaneMode, visualEditorRef])
 
   const switchToSourceMode = useCallback(async () => {
-    if (mainPaneMode !== 'visual') return
+    const pane = readMainPaneMode()
+    if (pane !== 'visual' && modeSwitchFsmRef.current.mode !== 'visual') return
     const dk = activePathRef.current || 'scratch'
     if (!isVisualEditorBoundToActivePath()) return
     const visual = visualEditorRef.current
@@ -114,13 +129,33 @@ export function useEditorModeSwitch({
       visualEditor: visual,
       onFailed: onModeSwitchEnhancementFailed,
     })
-    setSourceModeIdentity(dk, prep.markdown)
+    syncActiveDocumentBodyImmediately({
+      path: dk,
+      body: prep.editorSurface,
+      sourceIdentity: prep.markdown,
+      contentRef,
+      source: 'mode-switch',
+    })
     setAtomicVisualDocumentEnter(null)
     const visualScrollRatio = visual?.getProseMirrorScrollRatio?.() ?? undefined
+    const fmPrefix = prep.frontmatterPrefixLength
+    const sourceScrollRatio = bodyScrollRatioToSourceScrollRatio(
+      visualScrollRatio,
+      fmPrefix,
+      prep.markdown.length,
+    )
     sourceCodeMirrorBootSelectionRef.current = prep.sourceEnter
-      ? { from: prep.sourceEnter.cmAnchor, to: prep.sourceEnter.cmHead, scrollRatio: visualScrollRatio ?? undefined }
+      ? {
+          from: prep.sourceEnter.cmAnchor + fmPrefix,
+          to: prep.sourceEnter.cmHead + fmPrefix,
+          scrollRatio: sourceScrollRatio ?? visualScrollRatio ?? undefined,
+        }
       : prep.cmSelection
-        ? { from: prep.cmSelection.from, to: prep.cmSelection.to, scrollRatio: visualScrollRatio ?? undefined }
+        ? {
+            from: prep.cmSelection.from + fmPrefix,
+            to: prep.cmSelection.to + fmPrefix,
+            scrollRatio: sourceScrollRatio ?? visualScrollRatio ?? undefined,
+          }
         : null
     debugModeSwitch('[mode-switch][visual->source][dispatch]', {
       documentKey: dk,
@@ -128,21 +163,24 @@ export function useEditorModeSwitch({
       bridgeId: prep.sourceEnter?.bridgeId ?? null,
       visualScroll: describeScrollMetrics((visual?.getEditor?.()?.view.dom as HTMLElement | undefined) ?? null),
       visualScrollRatio,
+      sourceScrollRatio,
       cmSelection: prep.sourceEnter
-        ? describeSelectionInText(prep.markdown, prep.sourceEnter.cmAnchor, prep.sourceEnter.cmHead)
+        ? describeSelectionInText(
+            prep.markdown,
+            prep.sourceEnter.cmAnchor + fmPrefix,
+            prep.sourceEnter.cmHead + fmPrefix,
+          )
         : prep.cmSelection
-          ? describeSelectionInText(prep.markdown, prep.cmSelection.from, prep.cmSelection.to)
+          ? describeSelectionInText(
+              prep.markdown,
+              prep.cmSelection.from + fmPrefix,
+              prep.cmSelection.to + fmPrefix,
+            )
           : null,
       pmSelection: prep.pmSelection,
       snapshot: summarizeSnapshot(prep.sourceEnter?.modeSwitchSnapshot),
     })
     setSourceCodeMirrorInstanceKey((k) => k + 1)
-    void dispatchDocumentCommand({
-      type: 'DOCUMENT_CONTENT_CHANGED',
-      path: dk,
-      content: prep.markdown,
-      source: 'mode-switch',
-    })
     pendingSourceModeAnchorRef.current = prep.sourceEnter
     if (prep.sourceEnter) {
       try {
@@ -160,7 +198,7 @@ export function useEditorModeSwitch({
       suppressMarkdownSerdeRef.current = false
     })
   }, [
-    mainPaneMode,
+    readMainPaneMode,
     isVisualEditorBoundToActivePath,
     activePathRef,
     contentRef,
@@ -179,7 +217,8 @@ export function useEditorModeSwitch({
   ])
 
   const switchToVisualMode = useCallback(() => {
-    if (mainPaneMode !== 'source') return
+    const pane = readMainPaneMode()
+    if (pane !== 'source' && modeSwitchFsmRef.current.mode !== 'source') return
     suppressMarkdownSerdeRef.current = true
     const dk = activePathRef.current || 'scratch'
     const cmSelectionBeforeSwitch = editorViewRef.current
@@ -201,14 +240,15 @@ export function useEditorModeSwitch({
       documentKey: dk,
       editorView: editorViewRef.current,
       pendingSourceModeAnchorRef,
+      fallbackSourceEnter: modeSwitchFsmRef.current.pendingAnchor?.sourceEnter ?? null,
       onFailed: onModeSwitchEnhancementFailed,
     })
-    contentRef.current = prep.markdown
-    setSourceModeIdentity(dk, prep.markdown)
-    void dispatchDocumentCommand({
-      type: 'DOCUMENT_CONTENT_CHANGED',
+    onSourceToVisualPrepared?.(prep)
+    syncActiveDocumentBodyImmediately({
       path: dk,
-      content: prep.markdown,
+      body: prep.editorSurface,
+      sourceIdentity: prep.fullSourceMarkdown,
+      contentRef,
       source: 'mode-switch',
     })
     sourceCodeMirrorBootSelectionRef.current = null
@@ -234,12 +274,17 @@ export function useEditorModeSwitch({
       appliedPm,
       snapshot: summarizeSnapshot(prep.visualRestore?.modeSwitchSnapshot),
     })
+    const visualScrollRatioFromSource = sourceScrollRatioToBodyScrollRatio(
+      cmSelectionBeforeSwitch?.scrollRatio,
+      prep.frontmatterPrefixLength,
+      prep.fullSourceMarkdown.length,
+    )
     if (prep.visualRestore && appliedPm) {
       setAtomicVisualDocumentEnter({
         documentKey: dk,
         pmAnchor: appliedPm.from,
         pmHead: appliedPm.to,
-        scrollRatio: cmSelectionBeforeSwitch?.scrollRatio,
+        scrollRatio: visualScrollRatioFromSource ?? cmSelectionBeforeSwitch?.scrollRatio,
         modeSwitchSnapshot: prep.visualRestore.modeSwitchSnapshot ?? null,
       })
     } else {
@@ -256,14 +301,14 @@ export function useEditorModeSwitch({
       suppressMarkdownSerdeRef.current = false
     })
   }, [
-    mainPaneMode,
-    activePath,
+    readMainPaneMode,
     activePathRef,
     contentRef,
     editorViewRef,
     onModeSwitchAnchorPayload,
     onModeSwitchEnhancementFailed,
     onModeSwitchApplyingAnchor,
+    onSourceToVisualPrepared,
     logModeSwitchState,
     setAtomicVisualDocumentEnter,
     setEditorOpenReason,
@@ -305,7 +350,7 @@ export function useEditorModeSwitch({
   const dispatchModeToggle = useCallback(() => {
     const now = Date.now()
     if (modeToggleInFlightRef.current || now < modeToggleCooldownUntilRef.current) return
-    if (mainPaneMode === 'visual' && !isVisualEditorBoundToActivePath()) {
+    if (readMainPaneMode() === 'visual' && !isVisualEditorBoundToActivePath()) {
       if (modeToggleRetryCountRef.current < 8) {
         modeToggleRetryCountRef.current += 1
         requestAnimationFrame(() => {
@@ -314,10 +359,10 @@ export function useEditorModeSwitch({
       }
       return
     }
-    if (mainPaneMode === 'visual') {
+    if (readMainPaneMode() === 'visual') {
       const { activeBlockType, hasActiveLocalSourceIsland } = getModeToggleVisualContext()
       const action = decideModeToggleCommandAction({
-        mainPaneMode,
+        mainPaneMode: readMainPaneMode(),
         activeBlockType,
         hasActiveLocalSourceIsland,
       })
@@ -335,7 +380,7 @@ export function useEditorModeSwitch({
     modeToggleInFlightRef.current = true
     const runToggle = async () => {
       try {
-        if (modeSwitchFsm.mode === 'source' || mainPaneMode === 'source') switchToVisualMode()
+        if (modeSwitchFsmRef.current.mode === 'source' || readMainPaneMode() === 'source') switchToVisualMode()
         else await switchToSourceMode()
       } finally {
         requestAnimationFrame(() => {
@@ -346,8 +391,7 @@ export function useEditorModeSwitch({
     }
     void runToggle()
   }, [
-    modeSwitchFsm.mode,
-    mainPaneMode,
+    readMainPaneMode,
     switchToSourceMode,
     switchToVisualMode,
     getModeToggleVisualContext,
@@ -361,6 +405,7 @@ export function useEditorModeSwitch({
     (view: EditorView) => {
       editorViewRef.current = view
       reconfigureCmManifestKeymap(view)
+      reconfigureShowLineBreaks(view)
       viewportAnchorEngine.registerSourceNode(
         VIEWPORT_DOCUMENT_NODE_ID,
         view.scrollDOM,
@@ -369,10 +414,9 @@ export function useEditorModeSwitch({
       const pending = pendingSourceModeAnchorRef.current
       const bootSelection = sourceCodeMirrorBootSelectionRef.current
       if (pending != null) {
-        pendingSourceModeAnchorRef.current = null
         onModeSwitchApplyingAnchor()
       }
-      if (bootSelection || pending) {
+      if (bootSelection) {
         sourceCodeMirrorBootSelectionRef.current = null
       }
     },

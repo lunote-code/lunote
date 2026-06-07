@@ -30,7 +30,10 @@ export function KnowledgeHoverCard({ hoverId }: Props) {
 
   return createPortal(
     <div
+      id={`wiki-hover-${hoverId}`}
       className="kos-hover-card"
+      role="tooltip"
+      aria-live="polite"
       style={{ left: anchor.x + 12, top: anchor.y + 12 }}
       onMouseLeave={() => hideHoverSurface(hoverId)}
     >

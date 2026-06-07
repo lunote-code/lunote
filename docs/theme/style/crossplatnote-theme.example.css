@@ -1,0 +1,57 @@
+/**
+ * Lunote external CSS example
+ *
+ * Copy to ~/.luna/theme/style/ (e.g. ~/.luna/theme/style/my-theme.css), rescan, and select in
+ * Preferences → Appearance → External CSS Theme.
+ *
+ * Reference: docs/theme/external-css.md · docs/theme-example/SELECTORS.md
+ */
+
+/* —— Dark mode token overrides (all built-in presets) —— */
+html[data-theme='dark'] {
+  --surface-app: #0f0f14;
+  --surface-panel: rgba(28, 28, 38, 0.94);
+  --surface-editor: #12121a;
+  --text-primary: #e4e4ef;
+  --text-muted: #8888a0;
+  --accent: #7c9cff;
+  --link: #7c9cff;
+  --link-hover: #a5b8ff;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --inline-code-bg: #2a2a3a;
+}
+
+/* —— Light mode token overrides —— */
+html[data-theme='light'] {
+  --surface-app: #f0f0f5;
+  --surface-panel: rgba(255, 255, 255, 0.92);
+  --surface-editor: #ffffff;
+  --text-primary: #1a1a24;
+  --link: #3355cc;
+  --link-hover: #2244aa;
+}
+
+/* —— Optional: column width (prefer token over max-width on .ProseMirror) —— */
+html[data-theme='light'],
+html[data-theme='dark'] {
+  --editor-column-width: 860px;
+}
+
+/* —— Personality: accent h1 via NodeView + preview —— */
+.preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l1 .pm-heading-content,
+.preview-pane.markdown-visual-editor .ProseMirror > h1,
+.markdown-preview-view h1 {
+  color: var(--accent);
+  padding-bottom: 0.35em;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border-subtle));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline,
+.markdown-preview-view a {
+  text-underline-offset: 2px;
+}
+
+/* —— Optional: soften sidebar panel —— */
+.sidebar {
+  backdrop-filter: blur(8px);
+}

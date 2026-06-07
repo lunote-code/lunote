@@ -5,7 +5,6 @@ import { resetLinkGraph } from './linkGraph'
 import {
   checkLinkGraphIndexInvariants,
   getLinkGraphEdgeCounts,
-  listOutgoingDocKeys,
   resetLinkGraphIndex,
 } from './linkGraphIndex'
 import { getLinkIndexState, setLinkIndexState } from './linkIndexState'
@@ -62,27 +61,7 @@ function scheduleIdle(): Promise<void> {
 }
 
 function logLinkGraphBootstrap(docsParsed: number): void {
-  const { outgoingEdges, incomingEdges } = getLinkGraphEdgeCounts()
-  const docCount = listDocumentKeys().length
-  const outgoingSize = listOutgoingDocKeys().length
-  console.debug('[LinkGraphBootstrap]', {
-    docsParsed,
-    docCount,
-    outgoingEdges,
-    incomingEdges,
-    outgoingSize,
-  })
-  if (import.meta.env.DEV) {
-    if (outgoingEdges > 0 && incomingEdges === 0) {
-      console.warn('[LinkGraphBootstrap] incoming empty after bootstrap — check rebuildIncomingFromOutgoing')
-    }
-    if (outgoingSize < docCount && docCount > 0) {
-      console.debug('[LinkGraphBootstrap] partial outgoing — full workspace scan may be incomplete', {
-        outgoingSize,
-        docCount,
-      })
-    }
-  }
+  void docsParsed
 }
 
 async function finishBootstrap(
@@ -102,15 +81,6 @@ async function finishBootstrap(
     (!invariant.ok || invariant.fragmentedTargetKeySlots > 0)
   ) {
     console.warn('[LinkGraphInvariant]', invariant)
-  }
-  if (import.meta.env.DEV) {
-    const counts = getLinkGraphEdgeCounts()
-    console.log('[GRAPH] index_size', counts)
-    console.log('[GRAPH] ready', {
-      docsParsed,
-      outgoingEdges: counts.outgoingEdges,
-      incomingEdges: counts.incomingEdges,
-    })
   }
   if (isAgentLogEnabled()) {
     // #region agent log
@@ -163,14 +133,6 @@ export function bootstrapWorkspaceLinkGraphIndex(
   const vaultId = vaultIdFromRoot(rootDir)
   const revision = buildCacheRevision(paths)
   setLinkIndexState('BOOTSTRAPPING')
-  if (import.meta.env.DEV) {
-    console.log('[GRAPH] bootstrap_start', {
-      rootDir,
-      paths: paths.length,
-      generation: gen,
-    })
-  }
-
   return (async () => {
     resetLinkGraphIndex()
     resetLinkGraph()
@@ -186,16 +148,6 @@ export function bootstrapWorkspaceLinkGraphIndex(
 
     if (gen !== bootstrapGeneration) return 0
     await finishBootstrap(vaultId, revision, docsParsed)
-    if (import.meta.env.DEV) {
-      const { outgoingEdges, incomingEdges } = getLinkGraphEdgeCounts()
-      console.log('[GRAPH] bootstrap_done', {
-        rootDir,
-        docsParsed,
-        outgoingEdges,
-        incomingEdges,
-        generation: gen,
-      })
-    }
     return docsParsed
   })()
 }

@@ -1,7 +1,23 @@
 import type { SettingsItem } from './settingsTypes'
-import { THEME_CATALOG } from '../theme-runtime/themeCatalog'
+import { THEME_CATALOG, type ThemeCatalogGroup } from '../theme-runtime/themeCatalog'
 import { EDITOR_FONT_GROUP_KEYS, EDITOR_FONT_PRESETS } from './editorFontPresets'
 import { EDITOR_FONT_SIZE_MAX, EDITOR_FONT_SIZE_MIN } from './editorTypography'
+import { EDITOR_COLUMN_WIDTH_OPTIONS } from './editorColumnWidth'
+
+const THEME_GROUP_KEYS: Record<ThemeCatalogGroup, string> = {
+  GitHub: 'settings.theme.github',
+  IDEA: 'settings.theme.idea',
+  Dim: 'settings.theme.dim',
+}
+
+const THEME_VARIANT_LABEL_KEYS: Record<string, string> = {
+  'github-light': 'settings.theme.variant.githubLight',
+  'github-dark': 'settings.theme.variant.githubDark',
+  'idea-light': 'settings.theme.variant.ideaLight',
+  'idea-dark': 'settings.theme.variant.ideaDark',
+  'dim-light': 'settings.theme.variant.dimLight',
+  'dim-dark': 'settings.theme.variant.dimDark',
+}
 
 export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
   {
@@ -9,7 +25,6 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     id: 'general.updates',
     section: 'general',
     titleKey: 'settings.updates.title',
-    descriptionKey: 'settings.updates.description',
     items: ['updates.autoCheckEnabled'],
   },
   {
@@ -18,7 +33,6 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     path: 'updates.autoCheckEnabled',
     section: 'general',
     labelKey: 'settings.updates.autoCheck.label',
-    descriptionKey: 'settings.updates.autoCheck.description',
     default: true,
   },
   {
@@ -26,7 +40,6 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     id: 'language.general',
     section: 'language',
     titleKey: 'settings.language.title',
-    descriptionKey: 'settings.language.description',
     items: ['general.language'],
   },
   {
@@ -35,7 +48,6 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     path: 'general.language',
     section: 'language',
     labelKey: 'settings.language.language.label',
-    descriptionKey: 'settings.language.language.description',
     options: [],
     default: 'system',
   },
@@ -44,23 +56,20 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     id: 'appearance.builtin',
     section: 'appearance',
     titleKey: 'settings.theme.builtin.title',
-    descriptionKey: 'settings.theme.builtin.description',
     items: ['theme.active', 'theme.customThemeFile'],
   },
   {
     type: 'group',
-    id: 'appearance.obsidianCss',
+    id: 'appearance.externalCss',
     section: 'appearance',
-    titleKey: 'settings.theme.obsidianCss.title',
-    descriptionKey: 'settings.theme.obsidianCss.description',
-    items: ['theme.cssCompatMode', 'theme.cssFile'],
+    titleKey: 'settings.theme.externalCss.title',
+    items: ['theme.cssFile'],
   },
   {
     type: 'group',
     id: 'appearance.snippets',
     section: 'appearance',
     titleKey: 'settings.theme.cssSnippets.sectionTitle',
-    descriptionKey: 'settings.theme.cssSnippets.sectionDescription',
     items: [],
   },
   {
@@ -68,7 +77,6 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     id: 'export.general',
     section: 'export',
     titleKey: 'settings.export.title',
-    descriptionKey: 'settings.export.description',
     items: ['export.preset', 'export.tocMode', 'export.pageBreakMode'],
   },
   {
@@ -76,7 +84,6 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     id: 'export.styles',
     section: 'export',
     titleKey: 'settings.theme.exportCss.sectionTitle',
-    descriptionKey: 'settings.theme.exportCss.sectionDescription',
     items: [],
   },
   {
@@ -85,33 +92,12 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     path: 'theme.active',
     section: 'appearance',
     labelKey: 'settings.theme.active.label',
-    descriptionKey: 'settings.theme.active.description',
     options: THEME_CATALOG.map((entry) => ({
-      label: entry.name,
+      labelKey: THEME_VARIANT_LABEL_KEYS[entry.id] ?? entry.id,
       value: entry.id,
-      group: entry.group,
-      description: entry.description,
+      groupKey: THEME_GROUP_KEYS[entry.group],
     })),
     default: 'github-dark',
-  },
-  {
-    type: 'select',
-    id: 'theme.cssCompatMode',
-    path: 'theme.cssCompatMode',
-    section: 'appearance',
-    labelKey: 'settings.theme.cssCompatMode.label',
-    descriptionKey: 'settings.theme.cssCompatMode.description',
-    options: [
-      {
-        labelKey: 'settings.theme.cssCompatMode.obsidianAuto',
-        value: 'obsidian-auto',
-      },
-      {
-        labelKey: 'settings.theme.cssCompatMode.native',
-        value: 'native',
-      },
-    ],
-    default: 'obsidian-auto',
   },
   {
     type: 'select',
@@ -120,6 +106,7 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     section: 'appearance',
     labelKey: 'settings.theme.cssFile.label',
     descriptionKey: 'settings.theme.cssFile.description',
+    descriptionAsHelp: true,
     options: [],
     default: '',
   },
@@ -129,7 +116,6 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     path: 'export.preset',
     section: 'export',
     labelKey: 'settings.export.preset.label',
-    descriptionKey: 'settings.export.preset.description',
     options: [
       { labelKey: 'settings.export.preset.printA4', value: 'print-a4' },
       { labelKey: 'settings.export.preset.compactA4', value: 'compact-a4' },
@@ -144,6 +130,7 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     section: 'export',
     labelKey: 'settings.export.tocMode.label',
     descriptionKey: 'settings.export.tocMode.description',
+    descriptionAsHelp: true,
     options: [
       { labelKey: 'settings.export.tocMode.markerOnly', value: 'marker-only' },
       { labelKey: 'settings.export.tocMode.always', value: 'always' },
@@ -158,6 +145,7 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     section: 'export',
     labelKey: 'settings.export.pageBreakMode.label',
     descriptionKey: 'settings.export.pageBreakMode.description',
+    descriptionAsHelp: true,
     options: [
       { labelKey: 'settings.export.pageBreakMode.avoidBlocks', value: 'avoid-blocks' },
       { labelKey: 'settings.export.pageBreakMode.flow', value: 'flow' },
@@ -171,6 +159,7 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     section: 'appearance',
     labelKey: 'settings.theme.customThemeFile.label',
     descriptionKey: 'settings.theme.customThemeFile.description',
+    descriptionAsHelp: true,
     accept: '.json,application/json',
     default: '',
     action: {
@@ -181,10 +170,31 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
   },
   {
     type: 'group',
-    id: 'editor.assets',
+    id: 'editor.typography',
     section: 'editor',
+    titleKey: 'settings.editor.groups.typography.title',
+    items: ['editor.fontFamily', 'editor.fontSize', 'editor.columnWidth', 'editor.formatToolbarEnabled'],
+  },
+  {
+    type: 'group',
+    id: 'editor.autosave',
+    section: 'editor',
+    titleKey: 'settings.editor.groups.autosave.title',
+    items: ['editor.autosaveEnabled', 'editor.autosaveIntervalSec', 'editor.autosaveScope'],
+  },
+  {
+    type: 'group',
+    id: 'templates.workspace',
+    section: 'templates',
+    titleKey: 'settings.templates.groups.workspace.title',
+    hideHeader: true,
+    items: [],
+  },
+  {
+    type: 'group',
+    id: 'import.storage',
+    section: 'import',
     titleKey: 'settings.assets.title',
-    descriptionKey: 'settings.assets.description',
     items: [
       'assets.storage.mode',
       'assets.relative.folderTemplate',
@@ -195,9 +205,10 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     type: 'select',
     id: 'assets.storage.mode',
     path: 'assets.storage.mode',
-    section: 'editor',
+    section: 'import',
     labelKey: 'settings.assets.storageMode.label',
     descriptionKey: 'settings.assets.storageMode.description',
+    descriptionAsHelp: true,
     options: [
       {
         labelKey: 'settings.assets.storageMode.relative',
@@ -216,9 +227,10 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     type: 'input',
     id: 'assets.relative.folderTemplate',
     path: 'assets.relative.folderTemplate',
-    section: 'editor',
+    section: 'import',
     labelKey: 'settings.assets.folderTemplate.label',
     descriptionKey: 'settings.assets.folderTemplate.description',
+    descriptionAsHelp: true,
     placeholderKey: 'settings.assets.folderTemplate.placeholder',
     helpTextKey: 'settings.assets.folderTemplate.help',
     default: '{doc-name}-assets',
@@ -231,9 +243,10 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     type: 'input',
     id: 'assets.absolute.path',
     path: 'assets.absolute.path',
-    section: 'editor',
+    section: 'import',
     labelKey: 'settings.assets.absolutePath.label',
     descriptionKey: 'settings.assets.absolutePath.description',
+    descriptionAsHelp: true,
     placeholderKey: 'settings.assets.absolutePath.placeholder',
     default: '',
     action: {
@@ -247,26 +260,11 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     },
   },
   {
-    type: 'group',
-    id: 'editor.general',
-    section: 'editor',
-    titleKey: 'settings.editor.title',
-    descriptionKey: 'settings.editor.description',
-    items: [
-      'editor.fontFamily',
-      'editor.fontSize',
-      'editor.autosaveEnabled',
-      'editor.autosaveIntervalSec',
-      'editor.autosaveScope',
-    ],
-  },
-  {
     type: 'select',
     id: 'editor.fontFamily',
     path: 'editor.fontFamily',
     section: 'editor',
     labelKey: 'settings.editor.fontFamily.label',
-    descriptionKey: 'settings.editor.fontFamily.description',
     options: [
       {
         labelKey: 'settings.editor.fontFamily.option.default',
@@ -288,6 +286,7 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     section: 'editor',
     labelKey: 'settings.editor.fontSize.label',
     descriptionKey: 'settings.editor.fontSize.description',
+    descriptionAsHelp: true,
     placeholderKey: 'settings.editor.fontSize.placeholder',
     default: '',
     numeric: true,
@@ -295,12 +294,35 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     max: EDITOR_FONT_SIZE_MAX,
   },
   {
+    type: 'select',
+    id: 'editor.columnWidth',
+    path: 'editor.columnWidth',
+    section: 'editor',
+    labelKey: 'settings.editor.columnWidth.label',
+    descriptionKey: 'settings.editor.columnWidth.description',
+    descriptionAsHelp: true,
+    options: EDITOR_COLUMN_WIDTH_OPTIONS.map((px) => ({
+      labelKey: `settings.editor.columnWidth.option.${px}`,
+      value: String(px),
+    })),
+    default: '860',
+  },
+  {
+    type: 'switch',
+    id: 'editor.formatToolbarEnabled',
+    path: 'editor.formatToolbarEnabled',
+    section: 'editor',
+    labelKey: 'settings.editor.formatToolbarEnabled.label',
+    descriptionKey: 'settings.editor.formatToolbarEnabled.description',
+    descriptionAsHelp: true,
+    default: true,
+  },
+  {
     type: 'switch',
     id: 'editor.autosaveEnabled',
     path: 'editor.autosaveEnabled',
     section: 'editor',
     labelKey: 'settings.editor.autosaveEnabled.label',
-    descriptionKey: 'settings.editor.autosaveEnabled.description',
     default: true,
   },
   {
@@ -315,6 +337,7 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     numeric: true,
     min: 30,
     max: 600,
+    visibleWhen: { path: 'editor.autosaveEnabled', equals: true },
   },
   {
     type: 'select',
@@ -323,10 +346,12 @@ export const SETTINGS_SCHEMA: readonly SettingsItem[] = [
     section: 'editor',
     labelKey: 'settings.editor.autosaveScope.label',
     descriptionKey: 'settings.editor.autosaveScope.description',
+    descriptionAsHelp: true,
     options: [
       { labelKey: 'settings.editor.autosaveScope.activeOnly', value: 'activeOnly' },
       { labelKey: 'settings.editor.autosaveScope.allDirty', value: 'allDirty' },
     ],
     default: 'activeOnly',
+    visibleWhen: { path: 'editor.autosaveEnabled', equals: true },
   },
 ]

@@ -27,10 +27,22 @@ import {
   type VisualModeRestorePayload,
 } from './viewportModeAnchor'
 import { viewportAnchorEngine } from './viewportAnchorEngine'
+import { projectModeSwitchSourceBuffer } from '../lib/editorContentSync'
+import { syncDocumentFrontmatterFromMarkdown } from './documentFrontmatterStore'
+import { sourceSelectionToBodySelection, splitFullSourceMarkdown } from './documentFrontmatterOffsets'
 import { canonicalMarkdownSemantics } from '../markdown/canonicalMarkdownSemantics'
+import {
+  normalizeWikiLinkBlockRefEscapesInMarkdown,
+  originalToNormalizedAfterWikiBlockRefUnescape,
+} from './knowledgeRuntime/wikiLinkParser'
 
 export type VisualToSourcePrepareResult = {
+  /** Full markdown for source CodeMirror (includes YAML when detached). */
   readonly markdown: string
+  /** Visual/kernel edit surface without leading YAML. */
+  readonly editorSurface: string
+  /** Extra bytes prepended before PM body (selection offset adjustment). */
+  readonly frontmatterPrefixLength: number
   readonly resultKind: ModeSwitchPrepareResultKind
   readonly sourceEnter: SourceModeEnterAnchor | null
   readonly cmSelection: ModeSelectionSpan | null
@@ -40,7 +52,11 @@ export type VisualToSourcePrepareResult = {
 }
 
 export type SourceToVisualPrepareResult = {
+  /** Visual edit surface (body without YAML). */
   readonly markdown: string
+  readonly editorSurface: string
+  readonly fullSourceMarkdown: string
+  readonly frontmatterPrefixLength: number
   readonly resultKind: ModeSwitchPrepareResultKind
   readonly visualRestore: VisualModeRestorePayload | null
   readonly semantic: ModeSwitchFsmSemanticPatch
@@ -56,30 +72,33 @@ function buildDegradedVisualRestore(args: {
   cmSelection: ModeSelectionSpan
 }): { visualRestore: VisualModeRestorePayload; semantic: ModeSwitchFsmSemanticPatch } {
   const schema = getOutlineParseSchema()
+  const canonicalBuffer = normalizeWikiLinkBlockRefEscapesInMarkdown(args.markdown)
+  const cmAnchor = originalToNormalizedAfterWikiBlockRefUnescape(args.markdown, args.cmAnchor)
+  const cmHead = originalToNormalizedAfterWikiBlockRefUnescape(args.markdown, args.cmHead)
   const parsed = canonicalMarkdownSemantics.parse(args.markdown, schema)
   const provisionalIR = buildFrozenStructuralIR({
-    canonicalBuffer: args.markdown,
+    canonicalBuffer,
     hierarchical: null,
     doc: parsed,
   })
-  const cmHier = deriveHierarchicalFromCmSelection(args.cmAnchor, args.cmHead, provisionalIR)
+  const cmHier = deriveHierarchicalFromCmSelection(cmAnchor, cmHead, provisionalIR)
   const pmInnerMax = Math.max(1, parsed.content.size)
   const pmSelection = Object.freeze({
     from: semanticAnchorToPm(
       pmHierarchicalCoreToSemanticAnchor(cmHier.anchor),
       provisionalIR,
-      args.markdown.length,
+      canonicalBuffer.length,
       pmInnerMax,
     ),
     to: semanticAnchorToPm(
       pmHierarchicalCoreToSemanticAnchor(cmHier.head),
       provisionalIR,
-      args.markdown.length,
+      canonicalBuffer.length,
       pmInnerMax,
     ),
   })
   const hierarchical = Object.freeze({
-    bufferHash: modeSwitchPlainTextFingerprint(args.markdown),
+    bufferHash: modeSwitchPlainTextFingerprint(canonicalBuffer),
     anchor: cmHier.anchor,
     head: cmHier.head,
   })
@@ -87,17 +106,17 @@ function buildDegradedVisualRestore(args: {
     semantic: {
       semanticAnchor: pmHierarchicalCoreToSemanticAnchor(cmHier.anchor),
       semanticHead: pmHierarchicalCoreToSemanticAnchor(cmHier.head),
-      cmSelection: args.cmSelection,
+      cmSelection: Object.freeze({ from: cmAnchor, to: cmHead }),
       pmSelection,
       ir: provisionalIR,
-      canonicalBuffer: args.markdown,
+      canonicalBuffer,
     },
     visualRestore: {
       documentKey: args.documentKey,
-      bufferLength: args.markdown.length,
-      bridgeId: makeModeBridgeId(args.documentKey, args.cmAnchor, args.cmHead),
-      cmAnchor: args.cmAnchor,
-      cmHead: args.cmHead,
+      bufferLength: canonicalBuffer.length,
+      bridgeId: makeModeBridgeId(args.documentKey, cmAnchor, cmHead),
+      cmAnchor,
+      cmHead,
       hierarchical: hierarchical ?? args.pending?.hierarchical ?? null,
       captureFrameId: args.pending?.captureFrameId,
       modeSwitchSnapshot: null,
@@ -117,7 +136,11 @@ export function prepareVisualToSourceTransition(args: {
   onFailed?: (error: unknown) => void
 }): VisualToSourcePrepareResult {
   const dk = args.documentKey
-  let markdown = getSourceModeIdentity(dk) ?? args.contentFallback
+  const identityBeforeCapture = getSourceModeIdentity(dk)
+  if (identityBeforeCapture) {
+    syncDocumentFrontmatterFromMarkdown(dk, identityBeforeCapture)
+  }
+  let markdown = identityBeforeCapture ?? args.contentFallback
   let resultKind: ModeSwitchPrepareResultKind = 'hard_fail'
   let sourceEnter: SourceModeEnterAnchor | null = null
   let semantic: ModeSwitchFsmSemanticPatch = {}
@@ -127,7 +150,10 @@ export function prepareVisualToSourceTransition(args: {
   const v = args.visualEditor
   if (v) {
     const r: CaptureVisualToSourceResult = v.captureVisualToSourceTransition(dk)
-    if (r.ok) {
+    if ('reason' in r && r.reason === 'document_mismatch') {
+      // activePath switched but PM still shows previous doc — do not enter source with stale text
+      resultKind = 'hard_fail'
+    } else if (r.ok) {
       markdown = r.markdown
       resultKind = r.resultKind
       sourceEnter = r.anchor
@@ -165,16 +191,25 @@ export function prepareVisualToSourceTransition(args: {
         semanticHead: semantic.semanticHead ?? null,
         snapshot: summarizeSnapshot(sourceEnter?.modeSwitchSnapshot),
       })
-    } else if (r.reason === 'document_mismatch') {
-      //activePath has been switched but PM still displays Previous article: It is forbidden to enter the source code/write kernel with error text
-      resultKind = 'hard_fail'
     }
   }
 
+
+  const projected = projectModeSwitchSourceBuffer(dk, markdown)
+  const sourceEnterWithPrefix =
+    sourceEnter && projected.frontmatterPrefixLength > 0
+      ? {
+          ...sourceEnter,
+          frontmatterPrefixLengthAtCapture: projected.frontmatterPrefixLength,
+        }
+      : sourceEnter
+
   return Object.freeze({
-    markdown,
+    markdown: projected.sourceIdentity,
+    editorSurface: projected.editorSurface,
+    frontmatterPrefixLength: projected.frontmatterPrefixLength,
     resultKind,
-    sourceEnter,
+    sourceEnter: sourceEnterWithPrefix,
     cmSelection,
     pmSelection,
     semantic,
@@ -190,13 +225,17 @@ export function prepareSourceToVisualTransition(args: {
   documentKey: string
   editorView: EditorView | null
   pendingSourceModeAnchorRef: { current: SourceModeEnterAnchor | null }
+  /** When ref was cleared too early (e.g. legacy CM ready handler), recover from FSM pendingAnchor.sourceEnter. */
+  fallbackSourceEnter?: SourceModeEnterAnchor | null
   onFailed?: (error: unknown) => void
 }): SourceToVisualPrepareResult {
   const dk = args.documentKey
   const cm = args.editorView
-  const md = cm?.state.doc.toString() ?? ''
-  setSourceModeIdentity(dk, md)
-  const pend = args.pendingSourceModeAnchorRef.current
+  const fullSourceMarkdown = cm?.state.doc.toString() ?? ''
+  setSourceModeIdentity(dk, fullSourceMarkdown)
+  syncDocumentFrontmatterFromMarkdown(dk, fullSourceMarkdown)
+  const { body: editorSurface, frontmatterPrefixLength } = splitFullSourceMarkdown(fullSourceMarkdown)
+  const pend = args.pendingSourceModeAnchorRef.current ?? args.fallbackSourceEnter ?? null
   args.pendingSourceModeAnchorRef.current = null
 
   if (cm) {
@@ -215,7 +254,10 @@ export function prepareSourceToVisualTransition(args: {
 
   if (!cm) {
     return Object.freeze({
-      markdown: md,
+      markdown: editorSurface,
+      editorSurface,
+      fullSourceMarkdown,
+      frontmatterPrefixLength,
       resultKind: 'hard_fail',
       visualRestore: null,
       semantic: {},
@@ -226,22 +268,28 @@ export function prepareSourceToVisualTransition(args: {
   const cmAnchor = cm.state.selection.main.anchor
   const cmHead = cm.state.selection.main.head
   const cmSelection = Object.freeze({ from: cmAnchor, to: cmHead })
+  const bodySel = sourceSelectionToBodySelection(
+    cmAnchor,
+    cmHead,
+    frontmatterPrefixLength,
+    editorSurface.length,
+  )
 
   if (!pend?.modeSwitchSnapshot) {
     try {
       const degraded = buildDegradedVisualRestore({
         documentKey: dk,
-        markdown: md,
-        cmAnchor,
-        cmHead,
+        markdown: editorSurface,
+        cmAnchor: bodySel.bodyAnchor,
+        cmHead: bodySel.bodyHead,
         pending: pend,
-        cmSelection,
+        cmSelection: Object.freeze({ from: bodySel.bodyAnchor, to: bodySel.bodyHead }),
       })
       debugModeSwitch('[mode-switch][source->visual][prepare-degraded]', {
         documentKey: dk,
         resultKind: 'degraded_success',
         bridgeId: degraded.visualRestore.bridgeId,
-        cmSelection: describeSelectionInText(md, cmAnchor, cmHead),
+        cmSelection: describeSelectionInText(editorSurface, bodySel.bodyAnchor, bodySel.bodyHead),
         semanticAnchor: degraded.semantic.semanticAnchor ?? null,
         semanticHead: degraded.semantic.semanticHead ?? null,
         pmSelection: degraded.semantic.pmSelection ?? null,
@@ -253,7 +301,10 @@ export function prepareSourceToVisualTransition(args: {
         }),
       })
       return Object.freeze({
-        markdown: md,
+        markdown: editorSurface,
+        editorSurface,
+        fullSourceMarkdown,
+        frontmatterPrefixLength,
         resultKind: 'degraded_success',
         visualRestore: degraded.visualRestore,
         semantic: degraded.semantic,
@@ -264,17 +315,20 @@ export function prepareSourceToVisualTransition(args: {
         documentKey: dk,
         phase: 'returningToVisualDegraded',
         failureKind: 'degraded_restore_compile',
-        documentFingerprint: modeSwitchPlainTextFingerprint(md),
+        documentFingerprint: modeSwitchPlainTextFingerprint(editorSurface),
         resultKind: 'hard_fail',
         qualitySummary: {
           pendingSnapshot: summarizeSnapshot(pend?.modeSwitchSnapshot ?? null),
-          cmSelection: describeSelectionInText(md, cmAnchor, cmHead),
+          cmSelection: describeSelectionInText(editorSurface, bodySel.bodyAnchor, bodySel.bodyHead),
         },
       })
       args.onFailed?.(isModeSwitchFreezeError(e) ? e.detail.reason ?? e : e)
     }
     return Object.freeze({
-      markdown: md,
+      markdown: editorSurface,
+      editorSurface,
+      fullSourceMarkdown,
+      frontmatterPrefixLength,
       resultKind: 'hard_fail',
       visualRestore: null,
       semantic: { cmSelection },
@@ -284,9 +338,9 @@ export function prepareSourceToVisualTransition(args: {
 
   try {
     const merged = freezeReturningToVisualSnapshot(pend.modeSwitchSnapshot, {
-      markdown: md,
-      anchor: cmAnchor,
-      head: cmHead,
+      markdown: editorSurface,
+      anchor: bodySel.bodyAnchor,
+      head: bodySel.bodyHead,
     })
     const frozenMd = merged.canonicalBuffer
     const hier = merged.hierarchical
@@ -304,9 +358,9 @@ export function prepareSourceToVisualTransition(args: {
     const visualRestore: VisualModeRestorePayload = {
       documentKey: dk,
       bufferLength: frozenMd.length,
-      bridgeId: makeModeBridgeId(dk, cmAnchor, cmHead),
-      cmAnchor,
-      cmHead,
+      bridgeId: makeModeBridgeId(dk, bodySel.bodyAnchor, bodySel.bodyHead),
+      cmAnchor: bodySel.bodyAnchor,
+      cmHead: bodySel.bodyHead,
       hierarchical: merged.hierarchical ?? pend.hierarchical ?? null,
       captureFrameId: merged.captureFrameId,
       modeSwitchSnapshot: merged,
@@ -316,7 +370,7 @@ export function prepareSourceToVisualTransition(args: {
       documentKey: dk,
       resultKind: 'strict_success',
       bridgeId: visualRestore.bridgeId,
-      cmSelection: describeSelectionInText(md, cmAnchor, cmHead),
+      cmSelection: describeSelectionInText(editorSurface, bodySel.bodyAnchor, bodySel.bodyHead),
       semanticAnchor: semantic.semanticAnchor ?? null,
       semanticHead: semantic.semanticHead ?? null,
       pmSelection: semantic.pmSelection ?? null,
@@ -328,7 +382,10 @@ export function prepareSourceToVisualTransition(args: {
       }),
     })
     return Object.freeze({
-      markdown: md,
+      markdown: frozenMd,
+      editorSurface: frozenMd,
+      fullSourceMarkdown,
+      frontmatterPrefixLength,
       resultKind: 'strict_success',
       visualRestore,
       semantic,
@@ -339,16 +396,53 @@ export function prepareSourceToVisualTransition(args: {
       documentKey: dk,
       phase: 'returningToVisual',
       failureKind: 'strict_restore_compile',
-      documentFingerprint: modeSwitchPlainTextFingerprint(md),
+      documentFingerprint: modeSwitchPlainTextFingerprint(editorSurface),
       resultKind: 'hard_fail',
       qualitySummary: {
         pendingSnapshot: summarizeSnapshot(pend.modeSwitchSnapshot),
-        cmSelection: describeSelectionInText(md, cmAnchor, cmHead),
+        cmSelection: describeSelectionInText(editorSurface, bodySel.bodyAnchor, bodySel.bodyHead),
       },
     })
+    try {
+      const degraded = buildDegradedVisualRestore({
+        documentKey: dk,
+        markdown: editorSurface,
+        cmAnchor: bodySel.bodyAnchor,
+        cmHead: bodySel.bodyHead,
+        pending: pend,
+        cmSelection: Object.freeze({ from: bodySel.bodyAnchor, to: bodySel.bodyHead }),
+      })
+      debugModeSwitch('[mode-switch][source->visual][prepare-degraded-after-strict-fail]', {
+        documentKey: dk,
+        strictFailure: isModeSwitchFreezeError(e) ? e.detail.reason ?? e.message : String(e),
+        bridgeId: degraded.visualRestore.bridgeId,
+        cmSelection: describeSelectionInText(editorSurface, bodySel.bodyAnchor, bodySel.bodyHead),
+      })
+      return Object.freeze({
+        markdown: editorSurface,
+        editorSurface,
+        fullSourceMarkdown,
+        frontmatterPrefixLength,
+        resultKind: 'degraded_success',
+        visualRestore: degraded.visualRestore,
+        semantic: degraded.semantic,
+        anchorPayload: { sourceEnter: null, visualRestore: degraded.visualRestore },
+      })
+    } catch (degradedErr) {
+      reportModeSwitchFreezeFailure(degradedErr, {
+        documentKey: dk,
+        phase: 'returningToVisualDegradedAfterStrictFail',
+        failureKind: 'degraded_restore_compile',
+        documentFingerprint: modeSwitchPlainTextFingerprint(editorSurface),
+        resultKind: 'hard_fail',
+      })
+    }
     args.onFailed?.(isModeSwitchFreezeError(e) ? e.detail.reason ?? e : e)
     return Object.freeze({
-      markdown: md,
+      markdown: editorSurface,
+      editorSurface,
+      fullSourceMarkdown,
+      frontmatterPrefixLength,
       resultKind: 'hard_fail',
       visualRestore: null,
       semantic: { cmSelection },

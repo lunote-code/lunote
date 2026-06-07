@@ -71,3 +71,47 @@ body {
   min-width: 0;
   width: 100%;
 }
+
+/* Pre-React fatal / blocked runtime messages (before theme runtime attaches html[data-theme]) */
+.luna-runtime-blocked {
+  margin: 24px;
+  padding: 24px;
+  font-family: system-ui, var(--font-ui, sans-serif);
+  line-height: 1.6;
+  border-radius: 12px;
+  color: var(--luna-color-danger-muted, #b42318);
+  background: color-mix(in srgb, var(--luna-color-danger, #dc2626) 8%, var(--surface-app, #fff1f3));
+  border: 1px solid color-mix(in srgb, var(--luna-color-danger, #dc2626) 22%, var(--border-subtle, #fecdca));
+}
+
+.luna-runtime-blocked--neutral {
+  color: var(--text-primary, #1f2328);
+  background: var(--surface-app, #f6f8fa);
+  border: 1px solid var(--border-subtle, #d0d7de);
+}
+
+html[data-theme='dark'] .luna-runtime-blocked {
+  color: var(--luna-color-danger-soft, #fca5a5);
+  background: color-mix(in srgb, var(--luna-color-danger, #dc2626) 14%, var(--surface-app, #0d1117));
+  border-color: color-mix(in srgb, var(--luna-color-danger, #dc2626) 32%, var(--border-subtle, #30363d));
+}
+
+html[data-theme='dark'] .luna-runtime-blocked--neutral {
+  color: var(--text-primary, #e6edf3);
+  background: var(--surface-app, #0d1117);
+  border-color: var(--border-subtle, #30363d);
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme='light']) .luna-runtime-blocked {
+    color: var(--luna-color-danger-soft, #fca5a5);
+    background: color-mix(in srgb, var(--luna-color-danger, #dc2626) 14%, var(--surface-app, #0d1117));
+    border-color: color-mix(in srgb, var(--luna-color-danger, #dc2626) 32%, var(--border-subtle, #30363d));
+  }
+
+  html:not([data-theme='light']) .luna-runtime-blocked--neutral {
+    color: var(--text-primary, #e6edf3);
+    background: var(--surface-app, #0d1117);
+    border-color: var(--border-subtle, #30363d);
+  }
+}

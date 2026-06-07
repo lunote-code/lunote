@@ -10,15 +10,23 @@ import {
   markdownToPlainHtmlFragment,
   resolveExportDocumentClasses,
   markdownToStyledHtmlFragment,
+  openPrintableHtml,
+  PrintContentTooLargeError,
+  PrintPermissionRequiredError,
   wrapStandaloneHtml,
   type AppExportFormat,
 } from '../../markdownExport'
+import { buildPdfExportHtml } from '../../export/pdfExportHtml'
 import { downloadBinaryBlob, markdownToPdfBase64, markdownToPngBase64 } from '../../export/renderedDocumentExport'
 import { rewriteExportHtmlMediaSources } from '../export/htmlMedia'
 import { exportBinaryPayload, exportNotePayload } from '../../lib/tauriScopedInvoke'
 import {
+  commitLatestDocumentBodyToMemory,
+  diskMarkdownForDocumentSave,
+  projectSavedMarkdownToEditorSurfaces,
   resolveActiveAwareSaveBodyFallback,
   resolveMarkdownForSave,
+  syncActiveDocumentBodyImmediately,
   tryResolveBoundEditorMarkdown,
 } from '../../lib/editorContentSync'
 import { enqueueSave } from '../../lib/saveQueue'
@@ -31,10 +39,12 @@ import { openSaveConflictDialog, type SaveConflictState } from '../document/save
 import { pathsEqual } from '../../lib/workspacePathUtils'
 import { isBufferTabId } from '../workspace/constants'
 import type { TiptapMarkdownEditorHandle } from '../../editor/TiptapMarkdownEditor'
+import { runAfterReactCommit } from '../../editor/reactCommitScheduler'
 import { schedulePrimeEditorDiagramPreviews } from '../../editor/runtimeEngine/primeEditorDiagramPreviews'
 import type { AssetStorageConfig } from '../../assets/assetStoragePolicy'
 import { refreshWorkspaceIndex } from '../workspace/workspaceIndexCoordinator'
 import { exportBinaryNote, exportNote } from '../../platform/tauri/documentService'
+import type { AppStatusTone } from './useAppStatus'
 
 export type DocumentSaveDeps = {
   t: TranslateFn
@@ -54,17 +64,17 @@ export type DocumentSaveDeps = {
   isVisualEditorBoundToActivePath: () => boolean
   setSavedAt: React.Dispatch<React.SetStateAction<string>>
   setSaveConflict: React.Dispatch<React.SetStateAction<SaveConflictState | null>>
-  setStatus: (msg: string) => void
+  setStatus: (msg: string, toneOverride?: AppStatusTone) => void
   refreshFileTree: () => Promise<void>
   updateRecent: (path: string) => void
   resetModeSwitchEditorBootstrap: () => void
+  cancelPendingKernelContentDebounce: () => void
 }
 
 export function useDocumentSave(deps: DocumentSaveDeps) {
   const {
     t,
     activePath,
-    content,
     rootDir,
     mainPaneMode,
     isDark,
@@ -75,19 +85,19 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
     visualEditorRef,
     suppressMarkdownSerdeRef,
     suppressWorkspaceRefreshUntilRef,
-    isVisualEditorBoundToActivePath,
     setSavedAt,
     setSaveConflict,
     setStatus,
     refreshFileTree,
     updateRecent,
     resetModeSwitchEditorBootstrap,
+    cancelPendingKernelContentDebounce,
   } = deps
 
   const runAppExportFormat = useCallback(
     async (format: AppExportFormat) => {
           if (!activePath) {
-            setStatus(t('app.status.exportNoFile'))
+            setStatus(t('app.status.exportNoFile'), 'info')
             return
           }
           suppressMarkdownSerdeRef.current = false
@@ -118,7 +128,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
                   documentClasses: exportDocumentClasses,
                 })
                 downloadHtmlBlob(`${stem}.html`, html)
-                setStatus(t('app.status.downloadHtmlStyled'))
+                setStatus(t('app.status.downloadHtmlStyled'), 'success')
                 return
               }
               if (format === 'htmlPlain') {
@@ -134,7 +144,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
                   documentClasses: exportDocumentClasses,
                 })
                 downloadHtmlBlob(`${stem}-plain.html`, html)
-                setStatus(t('app.status.downloadHtmlPlain'))
+                setStatus(t('app.status.downloadHtmlPlain'), 'success')
                 return
               }
               if (format === 'pdf') {
@@ -146,7 +156,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
                 })
                 const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
                 downloadBinaryBlob(`${stem}.pdf`, new Blob([bin], { type: 'application/pdf' }))
-                setStatus(t('app.status.downloadPdf'))
+                setStatus(t('app.status.downloadPdf'), 'success')
                 return
               }
               if (format === 'image') {
@@ -158,7 +168,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
                 })
                 const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
                 downloadBinaryBlob(`${stem}.png`, new Blob([bin], { type: 'image/png' }))
-                setStatus(t('app.status.downloadImage'))
+                setStatus(t('app.status.downloadImage'), 'success')
                 return
               }
               if (format === 'word') {
@@ -180,7 +190,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
                 a.click()
                 a.remove()
                 URL.revokeObjectURL(url)
-                setStatus(t('app.status.downloadWord'))
+                setStatus(t('app.status.downloadWord'), 'success')
                 return
               }
             }
@@ -198,7 +208,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               })
               if (!out) return
               await exportBinaryNote(exportBinaryPayload(out, b64, rootDir || ''))
-              setStatus(t('app.status.exportedPdf'))
+              setStatus(t('app.status.exportedPdf'), 'success')
               return
             }
             if (format === 'html') {
@@ -220,7 +230,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               })
               if (!out) return
               await exportNote(exportNotePayload(out, html, rootDir || ''))
-              setStatus(t('app.status.exportedHtml'))
+              setStatus(t('app.status.exportedHtml'), 'success')
               return
             }
             if (format === 'htmlPlain') {
@@ -242,7 +252,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               })
               if (!out) return
               await exportNote(exportNotePayload(out, html, rootDir || ''))
-              setStatus(t('app.status.exportedHtmlPlain'))
+              setStatus(t('app.status.exportedHtmlPlain'), 'success')
               return
             }
             if (format === 'image') {
@@ -259,7 +269,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               })
               if (!out) return
               await exportBinaryNote(exportBinaryPayload(out, b64, rootDir || ''))
-              setStatus(t('app.status.exportedImage'))
+              setStatus(t('app.status.exportedImage'), 'success')
               return
             }
             if (format === 'word') {
@@ -275,13 +285,13 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               })
               if (!out) return
               await exportBinaryNote(exportBinaryPayload(out, b64, rootDir || ''))
-              setStatus(t('app.status.exportedWord'))
+              setStatus(t('app.status.exportedWord'), 'success')
             }
           } catch (e) {
-            setStatus(t('app.status.exportFailed', { message: e instanceof Error ? e.message : String(e) }))
+            setStatus(t('app.status.exportFailed', { message: e instanceof Error ? e.message : String(e) }), 'error')
           }
     },
-    [activePath, bufferTabLabels, isDark, mainPaneMode, rootDir, setStatus, t],
+    [activePath, bufferTabLabels, contentRef, isDark, mainPaneMode, rootDir, setStatus, suppressMarkdownSerdeRef, t, visualEditorRef],
   )
 
   const resolveDocumentBodyForPath = useCallback(
@@ -299,6 +309,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
           const contentSnapshotAtRequest = contentRef.current
           const tabBodySnapshotAtRequest = resolveDocumentBodyForPath(pathToSave, contentSnapshotAtRequest)
           return enqueueSave(async () => {
+            cancelPendingKernelContentDebounce()
             suppressMarkdownSerdeRef.current = false
             const editorBoundToSavePath =
               mainPaneMode !== 'visual' ||
@@ -319,12 +330,13 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
                   () => activePathRef.current,
                 )
               } catch (error) {
-                setStatus(t('app.status.saveFailed', { message: error instanceof Error ? error.message : String(error) }))
+                setStatus(t('app.status.saveFailed', { message: error instanceof Error ? error.message : String(error) }), 'error')
                 return
               }
               if (resolved != null) {
                 body = resolved
-                setTabBody(pathToSave, body)
+                const projected = projectSavedMarkdownToEditorSurfaces(mainPaneMode, body)
+                setTabBody(pathToSave, projected.editorSurface)
               } else {
                 body = resolveActiveAwareSaveBodyFallback({
                   pathToSave,
@@ -345,34 +357,55 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
                 resolveDocumentBody: resolveDocumentBodyForPath,
               })
               if (body == null && !editorBoundToSavePath && pathsEqual(activePathRef.current, pathToSave)) {
-                setStatus(t('app.status.saveFailed', { message: t('app.status.editorBinding') }))
+                setStatus(t('app.status.saveFailed', { message: t('app.status.editorBinding') }), 'error')
                 return
               }
             }
             if (body == null) {
               if (manual) {
-                setStatus(t('app.status.saveFailed', { message: t('app.status.saveNothingHint') }))
+                setStatus(t('app.status.saveFailed', { message: t('app.status.saveNothingHint') }), 'error')
               }
               return
             }
-            if (pathsEqual(activePathRef.current, pathToSave) && body !== contentRef.current) {
-              suppressMarkdownSerdeRef.current = true
-              try {
-                contentRef.current = body
-                await dispatchDocumentCommand({
-                  type: 'DOCUMENT_CONTENT_CHANGED',
-                  path: pathToSave,
-                  content: body,
-                  source: 'save-flush',
-                })
-              } finally {
-                suppressMarkdownSerdeRef.current = false
+            const runtimeBodyAtSave = resolveDocumentBodyForPath(pathToSave, contentSnapshotAtRequest)
+            const diskMarkdown = diskMarkdownForDocumentSave(pathToSave, body)
+            const projected = projectSavedMarkdownToEditorSurfaces(mainPaneMode, diskMarkdown)
+            if (pathsEqual(activePathRef.current, pathToSave)) {
+              commitLatestDocumentBodyToMemory({
+                path: pathToSave,
+                body: projected.editorSurface,
+                sourceIdentity: projected.sourceIdentity,
+                contentRef,
+                persistBody: setTabBody,
+              })
+              if (projected.editorSurface !== runtimeBodyAtSave) {
+                suppressMarkdownSerdeRef.current = true
+                try {
+                  syncActiveDocumentBodyImmediately({
+                    path: pathToSave,
+                    body: projected.editorSurface,
+                    contentRef,
+                    source: 'save-flush',
+                  })
+                } finally {
+                  suppressMarkdownSerdeRef.current = false
+                }
               }
+            } else {
+              commitLatestDocumentBodyToMemory({
+                path: pathToSave,
+                body: projected.editorSurface,
+                sourceIdentity: projected.sourceIdentity,
+                contentRef,
+                persistBody: setTabBody,
+              })
             }
             if (canReadBodyFromEditor && mainPaneMode === 'visual') {
-              schedulePrimeEditorDiagramPreviews(() => {
-                const pm = visualEditorRef.current?.getEditor()
-                return pm?.view?.dom ?? null
+              runAfterReactCommit(() => {
+                schedulePrimeEditorDiagramPreviews(() => {
+                  const pm = visualEditorRef.current?.getEditor()
+                  return pm?.view?.dom ?? null
+                })
               })
             }
             if (!rootDir) {
@@ -380,7 +413,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               const canExport =
                 (Boolean(activePath) && isBufferTabId(activePath)) || isPathDirty(activePath)
               if (!canExport) {
-                setStatus(t('app.status.saveNothingHint'))
+                setStatus(t('app.status.saveNothingHint'), 'info')
                 return
               }
               const picked = await save({
@@ -392,7 +425,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               try {
                 await exportNote(exportNotePayload(picked, body, rootDir || ''))
               } catch (e) {
-                setStatus(t('app.status.saveFailed', { message: e instanceof Error ? e.message : String(e) }))
+                setStatus(t('app.status.saveFailed', { message: e instanceof Error ? e.message : String(e) }), 'error')
                 return
               }
               const name = picked.replace(/\\/g, '/').split('/').pop() ?? t('app.defaults.untitledMd')
@@ -400,7 +433,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
                 setBufferTabLabels((prev) => ({ ...prev, [activePath]: name }))
               }
               setSavedAt(new Date().toLocaleTimeString())
-              setStatus(t('app.status.savedTo', { path: picked }))
+              setStatus(t('app.status.savedTo', { path: picked }), 'success')
               return
             }
             if (!pathAtRequest) {
@@ -413,7 +446,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               })
               if (!picked) return
               if (!isPathUnderWorkspace(rootDir, picked)) {
-                setStatus(t('app.status.saveOutsideWorkspace'))
+                setStatus(t('app.status.saveOutsideWorkspace'), 'warning')
                 return
               }
               try {
@@ -421,7 +454,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
                   type: 'SAVE_DOCUMENT',
                   root: rootDir,
                   path: picked,
-                  content: body,
+                  content: diskMarkdown,
                   source: 'saveCurrent',
                 })
               } catch (error) {
@@ -430,28 +463,29 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
                   await openSaveConflictDialog({
                     rootDir,
                     path: picked,
-                    local: body,
+                    local: diskMarkdown,
+                    sourceMode: 'manual',
                     setSaveConflict,
                     setStatus,
                     t,
                   })
                   return
                 }
-                setStatus(t('app.status.saveFailed', { message }))
+                setStatus(t('app.status.saveFailed', { message }), 'error')
                 return
               }
               resetModeSwitchEditorBootstrap()
               await dispatchDocumentCommand({
                 type: 'REPLACE_ACTIVE_DOCUMENT',
                 path: picked,
-                content: body,
+                content: diskMarkdown,
                 source: 'save-as',
               })
               updateRecent(picked)
               await refreshFileTree()
               await refreshWorkspaceIndex(rootDir)
               setSavedAt(new Date().toLocaleTimeString())
-              setStatus(t('app.status.saved'))
+              setStatus(t('app.status.saved'), 'success')
               return
             }
             if (!isPathDirty(pathAtRequest || pathToSave) && !manual) return
@@ -460,7 +494,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
                 type: 'SAVE_DOCUMENT',
                 root: rootDir,
                 path: pathAtRequest || pathToSave,
-                content: body,
+                content: diskMarkdown,
                 source: 'saveCurrent',
               })
             } catch (error) {
@@ -469,24 +503,26 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
                 await openSaveConflictDialog({
                   rootDir,
                   path: pathAtRequest || pathToSave,
-                  local: body,
+                  local: diskMarkdown,
+                  sourceMode: 'manual',
                   setSaveConflict,
                   setStatus,
                   t,
                 })
                 return
               }
-              setStatus(t('app.status.saveFailed', { message }))
+              setStatus(t('app.status.saveFailed', { message }), 'error')
               return
             }
             suppressWorkspaceRefreshUntilRef.current = Date.now() + 2500
+            cancelPendingKernelContentDebounce()
             setSavedAt(new Date().toLocaleTimeString())
             if (manual) {
-              setStatus(t('app.status.saved'))
+              setStatus(t('app.status.saved'), 'success')
             }
           })
     },
-    [activePath, content, rootDir, mainPaneMode, refreshFileTree, updateRecent, resetModeSwitchEditorBootstrap, resolveDocumentBodyForPath, setSaveConflict, t, isVisualEditorBoundToActivePath],
+    [activePath, activePathRef, cancelPendingKernelContentDebounce, contentRef, rootDir, mainPaneMode, refreshFileTree, updateRecent, resetModeSwitchEditorBootstrap, resolveDocumentBodyForPath, setBufferTabLabels, setSaveConflict, setSavedAt, setStatus, suppressMarkdownSerdeRef, suppressWorkspaceRefreshUntilRef, t, visualEditorRef],
   )
 
   const saveAsCurrent = useCallback(async () => {
@@ -513,12 +549,13 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               () => activePathRef.current,
             )
           } catch (error) {
-            setStatus(t('app.status.saveFailed', { message: error instanceof Error ? error.message : String(error) }))
+            setStatus(t('app.status.saveFailed', { message: error instanceof Error ? error.message : String(error) }), 'error')
             return
           }
           if (resolved != null) {
             body = resolved
-            setTabBody(pathToSave, body)
+            const resolvedProjected = projectSavedMarkdownToEditorSurfaces(mainPaneMode, body)
+            setTabBody(pathToSave, resolvedProjected.editorSurface)
           } else {
             body = resolveActiveAwareSaveBodyFallback({
               pathToSave,
@@ -540,9 +577,18 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
           })
         }
         if (body == null) {
-          setStatus(t('app.status.saveFailed', { message: t('app.status.saveNothingHint') }))
+          setStatus(t('app.status.saveFailed', { message: t('app.status.saveNothingHint') }), 'error')
           return
         }
+        const diskMarkdown = diskMarkdownForDocumentSave(pathToSave, body)
+        const saveAsProjected = projectSavedMarkdownToEditorSurfaces(mainPaneMode, diskMarkdown)
+        commitLatestDocumentBodyToMemory({
+          path: pathToSave,
+          body: saveAsProjected.editorSurface,
+          sourceIdentity: saveAsProjected.sourceIdentity,
+          contentRef,
+          persistBody: setTabBody,
+        })
         if (!rootDir) {
           const picked = await save({
             title: t('app.dialog.saveAs'),
@@ -551,13 +597,13 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
           })
           if (!picked) return
           try {
-            await exportNote(exportNotePayload(picked, body, ''))
+            await exportNote(exportNotePayload(picked, diskMarkdown, ''))
           } catch (e) {
-            setStatus(t('app.status.saveFailed', { message: e instanceof Error ? e.message : String(e) }))
+            setStatus(t('app.status.saveFailed', { message: e instanceof Error ? e.message : String(e) }), 'error')
             return
           }
           setSavedAt(new Date().toLocaleTimeString())
-          setStatus(t('app.status.savedTo', { path: picked }))
+          setStatus(t('app.status.savedTo', { path: picked }), 'success')
           return
         }
         const base = rootDir.replace(/[/\\]+$/u, '')
@@ -570,7 +616,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
         })
         if (!picked) return
         if (!isPathUnderWorkspace(rootDir, picked)) {
-          setStatus(t('app.status.saveOutsideWorkspace'))
+          setStatus(t('app.status.saveOutsideWorkspace'), 'warning')
           return
         }
         try {
@@ -578,7 +624,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
             type: 'SAVE_DOCUMENT',
             root: rootDir,
             path: picked,
-            content: body,
+            content: diskMarkdown,
             source: 'save-as',
           })
         } catch (error) {
@@ -587,31 +633,33 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
             await openSaveConflictDialog({
               rootDir,
               path: picked,
-              local: body,
+              local: diskMarkdown,
+              sourceMode: 'manual',
               setSaveConflict,
               setStatus,
               t,
             })
             return
           }
-          setStatus(t('app.status.saveFailed', { message }))
+          setStatus(t('app.status.saveFailed', { message }), 'error')
           return
         }
         resetModeSwitchEditorBootstrap()
         await dispatchDocumentCommand({
           type: 'REPLACE_ACTIVE_DOCUMENT',
           path: picked,
-          content: body,
+          content: diskMarkdown,
           source: 'save-as',
         })
         updateRecent(picked)
         await refreshFileTree()
         await refreshWorkspaceIndex(rootDir)
         setSavedAt(new Date().toLocaleTimeString())
-        setStatus(t('app.status.saved'))
+        setStatus(t('app.status.saved'), 'success')
       })
     }, [
-      activePath,
+      activePathRef,
+      contentRef,
       rootDir,
       mainPaneMode,
       refreshFileTree,
@@ -619,9 +667,66 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
       resetModeSwitchEditorBootstrap,
       resolveDocumentBodyForPath,
       setSaveConflict,
+      setSavedAt,
+      setStatus,
       t,
-      isVisualEditorBoundToActivePath,
+      visualEditorRef,
     ])
 
-  return { saveCurrent, saveAsCurrent, runAppExportFormat }
+  const runAppPrint = useCallback(async () => {
+    if (!activePath) {
+      setStatus(t('app.status.exportNoFile'), 'info')
+      return
+    }
+    suppressMarkdownSerdeRef.current = false
+    try {
+      const exportMarkdown = await resolveMarkdownForSave(
+        mainPaneMode,
+        visualEditorRef.current,
+        contentRef.current,
+        activePath,
+      )
+      const unnamed = t('app.tab.unnamed')
+      const stem = isBufferTabId(activePath)
+        ? (bufferTabLabels[activePath] || unnamed).replace(/\.(md|markdown)$/i, '') || unnamed
+        : defaultExportBasename(activePath)
+      const sourcePath = isBufferTabId(activePath) ? '' : activePath
+      const html = await buildPdfExportHtml(exportMarkdown, {
+        title: stem,
+        dark: isDark,
+        sourcePath,
+        rootDir: rootDir || undefined,
+      })
+      setStatus(t('app.status.printOpening'), 'info')
+      await openPrintableHtml(html, stem)
+    } catch (error) {
+      if (error instanceof PrintPermissionRequiredError) {
+        setStatus(t('app.status.printPermissionRequired'), 'warning')
+        return
+      }
+      if (error instanceof PrintContentTooLargeError) {
+        setStatus(t('app.status.printContentTooLarge'), 'warning')
+        return
+      }
+      const message = error instanceof Error ? error.message : String(error)
+      if (/not allowed|denied|permission|forbidden|allow-print/i.test(message)) {
+        setStatus(t('app.status.printPermissionRequired'), 'warning')
+        return
+      }
+      setStatus(t('app.status.exportFailed', { message }), 'error')
+    }
+  }, [
+    activePath,
+    bufferTabLabels,
+    contentRef,
+    isDark,
+    mainPaneMode,
+    rootDir,
+    setStatus,
+    suppressMarkdownSerdeRef,
+    t,
+    visualEditorRef,
+  ])
+
+  return { saveCurrent, saveAsCurrent, runAppExportFormat, runAppPrint }
 }

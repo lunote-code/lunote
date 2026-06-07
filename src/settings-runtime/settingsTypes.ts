@@ -1,4 +1,11 @@
-export type SettingsSectionId = 'general' | 'appearance' | 'export' | 'editor' | 'language'
+export type SettingsSectionId =
+  | 'general'
+  | 'appearance'
+  | 'export'
+  | 'import'
+  | 'templates'
+  | 'editor'
+  | 'language'
 
 export type SettingsValue = string | boolean | number | null | undefined
 
@@ -28,6 +35,9 @@ export interface BaseSetting {
   path: string
   labelKey: string
   descriptionKey?: string
+  /** When true, description is shown in a ? popover instead of under the label. */
+  descriptionAsHelp?: boolean
+  helpTitleKey?: string
   section: SettingsSectionId
   visibleWhen?: SettingsVisibilityRule
 }
@@ -74,6 +84,8 @@ export interface GroupSetting {
   section: SettingsSectionId
   titleKey: string
   descriptionKey?: string
+  descriptionAsHelp?: boolean
+  hideHeader?: boolean
   items: readonly string[]
 }
 

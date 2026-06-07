@@ -105,20 +105,7 @@ function buildPanelSnapshot(docKey: DocKey): BacklinkPanelSnapshot {
         return entries
       })()
     : (lastKnownInboundByDoc.get(docKey) ?? [])
-  if (inboundHydrated && import.meta.env.DEV) {
-    console.debug('[BacklinkPanel] hydrated', {
-      docKey,
-      inboundCount: inbound.length,
-    })
-  }
-
   const outbound = inboundHydrated ? mapOutgoingLinkRefs(docKey) : []
-
-  if (import.meta.env.DEV && inboundHydrated) {
-    console.log('incoming:', inbound.length)
-    console.log('outgoing:', outbound.length)
-    console.log('docKey:', docKey)
-  }
 
   if (!mentionsByDocKey.has(docKey)) {
     scheduleMentionsLoad(docKey)

@@ -28,34 +28,10 @@ type NavigationMismatch = {
 
 function logRootCause(eventId: string | null, mismatches: readonly NavigationMismatch[]): void {
   if (mismatches.length === 0) return
-  const node = eventId ? getNavigationCausalNode(eventId) : null
-  const firstMissing = mismatches.find((m) => m.type === 'missing')
-  const firstUnexpected = mismatches.find((m) => m.type === 'unexpected')
-  const firstDivergence = firstMissing ?? firstUnexpected ?? mismatches[0]
-
-  console.log('[NAV ROOT CAUSE]', {
-    originEvent: node?.event ?? null,
-    firstMissingEffect: firstMissing?.sideEffectKind ?? null,
-    firstUnexpectedEffect: firstUnexpected?.sideEffectKind ?? null,
-    divergencePoint: firstDivergence?.detail ?? null,
-    causalNode: node,
-  })
-  const temporalAnomalies = getNavigationTemporalAnomalies()
-  if (temporalAnomalies.length > 0) {
-    const earliest = temporalAnomalies[0]
-    console.log('[NAV TEMPORAL ROOT CAUSE]', {
-      earliestConflictingEvent: earliest,
-      brokenDependencyChain: getNavigationTemporalChain().map((item) => ({
-        eventId: item.eventId,
-        prevEventId: item.prevEventId,
-        nextEventId: item.nextEventId,
-        type: item.event.type,
-        dependencyType: item.dependencyType,
-      })),
-      overwrittenNavigationState: temporalAnomalies.find((item) => item.type === 'restore_overwrite') ?? null,
-      cascadeFailureOrigin: earliest,
-    })
-  }
+  void eventId
+  void getNavigationCausalNode
+  void getNavigationTemporalAnomalies
+  void getNavigationTemporalChain
 }
 
 const expectedByEvent = new Map<string, Set<string>>()
@@ -162,15 +138,7 @@ export function validateNavigationEvent(event: NavigationEvent): NavigationMisma
     }
   }
 
-  if (mismatches.length > 0) {
-    console.log('[NAV VALIDATION] mismatch report', {
-      event,
-      mismatches,
-      expected: [...expected],
-      actual,
-    })
-    logRootCause(event.id, mismatches)
-  }
+  if (mismatches.length > 0) logRootCause(event.id, mismatches)
 
   return mismatches
 }
@@ -185,10 +153,6 @@ export function validateNavigationSideEffect(
       sideEffectKind: actual.kind,
       detail: `Actual side effect "${actual.kind}" does not map to a known navigation event.`,
     }
-    console.log('[NAV VALIDATION] mismatch report', {
-      actual,
-      mismatches: [mismatch],
-    })
     recordNavigationCausalEffect(eventId, actual)
     logRootCause(eventId, [mismatch])
     return [mismatch]
@@ -223,17 +187,7 @@ export function validateNavigationSideEffect(
   }
 
   if (mismatches.length > 0) {
-    console.log('[NAV VALIDATION] mismatch report', {
-      eventId,
-      actual,
-      mismatches,
-    })
     logRootCause(eventId, mismatches)
-  } else {
-    console.log('[NAV VALIDATION] side effect matched', {
-      eventId,
-      actual,
-    })
   }
 
   return mismatches

@@ -18,12 +18,14 @@ import type { AbsoluteDocPath, DocKey } from '../knowledgeRuntime/types'
 import { dispatchDocumentCommand } from '../../documentRuntime/documentKernel'
 import { getDocumentAuthorityProjection } from '../../documentRuntime/documentAuthority'
 import { pathsEqual } from '../../lib/workspacePathUtils'
+import { buildDefaultNoteContent } from '../../templates/defaultNoteContent'
+import { resolveTemplateLocale } from '../../templates/templateLocale'
 
 const renameQueue: Array<{ fromKey: DocKey; toKey: DocKey }> = []
 let renameDraining = false
 
 function defaultNoteContent(title: string): string {
-  return `---\ntitle: ${title}\n---\n\n# ${title}\n\n`
+  return buildDefaultNoteContent(title, resolveTemplateLocale())
 }
 
 export async function createNote(

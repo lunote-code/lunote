@@ -33,6 +33,26 @@ export async function getThemePath(): Promise<string> {
   return (cachedPaths ?? await ensureLunaDirs()).theme
 }
 
+export async function getThemeStylePath(): Promise<string> {
+  const root = await getThemePath()
+  return `${root}/style`
+}
+
+export async function getThemeSnippetsPath(): Promise<string> {
+  const root = await getThemePath()
+  return `${root}/snippets`
+}
+
+export async function getThemeExportPath(): Promise<string> {
+  const root = await getThemePath()
+  return `${root}/export`
+}
+
+export async function getThemeTokensPath(): Promise<string> {
+  const root = await getThemePath()
+  return `${root}/tokens`
+}
+
 export async function getCachePath(): Promise<string> {
   return (cachedPaths ?? await ensureLunaDirs()).cache
 }

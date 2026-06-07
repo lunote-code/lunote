@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { buildHeadingOutlineTree } from '../../editor/outlineHeadingTree'
 import { DocumentOutlineTree } from '../../components/DocumentOutlineTree'
 import { useI18n } from '../../i18n'
+import { getCachedSidebarOutlineHeadings } from '../hooks/useSidebarOutlineHeadings'
 
 export type TocHeading = { level: number; title: string; id: string }
 
@@ -21,17 +22,10 @@ export function DocumentOutlineBlock({
   const { t } = useI18n()
   const [collapsedPaths, setCollapsedPaths] = useState<Set<string>>(() => new Set())
   const lastDocumentPathRef = useRef(documentPath)
-  const lastStableRef = useRef({ path: documentPath, headings })
 
   const displayHeadings = useMemo(() => {
-    if (headings.length > 0) {
-      lastStableRef.current = { path: documentPath, headings }
-      return headings
-    }
-    if (documentPath === lastStableRef.current.path) {
-      return lastStableRef.current.headings
-    }
-    return []
+    if (headings.length > 0) return headings
+    return getCachedSidebarOutlineHeadings(documentPath) ?? []
   }, [documentPath, headings])
 
   const tree = useMemo(() => buildHeadingOutlineTree(displayHeadings), [displayHeadings])

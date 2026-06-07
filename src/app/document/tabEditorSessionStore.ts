@@ -7,8 +7,9 @@ export type TabVisualSession = {
 }
 
 export type TabSourceSession = {
-  from: number
-  to: number
+  /** Selection in body-only coordinates (stable across YAML prefix changes). */
+  bodyFrom: number
+  bodyTo: number
   scrollTop: number
 }
 

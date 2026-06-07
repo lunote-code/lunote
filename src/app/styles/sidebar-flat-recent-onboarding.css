@@ -1,0 +1,285 @@
+.file-list-flat-item {
+  width: 100%;
+}
+
+.file-list .note-item.file-list-flat-item {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 8px 6px 10px;
+  box-sizing: border-box;
+}
+
+.file-list .note-item.file-list-flat-item:has(.file-list-flat-sublabel) {
+  min-height: 50px;
+  padding-top: 7px;
+  padding-bottom: 8px;
+}
+
+.file-list .note-item.file-list-flat-item.active {
+  z-index: 1;
+}
+
+.file-list .note-item.file-list-flat-item .file-list-flat-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.file-list-flat-item.active {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-panel) 90%);
+}
+
+.file-list-flat-item.active::before {
+  background: var(--accent);
+  box-shadow: none;
+}
+
+.file-list-flat-item.active .file-list-flat-label {
+  color: var(--text-primary);
+  font-weight: 560;
+}
+
+.file-list-flat-item.active .file-list-flat-sublabel {
+  color: color-mix(in srgb, var(--text-muted) 70%, var(--accent) 30%);
+}
+
+.file-list-flat-item.active .tree-icon {
+  color: color-mix(in srgb, var(--accent) 68%, var(--text-secondary) 32%);
+  opacity: 1;
+}
+
+.file-list-flat-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.file-list-flat-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  text-align: left;
+  line-height: 1.35;
+}
+
+.file-list-flat-sublabel {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  text-align: left;
+  line-height: 1.35;
+}
+
+.file-list .note-item.file-list-flat-item:hover:not(.active) .file-list-flat-sublabel {
+  color: color-mix(in srgb, var(--text-muted) 82%, var(--text-secondary) 18%);
+}
+
+.file-list-empty {
+  margin: 0;
+  padding: 10px 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.sidebar-workspace-onboarding {
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: var(--hairline) solid var(--border-subtle);
+}
+
+.sidebar-workspace-onboarding-label {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.sidebar-workspace-onboarding-steps {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.sidebar-workspace-onboarding-dismiss {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--link);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  padding: 0;
+}
+
+.sidebar-workspace-onboarding-dismiss:hover {
+  color: var(--link-hover);
+}
+
+.sidebar-empty-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sidebar-workspace-empty-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.sidebar-workspace-empty-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  width: 100%;
+  padding: 10px 12px;
+  border: var(--hairline) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-ui);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.sidebar-workspace-empty-choice:hover {
+  background: color-mix(in srgb, var(--surface-hover) 75%, transparent);
+  border-color: color-mix(in srgb, var(--text-muted) 35%, var(--border-subtle));
+}
+
+.sidebar-workspace-empty-choice--primary {
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-editor));
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+}
+
+.sidebar-workspace-empty-choice--primary:hover {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-editor));
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border-subtle));
+}
+
+.sidebar-workspace-empty-choice-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.sidebar-workspace-empty-choice-desc {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.sidebar-recent-files {
+  padding: 0 12px 16px;
+  border-top: var(--hairline) solid var(--border-subtle);
+}
+
+.sidebar-recent-files-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 12px 0 8px;
+}
+
+.sidebar-recent-files-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.sidebar-recent-files-clear {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.sidebar-recent-files-clear:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface-hover) 85%, transparent);
+}
+
+.sidebar-recent-files-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-recent-files-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 7px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  text-align: left;
+}
+
+.sidebar-recent-files-item:hover {
+  background: color-mix(in srgb, var(--surface-hover) 85%, transparent);
+}
+
+.sidebar-recent-files-name {
+  font-size: 13px;
+  line-height: 1.3;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-recent-files-dir {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--text-muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -10,9 +10,6 @@ export function getLinkIndexState(): LinkIndexState {
 export function setLinkIndexState(next: LinkIndexState): void {
   if (linkIndexState === next) return
   linkIndexState = next
-  if (import.meta.env.DEV && next === 'READY') {
-    console.debug('[LinkGraphState]', 'READY')
-  }
   stateListeners.forEach((fn) => {
     try {
       fn()

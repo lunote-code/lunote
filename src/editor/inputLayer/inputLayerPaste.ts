@@ -2,6 +2,8 @@ import { Fragment, Slice, type Node as ProseMirrorNode } from 'prosemirror-model
 import type { EditorState, Transaction } from 'prosemirror-state'
 import { splitBlock } from 'prosemirror-commands'
 
+import { isPosInsideCodeSpecBlock } from '../lunaCodeContext'
+
 /** Transaction meta: mark input source (paste/menu paste/typing)*/
 export const INPUT_LAYER_SOURCE_META = 'inputLayerSource'
 
@@ -17,6 +19,25 @@ export function setInputLayerSource(tr: Transaction, source: InputLayerSource): 
 
 export function getInputLayerSource(tr: Transaction): InputLayerSource | undefined {
   return tr.getMeta(INPUT_LAYER_SOURCE_META) as InputLayerSource | undefined
+}
+
+function selectionTouchesCodeSpecBlock(state: EditorState): boolean {
+  const { from, to } = state.selection
+  return (
+    isPosInsideCodeSpecBlock(state.doc.resolve(from)) ||
+    isPosInsideCodeSpecBlock(state.doc.resolve(to))
+  )
+}
+
+/** Code blocks only accept literal text (including `\n`); hardBreak / splitBlock break paste. */
+function applyCodeSpecPlainTextInsertion(
+  state: EditorState,
+  text: string,
+  source: InputLayerSource,
+): Transaction {
+  const { from, to } = state.selection
+  const normalized = text.replace(/\r\n/g, '\n')
+  return setInputLayerSource(state.tr.insertText(normalized, from, to), source)
 }
 
 function buildPlainTextSlice(
@@ -39,6 +60,9 @@ function buildPlainTextSlice(
 
 /** Consistent with the menu "Paste as plain text": literal `insertText`, without `insertContent`*/
 export function applyPlainTextInsertion(state: EditorState, text: string, source: InputLayerSource): Transaction {
+  if (selectionTouchesCodeSpecBlock(state)) {
+    return applyCodeSpecPlainTextInsertion(state, text, source)
+  }
   const { from, to } = state.selection
   const normalized = text.replace(/\r\n/g, '\n')
   const slice = buildPlainTextSlice(state.schema, normalized)
@@ -53,6 +77,9 @@ export function applyPlainTextInsertion(state: EditorState, text: string, source
  * If the cursor is at the end of a paragraph with existing content and the pasting is with trailing `\n`, first `splitBlock` and then insert the text in the new paragraph (removing the trailing newline).
  */
 export function applyPlainTextPasteInsertion(state: EditorState, text: string): Transaction {
+  if (selectionTouchesCodeSpecBlock(state)) {
+    return applyCodeSpecPlainTextInsertion(state, text, 'paste')
+  }
   const { from, to } = state.selection
   const normalized = text.replace(/\r\n/g, '\n')
   if (normalized.includes('\n') && state.schema.nodes.hardBreak) {
@@ -74,7 +101,7 @@ export function applyPlainTextPasteInsertion(state: EditorState, text: string): 
         if (split) {
           const pos = tr.selection.from
           tr = tr.insertText(core, pos, pos)
-          return setInputLayerSource(tr.scrollIntoView(), 'paste')
+          return setInputLayerSource(tr, 'paste')
         }
       }
     }

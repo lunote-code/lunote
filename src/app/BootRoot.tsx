@@ -12,12 +12,15 @@ import {
 import { createRoot, type Root } from 'react-dom/client'
 
 import App from '../App'
+import { MacNativeMenuEarlyUpgrade } from './components/MacNativeMenuEarlyUpgrade'
 import { bootstrapI18n, I18nProvider, type I18nBootstrap } from '../i18n'
-import { BootErrorScreen, BootLoadingScreen } from './BootScreens'
+import { BootErrorScreen } from './BootScreens'
+import { BootShell } from './components/BootShell'
 import { applyInitialThemeFromSettings, reloadCustomThemesFromDisk } from '../theme-runtime/themeRuntime'
 import { reloadThemeExportStylesFromDisk } from '../theme-runtime/themeExportStyleRuntime'
 import { reloadThemeStylesheetsFromDisk } from '../theme-runtime/themeStylesheetRuntime'
 import { reloadThemeSnippetsFromDisk } from '../theme-runtime/themeSnippetRuntime'
+import { logCrash, logError, logInfo } from '../lib/lunaLogger'
 import { installSingleInstanceHandler } from './singleInstance'
 
 type BootPhase =
@@ -26,8 +29,11 @@ type BootPhase =
   | { status: 'error'; error: string }
 
 function logBoot(phase: string, extra?: Record<string, unknown>): void {
-  if (!import.meta.env.DEV) return
-  console.log('[BOOT]', phase, extra ?? {})
+  if (phase === 'failed' || phase === 'render_error') {
+    logError(`[BOOT] ${phase}`, extra)
+    return
+  }
+  logInfo(`[BOOT] ${phase}`, extra)
 }
 
 class AppErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
@@ -38,8 +44,9 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { error: strin
   }
 
   componentDidCatch(error: unknown, info: ErrorInfo): void {
-    logBoot('render_error', {
+    logCrash('[BOOT] render_error', {
       message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
       componentStack: info.componentStack,
     })
   }
@@ -60,13 +67,21 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { error: strin
   }
 }
 
+const BOOT_CROSSFADE_MS = 160
+
 function BootApp() {
   const [phase, setPhase] = useState<BootPhase>({ status: 'loading' })
+  const [bootShellMounted, setBootShellMounted] = useState(true)
+  const [bootShellExiting, setBootShellExiting] = useState(false)
+  const [appEntered, setAppEntered] = useState(false)
   /** Intergenerational token: compatible with StrictMode dual mounting to avoid re-running bootstrap after cleanup is cancelled.*/
   const bootGenerationRef = useRef(0)
 
   const runBootstrap = useCallback(async (isStale?: () => boolean) => {
     setPhase({ status: 'loading' })
+    setBootShellMounted(true)
+    setBootShellExiting(false)
+    setAppEntered(false)
     logBoot('start')
     try {
       const bootstrap = await bootstrapI18n()
@@ -106,23 +121,50 @@ function BootApp() {
 
   useEffect(() => {
     if (phase.status !== 'ready') return
-    void installSingleInstanceHandler()
+
+    const enterFrame = requestAnimationFrame(() => {
+      setAppEntered(true)
+      setBootShellExiting(true)
+    })
+    const unmountTimer = window.setTimeout(() => {
+      setBootShellMounted(false)
+    }, BOOT_CROSSFADE_MS)
+
+    return () => {
+      cancelAnimationFrame(enterFrame)
+      window.clearTimeout(unmountTimer)
+    }
   }, [phase.status])
 
-  if (phase.status === 'loading') {
-    return <BootLoadingScreen />
-  }
+  useEffect(() => {
+    if (phase.status !== 'ready') return
+    void installSingleInstanceHandler()
+  }, [phase.status])
 
   if (phase.status === 'error') {
     return <BootErrorScreen error={phase.error} onRetry={() => void runBootstrap()} />
   }
 
+  const ready = phase.status === 'ready'
+
   return (
-    <I18nProvider bootstrap={phase.bootstrap}>
-      <Suspense fallback={<BootLoadingScreen />}>
-        <App />
-      </Suspense>
-    </I18nProvider>
+    <div className="boot-stage">
+      {bootShellMounted ? (
+        <div className={`boot-shell-layer${bootShellExiting ? ' boot-shell-layer--exit' : ''}`}>
+          <BootShell />
+        </div>
+      ) : null}
+      {ready ? (
+        <div className={`boot-app-layer${appEntered ? ' boot-app-layer--enter' : ''}`}>
+          <I18nProvider bootstrap={phase.bootstrap}>
+            <MacNativeMenuEarlyUpgrade />
+            <Suspense fallback={null}>
+              <App />
+            </Suspense>
+          </I18nProvider>
+        </div>
+      ) : null}
+    </div>
   )
 }
 

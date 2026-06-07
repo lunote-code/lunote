@@ -2,7 +2,7 @@ import { getAppSettingsSnapshot } from '../settings/appSettingsStore'
 import type { AppSettingsState } from '../settings/appSettingsTypes'
 import { getManifestEntry } from './commandManifest.build'
 import type { CommandManifestEntry, CommandRuntimeKind } from './commandManifest.types'
-import { eventMatchesAccelerator, parseAccelerator } from './menu.shortcuts'
+import { eventMatchesAccelerator, formatAcceleratorForDisplay, parseAccelerator } from './menu.shortcuts'
 import {
   getManifestDefaultAccelerator,
   isShortcutCustomizable,
@@ -63,6 +63,15 @@ export function getEffectiveAccelerator(
   const overrides = settings.shortcutOverrides ?? {}
   if (overrides[commandId]) return overrides[commandId]
   return getManifestDefaultAccelerator(commandId)
+}
+
+/** Display shortcut for UI hints (respects user overrides + platform Mod mapping). */
+export function formatCommandShortcutDisplay(
+  commandId: string,
+  settings: AppSettingsState = getAppSettingsSnapshot(),
+): string {
+  const acc = getEffectiveAccelerator(commandId, settings) ?? getManifestDefaultAccelerator(commandId)
+  return formatAcceleratorForDisplay(acc ?? '')
 }
 
 /** Merge the default and overridden binding lists for global shortcut key runtime matching*/

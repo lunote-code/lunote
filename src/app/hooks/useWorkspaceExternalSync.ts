@@ -5,19 +5,20 @@ import { isTauri } from '@tauri-apps/api/core'
 import type { TranslateFn } from '../../i18n'
 import { pathsEqual } from '../../lib/workspacePathUtils'
 import { isPathDirty } from '../../lib/documentDirty'
-import { deleteTabBody } from '../document/tabBodiesStore'
-import { dispatchDocumentCommand, getDocumentRuntimeSnapshot } from '../../documentRuntime/documentKernel'
+import { deleteTabBody, setTabBody } from '../document/tabBodiesStore'
+import { dispatchDocumentCommand, getDocumentRuntimeSnapshot, getDocumentSavedContent } from '../../documentRuntime/documentKernel'
+import { readNote, statNoteFile } from '../../platform/tauri/documentService'
 import { isBufferTabId } from '../workspace/constants'
 import { subscribeWorkspaceBroadcast } from '../workspace/workspaceBroadcast'
 import { refreshWorkspaceIndex } from '../workspace/workspaceIndexCoordinator'
-import { statNoteFile } from '../../platform/tauri/documentService'
 import { unwatchWorkspace, watchWorkspace } from '../../platform/tauri/workspaceService'
+import type { AppStatusTone } from './useAppStatus'
 
 export type WorkspaceExternalSyncParams = {
   rootDir: string
   t: TranslateFn
   tabLabel: (path: string) => string
-  setStatus: (msg: string) => void
+  setStatus: (msg: string, toneOverride?: AppStatusTone) => void
   setExternalDiskChangedPaths: Dispatch<SetStateAction<Set<string>>>
   refreshFileTree: () => Promise<void>
   confirmAppDialog: (options: {
@@ -79,6 +80,7 @@ export function useWorkspaceExternalSync({
     const generation = ++externalReloadGenerationRef.current
     const snap = getDocumentRuntimeSnapshot()
     const pathsToCheck = [...new Set([snap.activePath, ...snap.openedTabs].filter(Boolean))]
+    const normalizeLineEndings = (value: string) => value.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
     for (const path of pathsToCheck) {
       if (externalReloadGenerationRef.current !== generation) return
       if (!path || isBufferTabId(path)) continue
@@ -97,8 +99,20 @@ export function useWorkspaceExternalSync({
       if (!pathsEqual(path, snap.activePath)) {
         if (isPathDirty(path)) {
           markExternalDiskDrift(path)
-          setStatus(t('app.status.externalFileChangedInactive', { path: tabLabel(path) }))
+          setStatus(t('app.status.externalFileChangedInactive', { path: tabLabel(path) }), 'warning')
         } else {
+          const saved = getDocumentSavedContent(path)
+          if (saved !== undefined) {
+            try {
+              const disk = await readNote(rootDir, path)
+              if (normalizeLineEndings(disk) === normalizeLineEndings(saved)) {
+                setTabBody(path, disk)
+                continue
+              }
+            } catch {
+              /* fall through to cache drop */
+            }
+          }
           deleteTabBody(path)
         }
         continue
@@ -111,7 +125,7 @@ export function useWorkspaceExternalSync({
         })
         if (!ok) {
           markExternalDiskDrift(path)
-          setStatus(t('app.status.saveConflict'))
+          setStatus(t('app.status.saveConflict'), 'warning')
           continue
         }
       }
@@ -130,7 +144,6 @@ export function useWorkspaceExternalSync({
     t,
     tabLabel,
     setStatus,
-    setExternalDiskChangedPaths,
     confirmAppDialog,
     resetModeSwitchEditorBootstrap,
     bumpColdOpenGeneration,

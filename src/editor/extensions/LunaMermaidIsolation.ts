@@ -2,7 +2,12 @@ import { Extension } from '@tiptap/core'
 import { NodeSelection, Plugin, PluginKey } from '@tiptap/pm/state'
 
 import { shouldBypassRuntimeForTarget } from '../documentRuntime/nativeInput'
-import { isMermaidPreviewDom, isMermaidToolbarDom } from '../mermaid/mermaidBlockSelection'
+import {
+  clearDomSelection,
+  isMermaidPreviewDom,
+  isMermaidToolbarDom,
+  selectionContainsMermaidBlock,
+} from '../mermaid/mermaidBlockSelection'
 
 const MERMAID_ISOLATION_KEY = new PluginKey('lunaMermaidIsolation')
 
@@ -20,9 +25,12 @@ export const LunaMermaidIsolation = Extension.create({
         key: MERMAID_ISOLATION_KEY,
         props: {
           handleDOMEvents: {
-            mousedown(_view, event) {
+            mousedown(view, event) {
               if (shouldBypassRuntimeForTarget(event.target)) return false
               const t = event.target as HTMLElement
+              if (selectionContainsMermaidBlock(view.dom as HTMLElement)) {
+                clearDomSelection()
+              }
               if (isMermaidToolbarDom(t)) return false
               if (!isMermaidPreviewDom(t)) return false
               event.preventDefault()

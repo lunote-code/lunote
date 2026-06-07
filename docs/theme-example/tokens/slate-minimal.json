@@ -1,0 +1,22 @@
+{
+  "id": "slate-minimal",
+  "name": "Slate Minimal",
+  "label": "Slate Minimal",
+  "family": "slate-minimal",
+  "variant": "light",
+  "colors": {
+    "background": "#fafafa",
+    "foreground": "#18181b",
+    "primary": "#18181b",
+    "border": "rgba(24, 24, 27, 0.08)",
+    "muted": "#71717a"
+  },
+  "radius": {
+    "card": 12,
+    "control": 8
+  },
+  "spacing": {
+    "row": 12,
+    "section": 22
+  }
+}

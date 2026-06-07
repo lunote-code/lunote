@@ -6,6 +6,7 @@ import {
   selectionTouchesInlineCodeMark,
 } from '../editor/lunaCodeContext'
 import { isSelectionInsideTableCell } from '../editor/lunaTableCell'
+import { sourceCursorInCodeFence } from '../editor/sourceMarkdownTabContext'
 
 export type EditorPaneMode = 'visual' | 'source'
 
@@ -90,27 +91,6 @@ export function buildVisualEditorContext(editor: Editor, isReadonly = false): Ed
     isReadonly,
     inTable,
   }
-}
-
-function sourceCursorInCodeFence(doc: string, pos: number): boolean {
-  let fenceOpenAt: number | null = null
-  let offset = 0
-  for (const line of doc.split('\n')) {
-    const lineStart = offset
-    const lineEnd = offset + line.length
-    const trimmed = line.trimStart()
-    if (trimmed.startsWith('```')) {
-      if (fenceOpenAt == null) {
-        fenceOpenAt = lineStart
-      } else {
-        if (pos >= fenceOpenAt && pos <= lineEnd) return true
-        fenceOpenAt = null
-      }
-    }
-    if (fenceOpenAt != null && pos >= fenceOpenAt && pos <= lineEnd) return true
-    offset = lineEnd + 1
-  }
-  return fenceOpenAt != null && pos >= fenceOpenAt
 }
 
 function parseSourceLineContext(lineText: string): Pick<EditorContext, 'inHeading' | 'headingLevel' | 'inList' | 'nodeType'> {

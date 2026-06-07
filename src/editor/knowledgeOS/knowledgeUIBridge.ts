@@ -198,11 +198,6 @@ export function initKnowledgeOS(options?: {
     refreshBacklinkPanel()
     const wsActive = getKnowledgeWorkspaceSnapshot().activeDocKey
     if (wsActive) refreshBacklinkPanel(wsActive)
-    if (import.meta.env.DEV) {
-      console.log('[GRAPH] hydrated_into_UI', {
-        activeDocKey: wsActive,
-      })
-    }
     requestOsRevision()
   })
 

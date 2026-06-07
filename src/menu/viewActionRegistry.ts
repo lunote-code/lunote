@@ -66,7 +66,11 @@ const VIEW_APP_ACTIONS: Record<string, AppActionHandler> = {
     }
     return true
   },
-  'view-search': async (_m, ui) => {
+  'view-search': async (m, ui) => {
+    if (!m.rootDir?.trim()) {
+      m.setStatus(m.t('app.menu.openWorkspaceFirst'))
+      return true
+    }
     ui.openGlobalSearchModal()
     return true
   },

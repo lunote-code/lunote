@@ -1,5 +1,4 @@
 import type { RefObject } from 'react'
-import { createPortal } from 'react-dom'
 
 import { AlertDialog } from '../../components/AlertDialog'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -28,12 +27,11 @@ import type {
   FileContextTarget,
   TabContextMenuPick,
 } from '../workspace/contextMenuTypes'
-import type { AppExportFormat } from '../../markdownExport'
-import { WorkspaceFileContextMenu } from './WorkspaceFileContextMenu'
-import { EditorDocumentContextMenu } from './EditorDocumentContextMenu'
-import { TabContextMenu } from './TabContextMenu'
-import { SaveConflictDialog } from './SaveConflictDialog'
+import type { DocumentHistoryDialogContext } from './DocumentHistoryDialog'
 import type { WorkspaceSearchIndexEntry } from '../search/workspaceSearch'
+import { AppCommandPaletteOverlay } from './AppCommandPaletteOverlay'
+import { AppRenameDialog } from './AppRenameDialog'
+import { AppDocumentOverlayPortals } from './AppDocumentOverlayPortals'
 
 export type AppRootOverlaysProps = {
   t: TranslateFn
@@ -41,6 +39,7 @@ export type AppRootOverlaysProps = {
   globalSearchQuery: string
   onGlobalSearchQueryChange: (q: string) => void
   onGlobalSearchClose: () => void
+  globalSearchInputRef: RefObject<HTMLInputElement | null>
   knowledgeSearchOpen: boolean
   knowledgeSearchQuery: string
   onKnowledgeSearchQueryChange: (q: string) => void
@@ -77,6 +76,7 @@ export type AppRootOverlaysProps = {
   onRenameInputChange: (value: string) => void
   onRenameSubmit: () => void
   onRenameClose: () => void
+  onRenameTemplateChange: (templatePath: string) => void
   fileContextMenu: FileContextMenuState | null
   fileContextMenuRef: RefObject<HTMLDivElement | null>
   onFileContextPick: (action: FileContextMenuPick, ctx: FileContextTarget) => void
@@ -84,20 +84,35 @@ export type AppRootOverlaysProps = {
   editorDocMenuRef: RefObject<HTMLDivElement | null>
   editorDiskFileReady: boolean
   editorCanRevealInOs: boolean
-  onEditorDocMenuPick: (action: EditorDocMenuPick) => void
-  onEditorTextColorPick: (color: string | null) => void
-  onExportPick: (format: AppExportFormat) => void
+  onEditorDocMenuPick: (action: EditorDocMenuPick, menu: EditorDocMenuState) => void
   tabContextMenu: { x: number; y: number; path: string; index: number; total: number } | null
   tabContextMenuRef: RefObject<HTMLDivElement | null>
   onTabContextPick: (action: TabContextMenuPick, path: string, index: number) => void
-  saveConflictOpen: boolean
-  saveConflictPath: string
-  saveConflictBase: string
-  saveConflictLocal: string
-  saveConflictDisk: string
-  onSaveConflictCancel: () => void
-  onSaveConflictUseDisk: () => void
-  onSaveConflictKeepLocal: () => void
+  saveConflictState: {
+    open: boolean
+    path: string
+    base: string
+    local: string
+    disk: string
+    diskReadable: boolean
+    sourceMode: 'manual' | 'autosave'
+    resolving?: boolean
+    onCancel: () => void
+    onUseDisk: () => void
+    onKeepLocal: () => void
+  }
+  documentHistoryState: {
+    open: boolean
+    rootDir: string
+    path: string
+    onClose: () => void
+    onRestore: (snapshotId: string, context: DocumentHistoryDialogContext) => Promise<void> | void
+    onCreateSnapshot: (
+      context: DocumentHistoryDialogContext,
+    ) => Promise<import('../../documentHistory/types').DocumentHistoryEntry | null> | import('../../documentHistory/types').DocumentHistoryEntry | null
+    onConfirmDelete: (entry: import('../../documentHistory/types').DocumentHistoryEntry) => Promise<boolean> | boolean
+    onDeleteAll: (context: DocumentHistoryDialogContext) => Promise<boolean> | boolean
+  }
 }
 
 export function AppRootOverlays(props: AppRootOverlaysProps) {
@@ -107,6 +122,7 @@ export function AppRootOverlays(props: AppRootOverlaysProps) {
     globalSearchQuery,
     onGlobalSearchQueryChange,
     onGlobalSearchClose,
+    globalSearchInputRef,
     knowledgeSearchOpen,
     knowledgeSearchQuery,
     onKnowledgeSearchQueryChange,
@@ -143,6 +159,7 @@ export function AppRootOverlays(props: AppRootOverlaysProps) {
     onRenameInputChange,
     onRenameSubmit,
     onRenameClose,
+    onRenameTemplateChange,
     fileContextMenu,
     fileContextMenuRef,
     onFileContextPick,
@@ -151,19 +168,11 @@ export function AppRootOverlays(props: AppRootOverlaysProps) {
     editorDiskFileReady,
     editorCanRevealInOs,
     onEditorDocMenuPick,
-    onEditorTextColorPick,
-    onExportPick,
     tabContextMenu,
     tabContextMenuRef,
     onTabContextPick,
-    saveConflictOpen,
-    saveConflictPath,
-    saveConflictBase,
-    saveConflictLocal,
-    saveConflictDisk,
-    onSaveConflictCancel,
-    onSaveConflictUseDisk,
-    onSaveConflictKeepLocal,
+    saveConflictState,
+    documentHistoryState,
   } = props
 
   return (
@@ -175,6 +184,7 @@ export function AppRootOverlays(props: AppRootOverlaysProps) {
         searchIndex={workspaceSearchIndex}
         onQueryChange={onGlobalSearchQueryChange}
         onClose={onGlobalSearchClose}
+        inputRef={globalSearchInputRef}
         onOpenDocument={onGlobalSearchOpenDocument}
         t={t}
       />
@@ -185,61 +195,20 @@ export function AppRootOverlays(props: AppRootOverlaysProps) {
         onClose={onKnowledgeSearchClose}
       />
       <KnowledgeHoverCard hoverId={wikiHoverId} />
-      {commandPaletteOpen && (
-        <div
-          className="command-palette-backdrop"
-          role="presentation"
-          onClick={onCommandPaletteClose}
-        >
-          <div
-            className="command-palette"
-            role="dialog"
-            aria-modal="true"
-            aria-label={t('app.commandPalette.aria')}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <input
-              ref={commandPaletteInputRef}
-              className="command-palette-input"
-              placeholder={t('app.commandPalette.placeholder')}
-              value={commandPaletteQuery}
-              onChange={(e) => {
-                onCommandPaletteQueryChange(e.target.value)
-                onCommandPaletteIndexChange(0)
-              }}
-            />
-            <ul className="command-palette-list">
-              {paletteFiltered.length === 0 ? (
-                <li className="command-palette-empty" key="empty">
-                  {t('commandPalette.empty')}
-                </li>
-              ) : (
-                paletteFiltered.map((c, idx) => (
-                  <li key={c.id}>
-                    <button
-                      type="button"
-                      className="command-palette-item"
-                      data-active={idx === commandPaletteIndex ? 'true' : undefined}
-                      onClick={() => void onRunPaletteCommand(c.id)}
-                      onMouseEnter={() => onCommandPaletteIndexChange(idx)}
-                    >
-                      <span className="command-palette-item-row">
-                        <span className="command-palette-item-label">{c.label}</span>
-                        {c.shortcut ? (
-                          <kbd className="command-palette-item-shortcut">{c.shortcut}</kbd>
-                        ) : null}
-                      </span>
-                      {c.hint ? <span className="command-palette-item-hint">{c.hint}</span> : null}
-                    </button>
-                  </li>
-                ))
-              )}
-            </ul>
-          </div>
-        </div>
-      )}
+      <AppCommandPaletteOverlay
+        t={t}
+        open={commandPaletteOpen}
+        query={commandPaletteQuery}
+        index={commandPaletteIndex}
+        inputRef={commandPaletteInputRef}
+        paletteFiltered={paletteFiltered}
+        onClose={onCommandPaletteClose}
+        onQueryChange={onCommandPaletteQueryChange}
+        onIndexChange={onCommandPaletteIndexChange}
+        onRunCommand={onRunPaletteCommand}
+      />
       {aboutOpen ? <AboutDialog open={aboutOpen} onClose={onAboutClose} t={t} /> : null}
-      <PreferencesDialog />
+      <PreferencesDialog workspaceRoot={rootDir} />
       <DeleteConfirmDialog
         open={deleteConfirmDialog != null}
         title={deleteConfirmDialog?.title ?? ''}
@@ -278,119 +247,33 @@ export function AppRootOverlays(props: AppRootOverlaysProps) {
         okLabel={alertDialog?.okLabel ?? t('app.about.close')}
         onClose={onAlertClose}
       />
-      {renameDialog && (
-        <div
-          className="about-modal-backdrop"
-          role="presentation"
-          onClick={() => {
-            if (renameSubmitting) return
-            onRenameClose()
-          }}
-        >
-          <div
-            className="about-modal rename-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="rename-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id="rename-title" className="about-modal-title">
-              {renameDialog.mode === 'newFolder'
-                ? t('ctx.file.newFolder')
-                : renameDialog.mode === 'newNote'
-                  ? t('app.dialog.noteNewTitle')
-                  : renameDialog.isDirectory
-                    ? t('app.rename.folderTitle')
-                    : t('app.rename.fileTitle')}
-            </h2>
-            <p className="about-modal-desc">
-              {renameDialog.mode === 'newFolder'
-                ? t('app.dialog.folderNew')
-                : renameDialog.mode === 'newNote'
-                  ? t('app.dialog.noteNewHint')
-                  : t('app.rename.hint')}
-            </p>
-            <input
-              ref={renameInputRef}
-              className="rename-modal-input"
-              value={renameInputValue}
-              placeholder={
-                renameDialog.mode === 'newNote'
-                  ? t('app.dialog.noteNewPlaceholder', { default: t('app.defaults.newNoteStem') })
-                  : undefined
-              }
-              onChange={(e) => onRenameInputChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !renameSubmitting) void onRenameSubmit()
-                if (e.key === 'Escape' && !renameSubmitting) onRenameClose()
-              }}
-            />
-            {renameError ? <p className="rename-modal-error">{renameError}</p> : null}
-            <div className="rename-modal-actions">
-              <button
-                type="button"
-                className="about-modal-close rename-modal-cancel"
-                disabled={renameSubmitting}
-                onClick={onRenameClose}
-              >
-                {t('app.rename.cancel')}
-              </button>
-              <button
-                type="button"
-                className="about-modal-close"
-                disabled={renameSubmitting}
-                onClick={() => void onRenameSubmit()}
-              >
-                {renameSubmitting ? t('app.rename.submitting') : t('app.rename.submit')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {typeof document !== 'undefined' &&
-        fileContextMenu &&
-        createPortal(
-          <WorkspaceFileContextMenu
-            state={fileContextMenu}
-            menuRef={fileContextMenuRef}
-            onPick={onFileContextPick}
-          />,
-          document.body,
-        )}
-      {typeof document !== 'undefined' &&
-        editorDocMenu &&
-        createPortal(
-          <EditorDocumentContextMenu
-            state={editorDocMenu}
-            menuRef={editorDocMenuRef}
-            diskFileReady={editorDiskFileReady}
-            canRevealInOs={editorCanRevealInOs}
-            onPick={onEditorDocMenuPick}
-            onColorPick={onEditorTextColorPick}
-            onExportPick={onExportPick}
-          />,
-          document.body,
-        )}
-      {typeof document !== 'undefined' &&
-        tabContextMenu &&
-        createPortal(
-          <TabContextMenu
-            state={tabContextMenu}
-            menuRef={tabContextMenuRef}
-            onPick={onTabContextPick}
-          />,
-          document.body,
-        )}
-      <SaveConflictDialog
+      <AppRenameDialog
         t={t}
-        open={saveConflictOpen}
-        path={saveConflictPath}
-        basePreview={saveConflictBase}
-        localPreview={saveConflictLocal}
-        diskPreview={saveConflictDisk}
-        onCancel={onSaveConflictCancel}
-        onUseDisk={onSaveConflictUseDisk}
-        onKeepLocal={onSaveConflictKeepLocal}
+        renameDialog={renameDialog}
+        renameInputValue={renameInputValue}
+        renameError={renameError}
+        renameSubmitting={renameSubmitting}
+        renameInputRef={renameInputRef}
+        onRenameInputChange={onRenameInputChange}
+        onRenameSubmit={onRenameSubmit}
+        onRenameClose={onRenameClose}
+        onRenameTemplateChange={onRenameTemplateChange}
+      />
+      <AppDocumentOverlayPortals
+        t={t}
+        fileContextMenu={fileContextMenu}
+        fileContextMenuRef={fileContextMenuRef}
+        onFileContextPick={onFileContextPick}
+        editorDocMenu={editorDocMenu}
+        editorDocMenuRef={editorDocMenuRef}
+        editorDiskFileReady={editorDiskFileReady}
+        editorCanRevealInOs={editorCanRevealInOs}
+        onEditorDocMenuPick={onEditorDocMenuPick}
+        tabContextMenu={tabContextMenu}
+        tabContextMenuRef={tabContextMenuRef}
+        onTabContextPick={onTabContextPick}
+        saveConflictState={saveConflictState}
+        documentHistoryState={documentHistoryState}
       />
     </>
   )

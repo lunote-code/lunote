@@ -16,6 +16,17 @@ const abortByBlock = new Map<string, AbortController>()
 
 let drainScheduled = false
 let running = false
+let runningTask: BlockRenderTask | null = null
+
+function yieldToBrowser(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => resolve())
+      return
+    }
+    setTimeout(resolve, 0)
+  })
+}
 
 function sortQueue(): void {
   queue.sort((a, b) => {
@@ -52,6 +63,7 @@ async function drainQueue(): Promise<void> {
       prev?.abort()
       const ac = new AbortController()
       abortByBlock.set(task.blockId, ac)
+      runningTask = task
 
       try {
         await task.run(ac.signal)
@@ -62,14 +74,17 @@ async function drainQueue(): Promise<void> {
           recordCancelledRender()
         }
       } finally {
+        if (runningTask === task) runningTask = null
         if (abortByBlock.get(task.blockId) === ac) {
           abortByBlock.delete(task.blockId)
         }
       }
 
       recordQueueDepth(queue.length)
+      if (queue.length > 0) await yieldToBrowser()
     }
   } finally {
+    runningTask = null
     running = false
     if (queue.length > 0) scheduleDrain()
   }
@@ -120,6 +135,17 @@ export function flushBlockRenderQueue(): void {
   for (const ac of abortByBlock.values()) ac.abort()
   abortByBlock.clear()
   recordQueueDepth(0)
+}
+
+export function preemptLowerPriorityBlockRenderTasks(minPriority: RenderPriority): void {
+  if (runningTask && compareRenderPriority(runningTask.priority, minPriority) > 0) {
+    abortByBlock.get(runningTask.blockId)?.abort()
+  }
+  for (const task of [...queue]) {
+    if (compareRenderPriority(task.priority, minPriority) > 0) {
+      cancelBlockRenderTask(task.blockId)
+    }
+  }
 }
 
 export function getBlockRenderQueueDepth(): number {

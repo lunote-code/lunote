@@ -1,9 +1,28 @@
+/** Mermaid / code-block native source editors live inside ProseMirror but must keep browser editing shortcuts. */
+export function isBlockNativeSourceTextarea(el: HTMLElement | null): boolean {
+  if (!(el instanceof HTMLTextAreaElement)) return false
+  return !!el.dataset.mermaidBlockId || el.hasAttribute('data-code-block-input')
+}
+
 /** For auxiliary input such as CM search/replace panel, visual mode search bar, etc., you should use the browser's native editing shortcut keys.*/
 function isAuxiliaryEditorChromeInput(el: HTMLElement): boolean {
   if (el.closest('.cm-panel')) return true
   if (el.closest('.editor-search-overlay')) return true
-  if (el.closest('.mermaid-source-textarea')) return true
+  if (isBlockNativeSourceTextarea(el)) return true
   return false
+}
+
+export function readBlockNativeTextareaSelection():
+  | { text: string; textarea: HTMLTextAreaElement }
+  | null {
+  const active = document.activeElement
+  if (!(active instanceof HTMLTextAreaElement)) return null
+  if (!isBlockNativeSourceTextarea(active)) return null
+  const { selectionStart, selectionEnd, value } = active
+  return {
+    text: value.slice(selectionStart, selectionEnd),
+    textarea: active,
+  }
 }
 
 /** Whether the focus is on the text editor (ProseMirror / CodeMirror), used for Tauri Cmd+V to paste routes*/
@@ -14,7 +33,7 @@ export function isEditorPasteFocusTarget(): boolean {
   if (isAuxiliaryEditorChromeInput(active)) return false
 
   if (active.classList.contains('ProseMirror') || active.closest('.ProseMirror')) {
-    if (active.closest('.mermaid-source-textarea')) return false
+    if (isBlockNativeSourceTextarea(active)) return false
     return true
   }
 
@@ -35,6 +54,7 @@ export function isNonEditorTextInputTarget(): boolean {
   if (!(active instanceof HTMLElement)) return false
 
   if (isAuxiliaryEditorChromeInput(active)) return true
+  if (isBlockNativeSourceTextarea(active)) return true
 
   if (active.closest('.ProseMirror, .cm-editor')) return false
   if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return true

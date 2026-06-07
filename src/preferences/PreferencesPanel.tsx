@@ -22,20 +22,15 @@ import {
 } from '../theme-runtime/themeStylesheetRuntime'
 import { getActiveThemeSnippetNames, listAvailableThemeSnippets, subscribeThemeSnippetCatalog } from '../theme-runtime/themeSnippetRuntime'
 import { renderAppearanceAfterSection } from './appearance/renderAppearanceSections'
-
-const PANEL_HEADING: Record<PrefsTabId, string> = {
-  general: 'settings.sidebar.general',
-  appearance: 'settings.sidebar.appearance',
-  export: 'settings.sidebar.export',
-  editor: 'settings.sidebar.editor',
-  language: 'settings.sidebar.language',
-  shortcuts: 'settings.sidebar.shortcuts',
-}
+import { EditorPerformanceCallout } from './editor/EditorPerformanceCallout'
+import { WorkspaceNotesSettings } from './workspace/WorkspaceNotesSettings'
 
 type Props = {
   t: TranslateFn
   activeTab: PrefsTabId
   effectiveLocale: UiLocaleId
+  workspaceRoot?: string
+  searchQuery?: string
   pendingRestart: 'language' | null
   onSettingAction: SettingsActionHandler
   onSettingFile?: (actionId: string, path: string, file: File) => void | Promise<void>
@@ -47,6 +42,8 @@ export function PreferencesPanel({
   t,
   activeTab,
   effectiveLocale,
+  workspaceRoot = '',
+  searchQuery = '',
   pendingRestart,
   onSettingAction,
   onSettingFile,
@@ -86,23 +83,31 @@ export function PreferencesPanel({
   const availableExportStyles = listAvailableThemeExportStyles()
 
   const renderBeforeSection = (group: GroupSetting): ReactNode => {
-    if (group.id !== 'language.general' || pendingRestart !== 'language') return null
-    return (
-      <SettingsCard tone="accent" role="status">
-        <p className="prefs-restart-text">{t('prefs.language.restartRequired')}</p>
-        <div className="settings-inline-controls">
-          <SettingsButton type="button" variant="primary" onClick={() => void onRestartNow()}>
-            {t('prefs.restart.now')}
-          </SettingsButton>
-          <SettingsButton type="button" variant="secondary" onClick={onLater}>
-            {t('prefs.restart.later')}
-          </SettingsButton>
-        </div>
-      </SettingsCard>
-    )
+    if (activeTab === 'templates' && group.id === 'templates.workspace') {
+      return <WorkspaceNotesSettings t={t} rootDir={workspaceRoot} highlightQuery={searchQuery} />
+    }
+    return null
   }
 
   const renderAfterSection = (group: GroupSetting): ReactNode => {
+    if (group.id === 'language.general' && pendingRestart === 'language') {
+      return (
+        <SettingsCard tone="accent" role="status">
+          <p className="prefs-restart-text">{t('prefs.language.restartRequired')}</p>
+          <div className="settings-inline-controls">
+            <SettingsButton type="button" variant="primary" onClick={() => void onRestartNow()}>
+              {t('prefs.restart.now')}
+            </SettingsButton>
+            <SettingsButton type="button" variant="secondary" onClick={onLater}>
+              {t('prefs.restart.later')}
+            </SettingsButton>
+          </div>
+        </SettingsCard>
+      )
+    }
+    if (activeTab === 'editor' && group.id === 'editor.autosave') {
+      return <EditorPerformanceCallout t={t} />
+    }
     if (group.section === 'appearance' || group.section === 'export') {
       return renderAppearanceAfterSection({
         t,
@@ -129,7 +134,7 @@ export function PreferencesPanel({
         aria-labelledby={`prefs-tab-${activeTab}`}
       >
         <div key={activeTab} className="prefs-content-body prefs-panel-animate">
-          <ShortcutsPreferencesPanel t={t} />
+          <ShortcutsPreferencesPanel t={t} highlightQuery={searchQuery} />
         </div>
       </div>
     )
@@ -145,7 +150,7 @@ export function PreferencesPanel({
       <div key={activeTab} className="prefs-content-body prefs-panel-animate">
         <SettingsRenderer
           section={activeTab}
-          title={t(PANEL_HEADING[activeTab])}
+          highlightQuery={searchQuery}
           resolveOptions={resolveOptions}
           renderBeforeSection={renderBeforeSection}
           renderAfterSection={renderAfterSection}

@@ -167,3 +167,22 @@ pub fn unwatch_workspace_root<R: Runtime>(app: &AppHandle<R>, root: &str) -> Res
   pending.remove(&key);
   Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+  use super::should_ignore_event;
+
+  #[test]
+  fn should_ignore_event_normalizes_windows_separators() {
+    assert!(should_ignore_event(r"C:\vault\.git\config"));
+    assert!(should_ignore_event(r"C:\vault\node_modules\pkg\index.js"));
+    assert!(!should_ignore_event(r"C:\vault\notes\readme.md"));
+  }
+
+  #[test]
+  fn should_ignore_event_ignores_hidden_and_build_artifacts() {
+    assert!(should_ignore_event("/workspace/.luna-write-tmp"));
+    assert!(should_ignore_event("/workspace/target/debug/app"));
+    assert!(should_ignore_event("/workspace/dist/assets/main.js"));
+  }
+}

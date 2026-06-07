@@ -1,9 +1,9 @@
+import { isMacDesktopPlatform } from '../platform/desktopPlatform'
+
 /** Convert the Mod in the schema into shortcut key copy for current platform display*/
 export function formatAcceleratorForDisplay(acc: string | undefined): string {
   if (!acc) return ''
-  const isMac =
-    typeof navigator !== 'undefined' &&
-    (navigator.platform.toLowerCase().includes('mac') || navigator.userAgent.includes('Mac'))
+  const isMac = isMacDesktopPlatform()
   let out = acc
     .replace(/Mod\+/gi, isMac ? '⌘' : 'Ctrl+')
     .replace(/Ctrl\+/gi, isMac ? '⌃' : 'Ctrl+')
@@ -82,6 +82,17 @@ export function toTauriAccelerator(acc: string | undefined): string | undefined 
     .replace(/^Shift\+F(\d+)$/i, 'Shift+F$1')
     .replace(/^Alt\+F(\d+)$/i, 'Alt+F$1')
   return out
+}
+
+/** Global shortcut plugin: CommandOrControl+Shift+D style (from manifest Mod+Shift+d). */
+export function toGlobalShortcutAccelerator(acc: string | undefined): string | undefined {
+  const tauri = toTauriAccelerator(acc)
+  if (!tauri) return undefined
+  return tauri
+    .replace(/CmdOrCtrl\+/gi, 'CommandOrControl+')
+    .replace(/\+Key([A-Z])/gi, '+$1')
+    .replace(/\+Digit(\d)/gi, '+$1')
+    .replace(/\+([a-z])$/i, (_, letter: string) => `+${letter.toUpperCase()}`)
 }
 
 export type ParsedAccelerator = {

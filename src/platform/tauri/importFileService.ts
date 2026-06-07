@@ -1,4 +1,5 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
+import { open } from '@tauri-apps/plugin-dialog'
 
 export type PickedImportFile = {
   fileName: string
@@ -6,18 +7,32 @@ export type PickedImportFile = {
   dataBase64: string
 }
 
+function normalizeDialogPaths(result: string | string[] | null): string[] {
+  if (result == null) return []
+  return Array.isArray(result) ? result : [result]
+}
+
+/** Pick via non-blocking plugin dialog, then read bytes on the Rust side. */
 export async function pickImportFilesBase64(options: {
   title: string
   multiple?: boolean
   extensions?: string[]
 }): Promise<PickedImportFile[]> {
   if (!isTauri()) return []
-  return invoke<PickedImportFile[]>('pick_import_files_base64', {
-    payload: {
-      title: options.title,
-      multiple: options.multiple ?? false,
-      extensions: options.extensions,
-    },
+
+  const multiple = options.multiple ?? false
+  const exts = options.extensions?.filter((e) => e.length > 0)
+  const selected = await open({
+    title: options.title,
+    multiple,
+    directory: false,
+    ...(exts?.length ? { filters: [{ name: 'files', extensions: exts }] } : {}),
+  })
+  const paths = normalizeDialogPaths(selected)
+  if (paths.length === 0) return []
+
+  return invoke<PickedImportFile[]>('read_import_files_base64', {
+    payload: { paths },
   })
 }
 

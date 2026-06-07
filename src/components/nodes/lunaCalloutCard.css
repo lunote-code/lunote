@@ -1,16 +1,8 @@
-/*GitHub + Obsidian integration: card callout, dark and light theme tokens, only within the editor ProseMirror*/
+/*GitHub + Obsidian integration: card callout; type hues from calloutThemeTokens.css (preset-aware).*/
 
 .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout.luna-callout-card {
   --lc-accent: var(--accent);
   --lc-accent-mid: color-mix(in srgb, var(--lc-accent) 42%, var(--text-primary));
-  --lc-bg: color-mix(in srgb, var(--lc-accent) 7%, var(--surface-editor));
-  --lc-bg-2: color-mix(in srgb, var(--lc-accent) 4%, var(--surface-panel));
-  --lc-border: color-mix(in srgb, var(--lc-accent) 22%, var(--border-subtle));
-  --lc-border-hover: color-mix(in srgb, var(--lc-accent) 38%, var(--border-subtle));
-  --lc-title: color-mix(in srgb, var(--lc-accent) 58%, var(--text-primary));
-  --lc-shadow: 0 2px 14px color-mix(in srgb, #000 6%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--border-subtle) 55%, transparent);
-
   box-sizing: border-box;
   width: 100%;
   max-width: min(var(--editor-column-width), 100%);
@@ -31,60 +23,35 @@
     0 0 0 1px color-mix(in srgb, var(--lc-accent) 18%, var(--border-subtle));
 }
 
-/*Type color (light color: pastel tint)*/
+/*Type accents follow preset palette via shared callout tokens (--link / --accent / semantic hues).*/
 .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='note'],
 .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='info'] {
-  --lc-accent: #3b82f6;
+  --lc-accent: var(--luna-callout-note);
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='tip'] {
-  --lc-accent: #22c55e;
+  --lc-accent: var(--luna-callout-tip);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='success'] {
+  --lc-accent: var(--luna-callout-success);
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='important'] {
-  --lc-accent: #a855f7;
+  --lc-accent: var(--luna-callout-important);
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='warning'] {
-  --lc-accent: #ea580c;
+  --lc-accent: var(--luna-callout-warning);
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='caution'],
 .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='danger'] {
-  --lc-accent: #dc2626;
+  --lc-accent: var(--luna-callout-caution);
 }
 
-/*Dark color: low saturation, translucent, avoid glare*/
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout.luna-callout-card {
-  --lc-bg: color-mix(in srgb, var(--lc-accent) 12%, var(--surface-editor));
-  --lc-bg-2: color-mix(in srgb, var(--lc-accent) 7%, var(--surface-panel));
-  --lc-border: color-mix(in srgb, var(--lc-accent) 28%, var(--border-subtle));
-  --lc-border-hover: color-mix(in srgb, var(--lc-accent) 44%, var(--border-subtle));
-  --lc-title: color-mix(in srgb, var(--lc-accent) 45%, var(--text-primary));
-  --lc-shadow: 0 2px 20px color-mix(in srgb, #000 28%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--border-subtle) 40%, transparent);
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='note'],
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='info'] {
-  --lc-accent: #60a5fa;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='tip'] {
-  --lc-accent: #4ade80;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='important'] {
-  --lc-accent: #c084fc;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='warning'] {
-  --lc-accent: #fb923c;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='caution'],
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='danger'] {
-  --lc-accent: #f87171;
+.preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout[data-luna-callout='danger'] {
+  --lc-accent: var(--luna-callout-danger);
 }
 
 /*Header/Text*/
@@ -109,8 +76,8 @@ html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .luna-callout-card__header--interactive:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--lc-accent) 55%, transparent);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--luna-focus-ring);
   border-radius: 6px;
 }
 

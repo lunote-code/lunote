@@ -310,14 +310,6 @@ function mergeIncomingFromKeys(keys: readonly DocKey[]): LinkRef[] {
 
 export function getIncomingLinkRefs(docKey: DocKey): readonly LinkRef[] {
   const merged = mergeIncomingFromKeys(incomingKeysForTarget(docKey))
-
-  if (import.meta.env.DEV) {
-    console.debug('[BacklinkIncoming]', {
-      target: docKey,
-      canonicalTarget: canonicalDocKeyForGraph(docKey),
-      incomingCount: merged.length,
-    })
-  }
   return merged
 }
 

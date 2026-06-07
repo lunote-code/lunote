@@ -1,15 +1,18 @@
 import { Mark, mergeAttributes } from '@tiptap/core'
 
-/** Default color shared between right-click menu and Markdown*/
+/** Soft, eye-friendly presets (lower saturation) for toolbar and Markdown. */
 export const LUNA_TEXT_COLOR_PRESETS = [
-  { id: 'red', value: '#e03131', labelKey: 'ctx.editor.textColor.red' },
-  { id: 'orange', value: '#f08c00', labelKey: 'ctx.editor.textColor.orange' },
-  { id: 'yellow', value: '#fab005', labelKey: 'ctx.editor.textColor.yellow' },
-  { id: 'green', value: '#2f9e44', labelKey: 'ctx.editor.textColor.green' },
-  { id: 'blue', value: '#1971c2', labelKey: 'ctx.editor.textColor.blue' },
-  { id: 'purple', value: '#9c36b5', labelKey: 'ctx.editor.textColor.purple' },
-  { id: 'gray', value: '#868e96', labelKey: 'ctx.editor.textColor.gray' },
+  { id: 'red', value: '#b56b62', labelKey: 'ctx.editor.textColor.red' },
+  { id: 'orange', value: '#b8895a', labelKey: 'ctx.editor.textColor.orange' },
+  { id: 'yellow', value: '#9a9048', labelKey: 'ctx.editor.textColor.yellow' },
+  { id: 'green', value: '#4d7c5e', labelKey: 'ctx.editor.textColor.green' },
+  { id: 'blue', value: '#5b7d96', labelKey: 'ctx.editor.textColor.blue' },
+  { id: 'purple', value: '#7d7291', labelKey: 'ctx.editor.textColor.purple' },
+  { id: 'gray', value: '#6e736c', labelKey: 'ctx.editor.textColor.gray' },
 ] as const
+
+/** Default custom-picker seed (sage green). */
+export const LUNA_TEXT_COLOR_DEFAULT = LUNA_TEXT_COLOR_PRESETS[3].value
 
 const NAMED_COLORS = new Set([
   'black',
@@ -33,6 +36,29 @@ const NAMED_COLORS = new Set([
   'fuchsia',
   'magenta',
 ])
+
+const DEFAULT_COLOR_INPUT_HEX = LUNA_TEXT_COLOR_DEFAULT
+
+/** Expand #rgb → #rrggbb for `<input type="color">` (falls back when parsing fails). */
+export function toNativeColorInputValue(color: string | null | undefined): string {
+  const normalized = normalizeTextColor(color)
+  if (!normalized) return DEFAULT_COLOR_INPUT_HEX
+  if (/^#[0-9a-f]{6}$/iu.test(normalized)) return normalized
+  if (/^#[0-9a-f]{3}$/iu.test(normalized)) {
+    const [r, g, b] = normalized.slice(1)
+    return `#${r}${r}${g}${g}${b}${b}`
+  }
+  if (typeof document === 'undefined') return DEFAULT_COLOR_INPUT_HEX
+  const probe = document.createElement('span')
+  probe.style.color = normalized
+  document.body.appendChild(probe)
+  const computed = getComputedStyle(probe).color
+  probe.remove()
+  const m = computed.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/iu)
+  if (!m) return DEFAULT_COLOR_INPUT_HEX
+  const hex = (n: string) => Number(n).toString(16).padStart(2, '0')
+  return `#${hex(m[1]!)}${hex(m[2]!)}${hex(m[3]!)}`
+}
 
 /** Verify and normalize color values that are safe to write to Markdown/style*/
 export function normalizeTextColor(raw: unknown): string | null {

@@ -7,6 +7,7 @@ const MERMAID_FALLBACK_COLORS: MermaidResolvedColors = {
   elevated: '#e9ecef',
   text: '#212529',
   border: '#ced4da',
+  edge: '#495057',
   accent: '#0d6efd',
 }
 
@@ -55,6 +56,23 @@ function isBranchElement(el: Element): boolean {
   return el.matches('.mindmap-link, .pm-mindmap-link, .pm-mindmap-edges path')
 }
 
+function isFlowchartConnector(el: Element): boolean {
+  if (el.matches('marker path, defs marker path, [id*="arrowhead"] path, [id*="arrow"] path')) {
+    return true
+  }
+  if (el.tagName.toLowerCase() !== 'path') return false
+  if (el.closest('.node, .cluster, .mindmap-node, .pm-mindmap-node, .labelBox')) return false
+  return (
+    el.matches(
+      '.edgePath path, .edgePaths path, .edges path, .flowchart-link, .messageLine0, .messageLine1, .actor-line',
+    ) || el.closest('.edgePath, .edgePaths, .edges') != null
+  )
+}
+
+function isMarkerElement(el: Element): boolean {
+  return el.closest('marker') != null || el.matches('[id*="arrowhead"], [id*="arrow"]')
+}
+
 function isMindmapNodeShape(el: Element): boolean {
   return el.matches('.mindmap-node rect, .mindmap-node circle, .mindmap-node polygon, .pm-mindmap-node rect, .pm-mindmap-node circle, .pm-mindmap-node polygon')
 }
@@ -73,6 +91,7 @@ function resolveVarColor(value: string, colors: ReturnType<typeof resolveMermaid
     return colors.panel
   }
   if (v.includes('--color-bg-elevated') || v.includes('--cluster') || v.includes('--note')) return colors.elevated
+  if (v.includes('--color-text-muted') || v.includes('--text-muted')) return colors.edge
   if (v.includes('--color-border-subtle') || v.includes('--border-subtle') || v.includes('--line')) {
     return colors.border
   }
@@ -175,6 +194,12 @@ function replaceAttrColor(
     if (isWhite(value) || isBlack(value) || isDefaultDarkStroke(value)) el.setAttribute(attr, colors.accent)
     return
   }
+  if (isFlowchartConnector(el) || isMarkerElement(el)) {
+    if (isWhite(value) || isBlack(value) || isDefaultDarkStroke(value)) {
+      el.setAttribute(attr, colors.edge)
+    }
+    return
+  }
   if (isWhite(value) || isBlack(value) || isDefaultDarkStroke(value)) el.setAttribute(attr, colors.border)
 }
 
@@ -204,6 +229,10 @@ function replaceInlineStyleColor(el: SVGElement, colors: ReturnType<typeof resol
     if (isBranchElement(el)) {
       if (isWhite(stroke) || isBlack(stroke) || isDefaultDarkStroke(stroke)) {
         el.style.stroke = colors.accent
+      }
+    } else if (isFlowchartConnector(el) || isMarkerElement(el)) {
+      if (isWhite(stroke) || isBlack(stroke) || isDefaultDarkStroke(stroke)) {
+        el.style.stroke = colors.edge
       }
     } else if (isWhite(stroke) || isBlack(stroke) || isDefaultDarkStroke(stroke)) {
       el.style.stroke = colors.border
@@ -242,7 +271,7 @@ export function postProcessMermaidSvg(host: HTMLElement | null, colors?: Mermaid
     ].join(';'),
   )
 
-  if (colors) bakeSvgEmbeddedStyles(svg, c)
+  bakeSvgEmbeddedStyles(svg, c)
 
   for (const el of svg.querySelectorAll('*')) {
     const svgEl = el as SVGElement
@@ -280,8 +309,12 @@ export function postProcessMermaidSvg(host: HTMLElement | null, colors?: Mermaid
     shape.setAttribute('stroke', c.border)
   }
 
-  for (const el of svg.querySelectorAll('.actor-line, .messageLine0, .messageLine1, .flowchart-link')) {
-    ;(el as SVGElement).setAttribute('stroke', c.border)
+  for (const el of svg.querySelectorAll(
+    '.actor-line, .messageLine0, .messageLine1, .flowchart-link, .edgePaths path, .edges path',
+  )) {
+    const line = el as SVGElement
+    line.setAttribute('stroke', c.edge)
+    line.style.stroke = c.edge
   }
 
   for (const el of svg.querySelectorAll('.messageText, .loopText, .noteText, .messageText0, .messageText1')) {
@@ -294,8 +327,21 @@ export function postProcessMermaidSvg(host: HTMLElement | null, colors?: Mermaid
     shape.setAttribute('stroke', c.border)
   }
 
-  for (const el of svg.querySelectorAll('.edgePath path, .flowchart-link')) {
-    ;(el as SVGElement).setAttribute('stroke', c.border)
+  for (const el of svg.querySelectorAll('.edgePath path, .edgePaths path, .edges path, .flowchart-link')) {
+    const line = el as SVGElement
+    line.setAttribute('stroke', c.edge)
+    line.style.stroke = c.edge
+    if (!line.getAttribute('stroke-width')) {
+      line.setAttribute('stroke-width', '1.75')
+    }
+  }
+
+  for (const el of svg.querySelectorAll('marker path, defs marker path')) {
+    const marker = el as SVGElement
+    marker.setAttribute('fill', c.edge)
+    marker.setAttribute('stroke', c.edge)
+    marker.style.fill = c.edge
+    marker.style.stroke = c.edge
   }
 
   for (const el of svg.querySelectorAll('text, tspan')) {
@@ -329,8 +375,8 @@ export function postProcessMermaidSvg(host: HTMLElement | null, colors?: Mermaid
 
   for (const el of svg.querySelectorAll('foreignObject div, foreignObject span, foreignObject p')) {
     const label = el as HTMLElement
-    label.style.background = 'transparent'
-    label.style.backgroundColor = 'transparent'
+    label.style.background = c.panel
+    label.style.backgroundColor = c.panel
     label.style.color = c.text
     label.style.whiteSpace = 'nowrap'
     label.style.wordBreak = 'keep-all'

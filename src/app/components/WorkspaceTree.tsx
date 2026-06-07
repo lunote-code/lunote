@@ -2,7 +2,12 @@ import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent }
 import { pathSetHas, pathsEqual } from '../../lib/workspacePathUtils'
 import { Icon } from '../../design-system/icons'
 import type { FlatWorkspaceFile, FsTreeNode } from '../workspace/types'
-import { WorkspaceFolderDropTarget, workspaceParentDir, type WorkspaceDragTarget } from '../workspace/workspaceDrag'
+import {
+  WorkspaceFolderDropTarget,
+  isWorkspacePathDragging,
+  workspaceParentDir,
+  type WorkspaceDragTarget,
+} from '../workspace/workspaceDrag'
 import { preventButtonSecondaryMouseDown } from './preventButtonSecondaryMouseDown'
 
 export type WorkspaceTreeProps = {
@@ -12,13 +17,14 @@ export type WorkspaceTreeProps = {
   expandedDirs: Set<string>
   onToggleDir: (path: string) => void
   activePath: string
-  onOpenFile: (path: string) => void
+  isFileSelected?: (path: string) => boolean
+  onFileClick?: (e: ReactMouseEvent, path: string) => void
   onFileContextMenu?: (e: ReactMouseEvent, path: string, isDirectory?: boolean) => void
   dragOverTarget?: WorkspaceDragTarget | null
-  draggingFilePath?: string | null
+  draggingFilePath?: string[] | string | null
   onDragOverTarget?: (target: WorkspaceDragTarget | null) => void
-  onMoveFileToFolder?: (filePath: string, destDir: string) => void
-  onFilePointerDown?: (e: ReactPointerEvent, path: string) => void
+  onMoveFileToFolder?: (sourcePath: string | string[], destDir: string, isDirectory?: boolean) => void
+  onFilePointerDown?: (e: ReactPointerEvent, path: string, isDirectory?: boolean) => void
 }
 export function WorkspaceTree({
   nodes,
@@ -27,7 +33,8 @@ export function WorkspaceTree({
   expandedDirs,
   onToggleDir,
   activePath,
-  onOpenFile,
+  isFileSelected,
+  onFileClick,
   onFileContextMenu,
   dragOverTarget,
   draggingFilePath,
@@ -47,13 +54,17 @@ export function WorkspaceTree({
               draggingFilePath={draggingFilePath}
               onDragOverTarget={onDragOverTarget}
               onMoveFileToFolder={onMoveFileToFolder}
-              className="tree-folder"
+              className={`tree-folder${isWorkspacePathDragging(draggingFilePath, node.path) ? ' tree-folder-dragging' : ''}`}
               style={{ paddingLeft: 8 + depth * 14 }}
               onClick={() => onToggleDir(node.path)}
             >
               <span
                 className="tree-folder-inner"
                 onMouseDown={preventButtonSecondaryMouseDown}
+                onPointerDown={(e) => {
+                  if (!onFilePointerDown || e.button !== 0) return
+                  onFilePointerDown(e, node.path, true)
+                }}
                 onContextMenu={(e) => {
                   if (!onFileContextMenu) return
                   e.preventDefault()
@@ -81,13 +92,14 @@ export function WorkspaceTree({
                   expandedDirs={expandedDirs}
                   onToggleDir={onToggleDir}
                   activePath={activePath}
-                  onOpenFile={onOpenFile}
+                  isFileSelected={isFileSelected}
+                  onFileClick={onFileClick}
                   onFileContextMenu={onFileContextMenu}
                   dragOverTarget={dragOverTarget}
                   draggingFilePath={draggingFilePath}
                   onDragOverTarget={onDragOverTarget}
                   onMoveFileToFolder={onMoveFileToFolder}
-                  onFilePointerDown={onFilePointerDown}
+                  onFilePointerDown={(e, path, isDirectory) => onFilePointerDown?.(e, path, isDirectory)}
                 />
               </div>
             ) : null}
@@ -99,19 +111,19 @@ export function WorkspaceTree({
             key={node.path}
             data-workspace-file-path={node.path}
             data-workspace-drop-dir={workspaceParentDir(rootDir, node.path)}
-            className={`tree-file note-item ${pathsEqual(activePath, node.path) ? 'active' : ''}${pathsEqual(draggingFilePath, node.path) ? ' tree-file-dragging' : ''}${dragOverTarget?.kind === 'file' && pathsEqual(dragOverTarget.anchorPath, node.path) ? ' tree-file-drop-target' : ''}`}
+            className={`tree-file note-item ${pathsEqual(activePath, node.path) ? 'active' : ''}${isFileSelected?.(node.path) ? ' is-selected' : ''}${isWorkspacePathDragging(draggingFilePath, node.path) ? ' tree-file-dragging' : ''}${dragOverTarget?.kind === 'file' && pathsEqual(dragOverTarget.anchorPath, node.path) ? ' tree-file-drop-target' : ''}`}
             style={{ paddingLeft: 12 + depth * 14 + 20 }}
-            onClick={() => onOpenFile(node.path)}
+            onClick={(e) => onFileClick?.(e, node.path)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
-                onOpenFile(node.path)
+                onFileClick?.(e as unknown as ReactMouseEvent, node.path)
               }
             }}
             onMouseDown={preventButtonSecondaryMouseDown}
             onPointerDown={(e) => {
               if (!onFilePointerDown || e.button !== 0) return
-              onFilePointerDown(e, node.path)
+              onFilePointerDown(e, node.path, false)
             }}
             onContextMenu={(e) => {
               if (!onFileContextMenu) return
@@ -132,7 +144,8 @@ export function WorkspaceFlatList({
   files,
   rootDir,
   activePath,
-  onOpenFile,
+  isFileSelected,
+  onFileClick,
   onFileContextMenu,
   onFilePointerDown,
   draggingFilePath,
@@ -141,10 +154,11 @@ export function WorkspaceFlatList({
   files: FlatWorkspaceFile[]
   rootDir: string
   activePath: string
-  onOpenFile: (path: string) => void
+  isFileSelected?: (path: string) => boolean
+  onFileClick?: (e: ReactMouseEvent, path: string) => void
   onFileContextMenu?: (e: ReactMouseEvent, path: string, isDirectory?: boolean) => void
-  onFilePointerDown?: (e: ReactPointerEvent, path: string) => void
-  draggingFilePath?: string | null
+  onFilePointerDown?: (e: ReactPointerEvent, path: string, isDirectory?: boolean) => void
+  draggingFilePath?: string[] | string | null
   dragOverTarget?: WorkspaceDragTarget | null
 }) {
   return (
@@ -156,18 +170,18 @@ export function WorkspaceFlatList({
           key={f.path}
           data-workspace-file-path={f.path}
           data-workspace-drop-dir={workspaceParentDir(rootDir, f.path)}
-          className={`note-item file-list-flat-item ${pathsEqual(activePath, f.path) ? 'active' : ''}${pathsEqual(draggingFilePath, f.path) ? ' tree-file-dragging' : ''}${dragOverTarget?.kind === 'file' && pathsEqual(dragOverTarget.anchorPath, f.path) ? ' tree-file-drop-target' : ''}`}
-          onClick={() => onOpenFile(f.path)}
+          className={`note-item file-list-flat-item ${pathsEqual(activePath, f.path) ? 'active' : ''}${isFileSelected?.(f.path) ? ' is-selected' : ''}${isWorkspacePathDragging(draggingFilePath, f.path) ? ' tree-file-dragging' : ''}${dragOverTarget?.kind === 'file' && pathsEqual(dragOverTarget.anchorPath, f.path) ? ' tree-file-drop-target' : ''}`}
+          onClick={(e) => onFileClick?.(e, f.path)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault()
-              onOpenFile(f.path)
+              onFileClick?.(e as unknown as ReactMouseEvent, f.path)
             }
           }}
           onMouseDown={preventButtonSecondaryMouseDown}
           onPointerDown={(e) => {
             if (!onFilePointerDown || e.button !== 0) return
-            onFilePointerDown(e, f.path)
+            onFilePointerDown(e, f.path, false)
           }}
           onContextMenu={(e) => {
             if (!onFileContextMenu) return
@@ -176,12 +190,10 @@ export function WorkspaceFlatList({
             onFileContextMenu(e, f.path, false)
           }}
         >
-          <span className="file-list-flat-row">
-            <Icon name="note" size="sm" className="tree-icon" tone="muted" />
-            <span className="file-list-flat-text">
-              <span className="file-list-flat-label">{f.label}</span>
-              {f.sublabel ? <span className="file-list-flat-sublabel">{f.sublabel}</span> : null}
-            </span>
+          <Icon name="note" size="sm" className="tree-icon file-list-flat-icon" tone="muted" />
+          <span className="file-list-flat-text">
+            <span className="file-list-flat-label">{f.label}</span>
+            {f.sublabel ? <span className="file-list-flat-sublabel">{f.sublabel}</span> : null}
           </span>
         </div>
       ))}

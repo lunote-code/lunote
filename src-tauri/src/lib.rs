@@ -1,11 +1,16 @@
 mod app_settings;
+mod chrome_candidates;
 mod clipboard;
 mod commands;
 mod core;
+mod logging;
 mod luna_paths;
 mod pdf_render;
 mod theme;
+mod theme_migration;
 mod app_menu;
+mod mac_boot_menu;
+mod mac_menu_template;
 
 pub(crate) use app_menu::handle_native_shell_menu;
 
@@ -60,7 +65,9 @@ pub struct ThemeMenuCssNames(pub Mutex<Vec<String>>);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+  logging::install_panic_hook();
   tauri::Builder::default()
+    .enable_macos_default_menu(false)
     .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
       if let Some(win) = app.get_webview_window("main") {
         let _ = win.unminimize();
@@ -69,19 +76,18 @@ pub fn run() {
       }
     }))
     .plugin(tauri_plugin_opener::init())
+    .plugin(tauri_plugin_os::init())
     .plugin(tauri_plugin_process::init())
     .plugin(tauri_plugin_dialog::init())
     .setup(|app| {
-      if cfg!(debug_assertions) {
-        app.handle().plugin(
-          tauri_plugin_log::Builder::default()
-            .level(log::LevelFilter::Info)
-            .build(),
-        )?;
-      }
+      #[cfg(not(any(target_os = "android", target_os = "ios")))]
+      app.handle()
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())?;
+      logging::init_file_logger(log::LevelFilter::Info)?;
 
       let conn = Connection::open_in_memory()?;
       luna_paths::ensure_luna_dirs()?;
+      logging::log_startup_banner();
       core::search::init_schema(&conn)?;
       app.manage(AppState {
         search_conn: Mutex::new(conn),
@@ -92,6 +98,11 @@ pub fn run() {
       app.manage(core::workspace_watch::WorkspaceWatchState::new());
       app.manage(RecentMenuPaths(Mutex::new(Vec::new())));
       app.manage(ThemeMenuCssNames(Mutex::new(Vec::new())));
+
+      #[cfg(target_os = "macos")]
+      if let Err(e) = mac_boot_menu::install_startup_menu(app.handle()) {
+        log::error!("macOS boot menu install failed: {e}");
+      }
 
       if let Some(win) = app.get_webview_window("main") {
         let icon_bytes = include_bytes!("../icons/32x32.png");
@@ -186,6 +197,11 @@ pub fn run() {
       commands::read_luna_workspace,
       commands::write_luna_workspace,
       commands::append_luna_log,
+      commands::document_history::create_document_snapshot,
+      commands::document_history::list_document_snapshots,
+      commands::document_history::read_document_snapshot,
+      commands::document_history::delete_document_snapshot,
+      commands::document_history::delete_all_document_snapshots,
       commands::save_luna_asset_file,
       commands::read_luna_asset_index,
       commands::write_luna_asset_index,
@@ -197,7 +213,10 @@ pub fn run() {
       commands::note_file_stat,
       commands::open_trusted_path,
       commands::open_external_url,
-      commands::pick_import_files_base64,
+      commands::read_import_files_base64,
+      commands::import_external_paths_into_workspace,
+      commands::import_dropped_file_bytes,
+      commands::workspace_path_is_directory,
       commands::import_markdown_via_dialog,
       commands::list_markdown_files,
       commands::list_workspace_tree,
@@ -209,6 +228,7 @@ pub fn run() {
       commands::sync_recent_menu,
       commands::sync_theme_css_menu,
       commands::sync_view_fullscreen_menu_checked,
+      mac_menu_template::sync_mac_native_menu_icon_templates,
       commands::get_app_settings,
       commands::save_app_settings,
       commands::index_notes,

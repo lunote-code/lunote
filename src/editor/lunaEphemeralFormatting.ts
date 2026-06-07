@@ -38,6 +38,8 @@ export const LunaEphemeralFormattingShortcuts = Extension.create({
       'Mod-`': dispatch('fmt-inline-code'),
       'Mod-Shift-s': dispatch('fmt-strike'),
       'Mod-Shift-S': dispatch('fmt-strike'),
+      'Mod-Shift-h': dispatch('fmt-highlight'),
+      'Mod-Shift-H': dispatch('fmt-highlight'),
     }
   },
 })

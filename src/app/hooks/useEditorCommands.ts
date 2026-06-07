@@ -1,8 +1,15 @@
 import { useCallback, type MutableRefObject, type RefObject } from 'react'
 import { findNext as cmFindNext, findPrevious as cmFindPrevious, openSearchPanel } from '@codemirror/search'
 import { markdownToPlainHtmlFragment } from '../../markdownExport'
+import { attachDocumentFrontmatter, syncDocumentFrontmatterFromMarkdown } from '../../editor/documentFrontmatterStore'
 import { setSourceModeIdentity } from '../../editor/sourceModeIdentity'
-import { dispatchDocumentCommand } from '../../documentRuntime/documentKernel'
+import { dispatchDocumentCommand, getDocumentSavedContent } from '../../documentRuntime/documentKernel'
+import {
+  checkBlankContentSuspect,
+  isTabNavLogEnabled,
+  logTabNav,
+  snapshotDocumentBodyMeta,
+} from '../../lib/tabNavigationDebug'
 import { pathsEqual } from '../../lib/workspacePathUtils'
 import {
   bridgeDeleteSelection,
@@ -12,10 +19,19 @@ import {
 } from '../../editor/editorMutationBridge'
 import { imageAltFromFileName, pickLocalImageFiles } from '../../editor/lunaInsertImagePicker'
 import { pasteFromNavigatorClipboard } from '../../editor/pasteFromNavigatorClipboard'
+import {
+  codeBlockCmCutSelection,
+  codeBlockCmSelectedText,
+} from '../../editor/codeBlock/cm/codeBlockContextMenuActions'
+import {
+  getFocusedCodeBlockCmView,
+  isCodeBlockCmFocused,
+} from '../../editor/codeBlock/cm/codeBlockCmFocus'
+import { readBlockNativeTextareaSelection } from '../../editor/webviewPasteFocus'
 import type { TiptapMarkdownEditorHandle } from '../../editor/TiptapMarkdownEditor'
 import type { EditorView } from '@codemirror/view'
 import type { TranslateFn } from '../../i18n'
-import { LARGE_DOC_THRESHOLD } from '../workspace/constants'
+import { isBufferTabId, LARGE_DOC_THRESHOLD } from '../workspace/constants'
 
 export type EditorCommandsDeps = {
   t: TranslateFn
@@ -23,6 +39,7 @@ export type EditorCommandsDeps = {
   mainPaneModeRef: MutableRefObject<'visual' | 'source'>
   activePathRef: RefObject<string>
   contentRef: RefObject<string>
+  documentNavigationInProgressRef: MutableRefObject<boolean>
   visualEditorRef: RefObject<TiptapMarkdownEditorHandle | null>
   editorViewRef: RefObject<EditorView | null>
   kernelContentDebounceRef: MutableRefObject<ReturnType<typeof setTimeout> | null>
@@ -37,6 +54,7 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
     mainPaneModeRef,
     activePathRef,
     contentRef,
+    documentNavigationInProgressRef,
     visualEditorRef,
     editorViewRef,
     kernelContentDebounceRef,
@@ -89,11 +107,39 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
 
   const copySelectionAs = useCallback(
     async (kind: 'plain' | 'markdown' | 'html') => {
+      const nativeSelection = readBlockNativeTextareaSelection()
+      if (nativeSelection) {
+        const text = kind === 'markdown' ? nativeSelection.textarea.value : nativeSelection.text
+        if (kind === 'html') {
+          const frag = await markdownToPlainHtmlFragment(text)
+          await navigator.clipboard.writeText(frag)
+        } else {
+          await navigator.clipboard.writeText(text)
+        }
+        return
+      }
+      if (mainPaneMode === 'visual' && isCodeBlockCmFocused()) {
+        const cm = getFocusedCodeBlockCmView()
+        if (cm) {
+          const text = codeBlockCmSelectedText(cm)
+          if (!text) return
+          if (kind === 'html') {
+            const frag = await markdownToPlainHtmlFragment(text)
+            await navigator.clipboard.writeText(frag)
+          } else {
+            await navigator.clipboard.writeText(text)
+          }
+          return
+        }
+      }
       if (mainPaneMode === 'visual') {
-        const text =
+        let text =
           kind === 'plain'
             ? (visualEditorRef.current?.getSelectedText() ?? '')
             : (visualEditorRef.current?.getSelectedMarkdown() ?? '')
+        if (kind === 'plain' && !text.trim()) {
+          text = visualEditorRef.current?.getSelectedMarkdown() ?? ''
+        }
         if (kind === 'html') {
           const frag = await markdownToPlainHtmlFragment(text)
           await navigator.clipboard.writeText(frag)
@@ -117,6 +163,30 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
   )
 
   const cutSelectionToClipboard = useCallback(async () => {
+    const nativeSelection = readBlockNativeTextareaSelection()
+    if (nativeSelection) {
+      if (!nativeSelection.text) return
+      if (typeof document.execCommand === 'function' && document.execCommand('cut')) {
+        setStatus(t('app.status.cutDone'))
+        return
+      }
+      const { textarea, text } = nativeSelection
+      await navigator.clipboard.writeText(text)
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      textarea.setRangeText('', start, end, 'end')
+      textarea.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteByCut' }))
+      textarea.focus()
+      setStatus(t('app.status.cutDone'))
+      return
+    }
+    if (mainPaneMode === 'visual' && isCodeBlockCmFocused()) {
+      const cm = getFocusedCodeBlockCmView()
+      if (cm) {
+        await codeBlockCmCutSelection(cm)
+        return
+      }
+    }
     if (mainPaneMode === 'visual') {
       const text = visualEditorRef.current?.getSelectedText() ?? ''
       if (!text) return
@@ -179,15 +249,86 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
     }
   }, [kernelContentDebounceRef])
 
+  const shouldNormalizeEditorValueAgainstSaved = useCallback(
+    (path: string, value: string): boolean => {
+      if (mainPaneModeRef.current !== 'visual') return false
+      const visual = visualEditorRef.current
+      if (!visual) return false
+      if (!pathsEqual(visual.getBoundDocumentKey(), path)) return false
+      const saved = getDocumentSavedContent(path)
+      if (saved == null) return false
+      const normalizedValue = visual.normalizeMarkdownForCompare(value)
+      const normalizedSaved = visual.normalizeMarkdownForCompare(saved)
+      return normalizedValue != null && normalizedSaved != null && normalizedValue === normalizedSaved
+    },
+    [mainPaneModeRef, visualEditorRef],
+  )
+
+  const isSuspiciousNavigationShrink = useCallback(
+    (path: string, previousValue: string, nextValue: string) => {
+      if (!documentNavigationInProgressRef.current) return false
+      if (!path || path === 'scratch' || isBufferTabId(path)) return false
+      if (nextValue.length > 2 || nextValue.trim().length > 0) return false
+      return previousValue.trim().length > 32
+    },
+    [documentNavigationInProgressRef],
+  )
+
   const handleEditorContentChange = useCallback(
     (value: string) => {
       const pathAtChange = activePathRef.current || 'scratch'
       if (mainPaneMode === 'visual' && visualEditorRef.current) {
         const bound = visualEditorRef.current.getBoundDocumentKey()
-        if (!pathsEqual(bound, pathAtChange)) return
+        if (!pathsEqual(bound, pathAtChange)) {
+          if (isTabNavLogEnabled()) {
+            logTabNav('editor-content-change-skipped', {
+              reason: 'visual-editor-bound-mismatch',
+              pathAtChange,
+              boundDocumentKey: bound,
+              next: snapshotDocumentBodyMeta(pathAtChange, value),
+            })
+          }
+          return
+        }
       }
+      const previousValue = contentRef.current
+      if (isSuspiciousNavigationShrink(pathAtChange, previousValue, value)) {
+        logTabNav('editor-content-change-skipped', {
+          reason: 'navigation-suspicious-shrink',
+          path: pathAtChange,
+          mode: mainPaneMode,
+          navigationInProgress: documentNavigationInProgressRef.current,
+          previous: snapshotDocumentBodyMeta(pathAtChange, previousValue),
+          next: snapshotDocumentBodyMeta(pathAtChange, value),
+        })
+        checkBlankContentSuspect('editor-content-change-guard', pathAtChange, value, {
+          mode: mainPaneMode,
+          navigationInProgress: documentNavigationInProgressRef.current,
+          previous: snapshotDocumentBodyMeta(pathAtChange, previousValue),
+        })
+        return
+      }
+      if (isTabNavLogEnabled()) {
+        logTabNav('editor-content-change', {
+          path: pathAtChange,
+          mode: mainPaneMode,
+          previous: snapshotDocumentBodyMeta(pathAtChange, previousValue),
+          next: snapshotDocumentBodyMeta(pathAtChange, value),
+        })
+      }
+      checkBlankContentSuspect('editor-content-change', pathAtChange, value, {
+        mode: mainPaneMode,
+        previous: snapshotDocumentBodyMeta(pathAtChange, previousValue),
+      })
       contentRef.current = value
-      if (pathAtChange !== 'scratch') setSourceModeIdentity(pathAtChange, value)
+      if (pathAtChange !== 'scratch') {
+        if (mainPaneMode === 'source') {
+          syncDocumentFrontmatterFromMarkdown(pathAtChange, value)
+          setSourceModeIdentity(pathAtChange, value)
+        } else {
+          setSourceModeIdentity(pathAtChange, attachDocumentFrontmatter(pathAtChange, value))
+        }
+      }
       cancelPendingKernelContentDebounce()
       const debounceMs = value.length >= LARGE_DOC_THRESHOLD ? 200 : 80
       const scheduledPath = pathAtChange
@@ -197,17 +338,65 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
 
         // Drop stale dispatches once tab/path changed; prevents path-content mismatch.
         const currentPath = activePathRef.current || 'scratch'
-        if (!pathsEqual(currentPath, scheduledPath)) return
+        if (!pathsEqual(currentPath, scheduledPath)) {
+          if (isTabNavLogEnabled()) {
+            logTabNav('editor-content-change-skipped', {
+              reason: 'scheduled-path-stale',
+              scheduledPath,
+              currentPath,
+              scheduled: snapshotDocumentBodyMeta(scheduledPath, scheduledValue),
+            })
+          }
+          return
+        }
 
         if (mainPaneModeRef.current === 'visual' && visualEditorRef.current) {
           const bound = visualEditorRef.current.getBoundDocumentKey()
-          if (!pathsEqual(bound, scheduledPath)) return
+          if (!pathsEqual(bound, scheduledPath)) {
+            if (isTabNavLogEnabled()) {
+              logTabNav('editor-content-change-skipped', {
+                reason: 'scheduled-visual-bound-mismatch',
+                scheduledPath,
+                currentPath,
+                boundDocumentKey: bound,
+                scheduled: snapshotDocumentBodyMeta(scheduledPath, scheduledValue),
+              })
+            }
+            return
+          }
         }
+        const shouldNormalize = shouldNormalizeEditorValueAgainstSaved(scheduledPath, scheduledValue)
+        if (import.meta.env.DEV) {
+          console.debug('[editor-dirty-probe]', {
+            path: scheduledPath,
+            source: shouldNormalize ? 'normalize-on-editor-sync' : 'editor',
+            debounceMs,
+            shouldNormalize,
+            content: snapshotDocumentBodyMeta(scheduledPath, scheduledValue),
+            saved: snapshotDocumentBodyMeta(scheduledPath, getDocumentSavedContent(scheduledPath)),
+          })
+        }
+        if (isTabNavLogEnabled()) {
+          logTabNav('editor-kernel-dispatch', {
+            path: scheduledPath,
+            source: shouldNormalize ? 'normalize-on-editor-sync' : 'editor',
+            debounceMs,
+            content: snapshotDocumentBodyMeta(scheduledPath, scheduledValue),
+            saved: snapshotDocumentBodyMeta(scheduledPath, getDocumentSavedContent(scheduledPath)),
+            shouldNormalize,
+          })
+        }
+        checkBlankContentSuspect('editor-kernel-dispatch', scheduledPath, scheduledValue, {
+          source: shouldNormalize ? 'normalize-on-editor-sync' : 'editor',
+          debounceMs,
+          saved: snapshotDocumentBodyMeta(scheduledPath, getDocumentSavedContent(scheduledPath)),
+          shouldNormalize,
+        })
         void dispatchDocumentCommand({
-          type: 'DOCUMENT_CONTENT_CHANGED',
+          type: shouldNormalize ? 'NORMALIZE_DOCUMENT_CONTENT' : 'DOCUMENT_CONTENT_CHANGED',
           path: scheduledPath,
           content: scheduledValue,
-          source: 'editor',
+          source: shouldNormalize ? 'normalize-on-editor-sync' : 'editor',
         }).catch((error) => {
           console.error('[DOCUMENT KERNEL] content change failed', error)
         })
@@ -217,9 +406,12 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
       activePathRef,
       contentRef,
       cancelPendingKernelContentDebounce,
+      documentNavigationInProgressRef,
+      isSuspiciousNavigationShrink,
       kernelContentDebounceRef,
       mainPaneMode,
       mainPaneModeRef,
+      shouldNormalizeEditorValueAgainstSaved,
       visualEditorRef,
     ],
   )

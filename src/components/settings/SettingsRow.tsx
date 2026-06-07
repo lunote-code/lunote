@@ -7,11 +7,14 @@ type SettingsRowProps = {
   label: ReactNode
   description?: ReactNode
   children: ReactNode
+  className?: string
+  dataSettingId?: string
 }
 
-export function SettingsRow({ label, description, children }: SettingsRowProps) {
+export function SettingsRow({ label, description, children, className, dataSettingId }: SettingsRowProps) {
+  const classes = ['settings-row', className].filter(Boolean).join(' ')
   return (
-    <div className="settings-row">
+    <div className={classes} data-setting-id={dataSettingId}>
       <div className="settings-row-copy">
         <SettingsLabel>{label}</SettingsLabel>
         {description ? <SettingsDescription>{description}</SettingsDescription> : null}

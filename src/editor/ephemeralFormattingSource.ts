@@ -19,6 +19,7 @@ const WRAPPERS: Record<EphemeralCommandType, { left: string; right: string }> = 
   strike: { left: '~~', right: '~~' },
   code: { left: '`', right: '`' },
   underline: { left: '<u>', right: '</u>' },
+  highlight: { left: '==', right: '==' },
 }
 
 export function getSourceEphemeralSession(view: EditorView): SourceEphemeralSession | null {

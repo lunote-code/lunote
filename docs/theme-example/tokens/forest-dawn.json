@@ -1,0 +1,22 @@
+{
+  "id": "forest-dawn",
+  "name": "Forest Dawn",
+  "label": "Forest Dawn",
+  "family": "forest-dawn",
+  "variant": "light",
+  "colors": {
+    "background": "#eef3ea",
+    "foreground": "#2c3328",
+    "primary": "#4a6741",
+    "border": "rgba(44, 51, 40, 0.18)",
+    "muted": "#8a9484"
+  },
+  "radius": {
+    "card": 16,
+    "control": 11
+  },
+  "spacing": {
+    "row": 16,
+    "section": 28
+  }
+}

@@ -5,6 +5,13 @@ import {
 import { getBlockEditingPolicy } from './blockEditingPolicy'
 import { locateFrozenRow } from './modeSwitchFrozenLookup'
 import type { FrozenStructuralIR } from './modeSwitchStructuralIR'
+import { deriveProjectableLeafPathAtPmPos } from './modeSwitchLeafRow'
+import { getOutlineParseSchema } from './markdownOutlineFromMarkdown'
+import { projectAlongRow } from './modeSwitchProjection'
+import { compileMarkdownForModeBridge } from './compiler/markdownCompiler'
+import { headingBodyMinIndexForLevel, structuredLineBodyMinIndexInSeg } from './modeSwitchSemanticTokenizer'
+import { canonicalMarkdownSemantics } from '../markdown/canonicalMarkdownSemantics'
+import type { SourceModeEnterAnchor } from './viewportModeAnchor'
 
 export type ModeSwitchContractCase = {
   readonly id: string
@@ -94,6 +101,7 @@ const MODE_SWITCH_CONTRACT_CASES: readonly ModeSwitchContractCase[] = Object.fre
         blocks: Object.freeze([
           Object.freeze({
             blockIndex: 0,
+            rowId: 'fixture-alpha',
             rowKey: 'alpha-row',
             blockPath: Object.freeze([2, 1]),
             blockType: 'paragraph',
@@ -125,6 +133,155 @@ const MODE_SWITCH_CONTRACT_CASES: readonly ModeSwitchContractCase[] = Object.fre
       )
       expectEqual(locateFrozenRow(ir, { blockIndex: 0 }).resolution, 'block_index', 'lookup by blockIndex')
       expectEqual(locateFrozenRow(ir, { rowKey: '2.1' }).resolution, 'missing', 'rowKey encoding should not leak')
+    },
+  },
+  {
+    id: 'atomic-ancestor-preferred-over-inner-textblock',
+    description: '位于 table 等 atomic container 内部时，层级锚点应返回原子祖先而不是单元格里的 paragraph',
+    run: () => {
+      const schema = getOutlineParseSchema()
+      const doc = canonicalMarkdownSemantics.parse('| A | B |\n| --- | --- |\n| C | D |\n', schema)
+      const table = doc.firstChild
+      if (!table) throw new Error('expected table node')
+      const leaf = deriveProjectableLeafPathAtPmPos(doc, 5)
+      if (!leaf) throw new Error('expected projectable leaf')
+      expectEqual(leaf.blockType, 'table', 'atomic ancestor block type')
+      expectEqual(leaf.rowKey, '0', 'atomic ancestor row key')
+    },
+  },
+  {
+    id: 'shared-prefix-stripper-stays-canonical',
+    description: 'structured 前缀剥离应由共享 helper 决定，避免 bodyFrom 与 tokenizer 漂移',
+    run: () => {
+      expectEqual(
+        structuredLineBodyMinIndexInSeg('> > - [ ] task child', {
+          stripTaskMarkers: true,
+          includeCalloutMarker: false,
+        }),
+        10,
+        'nested task prefix length',
+      )
+      expectEqual(
+        structuredLineBodyMinIndexInSeg('> [!NOTE] title', {
+          stripTaskMarkers: false,
+          includeCalloutMarker: true,
+        }),
+        10,
+        'callout lead prefix length',
+      )
+      expectEqual(headingBodyMinIndexForLevel('> ## Heading', 2), 5, 'heading body offset with quote prefix')
+    },
+  },
+  {
+    id: 'callout-lift-preserves-inline-semantics',
+    description: 'callout 提升不能把首段 link / math / emoji 等 inline 语义压平成纯文本',
+    run: () => {
+      const schema = getOutlineParseSchema()
+      const doc = canonicalMarkdownSemantics.parse(
+        '> [!NOTE] [链接](https://example.com) $E = mc^2$ :smile:\n> 第二行说明\n',
+        schema,
+      )
+      const callout = doc.firstChild
+      if (!callout || callout.type.name !== 'callout') throw new Error('expected callout node')
+      const firstParagraph = callout.firstChild
+      if (!firstParagraph || firstParagraph.type.name !== 'paragraph') throw new Error('expected first paragraph')
+
+      let hasLink = false
+      let hasInlineMath = false
+      let hasEmoji = false
+      firstParagraph.descendants((node) => {
+        if (node.isText && node.marks.some((mark) => mark.type.name === 'link')) hasLink = true
+        if (node.type.name === 'inlineMath') hasInlineMath = true
+        if (node.type.name === 'emoji') hasEmoji = true
+        return true
+      })
+
+      expectEqual(hasLink, true, 'callout first paragraph preserves link mark')
+      expectEqual(hasInlineMath, true, 'callout first paragraph preserves inline math node')
+      expectEqual(hasEmoji, true, 'callout first paragraph preserves emoji node')
+    },
+  },
+  {
+    id: 'callout-lift-preserves-leading-blank-quote-lines',
+    description: 'callout 提升后必须保留 marker 后连续空引用行，避免打开即脏和行数漂移',
+    run: () => {
+      const schema = getOutlineParseSchema()
+      const markdown = '> [!NOTE]\n>\n>\n> Note Callout\n'
+      const doc = canonicalMarkdownSemantics.parse(markdown, schema)
+      const callout = doc.firstChild
+      if (!callout || callout.type.name !== 'callout') throw new Error('expected callout node')
+      expectEqual(callout.childCount, 3, 'should restore leading blank paragraphs before body')
+      expectEqual(callout.child(0).type.name, 'paragraph', 'first child blank paragraph')
+      expectEqual(callout.child(0).content.size, 0, 'first child should stay empty')
+      expectEqual(callout.child(1).content.size, 0, 'second child should stay empty')
+      expectEqual(callout.child(2).textContent, 'Note Callout', 'body paragraph preserved')
+      expectEqual(
+        compileMarkdownForModeBridge(doc, schema),
+        markdown.replace(/\n$/u, ''),
+        'callout serialize stability',
+      )
+    },
+  },
+  {
+    id: 'collapsed-atom-pm-projection-stays-within-row',
+    description: 'collapsed atom carrier 的 PM 投影必须钳在当前 row 内，不能越界到相邻 block',
+    run: () => {
+      const projected = projectAlongRow(
+        Object.freeze({
+          blockIndex: 0,
+          rowId: 'fixture-raw',
+          rowKey: 'raw',
+          blockPath: Object.freeze([0]),
+          blockType: 'rawBlock',
+          cmStart: 0,
+          cmEnd: 12,
+          pmStart: 5,
+          pmEnd: 5,
+          semanticExtent: 12,
+          semanticSlices: Object.freeze([
+            Object.freeze({
+              semanticFrom: 0,
+              semanticTo: 13,
+              markdownFrom: 0,
+              markdownTo: 12,
+              kind: 'html' as const,
+              pmFrom: 5,
+              pmToExclusive: 6,
+            }),
+          ]),
+        }),
+        12,
+        12,
+        99,
+      )
+      expectEqual(projected.pm, 5, 'collapsed atom pm should stay within row bounds')
+    },
+  },
+  {
+    id: 'pending-ref-lifecycle',
+    description:
+      'pendingSourceModeAnchorRef 仅在 source→visual prepare 消费；CM view ready 不得清空（否则 Cmd+/ 往返丢失 snapshot）',
+    run: () => {
+      const anchor: SourceModeEnterAnchor = Object.freeze({
+        documentKey: 'contract:pending-ref',
+        bufferLength: 1,
+        bridgeId: 'contract-bridge',
+        cmAnchor: 0,
+        cmHead: 0,
+        modeSwitchSnapshot: Object.freeze({ captureFrameId: 1 }) as NonNullable<
+          SourceModeEnterAnchor['modeSwitchSnapshot']
+        >,
+      })
+      const pendingRef: { current: SourceModeEnterAnchor | null } = { current: anchor }
+      expectEqual(Boolean(pendingRef.current?.modeSwitchSnapshot), true, 'snapshot present after visual→source')
+      const legacyClearedRef: { current: SourceModeEnterAnchor | null } = { current: pendingRef.current }
+      legacyClearedRef.current = null
+      expectEqual(legacyClearedRef.current, null, 'legacy CM-ready clear drops ref')
+      expectEqual(Boolean(pendingRef.current?.modeSwitchSnapshot), true, 'ref must stay until s2v prepare')
+      const resolved = pendingRef.current ?? anchor
+      expectEqual(Boolean(resolved.modeSwitchSnapshot), true, 'fallback or ref resolves snapshot')
+      pendingRef.current = null
+      expectEqual(pendingRef.current, null, 'prepare consumes ref once')
     },
   },
 ]) satisfies readonly ModeSwitchContractCase[]

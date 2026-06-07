@@ -1,0 +1,146 @@
+.preview-pane.markdown-visual-editor .pm-slash-menu,
+.editor-pane .pm-slash-menu {
+  position: absolute;
+  z-index: 24;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 180px;
+  max-width: min(320px, calc(100% - 16px));
+  padding: 6px;
+  border-radius: var(--reveal-popover-radius, 10px);
+  border: var(--hairline) solid
+    var(--reveal-popover-border, color-mix(in srgb, var(--border-subtle) 82%, transparent));
+  background: var(--reveal-popover-bg, color-mix(in srgb, var(--surface-panel) 76%, var(--surface-editor)));
+  box-shadow: var(
+    --reveal-popover-shadow,
+    0 10px 28px color-mix(in srgb, var(--text-primary) 10%, transparent),
+    0 2px 6px color-mix(in srgb, var(--text-primary) 7%, transparent)
+  );
+}
+
+.preview-pane.markdown-visual-editor .pm-slash-menu--above,
+.editor-pane .pm-slash-menu--above {
+  box-shadow: var(
+    --reveal-popover-shadow-above,
+    0 -8px 24px color-mix(in srgb, var(--text-primary) 10%, transparent),
+    0 -2px 6px color-mix(in srgb, var(--text-primary) 7%, transparent)
+  );
+}
+
+.preview-pane.markdown-visual-editor .pm-slash-item,
+.editor-pane .pm-slash-menu .pm-slash-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: left;
+  border-radius: var(--reveal-field-radius, 8px);
+  padding: 7px var(--reveal-field-pad-x, 10px);
+  cursor: pointer;
+  transition:
+    background-color var(--reveal-bg-duration, 120ms) var(--reveal-ease, ease),
+    box-shadow var(--reveal-shadow-duration, 150ms) var(--reveal-ease, ease),
+    color var(--reveal-color-duration, 110ms) var(--reveal-ease, ease);
+}
+
+.preview-pane.markdown-visual-editor .pm-slash-item:hover,
+.preview-pane.markdown-visual-editor .pm-slash-item.active,
+.editor-pane .pm-slash-menu .pm-slash-item:hover,
+.editor-pane .pm-slash-menu .pm-slash-item.active {
+  background: var(--reveal-list-item-bg-active, color-mix(in srgb, var(--accent) 14%, transparent));
+  box-shadow: none;
+}
+
+.preview-pane.markdown-visual-editor .pm-slash-item:focus,
+.preview-pane.markdown-visual-editor .pm-slash-item:focus-visible,
+.editor-pane .pm-slash-menu .pm-slash-item:focus,
+.editor-pane .pm-slash-menu .pm-slash-item:focus-visible {
+  outline: none;
+  background: var(--reveal-list-item-bg-active, color-mix(in srgb, var(--accent) 14%, transparent));
+  box-shadow: none;
+}
+
+.preview-pane.markdown-visual-editor .pm-slash-item--group,
+.preview-pane.markdown-visual-editor .pm-slash-item--group:hover,
+.preview-pane.markdown-visual-editor .pm-slash-item--group.active,
+.editor-pane .pm-slash-menu .pm-slash-item--group,
+.editor-pane .pm-slash-menu .pm-slash-item--group:hover,
+.editor-pane .pm-slash-menu .pm-slash-item--group.active {
+  background: transparent;
+  color: var(--reveal-helper-fg, var(--text-secondary));
+  font-size: var(--reveal-micro-font-size, 11px);
+  font-weight: var(--reveal-micro-font-weight, 600);
+  letter-spacing: var(--reveal-micro-letter-spacing, 0.04em);
+  line-height: 1.2;
+  text-transform: uppercase;
+  cursor: default;
+  opacity: var(--reveal-group-opacity, 0.92);
+  box-shadow: none;
+}
+
+.preview-pane.markdown-visual-editor .pm-slash-item--nested,
+.editor-pane .pm-slash-menu .pm-slash-item--nested {
+  padding-left: calc(var(--reveal-field-pad-x, 10px) + var(--reveal-list-nested-offset, 12px));
+  font-size: 12px;
+  color: color-mix(in srgb, var(--text-primary) 84%, var(--reveal-helper-fg, var(--text-secondary)));
+}
+
+.preview-pane.markdown-visual-editor .pm-slash-item--nested:hover,
+.preview-pane.markdown-visual-editor .pm-slash-item--nested.active,
+.editor-pane .pm-slash-menu .pm-slash-item--nested:hover,
+.editor-pane .pm-slash-menu .pm-slash-item--nested.active {
+  color: var(--text-primary);
+}
+
+.editor-pane .luna-wiki-suggest-menu,
+.preview-pane.markdown-visual-editor .luna-wiki-suggest-menu {
+  min-width: 220px;
+  max-width: min(360px, calc(100% - 16px));
+}
+
+.luna-wiki-suggest-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.luna-wiki-suggest-item__title {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.luna-wiki-suggest-item__hint {
+  font-size: var(--reveal-micro-font-size);
+  line-height: 1.25;
+  color: var(--reveal-helper-fg);
+  opacity: var(--reveal-helper-opacity);
+}
+
+.luna-wiki-suggest-item--disabled,
+.luna-wiki-suggest-item--disabled.active {
+  cursor: default;
+  opacity: var(--reveal-disabled-opacity);
+}
+
+.luna-wiki-suggest-item--disabled:hover,
+.luna-wiki-suggest-item--disabled.active:hover {
+  background: transparent;
+}
+
+.editor-pane .luna-wiki-suggest-menu-host.pm-slash-menu,
+.editor-pane .editor-slash-menu-host.pm-slash-menu {
+  z-index: 12;
+  min-width: 220px;
+  max-width: min(360px, calc(100% - 16px));
+}
+
+.preview-pane.markdown-visual-editor .editor-slash-menu-host.pm-slash-menu,
+.preview-pane.markdown-visual-editor .luna-wiki-suggest-menu-host.pm-slash-menu.luna-wiki-suggest-menu {
+  z-index: 24;
+}

@@ -6,6 +6,7 @@ import type { AppLanguageSetting } from '../settings/appSettingsTypes'
 import { mergeMessages, warmLocale, type MessageDictionary } from './loadMessages'
 import { getEnMessagesSnapshot, getLocaleRawSnapshot } from './localeRegistry'
 import { FALLBACK_LOCALE, resolveEffectiveUiLocale, type UiLocaleId } from './resolveLocale'
+import { readTauriOsLocaleTag } from './systemLocale'
 
 export type I18nBootstrap = {
   /** Merge copywriting at runtime (fallback for missing key en)*/
@@ -24,7 +25,7 @@ export type I18nBootstrap = {
  */
 export async function bootstrapI18n(): Promise<I18nBootstrap> {
   try {
-    await hydrateAppSettingsStore()
+    await hydrateAppSettingsStore({ force: true })
   } catch (e) {
      
     console.error('[BOOT] hydrateAppSettingsStore failed:', e)
@@ -32,7 +33,14 @@ export async function bootstrapI18n(): Promise<I18nBootstrap> {
   }
   const snap = getAppSettingsSnapshot()
   const navLang = typeof navigator !== 'undefined' ? navigator.language : undefined
-  const effectiveLocale = resolveEffectiveUiLocale(snap.language, navLang)
+  const osLocale = await readTauriOsLocaleTag()
+  const effectiveLocale = resolveEffectiveUiLocale(snap.language, navLang, osLocale)
+  console.info('[BOOT] i18n locale', {
+    languageSetting: snap.language,
+    navigatorLanguage: navLang,
+    osLocale: osLocale ?? null,
+    effectiveLocale,
+  })
 
   const enMessages = getEnMessagesSnapshot()
   const rawLocale =
@@ -40,15 +48,6 @@ export async function bootstrapI18n(): Promise<I18nBootstrap> {
   const primary = await warmLocale(effectiveLocale)
   const fallback = await warmLocale(FALLBACK_LOCALE)
   const mergedMessages = mergeMessages(fallback, primary)
-
-   
-  console.log('[BOOT]', {
-    settingsLoaded: true,
-    documentLoaded: false,
-    editorReady: false,
-    effectiveLocale,
-    bootError: null,
-  })
 
   return {
     mergedMessages,

@@ -29,6 +29,7 @@ export const MathInlineView = memo(function MathInlineView(props: ReactNodeViewP
         throwOnError: false,
         displayMode: false,
         output: 'html',
+        trust: false,
       })
       cacheInlineSet(key, h)
       return h

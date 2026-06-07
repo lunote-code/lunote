@@ -72,8 +72,15 @@ ${bodyInnerHtml}
 }
 
 /** Same source as preview/export: unified + remark + rehype*/
-export async function markdownToStyledHtmlFragment(md: string): Promise<string> {
-  return markdownToHtmlFragment(md, { tocMode: resolveCurrentExportSettings().tocMode })
+export async function markdownToStyledHtmlFragment(
+  md: string,
+  opts?: { dark?: boolean; useAppTheme?: boolean },
+): Promise<string> {
+  return markdownToHtmlFragment(md, {
+    dark: opts?.dark,
+    useAppTheme: opts?.useAppTheme,
+    tocMode: resolveCurrentExportSettings().tocMode,
+  })
 }
 
 /** Semantic HTML has the same origin as styled; "no style" refers to the styled:false shell of wrapStandaloneHtml*/
@@ -85,50 +92,11 @@ export function resolveExportDocumentClasses(md: string): string[] {
   return extractExportDocumentClasses(md)
 }
 
-/** Opens the print dialog and the user can select "Save as PDF" (uses the same HTML as export)*/
-export function openPrintableHtml(html: string): void {
-  const iframe = document.createElement('iframe')
-  iframe.setAttribute('title', 'print-export')
-  iframe.style.position = 'fixed'
-  iframe.style.right = '0'
-  iframe.style.bottom = '0'
-  iframe.style.width = '0'
-  iframe.style.height = '0'
-  iframe.style.border = '0'
-  iframe.style.opacity = '0'
-  iframe.style.pointerEvents = 'none'
-  document.body.appendChild(iframe)
-  const doc = iframe.contentDocument
-  if (!doc) {
-    iframe.remove()
-    window.open('', '_blank')?.document.write(html)
-    return
-  }
-  doc.open()
-  doc.write(html)
-  doc.close()
-  const win = iframe.contentWindow
-  const cleanup = () => {
-    try {
-      iframe.remove()
-    } catch {
-      /* ignore */
-    }
-  }
-  const doPrint = () => {
-    try {
-      win?.focus()
-      win?.print()
-    } finally {
-      window.setTimeout(cleanup, 800)
-    }
-  }
-  if (win?.document.readyState === 'complete') {
-    window.setTimeout(doPrint, 150)
-  } else {
-    win?.addEventListener('load', () => window.setTimeout(doPrint, 150), { once: true })
-  }
-}
+export {
+  openPrintableHtml,
+  PrintContentTooLargeError,
+  PrintPermissionRequiredError,
+} from './export/openPrintableHtml'
 
 /** Generate Word (docx) Base64 based on the same HTML fragment as exported*/
 export async function markdownToDocxBase64(

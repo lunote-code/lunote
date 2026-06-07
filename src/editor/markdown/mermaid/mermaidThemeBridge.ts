@@ -1,4 +1,6 @@
 import { subscribeTheme } from '../../../theme-runtime/themeRuntime'
+import { clearBlockRenderResultCache } from '../../runtimeEngine/unified/blockRenderResultCache'
+import { postProcessMermaidSvg } from './postProcessMermaidSvg'
 import {
   MERMAID_ACCENT_THEME_TOKEN_MAP,
   MERMAID_THEME_TOKEN_MAP,
@@ -52,7 +54,7 @@ function applyResolvedColorsToThemeVariables(
     textColor: colors.text,
     nodeTextColor: colors.text,
     primaryBorderColor: colors.border,
-    lineColor: colors.border,
+    lineColor: colors.edge,
     nodeBorder: colors.border,
     clusterBkg: colors.elevated,
     clusterBorder: colors.border,
@@ -60,7 +62,7 @@ function applyResolvedColorsToThemeVariables(
     actorBkg: colors.panel,
     actorBorder: colors.border,
     actorTextColor: colors.text,
-    signalColor: colors.border,
+    signalColor: colors.edge,
     labelBoxBkgColor: colors.background,
     labelBoxBorderColor: colors.border,
     labelTextColor: colors.text,
@@ -76,8 +78,20 @@ function applyResolvedColorsToThemeVariables(
   }
 }
 
+function refreshVisibleMermaidDiagramColors(): void {
+  if (typeof document === 'undefined') return
+  const colors = resolveMermaidEditorColors()
+  for (const host of document.querySelectorAll<HTMLElement>(
+    '.pm-mermaid-svg-host, .pm-mindmap-svg, .pm-mindmap-preview-host, .document-history-preview-body .mermaid-export-diagram',
+  )) {
+    postProcessMermaidSvg(host, colors)
+  }
+}
+
 export function invalidateMermaidRenderedGraphCache(): void {
   mermaidThemeRevision += 1
+  clearBlockRenderResultCache()
+  refreshVisibleMermaidDiagramColors()
   for (const subscriber of subscribers) subscriber()
 }
 

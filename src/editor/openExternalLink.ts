@@ -1,16 +1,6 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
 
-/** Whether to handle modifier key prompts according to the desktop "Mac system" (Cmd vs Ctrl)*/
-export function isModifierHintMacLike(): boolean {
-  if (typeof navigator === 'undefined') return false
-  const p = navigator.platform ?? ''
-  if (/Mac|iPhone|iPod|iPad/i.test(p)) return true
-  return /Mac OS X/u.test(navigator.userAgent)
-}
-
-export function externalLinkModifierTooltip(): string {
-  return isModifierHintMacLike() ? 'Cmd + Click to open link' : 'Ctrl + Click to open link'
-}
+export { isModifierHintMacLike } from '../platform/desktopPlatform'
 
 const MAX_OPENABLE_HREF_LEN = 2048
 const MAX_HTTPS_QUERY_FRAGMENT_LEN = 256

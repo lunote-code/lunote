@@ -35,6 +35,7 @@ export {
   flushBlockRenderQueue,
   getBlockRenderGeneration,
   getBlockRenderQueueDepth,
+  preemptLowerPriorityBlockRenderTasks,
 } from './blockRenderQueue'
 export {
   cancelBlockRender,
@@ -42,12 +43,15 @@ export {
   getBlockRenderGeneration as getScheduledBlockGeneration,
   getBlockRenderQueueDepth as getScheduledQueueDepth,
   getScheduledRenderPriority,
+  pauseAllBlockPreviewRenders,
+  preemptLowerPriorityBlockRenders,
   runScheduledTransaction,
   scheduleBlockRender,
 } from './renderScheduler'
 export type { AsyncRenderKind, AsyncRenderPayload, AsyncRenderResult, MermaidSvgRenderResult } from './asyncRenderBridge'
 export {
   applyMermaidSvgToHost,
+  cancelAllAsyncRenders,
   cancelAsyncRender,
   enqueueAsyncRender,
   renderMermaidSvg,

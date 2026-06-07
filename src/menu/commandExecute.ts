@@ -70,6 +70,7 @@ export async function executeResolvedCommand(
       return
 
     case 'noop-explicit':
+      m.setStatus(m.t('app.command.notImplemented'))
       return
 
     case 'delegate-app':
@@ -108,6 +109,8 @@ export async function tryExecuteResolvedManifestAction(
 ): Promise<boolean> {
   if (!hasCommandResolver(action)) return false
   const resolved = resolveCommand(action, m.getEditorContext())
+  // delegate-app must fall through to tryDispatchExtendedMenuAction (etc.).
+  // Calling executeResolvedCommand here would re-enter dispatchAppMenuAction → infinite loop.
   if (resolved.kind === 'delegate-app') return false
   if (resolved.kind === 'noop' || resolved.kind === 'noop-explicit') return false
   await executeResolvedCommand(resolved, m, ui)

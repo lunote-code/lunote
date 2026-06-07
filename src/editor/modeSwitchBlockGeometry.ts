@@ -52,3 +52,7 @@ export function isModeSwitchCollapsedAtomCarrierBlock(typeName: string): boolean
 export function isModeSwitchZeroPayloadStructuralBlock(typeName: string): boolean {
   return getModeSwitchBlockGeometryKind(typeName) === 'zero_payload_structural'
 }
+
+export function isModeSwitchAtomicContainerBlock(typeName: string): boolean {
+  return getModeSwitchBlockGeometryKind(typeName) === 'atomic_container'
+}

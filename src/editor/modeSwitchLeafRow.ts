@@ -8,6 +8,7 @@ export type ModeSwitchPmLeafRow = {
   readonly blockPath: ModeSwitchLeafPath
   readonly rowKey: string
   readonly blockType: string
+  readonly withinTaskItem: boolean
   readonly node: PMNode
   readonly pmStart: number
   readonly pmEnd: number
@@ -41,7 +42,8 @@ function childStartPos(parentStart: number, childOffset: number): number {
 export function collectProjectablePmLeafRows(doc: PMNode): readonly ModeSwitchPmLeafRow[] {
   const rows: ModeSwitchPmLeafRow[] = []
 
-  const visit = (node: PMNode, nodeStart: number, path: number[]): void => {
+  const visit = (node: PMNode, nodeStart: number, path: number[], withinTaskItem: boolean): void => {
+    const nextWithinTaskItem = withinTaskItem || node.type.name === 'taskItem'
     if (isProjectableLeafNode(node)) {
       const bounds = normalizeLeafPmBounds(nodeStart + 1, nodeStart + node.nodeSize - 1)
       rows.push(
@@ -49,6 +51,7 @@ export function collectProjectablePmLeafRows(doc: PMNode): readonly ModeSwitchPm
           blockPath: freezeModeSwitchLeafPath(path),
           rowKey: modeSwitchLeafPathToRowKey(path),
           blockType: node.type.name,
+          withinTaskItem: nextWithinTaskItem,
           node,
           pmStart: bounds.pmStart,
           pmEnd: bounds.pmEnd,
@@ -60,7 +63,7 @@ export function collectProjectablePmLeafRows(doc: PMNode): readonly ModeSwitchPm
     for (let i = 0; i < node.childCount; i += 1) {
       const child = node.child(i)
       const start = childStartPos(nodeStart, childOffset)
-      visit(child, start, [...path, i])
+      visit(child, start, [...path, i], nextWithinTaskItem)
       childOffset += child.nodeSize
     }
   }
@@ -68,7 +71,7 @@ export function collectProjectablePmLeafRows(doc: PMNode): readonly ModeSwitchPm
   let offset = 0
   for (let i = 0; i < doc.childCount; i += 1) {
     const child = doc.child(i)
-    visit(child, offset, [i])
+    visit(child, offset, [i], false)
     offset += child.nodeSize
   }
 
@@ -90,6 +93,20 @@ export function deriveProjectableLeafPathAtPmPos(
   const innerMax = doc.content.size
   const clamped = Math.min(Math.max(1, pos), innerMax + 1)
   const $pos = doc.resolve(clamped)
+
+  for (let depth = $pos.depth; depth >= 1; depth -= 1) {
+    const node = $pos.node(depth)
+    if (!isModeSwitchExplicitAtomicLeafType(node.type.name)) continue
+    const blockPath = pathFromResolvedDepth($pos, depth)
+    const bounds = normalizeLeafPmBounds($pos.start(depth), $pos.end(depth))
+    return {
+      blockPath,
+      rowKey: modeSwitchLeafPathToRowKey(blockPath),
+      blockType: node.type.name,
+      pmStart: bounds.pmStart,
+      pmEnd: bounds.pmEnd,
+    }
+  }
 
   for (let depth = $pos.depth; depth >= 1; depth -= 1) {
     const node = $pos.node(depth)

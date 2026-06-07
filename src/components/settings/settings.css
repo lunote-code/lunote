@@ -1,7 +1,9 @@
+@import '../LunaHintPopover/lunaHintPopover.css';
+
 :root {
   --settings-bg: color-mix(in srgb, var(--surface-app) 88%, var(--surface-editor));
   --settings-card: var(--surface-panel);
-  --settings-control-bg: color-mix(in srgb, var(--input-bg) 86%, var(--surface-editor));
+  --settings-control-bg: var(--luna-field-bg);
   --settings-border: color-mix(in srgb, var(--border-subtle) 92%, var(--text-primary));
   --settings-row-border: color-mix(in srgb, var(--border-subtle) 76%, transparent);
   --settings-hover: color-mix(in srgb, var(--surface-hover) 92%, var(--surface-panel));
@@ -10,9 +12,9 @@
   --settings-shadow-sm: 0 10px 30px color-mix(in srgb, var(--text-primary) 10%, transparent);
   --settings-shadow-xs: 0 1px 0 color-mix(in srgb, var(--text-primary) 8%, transparent);
   --accent-soft: color-mix(in srgb, var(--accent) 18%, var(--surface-panel));
-  --settings-control-height: 38px;
+  --settings-control-height: var(--luna-field-height);
   --settings-radius: var(--settings-card-radius, var(--radius-xl));
-  --settings-control-radius: 10px;
+  --settings-control-radius: var(--luna-field-radius);
   --settings-section-gap: 28px;
   --settings-row-gap: 18px;
   --settings-sidebar-width: 220px;
@@ -67,7 +69,7 @@
   border: 1px solid var(--settings-border);
   border-radius: var(--settings-radius);
   background: var(--settings-card);
-  box-shadow: var(--shadow-sm, var(--settings-shadow-sm));
+  box-shadow: none;
   animation: settings-section-in 0.2s ease;
 }
 
@@ -125,11 +127,6 @@
 
 .settings-row:first-child {
   border-top: 0;
-  padding-top: 0;
-}
-
-.settings-row:last-child {
-  padding-bottom: 0;
 }
 
 .settings-row-copy {
@@ -281,21 +278,17 @@
   line-height: 1.45;
 }
 
-.settings-input:hover,
-.settings-textarea:hover,
 .settings-button:hover,
 .settings-select-trigger:hover,
 .settings-select-trigger[aria-expanded='true'] {
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--border-subtle));
+  border-color: var(--luna-field-border-hover);
 }
 
-.settings-input:focus,
-.settings-textarea:focus,
 .settings-button:focus-visible,
 .settings-select-trigger:focus-visible,
 .settings-switch:focus-visible {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--settings-focus);
+  border-color: var(--luna-field-border-focus);
+  box-shadow: var(--luna-field-focus-ring);
 }
 
 .settings-button {
@@ -312,7 +305,7 @@
 .settings-button-primary {
   border-color: var(--accent);
   background: var(--accent);
-  color: var(--surface-editor);
+  color: var(--luna-on-accent);
 }
 
 .settings-button-secondary {
@@ -581,7 +574,7 @@
   background: var(--accent-soft);
   color: var(--text-primary);
   font-weight: 600;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, var(--border-subtle));
+  box-shadow: none;
 }
 
 .settings-sidebar-item-icon {
@@ -685,6 +678,18 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .settings-section,
+  .settings-dropdown,
+  .settings-field-reveal {
+    animation: none;
+  }
+
+  .prefs-shortcut-key.is-recording {
+    animation: none;
+  }
+}
+
 @media (max-width: 860px) {
   .settings-sidebar {
     position: static;
@@ -735,3 +740,50 @@
     padding: 20px;
   }
 }
+
+.settings-label-with-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.settings-page-title .settings-label-with-help,
+.settings-section-title-with-help,
+.prefs-theme-extension-title .settings-label-with-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-page--prefs .settings-page-header {
+  display: none;
+}
+
+.settings-page--prefs .settings-row:hover {
+  background: transparent;
+}
+
+.settings-page--prefs .settings-row:focus-within {
+  background: color-mix(in srgb, var(--surface-hover) 86%, var(--surface-panel));
+}
+
+.settings-row.is-search-match {
+  background: color-mix(in srgb, var(--accent) 10%, var(--settings-hover));
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.settings-info-callout {
+  margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: var(--settings-control-radius);
+  border: 1px solid var(--settings-row-border);
+  background: color-mix(in srgb, var(--accent) 6%, var(--settings-card));
+}
+
+.settings-info-callout-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+

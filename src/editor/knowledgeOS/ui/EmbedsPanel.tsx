@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { EmptyState } from '../../../design-system/EmptyState'
 import { getDocumentMeta } from '../../knowledgeRuntime'
 import { stripLeadingYamlFrontmatter } from '../../lunaMarkdownExtensionsPreprocess'
 import { loadNoteContent } from '../vaultRuntime'
@@ -6,6 +7,7 @@ import { resolveWikiTarget } from '../wikiLinkRuntime'
 import { asMetadataResolvedTarget, dispatchKnowledgeNavigate } from './interactionTransaction'
 import { useOsRevision } from './useKnowledgeOSSlice'
 import { useI18n } from '../../../i18n'
+import { KnowledgePanelLoading } from './KnowledgePanelLoading'
 
 type Props = {
   docKey: string | null
@@ -110,7 +112,7 @@ export function EmbedsPanel({ docKey }: Props) {
   if (!docKey) {
     return (
       <div className="kos-surface-host kos-surface-host--empty">
-        <p className="kos-panel-empty">{t('knowledge.embeds.emptyDoc')}</p>
+        <EmptyState variant="compact" icon="embeds" title={t('knowledge.embeds.emptyDoc')} />
       </div>
     )
   }
@@ -119,7 +121,7 @@ export function EmbedsPanel({ docKey }: Props) {
     <div className="kos-embed-panel">
       <section className="kos-backlink-section">
         <h3 className="kos-section-title">{t('knowledge.embeds.title')} ({embeds.length})</h3>
-        {loading ? <p className="kos-panel-muted">{t('knowledge.embeds.loading')}</p> : null}
+        {loading ? <KnowledgePanelLoading message={t('knowledge.embeds.loading')} /> : null}
         {embeds.length === 0 ? <p className="kos-panel-muted">{t('knowledge.embeds.empty')}</p> : null}
         <ul className="kos-virtual-list">
           {items.map((item) => (

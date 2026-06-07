@@ -37,7 +37,7 @@ export class RenderHost {
     }
 
     if (output.kind === 'html') {
-      this.element.innerHTML = sanitizeMermaidSvgHtml(output.html, { trustedMermaidOutput: true })
+      this.element.innerHTML = sanitizeMermaidSvgHtml(output.html)
       output.bind?.(this.element)
     }
 

@@ -1,0 +1,22 @@
+{
+  "id": "sakura-breeze",
+  "name": "Sakura Breeze",
+  "label": "Sakura Breeze",
+  "family": "sakura-breeze",
+  "variant": "light",
+  "colors": {
+    "background": "#faf6f4",
+    "foreground": "#3d3338",
+    "primary": "#db92a7",
+    "border": "rgba(61, 51, 56, 0.15)",
+    "muted": "#9a8a90"
+  },
+  "radius": {
+    "card": 20,
+    "control": 14
+  },
+  "spacing": {
+    "row": 16,
+    "section": 30
+  }
+}

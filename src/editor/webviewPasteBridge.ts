@@ -5,6 +5,8 @@ import type { EditorView as CmEditorView } from '@codemirror/view'
 
 import { MAX_PASTE_IMAGE_BYTES } from '../app/assets/imagePasteLimits'
 import { applyPlainTextPasteInsertion, setInputLayerSource } from './inputLayer/inputLayerPaste'
+import { preserveProseMirrorScrollDuring } from './preserveProseMirrorScroll'
+import { logPasteScrollPhase, logPasteScrollTransaction } from './pasteScrollDebug'
 import { readTauriClipboardImage, readTauriClipboardText } from './tauriClipboardRead'
 import { canonicalMarkdownSemantics } from '../markdown/canonicalMarkdownSemantics'
 
@@ -56,13 +58,24 @@ export function clipboardDataHasPlainText(cd: DataTransfer | null | undefined): 
   return cd.getData('text/plain').length > 0
 }
 
+function plainTextFromPreOrCodeElement(el: Element): string {
+  const htmlEl = el as HTMLElement
+  const raw = htmlEl.innerText || htmlEl.textContent || ''
+  return raw.replace(/\r\n/g, '\n')
+}
+
 /** Extract visible plain text from HTML fragments (a fallback when the browser only provides text/html)*/
 export function stripHtmlToPlainText(html: string): string {
   const trimmed = html.trim()
   if (!trimmed) return ''
   if (typeof DOMParser !== 'undefined') {
     const doc = new DOMParser().parseFromString(trimmed, 'text/html')
-    return doc.body.textContent ?? ''
+    const pre = doc.querySelector('pre')
+    if (pre) return plainTextFromPreOrCodeElement(pre.querySelector('code') ?? pre)
+    const code = doc.querySelector('code')
+    if (code) return plainTextFromPreOrCodeElement(code)
+    const body = doc.body
+    return (body.innerText || body.textContent || '').replace(/\r\n/g, '\n')
   }
   return trimmed.replace(/<[^>]+>/g, '')
 }
@@ -70,9 +83,15 @@ export function stripHtmlToPlainText(html: string): string {
 /** The paste event reads text/plain first; when there is no plain, the text is stripped from text/html to avoid PM rich text.*/
 export function plainTextFromClipboardData(cd: DataTransfer | null | undefined): string {
   if (!cd) return ''
-  const plain = cd.getData('text/plain')
-  if (plain.trim()) return plain
-  return stripHtmlToPlainText(cd.getData('text/html'))
+  const plain = cd.getData('text/plain').replace(/\r\n/g, '\n')
+  const html = cd.getData('text/html')
+  const fromHtml = stripHtmlToPlainText(html)
+  if (!plain.trim()) return fromHtml
+  if (!fromHtml.trim()) return plain
+  if (/<pre[\s>]/i.test(html) || /<code[\s>]/i.test(html)) {
+    return fromHtml.length >= plain.length ? fromHtml : plain
+  }
+  return plain
 }
 
 export function htmlFromClipboardData(cd: DataTransfer | null | undefined): string {
@@ -154,9 +173,9 @@ export async function insertImageIntoPmView(
   const imageType = state.schema.nodes.image
   if (!imageType) return
   const node = imageType.create({ src, alt })
-  const tr = state.tr.replaceSelection(new Slice(Fragment.from(node), 0, 0)).scrollIntoView()
-  view.dispatch(tr)
-  view.focus()
+  const tr = state.tr.replaceSelection(new Slice(Fragment.from(node), 0, 0))
+  logPasteScrollTransaction('insert-image-dispatch', view, tr)
+  preserveProseMirrorScrollDuring(view, () => view.dispatch(tr))
 }
 
 export function insertTextIntoCmView(view: CmEditorView, text: string): void {
@@ -241,8 +260,8 @@ function insertHtmlTableIntoPmView(view: EditorView, table: HtmlTableParseResult
     view.state.tr.replaceSelection(new Slice(Fragment.from(node), 0, 0)),
     'paste-rich',
   )
-  view.dispatch(tr.scrollIntoView())
-  view.focus()
+  logPasteScrollTransaction('insert-html-table-dispatch', view, tr)
+  preserveProseMirrorScrollDuring(view, () => view.dispatch(tr))
   return true
 }
 
@@ -258,8 +277,8 @@ function insertMarkdownTableIntoPmView(view: EditorView, markdown: string): bool
     view.state.tr.replaceSelection(new Slice(Fragment.from(child), 0, 0)),
     'paste-rich',
   )
-  view.dispatch(tr.scrollIntoView())
-  view.focus()
+  logPasteScrollTransaction('insert-markdown-table-dispatch', view, tr)
+  preserveProseMirrorScrollDuring(view, () => view.dispatch(tr))
   return true
 }
 
@@ -318,9 +337,27 @@ export async function applyWebviewPasteFallback(options: {
   if (text && shouldPasteClipboardText(text, plainOnly)) {
     if (pmView) {
       if (!plainOnly && insertMarkdownTableIntoPmView(pmView, text)) return true
+      const selectionBefore = {
+        from: pmView.state.selection.from,
+        to: pmView.state.selection.to,
+      }
       const tr = applyPlainTextPasteInsertion(pmView.state, text)
-      pmView.dispatch(tr.scrollIntoView())
-      pmView.focus()
+      logPasteScrollPhase('plain-text-paste-before-dispatch', {
+        pmView,
+        selectionBefore,
+        textLength: text.length,
+        textPreview: text.slice(0, 80),
+        transaction: {
+          steps: tr.steps.length,
+          scrollIntoView: Boolean(
+            Object.prototype.hasOwnProperty.call(tr, 'scrollIntoView') &&
+              (tr as typeof tr & { scrollIntoView?: boolean }).scrollIntoView === true,
+          ),
+        },
+      })
+      logPasteScrollTransaction('plain-text-paste-dispatch', pmView, tr)
+      preserveProseMirrorScrollDuring(pmView, () => pmView.dispatch(tr))
+      logPasteScrollPhase('plain-text-paste-after-dispatch', { pmView, selectionBefore })
       return true
     }
     if (cmView) {

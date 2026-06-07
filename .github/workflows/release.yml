@@ -50,6 +50,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Resolve release tag
         id: tag
@@ -79,6 +83,15 @@ jobs:
       - name: Check version sync across manifests
         run: npm run version:check
 
+      - name: Validate publish paths (no local-only files tracked)
+        run: npm run validate:git-publish-paths
+
+      - name: Validate macOS menu icon assets
+        run: npm run validate:mac-menu-assets
+
+      - name: Validate release workflow config
+        run: npm run validate:release-config
+
   # --- macOS: arm64 (Apple Silicon) DMG ---
   build-dmg:
     needs: validate-release
@@ -97,6 +110,9 @@ jobs:
 
       - name: Sync app version
         run: npm run version:sync
+
+      - name: Locale & menu pipeline (build inputs)
+        uses: ./.github/actions/locale-pipeline
 
       - name: Build signed DMG (arm64)
         env:
@@ -139,6 +155,9 @@ jobs:
       - name: Sync app version
         run: npm run version:sync
 
+      - name: Locale & menu pipeline (build inputs)
+        uses: ./.github/actions/locale-pipeline
+
       - name: Import Windows code signing certificate
         shell: pwsh
         env:
@@ -149,7 +168,7 @@ jobs:
             Write-Host '[release] WINDOWS_CERTIFICATE not configured; MSI will be unsigned'
             exit 0
           }
-          ./scripts/import-windows-certificate.ps1 `
+          ./scripts/release/import-windows-certificate.ps1 `
             -CertificateBase64 $env:WINDOWS_CERTIFICATE `
             -CertificatePassword $env:WINDOWS_CERTIFICATE_PASSWORD
 
@@ -189,6 +208,9 @@ jobs:
 
       - name: Sync app version
         run: npm run version:sync
+
+      - name: Locale & menu pipeline (build inputs)
+        uses: ./.github/actions/locale-pipeline
 
       - name: Build and sign DEB
         env:
@@ -247,6 +269,9 @@ jobs:
       - name: Sync app version
         run: npm run version:sync
 
+      - name: Locale & menu pipeline (build inputs)
+        uses: ./.github/actions/locale-pipeline
+
       - name: cargo check (Tauri)
         run: cargo check --manifest-path src-tauri/Cargo.toml
 
@@ -257,6 +282,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
 
       - name: Resolve release tag
         id: tag
@@ -324,5 +351,9 @@ jobs:
             ### CI coverage
 
             Every push/PR runs builds on Ubuntu 22.04/24.04, Windows Server 2022/latest, and macOS 14/15/latest. Release additionally smoke-checks Ubuntu 24.04, Windows latest, and macOS latest before publishing. Platform build jobs may fail independently; this release includes only the artifacts that succeeded.
+
+            ---
+
+            ## What's Changed
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

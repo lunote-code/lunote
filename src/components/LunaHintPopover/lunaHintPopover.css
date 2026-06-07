@@ -1,0 +1,77 @@
+/* Icon trigger + click-to-reveal hint panel (settings, tab bar, knowledge panels). */
+
+.luna-hint-popover {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.luna-hint-popover-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.luna-hint-popover-trigger:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--settings-hover, var(--surface-hover)));
+}
+
+.luna-hint-popover-trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--luna-focus-ring);
+}
+
+.luna-hint-popover-panel--fixed {
+  position: fixed;
+  z-index: 40;
+}
+
+.luna-hint-popover-panel:not(.luna-hint-popover-panel--fixed) {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+}
+
+.luna-hint-popover-panel {
+  min-width: min(280px, 72vw);
+  max-width: min(380px, 92vw);
+  padding: 10px 12px;
+  border: var(--hairline) solid var(--luna-overlay-panel-border);
+  border-radius: var(--settings-control-radius, var(--radius-md));
+  background: var(--luna-overlay-panel-bg);
+  box-shadow: var(--luna-overlay-panel-shadow);
+  text-align: left;
+}
+
+.luna-hint-popover-title {
+  display: block;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.luna-hint-popover-body {
+  display: block;
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--settings-muted, var(--text-muted));
+  white-space: pre-wrap;
+}
+
+.luna-hint-popover-body--mono {
+  font-family: var(--font-mono);
+}

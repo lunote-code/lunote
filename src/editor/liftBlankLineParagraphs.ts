@@ -2,7 +2,6 @@ import MarkdownIt from 'markdown-it'
 import { Fragment } from 'prosemirror-model'
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model'
 
-import { isCompatibilityTraceEnabled } from '../debug/compatibilityDebug'
 import { stripLeadingYamlFrontmatter } from './lunaMarkdownExtensionsPreprocess'
 
 function fenceToggleLine(line: string): boolean {
@@ -35,7 +34,7 @@ type GapNormalizationDebug = {
 }
 
 function isBlankLineTraceEnabled(): boolean {
-  return isCompatibilityTraceEnabled('blankLine', ['dirty'])
+  return false
 }
 
 function tailPreview(text: string, size = 24): string {
@@ -78,6 +77,30 @@ function extractTopLevelBlockRanges(body: string): BlockLineRange[] {
   return ranges
 }
 
+function isListTopLevelOpenToken(type: string): boolean {
+  return type === 'ordered_list_open' || type === 'bullet_list_open'
+}
+
+function trimTrailingBlankLinesFromLineEnd(body: string, startLine: number, endLine: number): number {
+  const lines = body.split('\n')
+  let end = endLine
+  while (end > startLine) {
+    const line = lines[end - 1] ?? ''
+    if (line.trim().length > 0) break
+    end -= 1
+  }
+  return end
+}
+
+/** markdown-it list tokens often swallow trailing blank lines; trim them for layout math. */
+export function effectiveTopLevelBlockEndLine(
+  body: string,
+  range: Pick<BlockLineRange, 'start' | 'end' | 'type'>,
+): number {
+  if (!isListTopLevelOpenToken(range.type)) return range.end
+  return trimTrailingBlankLinesFromLineEnd(body, range.start, range.end)
+}
+
 /**
  * Count intentional blank-line gaps in Markdown (outside fences).
  * Leading / between-block / trailing blank lines are all preserved.
@@ -114,12 +137,14 @@ export function computeBlankLineLayout(markdown: string): BlankLineLayout {
     for (let i = 1; i < topLevelRanges.length; i += 1) {
       const prev = topLevelRanges[i - 1]
       const next = topLevelRanges[i]
-      const rawRun = Math.max(0, next.start - prev.end)
+      const prevEnd = effectiveTopLevelBlockEndLine(body, prev)
+      const rawRun = Math.max(0, next.start - prevEnd)
       const lifted = countInterBlockBlankLines(rawRun)
       gaps.push(lifted)
-      gapRuns.push(`token@${prev.end}->${next.start}:${prev.type}->${next.type},run=${rawRun},lift=${lifted}`)
+      gapRuns.push(`token@${prevEnd}->${next.start}:${prev.type}->${next.type},run=${rawRun},lift=${lifted}`)
     }
-    const trailingRun = Math.max(0, lines.length - (topLevelRanges[topLevelRanges.length - 1]?.end ?? 0))
+    const last = topLevelRanges[topLevelRanges.length - 1]
+    const trailingRun = Math.max(0, lines.length - effectiveTopLevelBlockEndLine(body, last))
     trailing = countTrailingBlankLines(trailingRun)
     const layout = { leading, gaps, trailing }
     if (isBlankLineTraceEnabled()) {

@@ -1,0 +1,22 @@
+{
+  "id": "tokyo-night",
+  "name": "Tokyo Night",
+  "label": "Tokyo Night",
+  "family": "tokyo-night",
+  "variant": "dark",
+  "colors": {
+    "background": "#1a1b26",
+    "foreground": "#c0caf5",
+    "primary": "#7aa2f7",
+    "border": "rgba(192, 202, 245, 0.14)",
+    "muted": "#565f89"
+  },
+  "radius": {
+    "card": 14,
+    "control": 10
+  },
+  "spacing": {
+    "row": 16,
+    "section": 28
+  }
+}

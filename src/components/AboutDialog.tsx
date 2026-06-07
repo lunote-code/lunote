@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 
 import type { TranslateFn } from '../i18n'
 import { APP_DISPLAY_NAME, APP_SHORT_NAME, APP_VERSION } from '../app/workspace/constants'
@@ -7,6 +7,7 @@ import {
   openAppReleasePage,
   type AppUpdateCheckResult,
 } from '../update/appUpdate'
+import { useFocusTrap } from '../lib/useFocusTrap'
 
 type Props = {
   open: boolean
@@ -16,6 +17,10 @@ type Props = {
 
 export function AboutDialog({ open, onClose, t }: Props) {
   const [updateResult, setUpdateResult] = useState<AppUpdateCheckResult | null>(null)
+  const dialogRef = useRef<HTMLDivElement | null>(null)
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null)
+
+  useFocusTrap(open, dialogRef.current, { initialFocus: closeButtonRef.current, onEscape: onClose })
 
   useEffect(() => {
     if (!open) {
@@ -69,6 +74,7 @@ export function AboutDialog({ open, onClose, t }: Props) {
   return (
     <AboutDialogBackdrop onClose={onClose}>
       <div
+        ref={dialogRef}
         className="about-modal"
         role="dialog"
         aria-modal="true"
@@ -83,7 +89,7 @@ export function AboutDialog({ open, onClose, t }: Props) {
         </p>
         {renderUpdateStatus()}
         <p className="about-modal-desc">{t('app.about.desc')}</p>
-        <AboutDialogActions releaseUrl={releaseUrl} onClose={onClose} t={t} />
+        <AboutDialogActions releaseUrl={releaseUrl} onClose={onClose} t={t} closeButtonRef={closeButtonRef} />
       </div>
     </AboutDialogBackdrop>
   )
@@ -107,10 +113,12 @@ function AboutDialogActions({
   releaseUrl,
   onClose,
   t,
+  closeButtonRef,
 }: {
   releaseUrl: string | undefined
   onClose: () => void
   t: TranslateFn
+  closeButtonRef: RefObject<HTMLButtonElement | null>
 }) {
   return (
     <div className="about-modal-actions">
@@ -123,7 +131,7 @@ function AboutDialogActions({
           {t('app.about.update.download')}
         </button>
       ) : null}
-      <button type="button" className="about-modal-close" onClick={onClose}>
+      <button ref={closeButtonRef} type="button" className="about-modal-close" onClick={onClose}>
         {t('app.about.close')}
       </button>
     </div>

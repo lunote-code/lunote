@@ -8,7 +8,13 @@ import {
 } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { INITIAL_NOTE_MD, isBufferTabId, newBufferTabId } from '../workspace/constants'
-import { deleteTabBody, pruneTabBodiesExcept, setTabBody } from '../document/tabBodiesStore'
+import { deleteTabBody, getTabBody, pruneTabBodiesExcept, setTabBody } from '../document/tabBodiesStore'
+import {
+  MAX_OPEN_DOCUMENT_TABS,
+  isPathInOpenTabs,
+  wouldExceedOpenTabLimit,
+  wouldExceedOpenTabLimitForPaths,
+} from '../document/openTabLimits'
 import { openSaveConflictDialog, type SaveConflictState } from '../document/saveConflictState'
 import { resolveDocumentBody } from '../../documentRuntime/documentAuthority'
 import {
@@ -24,12 +30,27 @@ import {
   getDocumentRuntimeSnapshot,
   getDocumentSavedContent,
 } from '../../documentRuntime/documentKernel'
+import { isAutosaveSuspended } from '../../documentHistory/historyRestoreState'
 import { persistWorkspaceSnapshotNow } from '../../documentRuntime/persistWorkspaceSnapshot'
 import { postWorkspaceBroadcast } from '../workspace/workspaceBroadcast'
 import { useAutosave } from './useAutosave'
 import { isPathDirty, listDirtyDocumentPaths } from '../../lib/documentDirty'
-import { resolveActiveAwareSaveBodyFallback, tryResolveBoundEditorMarkdown } from '../../lib/editorContentSync'
+import {
+  bodyOffsetToSourceOffset,
+  computeLeadingFrontmatterPrefixLength,
+  sourceSelectionToBodySelection,
+  splitFullSourceMarkdown,
+} from '../../editor/documentFrontmatterOffsets'
+import { getSourceModeIdentity } from '../../editor/sourceModeIdentity'
+import {
+  commitLatestDocumentBodyToMemory,
+  diskMarkdownForDocumentSave,
+  projectDocumentMemorySurfaces,
+  resolveActiveAwareSaveBodyFallback,
+  tryResolveBoundEditorMarkdown,
+} from '../../lib/editorContentSync'
 import { enqueueSave } from '../../lib/saveQueue'
+import { moveItemInArray } from '../../lib/moveItemInArray'
 import {
   filterOutPath,
   pathInList,
@@ -40,9 +61,15 @@ import { evictStepLog } from '../../vm/vmStepLog'
 import { removeDocumentReferences } from '../../assets/assetReferenceTracker'
 import type { TranslateFn } from '../../i18n'
 import type { EditorDocMenuState, FileContextMenuState, TabContextMenuPick } from '../workspace/contextMenuTypes'
-import { isCompatibilityTraceEnabled } from '../../debug/compatibilityDebug'
 import type { AtomicVisualDocumentEnter, TiptapMarkdownEditorHandle } from '../../editor/TiptapMarkdownEditor'
+import { runAfterReactCommit } from '../../editor/reactCommitScheduler'
 import { schedulePrimeEditorDiagramPreviews } from '../../editor/runtimeEngine/primeEditorDiagramPreviews'
+import type { AppStatusTone } from './useAppStatus'
+import {
+  checkBlankContentSuspect,
+  logTabNav,
+  snapshotDocumentBodyMeta,
+} from '../../lib/tabNavigationDebug'
 
 export type TabNavigationDeps = {
   t: TranslateFn
@@ -51,10 +78,11 @@ export type TabNavigationDeps = {
   openedTabs: string[]
   mainPaneMode: 'visual' | 'source'
   externalDiskChangedPaths: Set<string>
+  documentHistoryOpen: boolean
   setExternalDiskChangedPaths: Dispatch<SetStateAction<Set<string>>>
   setSaveConflict: Dispatch<SetStateAction<SaveConflictState | null>>
   setSavedAt: Dispatch<SetStateAction<string>>
-  setStatus: (msg: string) => void
+  setStatus: (msg: string, toneOverride?: AppStatusTone) => void
   setBufferTabLabels: Dispatch<SetStateAction<Record<string, string>>>
   setTabContextMenu: Dispatch<SetStateAction<{
     x: number
@@ -78,6 +106,8 @@ export type TabNavigationDeps = {
   setAtomicVisualDocumentEnter: Dispatch<SetStateAction<AtomicVisualDocumentEnter | null>>
   setEditorOpenReason: Dispatch<SetStateAction<import('../../editor/editorOpenReason').EditorOpenReason>>
   bufferBodiesRef: MutableRefObject<Record<string, string>>
+  documentNavigationInProgressRef: MutableRefObject<boolean>
+  setEditorDocumentLoading: Dispatch<SetStateAction<boolean>>
   tabNavGenerationRef: MutableRefObject<number>
   suppressWorkspaceRefreshUntilRef: MutableRefObject<number>
   saveAllDirtyDocumentsRef: MutableRefObject<(() => Promise<boolean>) | null>
@@ -92,7 +122,8 @@ export type TabNavigationDeps = {
     variant?: 'default' | 'warning'
   }) => Promise<boolean>
   promptUnsavedChanges: (opts: { message: string }) => Promise<'save' | 'discard' | 'cancel'>
-  dispatchOpenDocument: (root: string, path: string) => Promise<void>
+  showAppAlert: (opts: { title: string; message: string; okLabel?: string }) => Promise<void>
+  workspaceRestoringRef: MutableRefObject<boolean>
   focusActiveEditor: () => void
   resetModeSwitchEditorBootstrap: () => void
   logModeSwitchState: (phase: string) => void
@@ -110,6 +141,7 @@ export function useTabNavigation(deps: TabNavigationDeps) {
     openedTabs,
     mainPaneMode,
     externalDiskChangedPaths,
+    documentHistoryOpen,
     setExternalDiskChangedPaths,
     setSaveConflict,
     setSavedAt,
@@ -126,6 +158,8 @@ export function useTabNavigation(deps: TabNavigationDeps) {
     setAtomicVisualDocumentEnter,
     setEditorOpenReason,
     bufferBodiesRef,
+    documentNavigationInProgressRef,
+    setEditorDocumentLoading,
     tabNavGenerationRef,
     suppressWorkspaceRefreshUntilRef,
     saveAllDirtyDocumentsRef,
@@ -134,7 +168,8 @@ export function useTabNavigation(deps: TabNavigationDeps) {
     saveCurrent,
     confirmAppDialog,
     promptUnsavedChanges,
-    dispatchOpenDocument,
+    showAppAlert,
+    workspaceRestoringRef,
     focusActiveEditor,
     resetModeSwitchEditorBootstrap,
     logModeSwitchState,
@@ -143,6 +178,16 @@ export function useTabNavigation(deps: TabNavigationDeps) {
     revealNavigationAnchorAfterOpen,
     cancelPendingKernelContentDebounce,
   } = deps
+
+  const shouldBlockDocumentNavigation = useCallback(() => documentHistoryOpen, [documentHistoryOpen])
+
+  const warnOpenTabLimitReached = useCallback(async () => {
+    await showAppAlert({
+      title: t('app.confirm.openTabLimit.title'),
+      message: t('app.confirm.openTabLimit.message', { max: MAX_OPEN_DOCUMENT_TABS }),
+    })
+    setStatus(t('app.status.openTabLimit', { max: MAX_OPEN_DOCUMENT_TABS }), 'warning')
+  }, [showAppAlert, setStatus, t])
 
   const captureTabEditorSession = useCallback(
     (tabPath: string) => {
@@ -164,10 +209,18 @@ export function useTabNavigation(deps: TabNavigationDeps) {
       } else {
         const view = editorViewRef.current
         if (view) {
+          const fullMd = view.state.doc.toString()
           const { anchor, head } = view.state.selection.main
+          const { body, frontmatterPrefixLength } = splitFullSourceMarkdown(fullMd)
+          const bodySel = sourceSelectionToBodySelection(
+            anchor,
+            head,
+            frontmatterPrefixLength,
+            body.length,
+          )
           session.source = {
-            from: anchor,
-            to: head,
+            bodyFrom: bodySel.bodyAnchor,
+            bodyTo: bodySel.bodyHead,
             scrollTop: view.scrollDOM.scrollTop,
           }
         }
@@ -192,9 +245,12 @@ export function useTabNavigation(deps: TabNavigationDeps) {
         })
         setEditorOpenReason(EditorOpenReason.ModeSwitchRestore)
       } else if (mainPaneMode === 'source' && session.source) {
+        const identity = getSourceModeIdentity(tabPath) ?? ''
+        const prefix = computeLeadingFrontmatterPrefixLength(identity)
+        const sourceLen = identity.length
         sourceCodeMirrorBootSelectionRef.current = {
-          from: session.source.from,
-          to: session.source.to,
+          from: bodyOffsetToSourceOffset(session.source.bodyFrom, prefix, sourceLen),
+          to: bodyOffsetToSourceOffset(session.source.bodyTo, prefix, sourceLen),
           scrollTop: session.source.scrollTop,
         }
         setEditorOpenReason(EditorOpenReason.ModeSwitchRestore)
@@ -208,15 +264,12 @@ export function useTabNavigation(deps: TabNavigationDeps) {
     ],
   )
 
+  /** Prefer tab body cache whenever present; cold load only after explicit cache invalidation. */
   const shouldUseCachedBody = useCallback((path: string, cached: string | undefined): cached is string => {
     if (cached == null) return false
     if (isBufferTabId(path)) return true
-    const snap = getDocumentRuntimeSnapshot()
-    const dirty = Boolean(
-      snap.dirtyByPath[path] ||
-        Object.entries(snap.dirtyByPath).some(([p, v]) => v && pathsEqual(p, path)),
-    )
-    return dirty
+    // An empty cache for a disk-backed tab usually means "never loaded", not an empty file.
+    return cached.length > 0
   }, [])
 
   const resolveDocumentBodyForPath = useCallback(
@@ -229,38 +282,35 @@ export function useTabNavigation(deps: TabNavigationDeps) {
     [bufferBodiesRef],
   )
 
-  const isDirtyTraceEnabled = useCallback((): boolean => {
-    return isCompatibilityTraceEnabled('dirty')
-  }, [])
-
-  const quickHash = useCallback((text: string): string => {
-    let h = 2166136261
-    for (let i = 0; i < text.length; i += 1) {
-      h ^= text.charCodeAt(i)
-      h = Math.imul(h, 16777619)
-    }
-    return (h >>> 0).toString(16)
-  }, [])
-
   const normalizeLineEndings = useCallback((value: string): string => {
     return value.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
   }, [])
 
-  const diffPreview = useCallback((a: string, b: string) => {
-    if (a === b) return null
-    const max = Math.max(a.length, b.length)
-    let idx = 0
-    while (idx < max && a[idx] === b[idx]) idx += 1
-    const from = Math.max(0, idx - 16)
-    const to = idx + 32
-    return {
-      index: idx,
-      aSlice: a.slice(from, to),
-      bSlice: b.slice(from, to),
-      aLen: a.length,
-      bLen: b.length,
-    }
+  const beginDocumentNavigation = useCallback(() => {
+    documentNavigationInProgressRef.current = true
+    setEditorDocumentLoading(true)
+  }, [documentNavigationInProgressRef, setEditorDocumentLoading])
+
+  const endDocumentNavigation = useCallback(() => {
+    documentNavigationInProgressRef.current = false
+    setEditorDocumentLoading(false)
+  }, [documentNavigationInProgressRef, setEditorDocumentLoading])
+
+  const isSuspiciousWhitespaceCache = useCallback((path: string, cached: string | undefined): boolean => {
+    if (!path || isBufferTabId(path) || cached == null) return false
+    return cached.length <= 2 && cached.trim().length === 0
   }, [])
+
+  const isSuspiciousVisualFlushShrink = useCallback(
+    (nextBody: string, previousBody: string | undefined, savedBody: string | undefined): boolean => {
+      const trimmedNext = nextBody.trim()
+      if (trimmedNext.length > 0) return false
+      const previousLength = previousBody?.trim().length ?? 0
+      const savedLength = savedBody?.trim().length ?? 0
+      return nextBody.length <= 2 && (previousLength > 32 || savedLength > 32)
+    },
+    [],
+  )
 
   const persistEditorToTabStores = useCallback((tabPath: string, body: string) => {
     if (!tabPath) return
@@ -270,6 +320,26 @@ export function useTabNavigation(deps: TabNavigationDeps) {
     }
   }, [bufferBodiesRef])
 
+  const normalizeDocumentContentIfNeeded = useCallback(
+    async (path: string, body: string, source: string) => {
+      const projected = projectDocumentMemorySurfaces(path, body)
+      commitLatestDocumentBodyToMemory({
+        path,
+        body: projected.editorSurface,
+        sourceIdentity: projected.sourceIdentity,
+        contentRef,
+        persistBody: persistEditorToTabStores,
+      })
+      await dispatchDocumentCommand({
+        type: 'NORMALIZE_DOCUMENT_CONTENT',
+        path,
+        content: body,
+        source,
+      })
+    },
+    [contentRef, persistEditorToTabStores],
+  )
+
   /** Write the current editor text to tabBodiesStore + kernel, without writing to disk*/
   const flushEditorToMemory = useCallback(async (): Promise<boolean> => {
     cancelPendingKernelContentDebounce()
@@ -277,6 +347,7 @@ export function useTabNavigation(deps: TabNavigationDeps) {
     if (!pathToLeave) return true
     const contentSnapshot = contentRef.current
     const tabBodySnapshot = resolveDocumentBodyForPath(pathToLeave, contentSnapshot)
+    const savedBeforeFlush = getDocumentSavedContent(pathToLeave)
     let body: string
     let bodySource: 'editor' | 'fallback' = 'fallback'
     const visualSurface = visualEditorRef.current
@@ -295,12 +366,22 @@ export function useTabNavigation(deps: TabNavigationDeps) {
           () => activePathRef.current,
         )
       } catch (error) {
-        setStatus(t('app.status.saveFailed', { message: error instanceof Error ? error.message : String(error) }))
+        setStatus(t('app.status.saveFailed', { message: error instanceof Error ? error.message : String(error) }), 'error')
         return false
       }
       if (resolved != null) {
         body = resolved
         bodySource = 'editor'
+        logTabNav('memory-flush-resolved', {
+          path: pathToLeave,
+          bodySource,
+          currentActivePath: activePathRef.current,
+          boundDocumentKey: visualSurface?.getBoundDocumentKey() ?? null,
+          resolved: snapshotDocumentBodyMeta(pathToLeave, resolved),
+          contentSnapshot: snapshotDocumentBodyMeta(pathToLeave, contentSnapshot),
+          tabBodySnapshot: snapshotDocumentBodyMeta(pathToLeave, tabBodySnapshot),
+          savedBeforeFlush: snapshotDocumentBodyMeta(pathToLeave, savedBeforeFlush),
+        })
       } else {
         const fallback = resolveActiveAwareSaveBodyFallback({
           pathToSave: pathToLeave,
@@ -326,107 +407,95 @@ export function useTabNavigation(deps: TabNavigationDeps) {
       body = fallback
     }
 
-    if (editorBoundToLeaving && visualSurface?.normalizeMarkdownForCompare) {
-      const normalizedBody = visualSurface.normalizeMarkdownForCompare(body)
-      const normalizedSnapshot = visualSurface.normalizeMarkdownForCompare(contentSnapshot)
-      if (normalizedBody != null && normalizedSnapshot != null && normalizedBody === normalizedSnapshot) {
-        if (isDirtyTraceEnabled()) {
-          console.info('[dirty-trace] normalize equal, skip dirty', {
-            path: pathToLeave,
-            bodySource,
-            normalizedHash: quickHash(normalizedBody),
-            normalizedLen: normalizedBody.length,
-          })
-        }
-        captureTabEditorSession(pathToLeave)
-        return true
-      }
-      let normalizedSaved: string | null = null
-      if (normalizedBody != null && normalizedSnapshot != null) {
-        const saved = getDocumentSavedContent(pathToLeave)
-        normalizedSaved = saved ? visualSurface.normalizeMarkdownForCompare(saved) : null
-        const canNormalizeBaseline =
-          bodySource === 'editor' &&
-          normalizedSaved != null &&
-          normalizedBody === normalizedSaved &&
-          !isPathDirty(pathToLeave)
-        if (canNormalizeBaseline) {
-          if (isDirtyTraceEnabled()) {
-            console.warn('[dirty-trace] normalize baseline update', {
-              path: pathToLeave,
-              bodySource,
-              normalizedBodyHash: quickHash(normalizedBody),
-              normalizedSavedHash: normalizedSaved ? quickHash(normalizedSaved) : null,
-            })
-          }
-          persistEditorToTabStores(pathToLeave, body)
-          contentRef.current = body
-          await dispatchDocumentCommand({
-            type: 'NORMALIZE_DOCUMENT_CONTENT',
-            path: pathToLeave,
-            content: body,
-            source: 'normalize-on-tab-switch',
-          })
-          captureTabEditorSession(pathToLeave)
-          return true
-        }
-      }
-      if (isDirtyTraceEnabled()) {
-        const rawDiff = diffPreview(body, contentSnapshot)
-        const normalizedDiff =
-          normalizedBody != null && normalizedSnapshot != null
-            ? diffPreview(normalizedBody, normalizedSnapshot)
-            : null
-        const savedDiff =
-          normalizedBody != null && normalizedSaved != null
-            ? diffPreview(normalizedBody, normalizedSaved)
-            : null
-        console.warn('[dirty-trace] normalize mismatch, will mark dirty', {
+    if (
+      editorBoundToLeaving &&
+      bodySource === 'editor' &&
+      isSuspiciousVisualFlushShrink(body, contentSnapshot, savedBeforeFlush)
+    ) {
+      const protectedBody =
+        (contentSnapshot.trim().length > 0 ? contentSnapshot : undefined) ??
+        (tabBodySnapshot && tabBodySnapshot.trim().length > 0 ? tabBodySnapshot : undefined) ??
+        (savedBeforeFlush && savedBeforeFlush.trim().length > 0 ? savedBeforeFlush : undefined)
+      if (protectedBody != null) {
+        logTabNav('memory-flush-guard', {
           path: pathToLeave,
-          bodySource,
-          normalizedBodyHash: normalizedBody ? quickHash(normalizedBody) : null,
-          normalizedSnapshotHash: normalizedSnapshot ? quickHash(normalizedSnapshot) : null,
-          normalizedSavedHash: normalizedSaved ? quickHash(normalizedSaved) : null,
-          normalizedBodyLen: normalizedBody?.length ?? null,
-          normalizedSnapshotLen: normalizedSnapshot?.length ?? null,
-          rawDiff,
-          normalizedDiff,
-          savedDiff,
+          reason: 'suspicious-visual-flush-shrink',
+          boundDocumentKey: visualSurface?.getBoundDocumentKey() ?? null,
+          rejected: snapshotDocumentBodyMeta(pathToLeave, body),
+          replacement: snapshotDocumentBodyMeta(pathToLeave, protectedBody),
+          contentSnapshot: snapshotDocumentBodyMeta(pathToLeave, contentSnapshot),
+          tabBodySnapshot: snapshotDocumentBodyMeta(pathToLeave, tabBodySnapshot),
+          savedBeforeFlush: snapshotDocumentBodyMeta(pathToLeave, savedBeforeFlush),
         })
+        body = protectedBody
       }
     }
 
-    persistEditorToTabStores(pathToLeave, body)
-    if (body !== contentRef.current) {
-      contentRef.current = body
+    const savedBaseline = savedBeforeFlush ?? getDocumentSavedContent(pathToLeave)
+    if (editorBoundToLeaving && visualSurface?.normalizeMarkdownForCompare && savedBaseline != null) {
+      const normalizedBody = visualSurface.normalizeMarkdownForCompare(body)
+      const normalizedSaved = visualSurface.normalizeMarkdownForCompare(savedBaseline)
+      if (
+        normalizedBody != null &&
+        normalizedSaved != null &&
+        normalizedBody === normalizedSaved
+      ) {
+        await normalizeDocumentContentIfNeeded(pathToLeave, savedBaseline, 'normalize-on-tab-switch')
+        captureTabEditorSession(pathToLeave)
+        return true
+      }
     }
+
     const saved = getDocumentSavedContent(pathToLeave)
     const kernelDirty =
       saved === undefined
         ? body.length > 0
         : normalizeLineEndings(body) !== normalizeLineEndings(saved)
-    if (kernelDirty) {
+    const projectedFlush = projectDocumentMemorySurfaces(pathToLeave, savedBaseline ?? body)
+    if (!kernelDirty) {
+      commitLatestDocumentBodyToMemory({
+        path: pathToLeave,
+        body: projectedFlush.editorSurface,
+        sourceIdentity: projectedFlush.sourceIdentity,
+        contentRef,
+        persistBody: persistEditorToTabStores,
+      })
+    } else if (kernelDirty) {
+      const projectedDirty = projectDocumentMemorySurfaces(pathToLeave, body)
+      commitLatestDocumentBodyToMemory({
+        path: pathToLeave,
+        body: projectedDirty.editorSurface,
+        sourceIdentity: projectedDirty.sourceIdentity,
+        contentRef,
+        persistBody: persistEditorToTabStores,
+      })
       await dispatchDocumentCommand({
         type: 'DOCUMENT_CONTENT_CHANGED',
         path: pathToLeave,
-        content: body,
+        content: projectedDirty.editorSurface,
         source: 'memory-flush',
       })
     }
     captureTabEditorSession(pathToLeave)
     return true
   }, [
+    activePathRef,
     cancelPendingKernelContentDebounce,
+    contentRef,
+    isSuspiciousVisualFlushShrink,
     mainPaneMode,
+    normalizeLineEndings,
     persistEditorToTabStores,
+    normalizeDocumentContentIfNeeded,
     captureTabEditorSession,
     resolveDocumentBodyForPath,
     setStatus,
     t,
+    visualEditorRef,
   ])
 
   const saveDocumentAtPath = useCallback(
-    async (path: string): Promise<boolean> => {
+    async (path: string, mode: 'manual' | 'autosave' = 'manual'): Promise<boolean> => {
       if (!path) return false
       if (isBufferTabId(path)) {
         if (!pathsEqual(path, activePathRef.current)) return false
@@ -434,6 +503,7 @@ export function useTabNavigation(deps: TabNavigationDeps) {
         return !isPathDirty(path)
       }
       if (!rootDir) return false
+      if (mode === 'autosave' && isAutosaveSuspended(path)) return true
       if (pathsEqual(path, activePathRef.current)) {
         const flushed = await flushEditorToMemory()
         if (!flushed) return false
@@ -457,11 +527,12 @@ export function useTabNavigation(deps: TabNavigationDeps) {
           if (body == null) {
             throw new Error(t('app.status.saveNothingHint'))
           }
+          const diskMarkdown = diskMarkdownForDocumentSave(path, body)
           await dispatchDocumentCommand({
             type: 'SAVE_DOCUMENT',
             root: rootDir,
             path,
-            content: body,
+            content: diskMarkdown,
             source: 'save-document',
           })
         })
@@ -480,42 +551,45 @@ export function useTabNavigation(deps: TabNavigationDeps) {
             rootDir,
             path,
             local,
+            sourceMode: mode,
             setSaveConflict,
             setStatus,
             t,
           })
           return false
         }
-        setStatus(t('app.status.saveFailed', { message }))
+        setStatus(t('app.status.saveFailed', { message }), 'error')
         return false
       }
     },
-    [rootDir, flushEditorToMemory, resolveDocumentBodyForPath, saveCurrent, t],
+    [activePathRef, contentRef, flushEditorToMemory, resolveDocumentBodyForPath, rootDir, saveCurrent, setSaveConflict, setSavedAt, setStatus, suppressWorkspaceRefreshUntilRef, t],
   )
 
-  const saveAllDirtyDocuments = useCallback(async (): Promise<boolean> => {
+  const saveAllDirtyDocuments = useCallback(async (mode: 'manual' | 'autosave' = 'manual'): Promise<boolean> => {
     const flushed = await flushEditorToMemory()
     if (!flushed) return false
     const dirtyPaths = listDirtyDocumentPaths()
     const workspaceDirty = dirtyPaths.filter((p) => !isBufferTabId(p))
     const bufferDirty = dirtyPaths.filter((p) => isBufferTabId(p))
     for (const path of workspaceDirty) {
-      const ok = await saveDocumentAtPath(path)
+      if (mode === 'autosave' && isAutosaveSuspended(path)) continue
+      const ok = await saveDocumentAtPath(path, mode)
       if (!ok) return false
     }
     for (const path of bufferDirty) {
+      if (mode === 'autosave') continue
       if (!pathsEqual(path, activePathRef.current)) {
-        setStatus(t('app.status.saveNothingHint'))
+        setStatus(t('app.status.saveNothingHint'), 'info')
         return false
       }
       const ok = await saveDocumentAtPath(path)
       if (!ok) return false
     }
     if (workspaceDirty.length > 0 || bufferDirty.length > 0) {
-      setStatus(t('app.status.saved'))
+      setStatus(t('app.status.saved'), 'success')
     }
     return true
-  }, [flushEditorToMemory, saveDocumentAtPath, t])
+  }, [activePathRef, flushEditorToMemory, saveDocumentAtPath, setStatus, t])
 
   saveAllDirtyDocumentsRef.current = saveAllDirtyDocuments
 
@@ -534,7 +608,7 @@ export function useTabNavigation(deps: TabNavigationDeps) {
 
   leaveCurrentTabRef.current = leaveCurrentTab
 
-  const isTabNavStale = useCallback((generation: number) => tabNavGenerationRef.current !== generation, [])
+  const isTabNavStale = useCallback((generation: number) => tabNavGenerationRef.current !== generation, [tabNavGenerationRef])
 
   const releaseTabResources = useCallback(
     (path: string) => {
@@ -560,14 +634,175 @@ export function useTabNavigation(deps: TabNavigationDeps) {
     [t],
   )
 
+  const openDocumentPreferringCache = useCallback(
+    async (
+      root: string,
+      path: string,
+      options?: { cacheSource?: string; coldSource?: string; reason?: string },
+    ): Promise<void> => {
+      if (!path || isBufferTabId(path) || !root) return
+      const cached = resolveDocumentBodyForPath(path)
+      const tabBodyCached = getTabBody(path)
+      const suspiciousWhitespaceCache = isSuspiciousWhitespaceCache(path, cached)
+      const cacheUsable = shouldUseCachedBody(path, cached) && !suspiciousWhitespaceCache
+      logTabNav(cacheUsable ? 'open-document-cache-hit' : 'open-document-cold', {
+        reason: options?.reason ?? null,
+        path,
+        root,
+        cacheSource: options?.cacheSource ?? null,
+        coldSource: options?.coldSource ?? null,
+        cacheUsable,
+        suspiciousWhitespaceCache,
+        resolvedCache: snapshotDocumentBodyMeta(path, cached),
+        tabBodyCache: snapshotDocumentBodyMeta(path, tabBodyCached),
+        activePath: activePathRef.current,
+      })
+      if (cacheUsable) {
+        const projected = projectDocumentMemorySurfaces(path, cached)
+        checkBlankContentSuspect('open-document-cache-hit', path, projected.sourceIdentity, {
+          reason: options?.reason ?? options?.cacheSource ?? 'open-document-cache',
+          cacheSource: options?.cacheSource ?? null,
+        })
+        await dispatchDocumentCommand({
+          type: 'REPLACE_ACTIVE_DOCUMENT',
+          path,
+          content: projected.editorSurface,
+          source: options?.cacheSource ?? 'open-document-cache',
+        })
+        return
+      }
+      bumpColdOpenGeneration()
+      await dispatchDocumentCommand({
+        type: 'OPEN_DOCUMENT',
+        root,
+        path,
+        source: options?.coldSource ?? 'open-document-cold',
+      })
+    },
+    [activePathRef, bumpColdOpenGeneration, isSuspiciousWhitespaceCache, resolveDocumentBodyForPath, shouldUseCachedBody],
+  )
+
+  const dispatchOpenDocument = useCallback(
+    async (root: string, path: string, reason = 'dispatch-open-document'): Promise<void> => {
+      if (shouldBlockDocumentNavigation()) {
+        logTabNav('tab-activate-skipped', { reason: 'document-history-open', path, root })
+        return
+      }
+      const target = path.trim()
+      if (!target) return
+      const current = activePathRef.current.trim()
+      if (pathsEqual(target, current)) {
+        logTabNav('tab-activate-skipped', { reason: 'already-active', path: target, root })
+        return
+      }
+      beginDocumentNavigation()
+      try {
+        const generation = ++tabNavGenerationRef.current
+        logTabNav('open-document-start', {
+          reason,
+          fromPath: current,
+          toPath: target,
+          root,
+          workspaceRestoring: workspaceRestoringRef.current,
+          openedTabs,
+          generation,
+        })
+        if (!workspaceRestoringRef.current) {
+          const left = await leaveCurrentTab()
+          if (!left) {
+            logTabNav('tab-activate-skipped', { reason: 'leave-current-tab-failed', path: target, root })
+            return
+          }
+          if (isTabNavStale(generation)) {
+            logTabNav('tab-load-stale-abort', { reason, tabPath: target, navGeneration: generation, stage: 'after-leave' })
+            return
+          }
+        }
+        logModeSwitchState('dispatchOpenDocument:before_reset')
+        resetModeSwitchEditorBootstrap()
+        try {
+          await openDocumentPreferringCache(root, target, {
+            cacheSource: 'dispatchOpenDocument-cache',
+            coldSource: 'dispatchOpenDocument-adapter',
+            reason,
+          })
+        } catch (error) {
+          logTabNav('tab-load-complete', {
+            reason,
+            path: target,
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          setStatus(t('app.status.openFailed', { message: formatOpenDocumentError(error) }), 'error')
+          return
+        }
+        if (isTabNavStale(generation)) {
+          logTabNav('tab-load-stale-abort', { reason, tabPath: target, navGeneration: generation, stage: 'after-open' })
+          return
+        }
+        checkBlankContentSuspect('dispatch-open-document-complete', target, contentRef.current, { reason })
+        applyTabEditorSession(target)
+        focusActiveEditor()
+        if (mainPaneMode === 'visual') {
+          runAfterReactCommit(() => {
+            schedulePrimeEditorDiagramPreviews(() => {
+              const pm = visualEditorRef.current?.getEditor()
+              return pm?.view?.dom ?? null
+            })
+          })
+        }
+      } finally {
+        endDocumentNavigation()
+      }
+    },
+    [
+      activePathRef,
+      beginDocumentNavigation,
+      endDocumentNavigation,
+      applyTabEditorSession,
+      focusActiveEditor,
+      formatOpenDocumentError,
+      leaveCurrentTab,
+      logModeSwitchState,
+      mainPaneMode,
+      openDocumentPreferringCache,
+      resetModeSwitchEditorBootstrap,
+      setStatus,
+      shouldBlockDocumentNavigation,
+      t,
+      isTabNavStale,
+      tabNavGenerationRef,
+      visualEditorRef,
+      workspaceRestoringRef,
+      openedTabs,
+    ],
+  )
+
   const loadTabContent = useCallback(
-    async (tabPath: string, navGeneration: number) => {
-      if (isTabNavStale(navGeneration)) return
+    async (tabPath: string, navGeneration: number, reason = 'load-tab-content') => {
+      logTabNav('tab-load-start', {
+        reason,
+        tabPath,
+        navGeneration,
+        currentGeneration: tabNavGenerationRef.current,
+        fromPath: activePathRef.current,
+        rootDir: rootDir || null,
+        openedTabs,
+      })
+      if (isTabNavStale(navGeneration)) {
+        logTabNav('tab-load-stale-abort', { reason, tabPath, navGeneration, stage: 'before-start' })
+        return
+      }
       logModeSwitchState('loadTabContent:before_reset')
       resetModeSwitchEditorBootstrap()
       if (isBufferTabId(tabPath)) {
         bumpColdOpenGeneration()
         const body = bufferBodiesRef.current[tabPath] ?? INITIAL_NOTE_MD
+        logTabNav('open-document-cache-hit', {
+          reason: `${reason}:buffer-tab`,
+          path: tabPath,
+          body: snapshotDocumentBodyMeta(tabPath, body),
+        })
         await dispatchDocumentCommand({
           type: 'REPLACE_ACTIVE_DOCUMENT',
           path: tabPath,
@@ -611,43 +846,76 @@ export function useTabNavigation(deps: TabNavigationDeps) {
             }
           }
         }
-        if (isTabNavStale(navGeneration)) return
-        const cached = resolveDocumentBodyForPath(tabPath)
-        if (shouldUseCachedBody(tabPath, cached)) {
-          await dispatchDocumentCommand({
-            type: 'REPLACE_ACTIVE_DOCUMENT',
-            path: tabPath,
-            content: cached,
-            source: 'tab-cache',
-          })
-        } else {
-          bumpColdOpenGeneration()
-          try {
-            await dispatchOpenDocument(rootDir, tabPath)
-          } catch (error) {
-            setStatus(t('app.status.openFailed', { message: formatOpenDocumentError(error) }))
-            return
-          }
+        if (isTabNavStale(navGeneration)) {
+          logTabNav('tab-load-stale-abort', { reason, tabPath, navGeneration, stage: 'before-open' })
+          return
         }
+        try {
+          await openDocumentPreferringCache(rootDir, tabPath, {
+            cacheSource: 'tab-cache',
+            coldSource: 'tab-cold-open',
+            reason: `${reason}:disk-tab`,
+          })
+        } catch (error) {
+          logTabNav('tab-load-complete', {
+            reason,
+            tabPath,
+            navGeneration,
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          setStatus(t('app.status.openFailed', { message: formatOpenDocumentError(error) }), 'error')
+          return
+        }
+      } else {
+        logTabNav('tab-load-stale-abort', {
+          reason,
+          tabPath,
+          navGeneration,
+          stage: 'missing-root-dir',
+          rootDir: rootDir || null,
+        })
       }
-      if (isTabNavStale(navGeneration)) return
+      if (isTabNavStale(navGeneration)) {
+        logTabNav('tab-load-stale-abort', { reason, tabPath, navGeneration, stage: 'before-apply-session' })
+        return
+      }
+      checkBlankContentSuspect('load-tab-content-complete', tabPath, contentRef.current, {
+        reason,
+        navGeneration,
+        kernelSnapshot: snapshotDocumentBodyMeta(tabPath, getDocumentRuntimeSnapshot().content),
+      })
       applyTabEditorSession(tabPath)
       focusActiveEditor()
       if (mainPaneMode === 'visual') {
-        schedulePrimeEditorDiagramPreviews(() => {
-          const pm = visualEditorRef.current?.getEditor()
-          return pm?.view?.dom ?? null
+        runAfterReactCommit(() => {
+          schedulePrimeEditorDiagramPreviews(() => {
+            const pm = visualEditorRef.current?.getEditor()
+            return pm?.view?.dom ?? null
+          })
         })
       }
+      logTabNav('tab-load-complete', {
+        reason,
+        tabPath,
+        navGeneration,
+        success: true,
+        content: snapshotDocumentBodyMeta(tabPath, contentRef.current),
+        editorBoundKey: visualEditorRef.current?.getBoundDocumentKey?.() ?? null,
+        mainPaneMode,
+      })
     },
     [
+      activePathRef,
+      bufferBodiesRef,
+      contentRef,
       rootDir,
       mainPaneMode,
       visualEditorRef,
-      dispatchOpenDocument,
+      openDocumentPreferringCache,
       formatOpenDocumentError,
       setStatus,
-      dispatchDocumentCommand,
+      setExternalDiskChangedPaths,
       focusActiveEditor,
       resetModeSwitchEditorBootstrap,
       logModeSwitchState,
@@ -657,22 +925,58 @@ export function useTabNavigation(deps: TabNavigationDeps) {
       externalDiskChangedPaths,
       isTabNavStale,
       applyTabEditorSession,
-      resolveDocumentBodyForPath,
+      openedTabs,
+      tabNavGenerationRef,
     ],
   )
 
   const activateTab = useCallback(
-    async (targetPath: string) => {
-      if (pathsEqual(targetPath, activePath)) return
-      const generation = ++tabNavGenerationRef.current
-      const left = await leaveCurrentTab()
-      if (!left) return
-      if (isTabNavStale(generation)) return
-      await loadTabContent(targetPath, generation)
-      if (isTabNavStale(generation)) return
-      persistWorkspaceSnapshotNow()
+    async (targetPath: string, reason = 'user-tab-click') => {
+      if (shouldBlockDocumentNavigation()) {
+        logTabNav('tab-activate-skipped', { reason: 'document-history-open', targetPath })
+        return
+      }
+      if (pathsEqual(targetPath, activePath)) {
+        logTabNav('tab-activate-skipped', { reason: 'already-active', targetPath })
+        return
+      }
+      beginDocumentNavigation()
+      try {
+        const generation = ++tabNavGenerationRef.current
+        logTabNav('tab-activate-start', {
+          reason,
+          fromPath: activePath,
+          toPath: targetPath,
+          generation,
+          openedTabs,
+        })
+        const left = await leaveCurrentTab()
+        if (!left) {
+          logTabNav('tab-activate-skipped', { reason: 'leave-current-tab-failed', targetPath, generation })
+          return
+        }
+        if (isTabNavStale(generation)) {
+          logTabNav('tab-load-stale-abort', { reason, tabPath: targetPath, navGeneration: generation, stage: 'after-leave' })
+          return
+        }
+        await loadTabContent(targetPath, generation, reason)
+        if (isTabNavStale(generation)) {
+          logTabNav('tab-load-stale-abort', { reason, tabPath: targetPath, navGeneration: generation, stage: 'after-load' })
+          return
+        }
+        persistWorkspaceSnapshotNow()
+        logTabNav('tab-activate-complete', {
+          reason,
+          fromPath: activePath,
+          toPath: targetPath,
+          generation,
+          content: snapshotDocumentBodyMeta(targetPath, contentRef.current),
+        })
+      } finally {
+        endDocumentNavigation()
+      }
     },
-    [activePath, leaveCurrentTab, loadTabContent, isTabNavStale],
+    [activePath, beginDocumentNavigation, contentRef, endDocumentNavigation, leaveCurrentTab, loadTabContent, isTabNavStale, openedTabs, shouldBlockDocumentNavigation, tabNavGenerationRef],
   )
 
   const saveAllOpenTabs = useCallback(async () => {
@@ -680,6 +984,7 @@ export function useTabNavigation(deps: TabNavigationDeps) {
   }, [saveAllDirtyDocuments])
 
   const scratchNewDocument = useCallback(async () => {
+    logTabNav('scratch-new-document', { fromPath: activePath, openedTabs })
     const left = await leaveCurrentTab()
     if (!left) return
     resetModeSwitchEditorBootstrap()
@@ -692,107 +997,195 @@ export function useTabNavigation(deps: TabNavigationDeps) {
       content: INITIAL_NOTE_MD,
       source: 'scratch',
     })
-    setStatus(t('app.tab.scratchDoc'))
+    setStatus(t('app.tab.scratchDoc'), 'info')
     focusActiveEditor()
-  }, [leaveCurrentTab, focusActiveEditor, resetModeSwitchEditorBootstrap, t])
+  }, [activePath, bufferBodiesRef, leaveCurrentTab, focusActiveEditor, openedTabs, resetModeSwitchEditorBootstrap, setBufferTabLabels, setStatus, t])
 
   const scratchNewTab = useCallback(async () => {
+    logTabNav('scratch-new-tab', { fromPath: activePath, openedTabs })
+    const scratchId = newBufferTabId()
+    if (
+      wouldExceedOpenTabLimitForPaths(openedTabs, [
+        ...(activePath ? [activePath] : []),
+        scratchId,
+      ])
+    ) {
+      await warnOpenTabLimitReached()
+      return
+    }
     const left = await leaveCurrentTab()
     if (!left) return
     resetModeSwitchEditorBootstrap()
-    const id = newBufferTabId()
-    bufferBodiesRef.current[id] = INITIAL_NOTE_MD
-    setBufferTabLabels((prev) => ({ ...prev, [id]: '' }))
+    bufferBodiesRef.current[scratchId] = INITIAL_NOTE_MD
+    setBufferTabLabels((prev) => ({ ...prev, [scratchId]: '' }))
     await dispatchDocumentCommand({
       type: 'OPEN_SCRATCH_TAB',
-      id,
+      id: scratchId,
       content: INITIAL_NOTE_MD,
       currentPath: activePath,
       source: 'scratch',
     })
-    setStatus(t('app.tab.newScratch'))
+    setStatus(t('app.tab.newScratch'), 'info')
     focusActiveEditor()
-  }, [activePath, leaveCurrentTab, focusActiveEditor, resetModeSwitchEditorBootstrap, t])
+  }, [
+    activePath,
+    bufferBodiesRef,
+    leaveCurrentTab,
+    focusActiveEditor,
+    openedTabs,
+    resetModeSwitchEditorBootstrap,
+    setBufferTabLabels,
+    setStatus,
+    t,
+    warnOpenTabLimitReached,
+  ])
 
   const dispatchOpenDocumentInTab = useCallback(
-    async (root: string, path: string) => {
+    async (root: string, path: string, reason = 'open-document-in-tab') => {
+      if (shouldBlockDocumentNavigation()) {
+        logTabNav('tab-activate-skipped', { reason: 'document-history-open', path, root })
+        return
+      }
       if (!path) return
-      console.log('[NAV] dispatchOpenDocumentInTab', {
-        root,
-        path,
-        activePath: activePathRef.current,
-      })
-      if (isBufferTabId(path)) {
-        await activateTab(path)
-        await dispatchDocumentCommand({
-          type: 'SET_TABS',
-          tabs: upsertPathInList(openedTabs, path),
-          activePath: path,
-          source: 'dispatchOpenDocumentInTab-buffer',
-        })
+      if (!isPathInOpenTabs(openedTabs, path) && wouldExceedOpenTabLimit(openedTabs, path)) {
+        await warnOpenTabLimitReached()
         return
       }
-      if (!root) return
-      const navigationGeneration = beginNavigationReveal()
-      const sameNoteOpen = pathsEqual(path, activePathRef.current)
-      const left = await leaveCurrentTab()
-      if (!left) return
-      if (sameNoteOpen) {
-        await dispatchDocumentCommand({
-          type: 'SET_TABS',
-          tabs: upsertPathInList(openedTabs, path),
-          activePath,
-          source: 'dispatchOpenDocumentInTab-same-note',
-        })
-        focusActiveEditor()
-        await revealNavigationAnchorAfterOpen(path, contentRef.current, navigationGeneration)
-        return
-      }
-      const cached = resolveDocumentBodyForPath(path)
-      let loadedMarkdown: string
-      if (shouldUseCachedBody(path, cached)) {
-        const nextTabs = upsertPathInList(openedTabs, path)
-        await dispatchDocumentCommand({
-          type: 'REPLACE_ACTIVE_DOCUMENT',
+      beginDocumentNavigation()
+      try {
+        const generation = ++tabNavGenerationRef.current
+        logTabNav('open-document-in-tab', {
+          reason,
           path,
-          content: cached,
-          source: 'dispatchOpenDocumentInTab-tab-cache',
+          root,
+          activePath,
+          openedTabs,
+          generation,
         })
-        await dispatchDocumentCommand({
-          type: 'SET_TABS',
-          tabs: nextTabs,
-          activePath: path,
-          source: 'dispatchOpenDocumentInTab-tab-cache',
-        })
-        loadedMarkdown = cached
-      } else {
-        try {
-          const loaded = await dispatchDocumentCommand({
-            type: 'OPEN_DOCUMENT_IN_TAB',
-            root,
-            path,
-            source: 'dispatchOpenDocumentInTab-adapter',
+        if (isBufferTabId(path)) {
+          await activateTab(path, `${reason}:buffer`)
+          await dispatchDocumentCommand({
+            type: 'SET_TABS',
+            tabs: upsertPathInList(openedTabs, path),
+            activePath: path,
+            source: 'dispatchOpenDocumentInTab-buffer',
           })
-          loadedMarkdown = typeof loaded === 'string' ? loaded : contentRef.current
-        } catch (error) {
-          setStatus(t('app.status.openFailed', { message: formatOpenDocumentError(error) }))
           return
         }
+        if (!root) return
+        const navigationGeneration = beginNavigationReveal()
+        const currentActivePath = activePathRef.current
+        const sameNoteOpen = pathsEqual(path, currentActivePath)
+        const left = await leaveCurrentTab()
+        if (!left) return
+        if (isTabNavStale(generation)) {
+          logTabNav('tab-load-stale-abort', { reason, tabPath: path, navGeneration: generation, stage: 'after-leave' })
+          return
+        }
+        if (sameNoteOpen) {
+          await dispatchDocumentCommand({
+            type: 'SET_TABS',
+            tabs: upsertPathInList(openedTabs, path),
+            activePath: currentActivePath,
+            source: 'dispatchOpenDocumentInTab-same-note',
+          })
+          if (isTabNavStale(generation)) {
+            logTabNav('tab-load-stale-abort', { reason, tabPath: path, navGeneration: generation, stage: 'same-note-set-tabs' })
+            return
+          }
+          focusActiveEditor()
+          await revealNavigationAnchorAfterOpen(path, contentRef.current, navigationGeneration)
+          return
+        }
+        const cached = resolveDocumentBodyForPath(path)
+        let loadedMarkdown: string
+        if (shouldUseCachedBody(path, cached) && !isSuspiciousWhitespaceCache(path, cached)) {
+          logTabNav('open-document-cache-hit', {
+            reason: `${reason}:new-tab-cache`,
+            path,
+            cache: snapshotDocumentBodyMeta(path, cached),
+          })
+          checkBlankContentSuspect('open-document-in-tab-cache', path, cached, { reason })
+          const nextTabs = upsertPathInList(openedTabs, path)
+          await dispatchDocumentCommand({
+            type: 'REPLACE_ACTIVE_DOCUMENT',
+            path,
+            content: cached,
+            source: 'dispatchOpenDocumentInTab-tab-cache',
+          })
+          await dispatchDocumentCommand({
+            type: 'SET_TABS',
+            tabs: nextTabs,
+            activePath: path,
+            source: 'dispatchOpenDocumentInTab-tab-cache',
+          })
+          if (isTabNavStale(generation)) {
+            logTabNav('tab-load-stale-abort', { reason, tabPath: path, navGeneration: generation, stage: 'cache-set-tabs' })
+            return
+          }
+          loadedMarkdown = cached
+        } else {
+          logTabNav('open-document-cold', {
+            reason: `${reason}:new-tab-cold`,
+            path,
+            root,
+            cache: snapshotDocumentBodyMeta(path, cached),
+          })
+          try {
+            const loaded = await dispatchDocumentCommand({
+              type: 'OPEN_DOCUMENT_IN_TAB',
+              root,
+              path,
+              source: 'dispatchOpenDocumentInTab-adapter',
+            })
+            loadedMarkdown = typeof loaded === 'string' ? loaded : contentRef.current
+          } catch (error) {
+            logTabNav('tab-load-complete', {
+              reason,
+              path,
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+            })
+            setStatus(t('app.status.openFailed', { message: formatOpenDocumentError(error) }), 'error')
+            return
+          }
+          if (isTabNavStale(generation)) {
+            logTabNav('tab-load-stale-abort', { reason, tabPath: path, navGeneration: generation, stage: 'after-cold-open' })
+            return
+          }
+        }
+        if (isTabNavStale(generation)) {
+          logTabNav('tab-load-stale-abort', { reason, tabPath: path, navGeneration: generation, stage: 'before-reveal' })
+          return
+        }
+        checkBlankContentSuspect('open-document-in-tab-complete', path, loadedMarkdown, { reason })
+        await revealNavigationAnchorAfterOpen(path, loadedMarkdown, navigationGeneration)
+      } finally {
+        endDocumentNavigation()
       }
-      await revealNavigationAnchorAfterOpen(path, loadedMarkdown, navigationGeneration)
     },
     [
+      activePath,
+      activePathRef,
+      beginDocumentNavigation,
+      beginNavigationReveal,
+      contentRef,
+      endDocumentNavigation,
       leaveCurrentTab,
       activateTab,
-      activePath,
       openedTabs,
       focusActiveEditor,
       revealNavigationAnchorAfterOpen,
       formatOpenDocumentError,
       setStatus,
       resolveDocumentBodyForPath,
+      isSuspiciousWhitespaceCache,
       shouldUseCachedBody,
+      shouldBlockDocumentNavigation,
       t,
+      isTabNavStale,
+      tabNavGenerationRef,
+      warnOpenTabLimitReached,
     ],
   )
 
@@ -801,6 +1194,12 @@ export function useTabNavigation(deps: TabNavigationDeps) {
   const closeTab = useCallback(
     (path: string) => {
       const generation = ++tabNavGenerationRef.current
+      logTabNav('tab-close', {
+        path,
+        generation,
+        activePath,
+        openedTabs,
+      })
       void (async () => {
         const flushed = await flushEditorToMemory()
         if (!flushed) return
@@ -844,19 +1243,19 @@ export function useTabNavigation(deps: TabNavigationDeps) {
         const fallback = nextTabs[nextTabs.length - 1]
         if (fallback) {
           if (isTabNavStale(generation)) return
-          let fallbackContent = ''
+          let fallbackContent: string | undefined
           if (isBufferTabId(fallback)) {
             fallbackContent = bufferBodiesRef.current[fallback] ?? INITIAL_NOTE_MD
           } else {
             const cached = resolveDocumentBodyForPath(fallback)
-            if (cached != null) fallbackContent = cached
+            if (cached != null && cached.length > 0) fallbackContent = cached
           }
           if (isTabNavStale(generation)) return
           await dispatchDocumentCommand({
             type: 'CLOSE_TAB',
             path,
             fallbackPath: fallback,
-            fallbackContent,
+            fallbackContent: fallbackContent ?? '',
             source: 'tab-close',
           })
           if (isTabNavStale(generation)) return
@@ -877,11 +1276,14 @@ export function useTabNavigation(deps: TabNavigationDeps) {
     },
     [
       activePath,
+      bufferBodiesRef,
       openedTabs,
+      tabNavGenerationRef,
       loadTabContent,
       flushEditorToMemory,
       saveDocumentAtPath,
       resetModeSwitchEditorBootstrap,
+      setBufferTabLabels,
       t,
       promptUnsavedChanges,
       isTabNavStale,
@@ -902,7 +1304,25 @@ export function useTabNavigation(deps: TabNavigationDeps) {
     setFileContextMenu(null)
     setEditorDocMenu(null)
     setTabContextMenu({ x, y, path, index, total: openedTabs.length })
-  }, [openedTabs.length])
+  }, [openedTabs.length, setEditorDocMenu, setFileContextMenu, setTabContextMenu])
+
+  const reorderOpenedTabs = useCallback(
+    async (fromIndex: number, toIndex: number) => {
+      if (fromIndex === toIndex) return
+      if (fromIndex < 0 || toIndex < 0 || fromIndex >= openedTabs.length || toIndex >= openedTabs.length) {
+        return
+      }
+      const next = moveItemInArray(openedTabs, fromIndex, toIndex)
+      await dispatchDocumentCommand({
+        type: 'SET_TABS',
+        tabs: next,
+        activePath,
+        source: 'tab-reorder',
+      })
+      persistWorkspaceSnapshotNow()
+    },
+    [activePath, openedTabs],
+  )
 
   const handleTabContextPick = useCallback(
     (action: TabContextMenuPick, path: string, index: number) => {
@@ -982,6 +1402,9 @@ export function useTabNavigation(deps: TabNavigationDeps) {
       flushEditorToMemory,
       saveDocumentAtPath,
       resetModeSwitchEditorBootstrap,
+      setBufferTabLabels,
+      setTabContextMenu,
+      tabNavGenerationRef,
       t,
       promptUnsavedChanges,
       isTabNavStale,
@@ -1000,8 +1423,10 @@ export function useTabNavigation(deps: TabNavigationDeps) {
     saveAllOpenTabs,
     scratchNewDocument,
     scratchNewTab,
+    dispatchOpenDocument,
     dispatchOpenDocumentInTab,
     closeTab,
+    reorderOpenedTabs,
     onTabContextMenu,
     handleTabContextPick,
   }

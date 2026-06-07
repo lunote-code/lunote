@@ -9,9 +9,11 @@ import {
   reportMainSplitAreaWidth,
   setSurfaceSplitPreview,
   subscribeSurfaceSplitLayout,
+  setSurfaceSplitLayoutProgrammatic,
   type SurfaceSplitDragSession,
   SURFACE_RAIL_DEFAULT_PX,
   SURFACE_RAIL_MIN_PX,
+  SURFACE_RAIL_MAX_PX,
   SURFACE_SPLITTER_WIDTH_PX,
 } from '../layout/surfaceSplitLayoutRuntime'
 import {
@@ -260,8 +262,20 @@ export function useSurfaceSplitLayout(
     [disconnectResizeObserver, endDrag, mainRef, schedulePreview],
   )
 
+  const adjustRailWidth = useCallback(
+    (nextWidth: number) => {
+      const clamped = Math.max(SURFACE_RAIL_MIN_PX, Math.min(SURFACE_RAIL_MAX_PX, Math.round(nextWidth)))
+      setSurfaceSplitLayoutProgrammatic(clamped)
+      committedRailWidthRef.current = clamped
+      applyKosRailWidthCss(mainRef.current, clamped)
+      invalidateKnowledgeOSSnapshot()
+    },
+    [mainRef],
+  )
+
   return {
     splitterWidth: SURFACE_SPLITTER_WIDTH_PX,
     onSplitterPointerDown,
+    adjustRailWidth,
   }
 }

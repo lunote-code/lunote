@@ -1,4 +1,9 @@
 import { getManifestEntry } from './commandManifest.build'
+import {
+  isLinuxDesktopPlatform,
+  isMacDesktopPlatform,
+  isWindowsDesktopPlatform,
+} from '../platform/desktopPlatform'
 
 export type PlatformAccel = {
   /** Windows/Linux Default (Mod=Ctrl)*/
@@ -9,21 +14,20 @@ export type PlatformAccel = {
   default?: string
 }
 
+/** @deprecated Use isMacDesktopPlatform from platform/desktopPlatform */
 export function isMacPlatform(): boolean {
-  return (
-    typeof navigator !== 'undefined' &&
-    (navigator.platform.toLowerCase().includes('mac') || /Mac|iPhone|iPad|iPod/.test(navigator.userAgent))
-  )
+  return isMacDesktopPlatform()
 }
 
+/** @deprecated Use isWindowsDesktopPlatform from platform/desktopPlatform */
 export function isWindowsPlatform(): boolean {
-  return typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
+  return isWindowsDesktopPlatform()
 }
 
 function resolvePlatformAccel(spec: PlatformAccel): string | undefined {
-  if (isMacPlatform() && spec.mac) return spec.mac
-  if (isWindowsPlatform() && spec.win) return spec.win
-  if (!isMacPlatform() && !isWindowsPlatform() && spec.linux) return spec.linux
+  if (isMacDesktopPlatform() && spec.mac) return spec.mac
+  if (isWindowsDesktopPlatform() && spec.win) return spec.win
+  if (isLinuxDesktopPlatform() && spec.linux) return spec.linux
   return spec.win ?? spec.linux ?? spec.mac ?? spec.default
 }
 
@@ -34,6 +38,7 @@ export const PLATFORM_ACCELERATORS: Partial<Record<string, PlatformAccel>> = {
   'edit-find-next': { win: 'F3', mac: 'Mod+g', linux: 'F3' },
   'edit-find-prev': { win: 'Shift+F3', mac: 'Mod+Shift+g', linux: 'Shift+F3' },
   'fmt-strike': { win: 'Alt+Shift+5', mac: 'Ctrl+Shift+`', linux: 'Alt+Shift+5' },
+  'fmt-highlight': { win: 'Mod+Shift+H', mac: 'Mod+Shift+H', linux: 'Mod+Shift+H' },
   'para-insert-code-block': { win: 'Mod+Shift+k', mac: 'Mod+Alt+c', linux: 'Mod+Shift+k' },
   'fmt-image': { win: 'Mod+Shift+i', mac: 'Mod+Ctrl+i', linux: 'Mod+Shift+i' },
   'para-math-block': { win: 'Mod+Shift+m', mac: 'Mod+Alt+b', linux: 'Mod+Shift+m' },
@@ -70,6 +75,7 @@ export const MENU_CONFIGURABLE_SHORTCUT_IDS = [
   'fmt-italic',
   'fmt-underline',
   'fmt-strike',
+  'fmt-highlight',
   'fmt-inline-code',
   'fmt-clear-style',
   'para-h1',
@@ -157,6 +163,7 @@ export const SHORTCUT_PREF_SECTIONS: ReadonlyArray<{
       'fmt-italic',
       'fmt-underline',
       'fmt-strike',
+      'fmt-highlight',
       'fmt-inline-code',
       'fmt-clear-style',
     ],

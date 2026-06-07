@@ -4,6 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::Engine;
 
+use crate::chrome_candidates;
 use crate::core::security;
 
 /// Percent-encode one `file://` path segment (aligned with `mediaSources.fileUrl` in the frontend).
@@ -38,14 +39,6 @@ fn path_to_file_url(path: &Path) -> Result<String, String> {
   Ok(format!("{prefix}{encoded_path}"))
 }
 
-fn candidate_exists(path: &Path) -> Option<PathBuf> {
-  if path.is_file() {
-    Some(path.to_path_buf())
-  } else {
-    None
-  }
-}
-
 fn find_chrome_executable() -> Result<PathBuf, String> {
   if let Ok(from_env) = std::env::var("CHROME_PATH") {
     let trimmed = from_env.trim();
@@ -68,57 +61,41 @@ fn find_chrome_executable() -> Result<PathBuf, String> {
     }
   }
 
-  let mut candidates: Vec<PathBuf> = Vec::new();
-  #[cfg(target_os = "macos")]
-  {
-    candidates.extend([
-      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-      "/Applications/Chromium.app/Contents/MacOS/Chromium",
-      "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-      "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
-    ]
-    .into_iter()
-    .map(PathBuf::from));
-  }
-  #[cfg(target_os = "windows")]
-  {
-    let pf = std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".to_string());
-    let pf86 =
-      std::env::var("ProgramFiles(x86)").unwrap_or_else(|_| "C:\\Program Files (x86)".to_string());
-    candidates.extend([
-      format!("{pf}\\Google\\Chrome\\Application\\chrome.exe"),
-      format!("{pf86}\\Google\\Chrome\\Application\\chrome.exe"),
-      format!("{pf}\\Microsoft\\Edge\\Application\\msedge.exe"),
-      format!("{pf86}\\Microsoft\\Edge\\Application\\msedge.exe"),
-    ]
-    .into_iter()
-    .map(PathBuf::from));
-  }
-  #[cfg(target_os = "linux")]
-  {
-    candidates.extend(
-      [
-        "/usr/bin/google-chrome-stable",
-        "/usr/bin/google-chrome",
-        "/usr/bin/chromium",
-        "/usr/bin/chromium-browser",
-        "/snap/bin/chromium",
-      ]
-      .into_iter()
-      .map(PathBuf::from),
-    );
-  }
-
-  for candidate in candidates {
-    if let Some(found) = candidate_exists(&candidate) {
-      return Ok(found);
-    }
+  if let Some(found) = chrome_candidates::find_existing_chrome_executable() {
+    return Ok(found);
   }
 
   Err(
-    "Chrome/Chromium/Edge not found. Please install Google Chrome, or set the CHROME_PATH environment variable."
+    "Chrome/Chromium/Edge not found for PDF export. Install a Chromium-based browser (e.g. google-chrome-stable or chromium), or set CHROME_PATH to the browser executable. HTML and Word export do not require Chrome."
       .to_string(),
   )
+}
+
+/// CLI flags for headless Chrome PDF printing.
+///
+/// **Linux sandbox trade-off:** adds `--no-sandbox` / `--disable-setuid-sandbox` so PDF export
+/// works in containers and minimal desktops where Chrome's setuid sandbox cannot start. Chrome
+/// isolation is weaker; mitigation is that export HTML is always passed through
+/// [`security::sanitize_pdf_html`] immediately before write (app-generated content only).
+pub(crate) fn chrome_pdf_cli_args(pdf_path: &Path, file_url: &str) -> Vec<String> {
+  let mut args = vec![
+    "--headless=new".to_string(),
+    "--disable-gpu".to_string(),
+    "--no-first-run".to_string(),
+    "--no-default-browser-check".to_string(),
+    "--disable-extensions".to_string(),
+    "--run-all-compositor-stages-before-draw".to_string(),
+    "--virtual-time-budget=15000".to_string(),
+    "--no-pdf-header-footer".to_string(),
+  ];
+  #[cfg(target_os = "linux")]
+  {
+    args.push("--no-sandbox".to_string());
+    args.push("--disable-setuid-sandbox".to_string());
+  }
+  args.push(format!("--print-to-pdf={}", pdf_path.display()));
+  args.push(file_url.to_string());
+  args
 }
 
 fn remove_dir_best_effort(dir: &Path) {
@@ -126,6 +103,7 @@ fn remove_dir_best_effort(dir: &Path) {
 }
 
 /// Render HTML to PDF (vector output for desktop export) using native headless Chrome.
+/// Input HTML is sanitized before Chrome loads the temp file (see [`chrome_pdf_cli_args`] sandbox note on Linux).
 pub fn render_html_to_pdf_bytes(html: &str) -> Result<Vec<u8>, String> {
   security::ensure_pdf_html_payload_size(html)?;
   let sanitized = crate::core::security::sanitize_pdf_html(html);
@@ -160,19 +138,11 @@ pub fn render_html_to_pdf_bytes(html: &str) -> Result<Vec<u8>, String> {
   }
   let file_url = file_url.unwrap();
 
-  let pdf_arg = format!("--print-to-pdf={}", pdf_path.display());
-  let output = Command::new(&chrome)
-    .arg("--headless=new")
-    .arg("--disable-gpu")
-    .arg("--no-first-run")
-    .arg("--no-default-browser-check")
-    .arg("--disable-extensions")
-    .arg("--run-all-compositor-stages-before-draw")
-    .arg("--virtual-time-budget=15000")
-    .arg("--no-pdf-header-footer")
-    .arg(&pdf_arg)
-    .arg(&file_url)
-    .output();
+  let mut cmd = Command::new(&chrome);
+  for arg in chrome_pdf_cli_args(&pdf_path, &file_url) {
+    cmd.arg(arg);
+  }
+  let output = cmd.output();
 
   if output.is_err() {
     remove_dir_best_effort(&temp_dir);
@@ -217,5 +187,28 @@ mod tests {
     let url = path_to_file_url(&file).expect("file url");
     assert!(url.contains("%"), "expected percent-encoding in file URL: {url}");
     assert!(url.starts_with("file://"));
+  }
+
+  #[test]
+  fn chrome_pdf_cli_args_include_linux_sandbox_bypass() {
+    let args = chrome_pdf_cli_args(Path::new("/tmp/export.pdf"), "file:///tmp/export.html");
+    #[cfg(target_os = "linux")]
+    {
+      assert!(args.iter().any(|arg| arg == "--no-sandbox"));
+      assert!(args.iter().any(|arg| arg == "--disable-setuid-sandbox"));
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+      assert!(!args.iter().any(|arg| arg == "--no-sandbox"));
+    }
+    assert!(args.iter().any(|arg| arg.starts_with("--print-to-pdf=")));
+  }
+
+  #[test]
+  fn pdf_export_sanitizes_script_tags_before_chrome() {
+    let html = "<p>ok</p><script>alert(1)</script>";
+    let sanitized = security::sanitize_pdf_html(html);
+    assert!(!sanitized.contains("<script"));
+    assert!(sanitized.contains("ok"));
   }
 }

@@ -12,6 +12,11 @@ export type KnowledgeInteractionHost = {
   openSearchModal: () => void
   /** After the document is opened: wait for editor ready → resolve anchor → reveal (disable restore overwriting).*/
   revealNavigationAnchor?: (request: EditorAnchorRevealRequest) => void | Promise<void>
+  /** Merge frontmatter into disk for the given docKey (visual body stays in the editor). */
+  updateDocumentFrontmatter?: (
+    docKey: string,
+    updater: (current: Record<string, unknown>) => Record<string, unknown>,
+  ) => Promise<boolean>
 }
 
 let host: KnowledgeInteractionHost | null = null

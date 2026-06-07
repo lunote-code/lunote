@@ -100,8 +100,12 @@ export function stripLeadingYamlFrontmatter(markdown: string): { body: string; f
   return { body: markdown.slice(m[0].length), frontmatter: m[1] ?? null }
 }
 
+import {
+  normalizeWikiLinkBlockRefEscapesInMarkdown,
+} from './knowledgeRuntime/wikiLinkParser'
+
 /** Unified preprocessing before editing parse: frontmatter stripping + admonition (consistent with `normalizeMarkdownPipeline`)*/
 export function preprocessMarkdownForEditParse(markdown: string): string {
   const { body } = stripLeadingYamlFrontmatter(markdown)
-  return preprocessLunaMarkdownAdmonitions(body)
+  return normalizeWikiLinkBlockRefEscapesInMarkdown(preprocessLunaMarkdownAdmonitions(body))
 }

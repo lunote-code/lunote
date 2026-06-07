@@ -5,7 +5,8 @@ import type { CommandManifestEntry } from './commandManifest.types'
 import { buildAppMenuSchema } from './commandManifest.build'
 import { eachMenuBarLeaf } from './menu.builder'
 import { parseAccelerator } from './menu.shortcuts'
-import { hasCommandResolver } from './commandResolution.rules'
+import { COMMAND_RESOLUTION_REGISTRY, hasCommandResolver } from './commandResolution.rules'
+import { getManifestDefaultAccelerator } from './shortcutPlatformDefaults'
 
 export type ManifestValidationIssue =
   | 'unknown_command'
@@ -17,6 +18,7 @@ export type ManifestValidationIssue =
   | 'unreachable_web_binding'
   | 'ui_label_duplication'
   | 'menu_command_without_resolver'
+  | 'resolver_without_manifest'
 
 export type ManifestValidationResult = {
   ok: boolean
@@ -101,10 +103,18 @@ export function validateCommandManifest(): ManifestValidationResult {
   }
 
   for (const id of treeIds) {
-    if (!COMMAND_MANIFEST[id]) {
+    const entry = COMMAND_MANIFEST[id]
+    if (!entry) {
       issues.push({
         code: 'tree_command_missing_manifest',
         message: `MENU_BAR_STRUCTURE references unknown command "${id}"`,
+      })
+      continue
+    }
+    if (!hasCommandResolver(id)) {
+      issues.push({
+        code: 'menu_command_without_resolver',
+        message: `"${id}" is in MENU_BAR_STRUCTURE (runtime:'${entry.runtime}') but has no COMMAND_RESOLUTION_REGISTRY entry. Menu bar clicks will fail; add a resolver (e.g. delegateApp).`,
       })
     }
   }
@@ -122,19 +132,29 @@ export function validateCommandManifest(): ManifestValidationResult {
   eachMenuBarLeaf(schema.bar, (leaf) => {
     const m = COMMAND_MANIFEST[leaf.id]
     if (!m) return
+    const expectedAccelerator = getManifestDefaultAccelerator(m.id) ?? m.accelerator
     if (m.labelKey !== leaf.labelKey) {
       issues.push({
         code: 'ui_label_duplication',
         message: `Menu leaf labelKey mismatch for "${leaf.id}"`,
       })
     }
-    if (m.accelerator !== leaf.accelerator || m.icon !== leaf.menuIcon) {
+    if (expectedAccelerator !== leaf.accelerator || m.icon !== leaf.menuIcon) {
       issues.push({
         code: 'ui_label_duplication',
         message: `Menu leaf UI fields must come only from manifest for "${leaf.id}"`,
       })
     }
   })
+
+  for (const id of Object.keys(COMMAND_RESOLUTION_REGISTRY)) {
+    if (!COMMAND_MANIFEST[id]) {
+      issues.push({
+        code: 'resolver_without_manifest',
+        message: `COMMAND_RESOLUTION_REGISTRY entry "${id}" has no COMMAND_MANIFEST definition.`,
+      })
+    }
+  }
 
   for (const def of listManifestWithAccelerator()) {
     if (def.nativeAcceleratorExcluded) continue

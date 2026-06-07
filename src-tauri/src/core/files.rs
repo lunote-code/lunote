@@ -284,13 +284,25 @@ pub fn note_asset_exists(root: &str, note_path: &str, relative_path: &str) -> Re
 
 pub fn delete_note_file(root: &str, path: &str) -> Result<(), String> {
   let root_path = PathBuf::from(root);
+  let root_canon = root_path
+    .canonicalize()
+    .map_err(|e| format!("Unable to resolve root directory: {e}"))?;
   let p = PathBuf::from(path);
   ensure_no_parent_dir_components(&p)?;
   let resolved = ensure_under_allowed_root(&p, &root_path)?;
-  if !resolved.is_file() {
-    return Err("Only files can be deleted".to_string());
+  let resolved_canon = resolved
+    .canonicalize()
+    .map_err(|e| format!("Unable to resolve path: {e}"))?;
+  if resolved_canon == root_canon {
+    return Err("Cannot delete workspace root".to_string());
   }
-  std::fs::remove_file(&resolved).map_err(|e| format!("Delete failed: {e}"))
+  if resolved.is_dir() {
+    std::fs::remove_dir_all(&resolved).map_err(|e| format!("Delete failed: {e}"))
+  } else if resolved.is_file() {
+    std::fs::remove_file(&resolved).map_err(|e| format!("Delete failed: {e}"))
+  } else {
+    Err("Path does not exist".to_string())
+  }
 }
 
 #[derive(serde::Deserialize)]
@@ -309,17 +321,29 @@ pub struct MoveNotePayload {
   pub dest_dir: String,
 }
 
+fn is_strict_subpath(parent: &Path, child: &Path) -> bool {
+  if parent == child {
+    return false;
+  }
+  let parent_canon = parent.canonicalize().unwrap_or_else(|_| parent.to_path_buf());
+  let child_canon = child.canonicalize().unwrap_or_else(|_| child.to_path_buf());
+  if child_canon == parent_canon {
+    return false;
+  }
+  child_canon
+    .strip_prefix(&parent_canon)
+    .map(|rest| {
+      let s = rest.to_string_lossy();
+      s.starts_with('/') || s.starts_with('\\')
+    })
+    .unwrap_or(false)
+}
+
 pub fn move_note_file(payload: &MoveNotePayload) -> Result<String, String> {
   let root_path = PathBuf::from(&payload.root);
   let old = PathBuf::from(&payload.old_path);
   ensure_no_parent_dir_components(&old)?;
   let resolved_old = ensure_under_allowed_root(&old, &root_path)?;
-  if !resolved_old.is_file() {
-    return Err("Source file does not exist".to_string());
-  }
-  if !is_markdown_file(&resolved_old) {
-    return Err("Only Markdown files can be moved".to_string());
-  }
   let dest = PathBuf::from(&payload.dest_dir);
   ensure_no_parent_dir_components(&dest)?;
   let resolved_dest = ensure_under_allowed_root(&dest, &root_path)?;
@@ -340,7 +364,31 @@ pub fn move_note_file(payload: &MoveNotePayload) -> Result<String, String> {
   let new_path = resolved_dest.join(file_name);
   ensure_under_allowed_root(&new_path, &root_path)?;
   if new_path.exists() {
-    return Err("A file with the same name already exists in the target location".to_string());
+    return Err("A file or folder with the same name already exists in the target location".to_string());
+  }
+
+  if resolved_old.is_dir() {
+    let root_canon = root_path
+      .canonicalize()
+      .unwrap_or_else(|_| root_path.clone());
+    let old_canon = resolved_old
+      .canonicalize()
+      .unwrap_or(resolved_old.clone());
+    if old_canon == root_canon {
+      return Err("Cannot move the workspace root folder".to_string());
+    }
+    if is_strict_subpath(&old_canon, &dest_cmp) {
+      return Err("Cannot move a folder into itself or its subfolder".to_string());
+    }
+    std::fs::rename(&resolved_old, &new_path).map_err(|e| format!("Move failed: {e}"))?;
+    return Ok(new_path.to_string_lossy().to_string());
+  }
+
+  if !resolved_old.is_file() {
+    return Err("Source does not exist".to_string());
+  }
+  if !is_markdown_file(&resolved_old) {
+    return Err("Only Markdown files can be moved".to_string());
   }
   std::fs::rename(&resolved_old, &new_path).map_err(|e| format!("Move failed: {e}"))?;
   Ok(new_path.to_string_lossy().to_string())
@@ -351,15 +399,12 @@ pub fn rename_note_file(payload: &RenameNotePayload) -> Result<String, String> {
   let old = PathBuf::from(&payload.old_path);
   ensure_no_parent_dir_components(&old)?;
   let resolved_old = ensure_under_allowed_root(&old, &root_path)?;
-  if !resolved_old.is_file() {
-    return Err("Source file does not exist".to_string());
-  }
   let name = payload.new_name.trim();
   if name.is_empty() {
-    return Err("File name is empty".to_string());
+    return Err("Name is empty".to_string());
   }
   if name.contains('/') || name.contains('\\') {
-    return Err("File names cannot contain path separators".to_string());
+    return Err("Names cannot contain path separators".to_string());
   }
   let parent = resolved_old
     .parent()
@@ -367,7 +412,25 @@ pub fn rename_note_file(payload: &RenameNotePayload) -> Result<String, String> {
   let new_path = parent.join(name);
   ensure_under_allowed_root(&new_path, &root_path)?;
   if new_path.exists() {
-    return Err("A file with the same name already exists".to_string());
+    return Err("A file or folder with the same name already exists".to_string());
+  }
+
+  if resolved_old.is_dir() {
+    let root_canon = root_path
+      .canonicalize()
+      .unwrap_or_else(|_| root_path.clone());
+    let old_canon = resolved_old
+      .canonicalize()
+      .unwrap_or(resolved_old.clone());
+    if old_canon == root_canon {
+      return Err("Cannot rename the workspace root folder".to_string());
+    }
+    std::fs::rename(&resolved_old, &new_path).map_err(|e| format!("Rename failed: {e}"))?;
+    return Ok(new_path.to_string_lossy().to_string());
+  }
+
+  if !resolved_old.is_file() {
+    return Err("Source does not exist".to_string());
   }
   std::fs::rename(&resolved_old, &new_path).map_err(|e| format!("Rename failed: {e}"))?;
   Ok(new_path.to_string_lossy().to_string())
@@ -419,7 +482,18 @@ pub struct CreateNotePayload {
   pub root: String,
   #[serde(default)]
   pub parent_path: Option<String>,
-  pub stem: String,
+  #[serde(default)]
+  pub stem: Option<String>,
+  #[serde(default)]
+  pub content: Option<String>,
+  /// Vault-relative path such as `Daily/2026-05-28.md` (no auto-renaming).
+  #[serde(default)]
+  pub relative_path: Option<String>,
+}
+
+fn default_note_content(stem: &str) -> String {
+  let title = note_heading_from_stem(stem);
+  format!("---\ntitle: {title}\n---\n\n# {title}\n\n")
 }
 
 pub fn create_note(payload: &CreateNotePayload) -> Result<String, String> {
@@ -427,7 +501,40 @@ pub fn create_note(payload: &CreateNotePayload) -> Result<String, String> {
   if !root_path.is_dir() {
     return Err("Invalid working directory".to_string());
   }
-  let stem = sanitize_note_stem(&payload.stem)?;
+
+  if let Some(rel) = payload.relative_path.as_deref() {
+    let rel = rel.trim().replace('\\', "/");
+    if rel.is_empty() || rel.contains("..") {
+      return Err("Invalid note path".to_string());
+    }
+    let path = root_path.join(&rel);
+    ensure_under_root(&root_path, &path)?;
+    if path.exists() {
+      return Err("Note already exists".to_string());
+    }
+    if let Some(parent) = path.parent() {
+      std::fs::create_dir_all(parent)
+        .map_err(|e| format!("Failed to create parent folder: {e}"))?;
+    }
+    let stem = path
+      .file_stem()
+      .and_then(|s| s.to_str())
+      .unwrap_or("note");
+    let content = payload
+      .content
+      .clone()
+      .unwrap_or_else(|| default_note_content(stem));
+    crate::core::security::ensure_note_payload_size(content.as_bytes(), "Create note")?;
+    atomic_io::atomic_write(&path, content.as_bytes())
+      .map_err(|e| format!("Creation failed: {e}"))?;
+    return Ok(path.to_string_lossy().to_string());
+  }
+
+  let stem_raw = payload
+    .stem
+    .as_deref()
+    .ok_or_else(|| "File name is empty".to_string())?;
+  let stem = sanitize_note_stem(stem_raw)?;
   let parent = match payload.parent_path.as_deref() {
     None | Some("") => root_path.clone(),
     Some(parent_path) => {
@@ -441,8 +548,11 @@ pub fn create_note(payload: &CreateNotePayload) -> Result<String, String> {
   };
   let path = unique_note_path_in(&parent, &stem);
   ensure_under_allowed_root(&path, &root_path)?;
-  let heading = note_heading_from_stem(&stem);
-  let content = format!("# {heading}\n\n");
+  let content = payload
+    .content
+    .clone()
+    .unwrap_or_else(|| default_note_content(&stem));
+  crate::core::security::ensure_note_payload_size(content.as_bytes(), "Create note")?;
   atomic_io::atomic_write(&path, content.as_bytes()).map_err(|e| format!("Creation failed: {e}"))?;
   Ok(path.to_string_lossy().to_string())
 }
@@ -451,7 +561,9 @@ pub fn create_new_note(root: &str) -> Result<String, String> {
   create_note(&CreateNotePayload {
     root: root.to_string(),
     parent_path: None,
-    stem: "new note".to_string(),
+    stem: Some("new note".to_string()),
+    content: None,
+    relative_path: None,
   })
 }
 
@@ -467,7 +579,9 @@ pub fn create_new_note_in_parent(root: &str, parent_path: &str) -> Result<String
   create_note(&CreateNotePayload {
     root: root.to_string(),
     parent_path: Some(parent_path.to_string()),
-    stem: "new note".to_string(),
+    stem: Some("new note".to_string()),
+    content: None,
+    relative_path: None,
   })
 }
 
@@ -572,6 +686,240 @@ pub fn export_binary_to_path(payload: &ExportBinaryPayload) -> Result<(), String
   Ok(())
 }
 
+const MAX_EXTERNAL_IMPORT_ENTRIES: usize = 200;
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportExternalPathsPayload {
+  pub root: String,
+  pub dest_dir: String,
+  pub sources: Vec<String>,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportExternalPathsResult {
+  pub imported_paths: Vec<String>,
+  pub file_count: u32,
+  pub folder_count: u32,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportDroppedFileBytesPayload {
+  pub root: String,
+  pub dest_dir: String,
+  pub file_name: String,
+  pub data_base64: String,
+}
+
+pub fn workspace_path_is_directory(root: &str, path: &str) -> Result<bool, String> {
+  let root_path = security::ensure_listable_workspace_root(root)?;
+  let note_path = PathBuf::from(path);
+  ensure_no_parent_dir_components(&note_path)?;
+  let resolved = ensure_under_allowed_root(&note_path, &root_path)?;
+  Ok(resolved.is_dir())
+}
+
+pub fn import_dropped_file_bytes(payload: &ImportDroppedFileBytesPayload) -> Result<String, String> {
+  let root_path = security::ensure_listable_workspace_root(&payload.root)?;
+  let dest_path = PathBuf::from(payload.dest_dir.trim());
+  ensure_no_parent_dir_components(&dest_path)?;
+  let resolved_dest = ensure_under_allowed_root(&dest_path, &root_path)?;
+  if !resolved_dest.is_dir() {
+    return Err("The target folder does not exist".to_string());
+  }
+  let name = payload.file_name.trim();
+  if name.is_empty() || name.contains('/') || name.contains('\\') || name == ".." || name == "." {
+    return Err("Invalid file name".to_string());
+  }
+  security::ensure_base64_payload_within_limit(&payload.data_base64, "Import file")?;
+  let trimmed = payload.data_base64.trim().replace('\n', "");
+  let bytes = base64::engine::general_purpose::STANDARD
+    .decode(trimmed.as_str())
+    .map_err(|e| format!("Base64 decoding failed: {e}"))?;
+  security::ensure_binary_payload_size(&bytes, "Import file")?;
+  let src_name = std::ffi::OsStr::new(name);
+  let dest = unique_import_dest(&resolved_dest, src_name);
+  ensure_under_root(&root_path, &dest)?;
+  if let Some(par) = dest.parent() {
+    std::fs::create_dir_all(par).map_err(|e| format!("Failed to create directory: {e}"))?;
+  }
+  atomic_io::atomic_write(&dest, &bytes).map_err(|e| format!("Import failed: {e}"))?;
+  Ok(dest.to_string_lossy().to_string())
+}
+
+fn unique_import_dest(parent: &Path, file_name: &std::ffi::OsStr) -> PathBuf {
+  let mut candidate = parent.join(file_name);
+  if !candidate.exists() {
+    return candidate;
+  }
+  let name = file_name.to_string_lossy();
+  let path = Path::new(name.as_ref());
+  let stem = path
+    .file_stem()
+    .and_then(|s| s.to_str())
+    .unwrap_or("imported");
+  let ext = path
+    .extension()
+    .and_then(|e| e.to_str())
+    .map(|e| format!(".{e}"))
+    .unwrap_or_default();
+  for n in 2..=999u32 {
+    candidate = parent.join(format!("{stem}-{n}{ext}"));
+    if !candidate.exists() {
+      return candidate;
+    }
+  }
+  parent.join(format!("{stem}-999{ext}"))
+}
+
+fn copy_import_file(src: &Path, dest_parent: &Path, root: &Path) -> Result<PathBuf, String> {
+  let file_name = src
+    .file_name()
+    .ok_or_else(|| "Invalid file name".to_string())?;
+  let dest = unique_import_dest(dest_parent, file_name);
+  ensure_under_root(root, &dest)?;
+  let meta = std::fs::metadata(src).map_err(|e| format!("Failed to read file information: {e}"))?;
+  security::ensure_note_file_size(meta.len(), "Import file")?;
+  std::fs::copy(src, &dest).map_err(|e| format!("Copy failed: {e}"))?;
+  Ok(dest)
+}
+
+fn should_skip_import_dir_name(name: &str) -> bool {
+  should_skip_dir_entry(name) || name.ends_with(".assets")
+}
+
+fn copy_import_dir_recursive(
+  src: &Path,
+  dest_parent: &Path,
+  root: &Path,
+  imported: &mut Vec<String>,
+  file_count: &mut u32,
+  folder_count: &mut u32,
+  entry_budget: &mut usize,
+) -> Result<PathBuf, String> {
+  let folder_name = src
+    .file_name()
+    .ok_or_else(|| "Invalid folder name".to_string())?;
+  let dest_root = unique_import_dest(dest_parent, folder_name);
+  ensure_under_root(root, &dest_root)?;
+  std::fs::create_dir_all(&dest_root).map_err(|e| format!("Failed to create folder: {e}"))?;
+  *folder_count += 1;
+  imported.push(dest_root.to_string_lossy().to_string());
+  *entry_budget = entry_budget.saturating_sub(1);
+  if *entry_budget == 0 {
+    return Err("Import exceeds maximum file count".to_string());
+  }
+
+  for entry in WalkDir::new(src)
+    .min_depth(1)
+    .into_iter()
+    .filter_entry(|e| !should_skip_import_dir_name(&e.file_name().to_string_lossy()))
+    .filter_map(Result::ok)
+  {
+    if *entry_budget == 0 {
+      return Err("Import exceeds maximum file count".to_string());
+    }
+    let rel = entry
+      .path()
+      .strip_prefix(src)
+      .map_err(|_| "Invalid import path".to_string())?;
+    let target = dest_root.join(rel);
+    ensure_under_root(root, &target)?;
+    if entry.file_type().is_dir() {
+      let name = entry.file_name().to_string_lossy();
+      if should_skip_import_dir_name(&name) {
+        continue;
+      }
+      std::fs::create_dir_all(&target).map_err(|e| format!("Failed to create folder: {e}"))?;
+      continue;
+    }
+    if !entry.file_type().is_file() {
+      continue;
+    }
+    let meta = entry
+      .metadata()
+      .map_err(|e| format!("Failed to read file information: {e}"))?;
+    security::ensure_note_file_size(meta.len(), "Import file")?;
+    if let Some(par) = target.parent() {
+      std::fs::create_dir_all(par).map_err(|e| format!("Failed to create folder: {e}"))?;
+    }
+    std::fs::copy(entry.path(), &target).map_err(|e| format!("Copy failed: {e}"))?;
+    imported.push(target.to_string_lossy().to_string());
+    *file_count += 1;
+    *entry_budget = entry_budget.saturating_sub(1);
+  }
+  Ok(dest_root)
+}
+
+pub fn import_external_paths_into_workspace(
+  payload: &ImportExternalPathsPayload,
+) -> Result<ImportExternalPathsResult, String> {
+  let root_path = security::ensure_listable_workspace_root(&payload.root)?;
+  let dest_path = PathBuf::from(payload.dest_dir.trim());
+  ensure_no_parent_dir_components(&dest_path)?;
+  let resolved_dest = ensure_under_allowed_root(&dest_path, &root_path)?;
+  if !resolved_dest.is_dir() {
+    return Err("The target folder does not exist".to_string());
+  }
+  let dest_name = resolved_dest
+    .file_name()
+    .and_then(|n| n.to_str())
+    .unwrap_or("");
+  if dest_name.ends_with(".assets") {
+    return Err("Cannot import into attachment folders".to_string());
+  }
+
+  let dest_canon = resolved_dest
+    .canonicalize()
+    .unwrap_or(resolved_dest.clone());
+
+  let mut imported_paths = Vec::new();
+  let mut file_count = 0u32;
+  let mut folder_count = 0u32;
+  let mut entry_budget = MAX_EXTERNAL_IMPORT_ENTRIES;
+
+  for source in &payload.sources {
+    if entry_budget == 0 {
+      return Err("Import exceeds maximum file count".to_string());
+    }
+    let resolved_src = security::ensure_external_drop_source(source)?;
+    if ensure_under_allowed_root(&resolved_src, &root_path).is_ok() {
+      return Err("Use workspace move for files already in this vault".to_string());
+    }
+    let src_canon = resolved_src
+      .canonicalize()
+      .unwrap_or(resolved_src.clone());
+    if is_strict_subpath(&src_canon, &dest_canon) {
+      return Err("Cannot import a folder into itself or its subfolder".to_string());
+    }
+
+    if resolved_src.is_file() {
+      let dest = copy_import_file(&resolved_src, &resolved_dest, &root_path)?;
+      imported_paths.push(dest.to_string_lossy().to_string());
+      file_count += 1;
+      entry_budget = entry_budget.saturating_sub(1);
+    } else if resolved_src.is_dir() {
+      copy_import_dir_recursive(
+        &resolved_src,
+        &resolved_dest,
+        &root_path,
+        &mut imported_paths,
+        &mut file_count,
+        &mut folder_count,
+        &mut entry_budget,
+      )?;
+    }
+  }
+
+  Ok(ImportExternalPathsResult {
+    imported_paths,
+    file_count,
+    folder_count,
+  })
+}
+
 /// Display the file (or directory) in the system file manager.
 pub fn reveal_path_in_explorer(path: &str, workspace_root: &str) -> Result<(), String> {
   let resolved = security::ensure_reveal_allowed(path, workspace_root)?;
@@ -596,11 +944,7 @@ pub fn reveal_path_in_explorer(path: &str, workspace_root: &str) -> Result<(), S
   }
   #[cfg(all(unix, not(target_os = "macos")))]
   {
-    let dir = resolved.parent().ok_or_else(|| "Invalid path".to_string())?;
-    std::process::Command::new("xdg-open")
-      .arg(dir)
-      .spawn()
-      .map_err(|e| format!("Failed to open directory: {e}"))?;
+    super::shell_reveal::reveal_path_in_file_manager(&resolved)?;
   }
   Ok(())
 }

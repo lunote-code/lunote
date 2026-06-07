@@ -12,21 +12,23 @@ import {
 import { createPortal } from 'react-dom'
 import { bridgeCaptureEditorSelection } from '../editor/editorMutationBridge'
 import { Icon } from '../design-system/icons'
+import type { SemanticIconName } from '../design-system/icons'
 import { useI18n } from '../i18n/provider'
 import {
   APP_MENU_SCHEMA,
-  formatAcceleratorForDisplay,
-  formatTyporaMenuTitle,
+  formatCommandShortcutDisplay,
   isLeaf,
   isSeparator,
   isSubmenu,
 } from '../menu'
 import type { MenuBarGroup, MenuLeaf, MenuNode, MenuSubmenu } from '../menu'
+import { isValidRecentFilePath } from '../lib/workspacePathUtils'
 import './appMenuBar.css'
 
 type AppMenuBarProps = {
   recentFiles: readonly string[]
-  onRunAction: (action: string) => void
+  /** manifest command id → executeManifestCommand */
+  onRunAction: (commandId: string) => void
   onOpenRecent: (path: string) => void
 }
 
@@ -195,9 +197,8 @@ function MenuNodes({
   useEffect(() => () => clearHoverClose(), [clearHoverClose])
 
   const renderLeaf = (leaf: MenuLeaf, labelOverride?: string) => {
-    const action = leaf.action ?? leaf.id
-    const label = labelOverride ?? formatTyporaMenuTitle(t(leaf.labelKey), leaf.menuIcon)
-    const shortcut = formatAcceleratorForDisplay(leaf.accelerator)
+    const label = labelOverride ?? t(leaf.labelKey)
+    const shortcut = formatCommandShortcutDisplay(leaf.action ?? leaf.id)
     return (
       <button
         key={leaf.id}
@@ -205,8 +206,15 @@ function MenuNodes({
         role="menuitem"
         className="app-menubar-item"
         onMouseDown={preventMenuMouseDown}
-        onClick={() => onRunAction(action)}
+        onClick={() => onRunAction(leaf.id)}
       >
+        <span className="app-menubar-item-leading">
+          <MenuItemLeading
+            menuIcon={leaf.menuIcon}
+            semanticIcon={leaf.semanticIcon}
+            menuColorSwatch={leaf.menuColorSwatch}
+          />
+        </span>
         <span className="app-menubar-item-label">{label}</span>
         {shortcut ? (
           <span className="app-menubar-item-meta">
@@ -240,7 +248,7 @@ function MenuNodes({
           if (recentFiles.length === 0) {
             return (
               <button key={node.id} type="button" className="app-menubar-item" disabled>
-                <span className="app-menubar-item-label">{t('menu.file.recent')}</span>
+                <span className="app-menubar-item-label">{t('menu.native.recentEmpty')}</span>
               </button>
             )
           }
@@ -248,12 +256,23 @@ function MenuNodes({
             kind: 'submenu',
             id: 'sub-recent-dynamic',
             labelKey: 'menu.file.recent',
-            children: recentFiles.map((path, i) => ({
-              kind: 'item',
-              id: `recent-${i}`,
-              labelKey: 'menu.file.recent',
-              action: `recent:${path}`,
-            })),
+            semanticIcon: 'sort-time',
+            children: [
+              ...recentFiles.filter(isValidRecentFilePath).map((path, i) => ({
+                kind: 'item' as const,
+                id: `recent-${i}`,
+                labelKey: 'menu.file.recent',
+                action: `recent:${path}`,
+              })),
+              { kind: 'separator' as const },
+              {
+                kind: 'item' as const,
+                id: 'file-clear-recent',
+                labelKey: 'menu.file.clearRecent',
+                action: 'file-clear-recent',
+                semanticIcon: 'delete',
+              },
+            ],
           })
         }
         if (isLeaf(node) && node.id.startsWith('recent-')) {
@@ -269,6 +288,9 @@ function MenuNodes({
               onMouseDown={preventMenuMouseDown}
               onClick={() => onOpenRecent(path)}
             >
+              <span className="app-menubar-item-leading">
+                <MenuItemLeading semanticIcon="note" />
+              </span>
               <span className="app-menubar-item-label">{basename(path)}</span>
             </button>
           )
@@ -329,6 +351,9 @@ const SubmenuRow = memo(function SubmenuRow({
         aria-haspopup="menu"
         onMouseDown={preventMenuMouseDown}
       >
+        <span className="app-menubar-item-leading">
+          <MenuItemLeading semanticIcon={sub.semanticIcon} />
+        </span>
         <span className="app-menubar-item-label">{t(sub.labelKey)}</span>
         <span className="app-menubar-item-meta">
           <Icon name="chevron-right" className="app-menubar-chevron" size="sm" stroke="strong" />
@@ -436,8 +461,48 @@ function preventMenuMouseDown(e: ReactMouseEvent): void {
   if (e.button === 0 || e.button === 2) e.preventDefault()
 }
 
+function MenuItemLeading({
+  menuIcon,
+  semanticIcon,
+  menuColorSwatch,
+}: {
+  menuIcon?: string
+  semanticIcon?: SemanticIconName
+  menuColorSwatch?: string | 'default'
+}) {
+  if (menuColorSwatch) {
+    return (
+      <span
+        className={`app-menubar-color-dot${menuColorSwatch === 'default' ? ' app-menubar-color-dot--default' : ''}`}
+        style={
+          menuColorSwatch !== 'default'
+            ? ({ '--menubar-swatch-color': menuColorSwatch } as React.CSSProperties)
+            : undefined
+        }
+        aria-hidden
+      />
+    )
+  }
+  if (menuIcon) {
+    return (
+      <span className="app-menubar-item-glyph" aria-hidden>
+        {menuIcon}
+      </span>
+    )
+  }
+  if (semanticIcon) {
+    return (
+      <span className="app-menubar-item-icon" aria-hidden>
+        <Icon name={semanticIcon} size="sm" tone="muted" stroke="regular" />
+      </span>
+    )
+  }
+  return <span className="app-menubar-item-icon app-menubar-item-icon--placeholder" aria-hidden />
+}
+
 export function AppMenuBar({ recentFiles, onRunAction, onOpenRecent }: AppMenuBarProps) {
   const menuId = useId()
+  const { t } = useI18n()
   const [openGroupId, setOpenGroupId] = useState<string | null>(null)
   const barRef = useRef<HTMLElement | null>(null)
 
@@ -458,7 +523,7 @@ export function AppMenuBar({ recentFiles, onRunAction, onOpenRecent }: AppMenuBa
       id={menuId}
       className="app-menubar"
       role="menubar"
-      aria-label="Application menu"
+      aria-label={t('app.menubar.aria')}
       onMouseDownCapture={(e) => {
         if (e.button === 0) bridgeCaptureEditorSelection()
       }}

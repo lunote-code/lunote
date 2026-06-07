@@ -1,6 +1,7 @@
 import type { UiLocaleId } from '../i18n/resolveLocale'
 import type { ExportThemeSnapshot } from './exportThemeSnapshot'
 import { exportFontStackForLocale } from './exportLocaleTypography'
+import { EXPORT_MONO_FONT_STACK } from './exportFontSanitize'
 
 /** PDF / Self-contained export of HTML semantic tokens (with no App Theme Runtime)*/
 function buildExportThemeTokens(localeId: UiLocaleId): Record<string, string> {
@@ -18,9 +19,16 @@ function buildExportThemeTokens(localeId: UiLocaleId): Record<string, string> {
   '--border-subtle': '#d0d7de',
   '--border-strong': '#8c959f',
   '--accent': '#0969da',
+  '--link': '#0969da',
+  '--luna-tag-green': '#10b981',
+  '--luna-tag-orange': '#e67e22',
+  '--luna-tag-purple': '#8b5cf6',
+  '--luna-color-danger': '#dc2626',
+  '--luna-color-danger-muted': '#b91c1c',
+  '--luna-color-danger-soft': '#fca5a5',
   '--font-ui': fontUi,
   '--font-reading': fontUi,
-  '--font-mono': 'ui-monospace, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+  '--font-mono': EXPORT_MONO_FONT_STACK,
   '--line-reading': '1.7',
   '--letter-reading': '0',
   '--code-bg': '#f6f8fa',
@@ -52,9 +60,16 @@ function buildExportThemeDark(localeId: UiLocaleId): Record<string, string> {
   '--border-subtle': '#30363d',
   '--border-strong': '#484f58',
   '--accent': '#58a6ff',
+  '--link': '#58a6ff',
+  '--luna-tag-green': '#10b981',
+  '--luna-tag-orange': '#e67e22',
+  '--luna-tag-purple': '#8b5cf6',
+  '--luna-color-danger': '#dc2626',
+  '--luna-color-danger-muted': '#b91c1c',
+  '--luna-color-danger-soft': '#fca5a5',
   '--font-ui': fontUi,
   '--font-reading': fontUi,
-  '--font-mono': 'ui-monospace, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+  '--font-mono': EXPORT_MONO_FONT_STACK,
   '--line-reading': '1.7',
   '--letter-reading': '0',
   '--code-bg': '#161b22',
@@ -79,11 +94,28 @@ function translucent(hexOrColor: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
+function linkColorForTheme(theme: ExportThemeSnapshot['theme'], dark: boolean): string {
+  const presetLinks: Record<string, { light: string; dark: string }> = {
+    'github-light': { light: '#0969da', dark: '#0969da' },
+    'github-dark': { light: '#0969da', dark: '#58a6ff' },
+    'idea-light': { light: '#2675bf', dark: '#2675bf' },
+    'idea-dark': { light: '#2675bf', dark: '#5aa8ff' },
+    'dim-light': { light: '#4f46e5', dark: '#4f46e5' },
+    'dim-dark': { light: '#4f46e5', dark: '#a78bfa' },
+    light: { light: '#0969da', dark: '#0969da' },
+    dark: { light: '#58a6ff', dark: '#58a6ff' },
+  }
+  const entry = presetLinks[theme.id]
+  if (entry) return dark ? entry.dark : entry.light
+  return theme.colors.primary
+}
+
 function buildExportThemeFromSnapshot(snapshot: ExportThemeSnapshot): Record<string, string> {
   const localeId = snapshot.localeId ?? 'en'
   const fontUi = exportFontStackForLocale(localeId)
   const { colors, radius } = snapshot.theme
   const dark = snapshot.dark
+  const link = linkColorForTheme(snapshot.theme, dark)
   return {
     '--surface-app': colors.background,
     '--surface-editor': colors.background,
@@ -97,9 +129,16 @@ function buildExportThemeFromSnapshot(snapshot: ExportThemeSnapshot): Record<str
     '--border-subtle': colors.border,
     '--border-strong': colors.border,
     '--accent': colors.primary,
+    '--link': link,
+    '--luna-tag-green': '#10b981',
+    '--luna-tag-orange': '#e67e22',
+    '--luna-tag-purple': '#8b5cf6',
+    '--luna-color-danger': '#dc2626',
+    '--luna-color-danger-muted': '#b91c1c',
+    '--luna-color-danger-soft': '#fca5a5',
     '--font-ui': fontUi,
     '--font-reading': fontUi,
-    '--font-mono': 'ui-monospace, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+    '--font-mono': EXPORT_MONO_FONT_STACK,
     '--line-reading': '1.7',
     '--letter-reading': '0',
     '--code-bg': dark ? '#161b22' : '#f6f8fa',

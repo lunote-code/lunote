@@ -11,6 +11,7 @@ import { useSyncAppMenuContext } from './useSyncAppMenuContext'
 import { INITIAL_NOTE_MD } from '../workspace/constants'
 import type { SourceModeEnterAnchor } from '../../editor/viewportModeAnchor'
 import type { AppExportFormat } from '../../markdownExport'
+import type { OpenDailyNoteOutcome } from '../../templates/dailyNoteService'
 
 type TranslateFn = (key: string, vars?: Record<string, string | number>) => string
 
@@ -37,6 +38,7 @@ export function createInitialAppMenuContext(): AppMenuContext {
     },
     saveAsCurrent: async () => {},
     saveAllOpenTabs: async () => {},
+    flushEditorToMemory: async () => true,
     refreshFileTree: async () => {},
     setFileTree: (u: SetStateAction<AppMenuFileTreeNode[]>) => {
       void u
@@ -62,7 +64,13 @@ export function createInitialAppMenuContext(): AppMenuContext {
       void oldPath
       void isDirectory
     },
-    openNewNoteDialog: (root: string, parentPath: string, openInTab?: boolean) => {
+    openNewNoteDialog: (root: string, parentPath: string, openInTab?: boolean, templatePath?: string) => {
+      void root
+      void parentPath
+      void openInTab
+      void templatePath
+    },
+    openNewNoteFromTemplateDialog: (root: string, parentPath: string, openInTab?: boolean) => {
       void root
       void parentPath
       void openInTab
@@ -73,8 +81,10 @@ export function createInitialAppMenuContext(): AppMenuContext {
     runAppExportFormat: async (format: AppExportFormat) => {
       void format
     },
+    runAppPrint: async () => {},
     scratchNewDocument: async () => {},
     scratchNewTab: async () => {},
+    openDailyNote: async (): Promise<OpenDailyNoteOutcome> => 'no-workspace',
     toggleMainPaneMode: () => {},
     openFindPanel: () => {},
     findNextInDocument: () => {},
@@ -100,6 +110,7 @@ export function createInitialAppMenuUiDeps(): AppMenuUiDeps {
     setCommandPaletteOpen: () => {},
     setCommandPaletteQuery: () => {},
     setCommandPaletteIndex: () => {},
+    openDocumentHistoryDialog: () => {},
     openPreferencesDialog: () => {},
     setMainPaneMode: () => {},
     pendingSourceModeAnchorRef: { current: null },
@@ -123,6 +134,7 @@ export type AppCommandHostsDeps = {
   saveCurrent: (manual?: boolean) => Promise<void>
   saveAsCurrent: () => Promise<void>
   saveAllOpenTabs: () => Promise<void>
+  flushEditorToMemory: () => Promise<boolean>
   refreshFileTree: () => Promise<void>
   setFileTree: Dispatch<SetStateAction<AppMenuFileTreeNode[]>>
   setExpandedDirs: Dispatch<SetStateAction<Set<string>>>
@@ -130,7 +142,8 @@ export type AppCommandHostsDeps = {
   updateRecent: (path: string) => void
   setRecentFiles: Dispatch<SetStateAction<string[]>>
   openRenameDialog: (root: string, oldPath: string, isDirectory: boolean) => void
-  openNewNoteDialog: (root: string, parentPath: string, openInTab?: boolean) => void
+  openNewNoteDialog: (root: string, parentPath: string, openInTab?: boolean, templatePath?: string) => void
+  openNewNoteFromTemplateDialog: (root: string, parentPath: string, openInTab?: boolean) => void
   confirmDeleteFile: (options: { title: string; message: string; fileLabel: string }) => Promise<boolean>
   confirmAppDialog: (options: {
     title: string
@@ -141,8 +154,10 @@ export type AppCommandHostsDeps = {
   }) => Promise<boolean>
   showAppAlert: (options: { title: string; message: string; okLabel?: string }) => Promise<void>
   runAppExportFormat: (format: AppExportFormat) => Promise<void>
+  runAppPrint: () => Promise<void>
   scratchNewDocument: () => Promise<void>
   scratchNewTab: () => Promise<void>
+  openDailyNote: (dayOffset?: number) => Promise<OpenDailyNoteOutcome>
   toggleMainPaneMode: () => void
   openFindPanel: () => void
   findNextInDocument: () => void
@@ -164,6 +179,7 @@ export type AppCommandHostsDeps = {
   setCommandPaletteOpen: Dispatch<SetStateAction<boolean>>
   setCommandPaletteQuery: Dispatch<SetStateAction<string>>
   setCommandPaletteIndex: Dispatch<SetStateAction<number>>
+  openDocumentHistoryDialog: (root: string, path: string) => void
   pendingSourceModeAnchorRef: MutableRefObject<SourceModeEnterAnchor | null>
   resetModeSwitchEditorBootstrap: () => void
   closeTab: (path: string) => void
@@ -184,6 +200,7 @@ export function useAppCommandHosts({
   saveCurrent,
   saveAsCurrent,
   saveAllOpenTabs,
+  flushEditorToMemory,
   refreshFileTree,
   setFileTree,
   setExpandedDirs,
@@ -192,12 +209,15 @@ export function useAppCommandHosts({
   setRecentFiles,
   openRenameDialog,
   openNewNoteDialog,
+  openNewNoteFromTemplateDialog,
   confirmDeleteFile,
   confirmAppDialog,
   showAppAlert,
   runAppExportFormat,
+  runAppPrint,
   scratchNewDocument,
   scratchNewTab,
+  openDailyNote,
   toggleMainPaneMode,
   openFindPanel,
   findNextInDocument,
@@ -219,6 +239,7 @@ export function useAppCommandHosts({
   setCommandPaletteOpen,
   setCommandPaletteQuery,
   setCommandPaletteIndex,
+  openDocumentHistoryDialog,
   pendingSourceModeAnchorRef,
   resetModeSwitchEditorBootstrap,
   closeTab,
@@ -237,6 +258,7 @@ export function useAppCommandHosts({
       saveCurrent,
       saveAsCurrent,
       saveAllOpenTabs,
+      flushEditorToMemory,
       refreshFileTree,
       setFileTree,
       setExpandedDirs,
@@ -246,12 +268,15 @@ export function useAppCommandHosts({
       setRecentFiles,
       openRenameDialog,
       openNewNoteDialog,
+      openNewNoteFromTemplateDialog,
       confirmDeleteFile,
       confirmAppDialog,
       showAppAlert,
       runAppExportFormat,
+      runAppPrint,
       scratchNewDocument,
       scratchNewTab,
+      openDailyNote,
       toggleMainPaneMode,
       openFindPanel,
       findNextInDocument,
@@ -275,6 +300,7 @@ export function useAppCommandHosts({
       saveCurrent,
       saveAsCurrent,
       saveAllOpenTabs,
+      flushEditorToMemory,
       refreshFileTree,
       setFileTree,
       setExpandedDirs,
@@ -284,12 +310,15 @@ export function useAppCommandHosts({
       setRecentFiles,
       openRenameDialog,
       openNewNoteDialog,
+      openNewNoteFromTemplateDialog,
       confirmDeleteFile,
       confirmAppDialog,
       showAppAlert,
       runAppExportFormat,
+      runAppPrint,
       scratchNewDocument,
       scratchNewTab,
+      openDailyNote,
       toggleMainPaneMode,
       openFindPanel,
       findNextInDocument,
@@ -314,6 +343,7 @@ export function useAppCommandHosts({
       setCommandPaletteOpen,
       setCommandPaletteQuery,
       setCommandPaletteIndex,
+      openDocumentHistoryDialog,
       openPreferencesDialog,
       setMainPaneMode,
       pendingSourceModeAnchorRef,
@@ -339,6 +369,7 @@ export function useAppCommandHosts({
       setCommandPaletteOpen,
       setCommandPaletteQuery,
       setCommandPaletteIndex,
+      openDocumentHistoryDialog,
       setMainPaneMode,
       pendingSourceModeAnchorRef,
       resetModeSwitchEditorBootstrap,

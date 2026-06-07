@@ -12,46 +12,16 @@
   --luna-md-table-cell-pad-y: 12px;
   --luna-md-table-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --luna-md-table-ease-ms: 140ms;
-  --luna-md-table-card-border: color-mix(in srgb, var(--border-subtle, #d0d7de) 55%, transparent);
-  --luna-md-table-card-bg: color-mix(
-    in srgb,
-    var(--surface-panel, #f6f8fa) 38%,
-    var(--surface-editor, #ffffff)
-  );
-  --luna-md-table-card-shadow:
-    0 1px 0 color-mix(in srgb, var(--text-primary, #24292f) 4%, transparent),
-    0 14px 36px -22px color-mix(in srgb, var(--text-primary, #24292f) 16%, transparent);
-  --luna-md-table-inner-line: color-mix(in srgb, var(--border-subtle, #d0d7de) 42%, transparent);
-  --luna-md-table-thead-bg: color-mix(in srgb, var(--text-primary, #24292f) 5.5%, var(--surface-editor, #ffffff));
-  --luna-md-table-zebra: color-mix(in srgb, var(--text-primary, #24292f) 3.2%, var(--surface-editor, #ffffff));
-  --luna-md-table-row-hover: color-mix(in srgb, var(--accent, #0969da) 9%, var(--surface-editor, #ffffff));
-}
-
-html[data-theme='dark'],
-body.markdown-export-root[data-theme='dark'] {
-  --luna-md-table-card-border: color-mix(in srgb, var(--border-subtle, #30363d) 70%, transparent);
-  --luna-md-table-card-bg: color-mix(
-    in srgb,
-    var(--surface-panel, #161b22) 52%,
-    var(--surface-editor, #0d1117)
-  );
-  --luna-md-table-card-shadow:
-    0 1px 0 color-mix(in srgb, #fff 5%, transparent),
-    0 18px 48px -24px color-mix(in srgb, #000 55%, transparent);
-  --luna-md-table-inner-line: color-mix(in srgb, var(--border-subtle, #30363d) 58%, transparent);
-  --luna-md-table-thead-bg: color-mix(in srgb, var(--text-primary, #e6edf3) 7%, var(--surface-editor, #0d1117));
-  --luna-md-table-zebra: color-mix(in srgb, #fff 3.5%, var(--surface-editor, #0d1117));
-  --luna-md-table-row-hover: color-mix(in srgb, var(--accent, #58a6ff) 12%, var(--surface-editor, #0d1117));
 }
 
 /*When exporting HTML independently without App :root: cell alignment is consistent with GFM*/
 body.markdown-export-root {
-  --luna-table-cell-text-align: center;
+  --luna-table-cell-text-align: left;
   --luna-table-cell-vertical-align: top;
 }
 
 /* -------------------------------------------------------------------------- */
-/*GFM alignment baseline (horizontal default center by :root --luna-table-cell-text-align)*/
+/*GFM alignment baseline (horizontal default left by :root --luna-table-cell-text-align)*/
 /* -------------------------------------------------------------------------- */
 .preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table th,
 .preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table td,

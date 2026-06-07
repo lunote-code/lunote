@@ -120,6 +120,13 @@ export type DocumentCommand =
     source?: string
   }
   | {
+    type: 'RESTORE_DOCUMENT_HISTORY_SNAPSHOT'
+    path: string
+    content: string
+    snapshotId: string
+    source?: string
+  }
+  | {
     type: 'ASSET_IMPORTED'
     documentPath: string
     assetIds: string[]
@@ -205,4 +212,6 @@ export type DocumentRuntimeCapabilities = {
   onDocumentOpened?: (root: string, path: string, content: string) => void
   onDocumentSaved?: (root: string, path: string, content: string) => void
   onAfterOpen?: (path: string, content: string) => void
+  /** User attempted to open more document tabs than the app allows (see openTabLimits). */
+  onOpenTabLimitReached?: () => void
 }

@@ -1,4 +1,5 @@
 import { canonicalizeWikiLinkText } from './wikiCanonical'
+import { extractAliases } from './wikiLinkParser'
 import type {
   AbsoluteDocPath,
   DocKey,
@@ -142,6 +143,24 @@ export function listDocumentKeys(): DocKey[] {
 
 export function listDocumentMetas(): DocumentKnowledgeMeta[] {
   return [...state.documents.values()]
+}
+
+/** Distinct alias labels from indexed notes (for frontmatter autocomplete). */
+export function listVaultAliasLabels(options?: { excludeDocKey?: DocKey }): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const meta of state.documents.values()) {
+    if (options?.excludeDocKey && meta.docKey === options.excludeDocKey) continue
+    for (const alias of extractAliases(meta.frontmatter)) {
+      const label = alias.trim()
+      if (!label) continue
+      const dedupe = label.toLowerCase()
+      if (seen.has(dedupe)) continue
+      seen.add(dedupe)
+      out.push(label)
+    }
+  }
+  return out.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
 }
 
 export function resetKnowledgeRegistry(): void {

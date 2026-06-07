@@ -1,0 +1,127 @@
+/**
+ * Tokyo Night — external CSS theme
+ *
+ * Deep blue-purple dark with subtle neon glow — light & dark palette.
+ * Layer: palette tokens + personality deltas only.
+ *
+ * Copy to ~/.luna/theme/style/tokyo-night.css → Rescan → External CSS Theme.
+ * Reference: docs/theme-example/SELECTORS.md · docs/theme/external-css.md
+ */
+
+html[data-theme='dark'] {
+  --surface-app: #1a1b26;
+  --surface-panel: rgba(26, 27, 38, 0.96);
+  --surface-editor: #1a1b26;
+  --surface-preview: #16161e;
+  --surface-hover: rgba(122, 162, 247, 0.1);
+  --surface-elevated: #24283b;
+  --text-primary: #c0caf5;
+  --text-secondary: #9aa5ce;
+  --text-muted: #565f89;
+  --text-tertiary: #565f89;
+  --border-subtle: rgba(192, 202, 245, 0.08);
+  --border-strong: rgba(192, 202, 245, 0.14);
+  --accent: #7aa2f7;
+  --link: #7aa2f7;
+  --link-hover: #9eceff;
+  --link-visited: #bb9af7;
+  --focus-ring: rgba(122, 162, 247, 0.28);
+  --code-bg: #16161e;
+  --code-gutter-fg: #565f89;
+  --code-gutter-bg: #1a1b26;
+  --inline-code-bg: #24283b;
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.45);
+  --shadow-panel: 0 12px 40px rgba(0, 0, 0, 0.55);
+  --luna-callout-warning: #e0af68;
+  --luna-callout-tip: #9ece6a;
+}
+
+html[data-theme='light'] {
+  --surface-app: #e8eaf4;
+  --surface-panel: rgba(255, 255, 255, 0.94);
+  --surface-editor: #ffffff;
+  --surface-preview: #f5f6fb;
+  --surface-hover: rgba(59, 95, 168, 0.07);
+  --surface-elevated: #ffffff;
+  --text-primary: #1a1b26;
+  --text-secondary: #4a5068;
+  --text-muted: #7a8199;
+  --text-tertiary: #7a8199;
+  --border-subtle: rgba(26, 27, 38, 0.1);
+  --border-strong: rgba(26, 27, 38, 0.16);
+  --accent: #3b5fa8;
+  --link: #3b5fa8;
+  --link-hover: #2a4a8a;
+  --link-visited: #7e57c2;
+  --focus-ring: rgba(59, 95, 168, 0.22);
+  --code-bg: #f5f6fb;
+  --code-gutter-fg: #7a8199;
+  --code-gutter-bg: #e8eaf4;
+  --inline-code-bg: #e8eaf4;
+  --shadow-soft: 0 1px 2px rgba(26, 27, 38, 0.08);
+  --shadow-panel: 0 10px 32px rgba(26, 27, 38, 0.1);
+}
+
+/* —— App chrome —— */
+html[data-theme='dark'] .workspace-root {
+  background:
+    radial-gradient(ellipse 70% 45% at 8% -5%, rgba(122, 162, 247, 0.07), transparent 55%),
+    radial-gradient(ellipse 55% 35% at 92% 105%, rgba(187, 154, 247, 0.05), transparent 50%),
+    var(--surface-app);
+}
+
+.sidebar {
+  border-right: 1px solid var(--border-subtle);
+  backdrop-filter: blur(10px);
+  box-shadow: inset -1px 0 0 color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+/* —— Headings —— */
+.preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l1 .pm-heading-content,
+.preview-pane.markdown-visual-editor .ProseMirror > h1,
+.markdown-preview-view h1 {
+  color: var(--accent);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  padding-bottom: 0.35em;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border-subtle));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l2 .pm-heading-content,
+.preview-pane.markdown-visual-editor .ProseMirror > h2,
+.markdown-preview-view h2 {
+  color: color-mix(in srgb, var(--accent) 88%, var(--text-primary));
+  font-weight: 600;
+}
+
+/* —— Blockquote —— */
+.preview-pane.markdown-visual-editor .ProseMirror > blockquote,
+.markdown-preview-view blockquote {
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-editor));
+  border-radius: 0 10px 10px 0;
+  padding: 0.55em 1em;
+  color: var(--text-secondary);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 4%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline,
+.markdown-preview-view a {
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+/* —— Source mode —— */
+.source-pane .cm-editor .cm-gutters {
+  background: var(--code-gutter-bg);
+  border-right: 1px solid var(--border-subtle);
+  color: var(--code-gutter-fg);
+}
+
+.source-pane .cm-editor .cm-activeLine {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.source-pane .cm-editor .cm-cursor {
+  border-left-color: var(--accent);
+}

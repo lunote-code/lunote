@@ -59,11 +59,6 @@ export function installNavigationRuntimeFirewall(): void {
         wrapLegacyGlobalIfPresent(name)
       }
     }
-    console.log('[NAV FIREWALL] installed', {
-      legacyGlobals: LEGACY_GLOBALS,
-      factoryOnlyDispatch: true,
-      mode: 'detect-only',
-    })
   } catch (error) {
     reportViolation('firewall install failed without blocking startup', {
       error: error instanceof Error ? error.message : String(error),

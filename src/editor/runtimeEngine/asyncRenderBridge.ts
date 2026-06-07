@@ -43,11 +43,43 @@ let mermaidInit = false
 const MERMAID_CONFIG_REV = 7
 let mermaidConfigRev: number | null = null
 
-function scheduleOnPriority<T>(priority: RenderPriority, fn: () => Promise<T>): Promise<T> {
+function scheduleOnPriority<T>(
+  priority: RenderPriority,
+  fn: () => Promise<T>,
+  signal?: AbortSignal,
+): Promise<T | null> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      resolve(null)
+      return
+    }
+
+    let idleId: number | null = null
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+    const cleanup = () => {
+      if (idleId != null && typeof cancelIdleCallback === 'function') {
+        cancelIdleCallback(idleId)
+      }
+      if (timeoutId != null) clearTimeout(timeoutId)
+      signal?.removeEventListener('abort', onAbort)
+    }
+
+    const onAbort = () => {
+      cleanup()
+      resolve(null)
+    }
+
     const run = () => {
+      cleanup()
+      if (signal?.aborted) {
+        resolve(null)
+        return
+      }
       void fn().then(resolve, reject)
     }
+
+    signal?.addEventListener('abort', onAbort, { once: true })
 
     if (priority === 'interaction' || priority === 'visible') {
       queueMicrotask(run)
@@ -55,7 +87,7 @@ function scheduleOnPriority<T>(priority: RenderPriority, fn: () => Promise<T>): 
     }
 
     if (typeof requestIdleCallback === 'function') {
-      requestIdleCallback(
+      idleId = requestIdleCallback(
         () => {
           run()
         },
@@ -64,7 +96,7 @@ function scheduleOnPriority<T>(priority: RenderPriority, fn: () => Promise<T>): 
       return
     }
 
-    setTimeout(run, priority === 'idle' ? 32 : 8)
+    timeoutId = setTimeout(run, priority === 'idle' ? 32 : 8)
   })
 }
 
@@ -97,7 +129,7 @@ export async function renderMermaidSvg(
     const id = `luna-mmd-${blockId}-${Date.now()}`
     const { svg, bindFunctions } = await mermaid.render(id, source)
     return { kind: 'mermaid-svg' as const, svg, bindKey: id, bindFunctions }
-  })
+  }, signal)
 
   recordAsyncLatency(performance.now() - t0)
   return result
@@ -105,7 +137,7 @@ export async function renderMermaidSvg(
 
 export function applyMermaidSvgToHost(host: HTMLElement | null, result: MermaidSvgRenderResult): void {
   if (!host) return
-  host.innerHTML = sanitizeMermaidSvgHtml(result.svg, { trustedMermaidOutput: true })
+  host.innerHTML = sanitizeMermaidSvgHtml(result.svg)
   postProcessMermaidSvg(host, resolveMermaidEditorColors())
   result.bindFunctions?.(host)
 }
@@ -149,4 +181,10 @@ export function cancelAsyncRender(blockId: string): void {
   abortByBlock.get(blockId)?.abort()
   abortByBlock.delete(blockId)
   pendingByBlock.delete(blockId)
+}
+
+export function cancelAllAsyncRenders(): void {
+  for (const ac of abortByBlock.values()) ac.abort()
+  abortByBlock.clear()
+  pendingByBlock.clear()
 }

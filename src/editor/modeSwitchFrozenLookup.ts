@@ -2,11 +2,12 @@ import type { FrozenGeometryRow, FrozenStructuralIR } from './modeSwitchStructur
 
 export type FrozenRowLocator = {
   readonly blockIndex?: number
+  readonly rowId?: string
   readonly rowKey?: string
   readonly blockPath?: readonly number[]
 }
 
-export type FrozenRowLookupResolutionKind = 'row_key' | 'block_path' | 'block_index' | 'missing'
+export type FrozenRowLookupResolutionKind = 'row_id' | 'row_key' | 'block_path' | 'block_index' | 'missing'
 
 export type FrozenRowLookupResult = {
   readonly row: FrozenGeometryRow | null
@@ -34,6 +35,10 @@ export function locateFrozenRow(
   const blocks = ir.blocks
   if (!blocks.length) {
     return Object.freeze({ row: null, resolution: 'missing' })
+  }
+  if (locator.rowId) {
+    const hit = blocks.find((row) => row.rowId === locator.rowId) ?? null
+    if (hit) return Object.freeze({ row: hit, resolution: 'row_id' })
   }
   if (locator.rowKey) {
     const hit = blocks.find((row) => row.rowKey === locator.rowKey) ?? null

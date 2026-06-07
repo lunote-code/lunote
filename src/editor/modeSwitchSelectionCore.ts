@@ -8,6 +8,7 @@ import type { ModeSwitchLeafPath } from './modeSwitchLeafRow'
 export type HierarchicalSelectionCore = {
   readonly blockIndex: number
   readonly blockPath: ModeSwitchLeafPath
+  readonly rowId?: string
   readonly rowKey: string
   readonly intraBlockOffset: number
 }

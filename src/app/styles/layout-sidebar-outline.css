@@ -30,20 +30,12 @@
 .sidebar {
   border-right: var(--hairline) solid var(--border-subtle);
   padding: 0;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--surface-panel) 98%, var(--accent) 2%) 0%,
-      var(--surface-panel) 42%,
-      color-mix(in srgb, var(--surface-panel) 94%, var(--surface-editor) 6%) 100%
-    );
+  background: var(--surface-panel);
   display: flex;
   flex-direction: column;
   gap: 0;
-  backdrop-filter: saturate(140%) blur(14px);
   min-height: 0;
   overflow: hidden;
-  box-shadow: inset -1px 0 0 color-mix(in srgb, var(--border-subtle) 65%, transparent);
 }
 
 .sidebar-pane-top {
@@ -126,18 +118,15 @@
 
 /*The position is set to position:fixed by JS, ensuring it is always within the viewport.*/
 .workspace-menu-pop {
-  z-index: 10060;
+  z-index: var(--z-overlay-surface-menu);
   box-sizing: border-box;
   min-width: 240px;
   max-width: min(292px, calc(100vw - 16px));
   padding: 8px;
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--surface-panel) 94%, var(--surface-editor));
-  border: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 80%, var(--accent) 8%);
-  box-shadow:
-    var(--shadow-panel),
-    0 0 0 1px color-mix(in srgb, #fff 4%, transparent) inset;
-  backdrop-filter: saturate(150%) blur(18px);
+  background: var(--luna-overlay-panel-bg);
+  border: var(--hairline) solid var(--luna-overlay-panel-border);
+  box-shadow: var(--luna-overlay-panel-shadow);
 }
 
 .workspace-menu-pop .file-ctx-item {
@@ -148,24 +137,40 @@
 .workspace-sort-row {
   display: flex;
   gap: 4px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   justify-content: center;
-  align-items: center;
+  align-items: stretch;
   padding: 6px 2px 2px;
 }
 
 .workspace-sort-btn {
-  width: 28px;
-  height: 28px;
+  min-width: 44px;
+  height: auto;
+  min-height: 28px;
+  flex: 1 1 44px;
   flex-shrink: 0;
   border: var(--hairline) solid var(--border-subtle);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2px;
+  padding: 4px 2px;
   cursor: pointer;
+}
+
+.workspace-sort-btn-label {
+  font-size: 9px;
+  line-height: 1.1;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace-sort-btn:hover {
@@ -185,32 +190,9 @@
   height: var(--sidebar-footer-item-height);
 }
 
-.sidebar-footer-btn:disabled,
-.icon-btn:disabled {
-  opacity: 0.38;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-.sidebar-footer-btn:disabled:hover,
-.icon-btn:disabled:hover {
-  transform: none;
-  box-shadow: none;
-}
+/* icon-btn / ghost-btn: buttons-app.css */
 
 /*Theme: .css in the Theme folder under the application configuration directory, overwriting design variables*/
-.theme-pack-toolbar {
-  flex-shrink: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 8px;
-  padding: 8px 0 10px;
-  margin-bottom: 2px;
-  border-bottom: var(--hairline) solid var(--border-subtle);
-}
-
 .theme-pack-icon {
   flex-shrink: 0;
   color: var(--text-muted);
@@ -291,6 +273,11 @@
   cursor: col-resize;
 }
 
+.resize-handle:focus-visible {
+  outline: none;
+  box-shadow: var(--luna-focus-ring);
+}
+
 .sidebar-header {
   display: flex;
   gap: 6px;
@@ -311,10 +298,66 @@
   align-items: stretch;
   width: 100%;
   padding: 0;
+  border-bottom: none;
+}
+
+.sidebar-search-chrome {
   border-bottom: var(--hairline) solid var(--border-subtle);
 }
 
-.sidebar-chrome-tabs-row .search-input {
+.sidebar-search-field--has-clear .sidebar-search-input {
+  padding-right: 34px;
+}
+
+.sidebar-search-clear {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.sidebar-filter-status {
+  margin: 0;
+  padding: 6px 12px 4px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-muted);
+  border-bottom: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 55%, transparent);
+}
+
+.sidebar-search-chrome .sidebar-chrome-tabs-row {
+  border-bottom: none;
+}
+
+.sidebar-search-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+.sidebar-search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.search-input:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.sidebar-chrome-tabs-row .search-input,
+.sidebar-search-input {
   display: block;
   width: 100%;
   min-width: 0;
@@ -322,14 +365,19 @@
   min-height: 0;
   box-sizing: border-box;
   margin: 0;
-  padding-top: 0;
-  padding-bottom: 0;
+  padding: 0 12px 0 34px;
+  border: none;
   border-radius: 0;
-  border-left: none;
-  border-right: none;
-  border-top: none;
-  border-bottom: none;
+  background: transparent;
+  color: var(--text-primary);
+  box-shadow: none;
 }
+
+.sidebar-search-chrome .search-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Sidebar chrome input focus: fields-app.css tier 3 */
 
 .sidebar-header .theme-preset-select-header {
   flex: 1 1 88px;
@@ -338,65 +386,23 @@
   height: 34px;
 }
 
-.icon-btn {
-  border: var(--hairline) solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  width: 34px;
-  height: 34px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: border-color 160ms ease, background 160ms ease, box-shadow 180ms ease, transform 150ms ease, color 150ms ease;
-}
-
-.icon-btn:hover {
-  transform: translateY(-0.5px);
-  box-shadow: var(--shadow-soft);
-  background: color-mix(in srgb, var(--surface-hover) 82%, transparent);
-}
-
-.primary-btn {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 94%, #fff), var(--accent));
-  color: #fff;
-  border-color: transparent;
-}
-
-.ghost-btn {
-  background: transparent;
-  color: var(--text-primary);
-  border-color: var(--border-subtle);
-}
-
-.icon-btn.icon-btn-active {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border-subtle));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
 .search-input {
-  border: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 88%, transparent);
-  background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E")
-      no-repeat 11px center,
-    color-mix(in srgb, var(--surface-app) 28%, var(--surface-editor) 72%);
+  border: var(--hairline) solid var(--luna-field-border);
+  background: var(--luna-field-bg-editor);
   color: var(--text-primary);
-  border-radius: var(--radius-md);
-  padding: 9px 12px 9px 34px;
-  outline: none;
+  border-radius: var(--luna-field-radius-compact);
+  padding: 9px 12px;
   font-size: 13px;
   line-height: 1.35;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    background 0.15s ease;
+  box-shadow: none;
+  box-sizing: border-box;
 }
 
-.search-input:focus {
-  border-color: var(--accent);
-  box-shadow: none;
+.search-input::placeholder {
+  color: var(--text-muted);
 }
+
+/* hover/focus: fields-app.css (sidebar chrome overrides in tier 3) */
 
 .sr-only {
   position: absolute;
@@ -548,6 +554,8 @@
 .sidebar-outline-scroll .document-outline-chevron:focus,
 .sidebar-outline-scroll .document-outline-chevron:focus-visible {
   outline: none;
+  box-shadow: var(--luna-focus-ring);
+  border-radius: 4px;
 }
 
 .document-outline-chevron:hover {

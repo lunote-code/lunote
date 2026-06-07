@@ -4,6 +4,7 @@ import { EditorSelection } from '@codemirror/state'
 import { gemoji } from 'gemoji'
 
 import { isCodeEditGuardActive } from './lunaCodeContext'
+import { readEmojiPanelHint } from '../platform/emojiPanelHint'
 
 const PICKER_CLASS = 'luna-emoji-picker'
 
@@ -141,6 +142,15 @@ function mountEmojiPicker(opts: {
   panel.appendChild(search)
   panel.appendChild(tabs)
   panel.appendChild(grid)
+
+  const systemHint = readEmojiPanelHint()
+  if (systemHint.trim()) {
+    const hintEl = document.createElement('div')
+    hintEl.className = `${PICKER_CLASS}__hint`
+    hintEl.textContent = systemHint
+    panel.appendChild(hintEl)
+  }
+
   shell.appendChild(panel)
   document.body.appendChild(shell)
 

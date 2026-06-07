@@ -1,0 +1,178 @@
+/**
+ * Mode-aware derived tokens (light / dark).
+ * Uses palette vars from theme-presets, JSON injector, or external CSS.
+ * Active regardless of html[data-theme-css-file] — not tied to built-in presets.
+ */
+
+html[data-theme='light'] {
+  --luna-overlay-backdrop: color-mix(in srgb, var(--surface-app, #f6f8fa) 40%, #000 60%);
+  --luna-danger-fg: var(--luna-color-danger-muted);
+  --luna-footnote-ref-fg: color-mix(in srgb, var(--accent) 78%, var(--text-secondary));
+  --luna-footnote-def-border: color-mix(in srgb, var(--accent) 40%, var(--border-subtle));
+  --luna-footnote-def-marker-fg: color-mix(in srgb, var(--text-tertiary, var(--text-muted)) 90%, var(--accent));
+  --luna-link-inline-fg: color-mix(in srgb, var(--link) 82%, var(--text-primary));
+  --luna-link-inline-decoration: color-mix(in srgb, var(--link) 30%, transparent);
+  --luna-link-mail-fg: color-mix(in srgb, var(--text-primary) 84%, var(--accent) 16%);
+  --luna-link-mail-decoration: color-mix(in srgb, var(--accent) 28%, transparent);
+  --luna-link-asset-fg: color-mix(in srgb, var(--link) 76%, var(--text-primary));
+  --luna-link-asset-decoration: color-mix(in srgb, var(--link) 32%, transparent);
+  --luna-link-ref-def-border: color-mix(in srgb, var(--link) 40%, var(--border-subtle));
+  --luna-link-ref-def-inset: color-mix(in srgb, var(--border-subtle) 55%, transparent);
+  --luna-raw-inline-fg: var(--text-primary);
+  --luna-raw-inline-inset-shadow: none;
+  --luna-html-comment-badge-fg: var(--text-secondary);
+  --luna-html-comment-badge-inset-shadow: none;
+  --luna-link-ref-def-shadow: none;
+  --luna-danger-icon-bg: color-mix(in srgb, var(--luna-color-danger) 12%, var(--surface-panel));
+  --luna-danger-icon-fg: var(--luna-color-danger);
+  --luna-warning-icon-bg: color-mix(in srgb, var(--luna-color-warning) 12%, var(--surface-panel));
+  --luna-warning-icon-fg: var(--luna-color-warning);
+  --luna-image-card-open-border: color-mix(in srgb, var(--border-subtle) 52%, transparent);
+  --luna-image-card-open-bg: color-mix(in srgb, var(--surface-elevated, var(--surface-editor)) 94%, var(--text-primary) 3%);
+  --luna-image-card-open-shadow: 0 1px 3px color-mix(in srgb, var(--text-primary) 5%, transparent);
+  --luna-image-card-focus-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent),
+    0 4px 20px color-mix(in srgb, var(--text-primary) 8%, transparent);
+  --luna-image-card-source-open-preview-shadow: 0 2px 10px color-mix(in srgb, var(--text-primary) 7%, transparent);
+  --luna-math-block-bg: color-mix(in srgb, var(--surface-panel) 60%, var(--surface-editor));
+  --luna-math-block-border: color-mix(in srgb, var(--border-subtle) 78%, transparent);
+  --luna-math-editor-bg: color-mix(in srgb, var(--surface-editor) 92%, var(--surface-panel));
+  --luna-math-preview-bg: color-mix(in srgb, var(--surface-editor) 68%, var(--surface-hover));
+  --reveal-block-bg-static: color-mix(in srgb, var(--text-primary) 3.5%, var(--surface-editor));
+  --reveal-block-reading-bg: color-mix(in srgb, var(--surface-panel) 62%, transparent);
+  --reveal-block-reading-bar: color-mix(in srgb, var(--accent) 48%, var(--border-strong));
+  --reveal-block-index-bg: color-mix(in srgb, var(--text-primary) 3.5%, var(--surface-editor));
+  --reveal-chip-bg-static: color-mix(in srgb, var(--text-secondary) 6%, var(--surface-editor));
+  --reveal-chip-bg-code: color-mix(in srgb, var(--text-secondary) 7%, var(--surface-editor));
+  --reveal-chip-bg-annotation: color-mix(in srgb, var(--text-secondary) 5%, var(--surface-editor));
+  --reveal-source-btn-bg: color-mix(in srgb, var(--surface-hover) 60%, var(--surface-editor));
+  --reveal-source-btn-border: color-mix(in srgb, var(--border-subtle) 82%, transparent);
+  --reveal-source-btn-fg: var(--text-secondary);
+  --reveal-badge-bg: color-mix(in srgb, var(--surface-hover) 58%, var(--surface-editor));
+  --reveal-badge-border: color-mix(in srgb, var(--border-subtle) 84%, transparent);
+  --reveal-badge-fg: var(--text-secondary);
+  --reveal-popover-bg: color-mix(in srgb, var(--surface-panel) 76%, var(--surface-editor));
+  --reveal-popover-border: color-mix(in srgb, var(--border-subtle) 82%, transparent);
+  --reveal-field-bg: color-mix(in srgb, var(--surface-editor) 92%, var(--surface-panel));
+  --reveal-field-border: color-mix(in srgb, var(--border-subtle) 85%, transparent);
+  --reveal-helper-fg: color-mix(in srgb, var(--text-secondary) 92%, var(--text-muted));
+  --luna-md-table-card-border: color-mix(in srgb, var(--border-subtle, #d0d7de) 70%, transparent);
+  --luna-md-table-card-bg: color-mix(
+    in srgb,
+    var(--surface-panel, #f6f8fa) 52%,
+    var(--surface-editor, #ffffff)
+  );
+  --luna-md-table-card-shadow: 0 1px 0 color-mix(in srgb, #000 4%, transparent),
+    0 18px 48px -24px color-mix(in srgb, #000 12%, transparent);
+  --luna-md-table-inner-line: color-mix(in srgb, var(--border-subtle, #d0d7de) 58%, transparent);
+  --luna-md-table-thead-bg: color-mix(in srgb, var(--text-primary, #24292f) 5.5%, var(--surface-editor, #ffffff));
+  --luna-md-table-zebra: color-mix(in srgb, var(--text-primary, #24292f) 3.2%, var(--surface-editor, #ffffff));
+  --luna-md-table-row-hover: color-mix(in srgb, var(--accent, #0969da) 9%, var(--surface-editor, #ffffff));
+}
+
+html[data-theme='dark'] {
+  --luna-overlay-backdrop: color-mix(in srgb, var(--surface-app, #0d1117) 35%, #000 65%);
+  --luna-danger-fg: var(--luna-color-danger-soft);
+  --luna-footnote-ref-fg: color-mix(in srgb, var(--accent) 72%, var(--text-secondary));
+  --luna-footnote-def-border: color-mix(in srgb, var(--accent) 34%, var(--border-subtle));
+  --luna-footnote-def-marker-fg: color-mix(in srgb, var(--text-tertiary, var(--text-muted)) 82%, var(--accent));
+  --luna-link-inline-fg: color-mix(in srgb, var(--link) 74%, var(--text-primary));
+  --luna-link-inline-decoration: color-mix(in srgb, var(--link) 24%, transparent);
+  --luna-link-mail-fg: color-mix(in srgb, var(--text-primary) 76%, var(--accent) 24%);
+  --luna-link-mail-decoration: color-mix(in srgb, var(--accent) 22%, transparent);
+  --luna-link-asset-fg: color-mix(in srgb, var(--link) 68%, var(--text-primary));
+  --luna-link-asset-decoration: color-mix(in srgb, var(--link) 20%, transparent);
+  --luna-link-ref-def-border: color-mix(in srgb, var(--link) 34%, var(--border-subtle));
+  --luna-link-ref-def-inset: color-mix(in srgb, var(--border-subtle) 52%, transparent);
+  --luna-raw-inline-fg: color-mix(in srgb, var(--text-primary) 82%, var(--text-secondary));
+  --luna-raw-inline-inset-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-subtle) 44%, transparent);
+  --luna-html-comment-badge-fg: color-mix(in srgb, var(--text-secondary) 78%, var(--text-muted));
+  --luna-html-comment-badge-inset-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-subtle) 38%, transparent);
+  --luna-link-ref-def-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-subtle) 52%, transparent);
+  --luna-danger-icon-bg: color-mix(in srgb, var(--luna-color-danger-soft) 16%, var(--surface-panel));
+  --luna-danger-icon-fg: var(--luna-color-danger-soft);
+  --luna-warning-icon-bg: color-mix(in srgb, var(--luna-color-warning) 16%, var(--surface-panel));
+  --luna-warning-icon-fg: color-mix(in srgb, var(--luna-color-warning) 55%, var(--text-primary));
+  --luna-image-card-open-border: color-mix(in srgb, var(--border-subtle) 70%, transparent);
+  --luna-image-card-open-bg: color-mix(in srgb, var(--surface-elevated, var(--surface-editor)) 88%, #000 8%);
+  --luna-image-card-open-shadow:
+    0 1px 0 color-mix(in srgb, #fff 5%, transparent),
+    0 8px 28px color-mix(in srgb, #000 38%, transparent);
+  --luna-image-card-focus-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 10px 32px color-mix(in srgb, #000 48%, transparent);
+  --luna-image-card-source-open-preview-shadow: 0 4px 18px color-mix(in srgb, #000 45%, transparent);
+  --luna-math-block-bg: color-mix(in srgb, var(--surface-panel) 72%, var(--surface-editor));
+  --luna-math-block-border: color-mix(in srgb, var(--border-subtle) 88%, transparent);
+  --luna-math-editor-bg: color-mix(in srgb, var(--surface-editor) 84%, var(--surface-app, #000));
+  --luna-math-preview-bg: color-mix(in srgb, var(--surface-editor) 78%, var(--surface-app, #000));
+  --reveal-block-bg-static: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-app));
+  --reveal-block-reading-bg: color-mix(in srgb, var(--surface-panel) 86%, var(--surface-app));
+  --reveal-block-reading-bar: color-mix(in srgb, var(--accent) 42%, var(--border-subtle));
+  --reveal-block-index-bg: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-app));
+  --reveal-chip-bg-static: color-mix(in srgb, var(--surface-panel) 82%, var(--surface-app));
+  --reveal-chip-bg-code: color-mix(in srgb, var(--surface-panel) 86%, var(--surface-app));
+  --reveal-chip-bg-annotation: color-mix(in srgb, var(--surface-panel) 80%, var(--surface-app));
+  --reveal-source-btn-bg: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-app));
+  --reveal-source-btn-border: color-mix(in srgb, var(--border-subtle) 74%, transparent);
+  --reveal-source-btn-fg: color-mix(in srgb, var(--text-secondary) 92%, var(--text-primary));
+  --reveal-badge-bg: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-app));
+  --reveal-badge-border: color-mix(in srgb, var(--border-subtle) 72%, transparent);
+  --reveal-badge-fg: color-mix(in srgb, var(--text-secondary) 90%, var(--text-primary));
+  --reveal-popover-bg: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-app));
+  --reveal-popover-border: color-mix(in srgb, var(--border-subtle) 74%, transparent);
+  --reveal-field-bg: color-mix(in srgb, var(--surface-editor) 90%, var(--surface-app));
+  --reveal-field-border: color-mix(in srgb, var(--border-subtle) 72%, transparent);
+  --reveal-helper-fg: color-mix(in srgb, var(--text-secondary) 86%, var(--text-primary));
+  --luna-md-table-card-border: color-mix(in srgb, var(--border-subtle, #30363d) 70%, transparent);
+  --luna-md-table-card-bg: color-mix(
+    in srgb,
+    var(--surface-panel, #161b22) 52%,
+    var(--surface-editor, #0d1117)
+  );
+  --luna-md-table-card-shadow:
+    0 1px 0 color-mix(in srgb, #fff 5%, transparent),
+    0 18px 48px -24px color-mix(in srgb, #000 55%, transparent);
+  --luna-md-table-inner-line: color-mix(in srgb, var(--border-subtle, #30363d) 58%, transparent);
+  --luna-md-table-thead-bg: color-mix(in srgb, var(--text-primary, #e6edf3) 7%, var(--surface-editor, #0d1117));
+  --luna-md-table-zebra: color-mix(in srgb, #fff 3.5%, var(--surface-editor, #0d1117));
+  --luna-md-table-row-hover: color-mix(in srgb, var(--accent, #58a6ff) 12%, var(--surface-editor, #0d1117));
+}
+
+/* Callout surfaces depend on per-node --lc-accent */
+html[data-theme='light'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout.luna-callout-card {
+  --lc-bg: color-mix(in srgb, var(--lc-accent) 7%, var(--surface-editor));
+  --lc-bg-2: color-mix(in srgb, var(--lc-accent) 4%, var(--surface-panel));
+  --lc-border: color-mix(in srgb, var(--lc-accent) 22%, var(--border-subtle));
+  --lc-border-hover: color-mix(in srgb, var(--lc-accent) 38%, var(--border-subtle));
+  --lc-title: color-mix(in srgb, var(--lc-accent) 58%, var(--text-primary));
+  --lc-shadow: 0 2px 14px color-mix(in srgb, #000 6%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--border-subtle) 55%, transparent);
+}
+
+html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror aside.pm-callout.luna-callout-card {
+  --lc-bg: color-mix(in srgb, var(--lc-accent) 12%, var(--surface-editor));
+  --lc-bg-2: color-mix(in srgb, var(--lc-accent) 7%, var(--surface-panel));
+  --lc-border: color-mix(in srgb, var(--lc-accent) 28%, var(--border-subtle));
+  --lc-border-hover: color-mix(in srgb, var(--lc-accent) 44%, var(--border-subtle));
+  --lc-title: color-mix(in srgb, var(--lc-accent) 45%, var(--text-primary));
+  --lc-shadow: 0 2px 20px color-mix(in srgb, #000 28%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--border-subtle) 40%, transparent);
+}
+
+body.markdown-export-root[data-theme='dark'],
+div.markdown-export-root[data-theme='dark'] {
+  --luna-md-table-card-border: color-mix(in srgb, var(--border-subtle, #30363d) 70%, transparent);
+  --luna-md-table-card-bg: color-mix(
+    in srgb,
+    var(--surface-panel, #161b22) 52%,
+    var(--surface-editor, #0d1117)
+  );
+  --luna-md-table-card-shadow:
+    0 1px 0 color-mix(in srgb, #fff 5%, transparent),
+    0 18px 48px -24px color-mix(in srgb, #000 55%, transparent);
+  --luna-md-table-inner-line: color-mix(in srgb, var(--border-subtle, #30363d) 58%, transparent);
+  --luna-md-table-thead-bg: color-mix(in srgb, var(--text-primary, #e6edf3) 7%, var(--surface-editor, #0d1117));
+  --luna-md-table-zebra: color-mix(in srgb, #fff 3.5%, var(--surface-editor, #0d1117));
+  --luna-md-table-row-hover: color-mix(in srgb, var(--accent, #58a6ff) 12%, var(--surface-editor, #0d1117));
+}

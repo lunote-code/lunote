@@ -2,12 +2,10 @@ import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction 
 import { isTauri } from '@tauri-apps/api/core'
 
 import type { TranslateFn } from '../../i18n'
-import { applySourceTextColor } from '../../editor/markdownInsertHelpers'
 import { dispatchDocumentCommand } from '../../documentRuntime/documentKernel'
+import { copyEditorImageToClipboard } from '../../editor/copyEditorImageToClipboard'
 import { pasteFromNavigatorClipboard } from '../../editor/pasteFromNavigatorClipboard'
 import { bridgeDeleteSelection } from '../../editor/editorMutationBridge'
-import { executeManifestCommand } from '../../menu'
-import type { AppMenuContext, AppMenuUiDeps } from '../../menu'
 import type { TiptapMarkdownEditorHandle } from '../../editor/TiptapMarkdownEditor'
 import type { EditorView } from '@codemirror/view'
 import type { EditorDocMenuPick, EditorDocMenuState } from '../workspace/contextMenuTypes'
@@ -22,15 +20,13 @@ export type EditorDocMenuDeps = {
   mainPaneModeRef: MutableRefObject<'visual' | 'source'>
   visualEditorRef: MutableRefObject<TiptapMarkdownEditorHandle | null>
   editorViewRef: MutableRefObject<EditorView | null>
-  appMenuCtxRef: MutableRefObject<AppMenuContext>
-  paletteUiDepsRef: MutableRefObject<AppMenuUiDeps>
   setEditorDocMenu: Dispatch<SetStateAction<EditorDocMenuState | null>>
   setStatus: (msg: string) => void
   pasteImageIntoVisualEditor: (file: File, mimeHint: string) => Promise<string | null>
   pastePlainFromClipboard: (plainOnly?: boolean) => Promise<void>
   saveCurrent: (manual?: boolean) => Promise<void>
   openRenameDialog: (root: string, oldPath: string, isDirectory: boolean) => void
-  dispatchOpenDocumentInTab: (root: string, path: string) => Promise<void>
+  dispatchOpenDocumentInTab: (root: string, path: string, reason?: string) => Promise<void>
   resetModeSwitchEditorBootstrap: () => void
   bumpColdOpenGeneration: () => void
   confirmAppDialog: (options: {
@@ -49,8 +45,6 @@ export function useEditorDocMenu(deps: EditorDocMenuDeps) {
     mainPaneModeRef,
     visualEditorRef,
     editorViewRef,
-    appMenuCtxRef,
-    paletteUiDepsRef,
     setEditorDocMenu,
     setStatus,
     pasteImageIntoVisualEditor,
@@ -65,24 +59,8 @@ export function useEditorDocMenu(deps: EditorDocMenuDeps) {
   const editorDiskFileReady = Boolean(rootDir && activePath && !isBufferTabId(activePath))
   const editorCanRevealInOs = isTauri() && editorDiskFileReady
 
-  const handleEditorTextColorPick = useCallback(
-    (color: string | null) => {
-      setEditorDocMenu(null)
-      if (mainPaneMode === 'visual') {
-        visualEditorRef.current?.runCommand({ type: 'setTextColor', color })
-        requestAnimationFrame(() => visualEditorRef.current?.focus())
-        return
-      }
-      const v = editorViewRef.current
-      if (!v) return
-      if (!applySourceTextColor(v, color)) return
-      requestAnimationFrame(() => editorViewRef.current?.focus())
-    },
-    [editorViewRef, mainPaneMode, setEditorDocMenu, visualEditorRef],
-  )
-
   const handleEditorDocMenuPick = useCallback(
-    (action: EditorDocMenuPick) => {
+    (action: EditorDocMenuPick, menu: EditorDocMenuState | null) => {
       setEditorDocMenu(null)
       const mRoot = rootDir
       const mPath = activePath
@@ -110,9 +88,27 @@ export function useEditorDocMenu(deps: EditorDocMenuDeps) {
             }
             case 'copy': {
               if (mainPaneMode === 'visual') {
-                const text = visualEditorRef.current?.getSelectedText() ?? ''
+                const editor = visualEditorRef.current?.getEditor()
+                if (editor) {
+                  const copiedImage = await copyEditorImageToClipboard(editor, {
+                    rootDir: mRoot,
+                    activePath: mPath,
+                    clientCoords: menu
+                      ? { x: menu.clientX, y: menu.clientY }
+                      : undefined,
+                  })
+                  if (copiedImage) {
+                    setStatus(t('app.ext.copied'))
+                    return
+                  }
+                }
+                let text = visualEditorRef.current?.getSelectedText() ?? ''
+                if (!text.trim()) {
+                  text = visualEditorRef.current?.getSelectedMarkdown() ?? ''
+                }
                 if (!text) return
                 await navigator.clipboard.writeText(text)
+                setStatus(t('app.ext.copied'))
                 return
               }
               const v = editorViewRef.current
@@ -120,6 +116,7 @@ export function useEditorDocMenu(deps: EditorDocMenuDeps) {
               const { from, to } = v.state.selection.main
               if (from === to) return
               await navigator.clipboard.writeText(v.state.sliceDoc(from, to))
+              setStatus(t('app.ext.copied'))
               return
             }
             case 'paste': {
@@ -136,13 +133,6 @@ export function useEditorDocMenu(deps: EditorDocMenuDeps) {
               }
               return
             }
-            case 'selectAll':
-              void executeManifestCommand(
-                'edit-select-all',
-                appMenuCtxRef.current!,
-                paletteUiDepsRef.current!,
-              )
-              return
             case 'openTab':
               if (!mRoot || !mPath) return
               await dispatchOpenDocumentInTab(mRoot, mPath)
@@ -217,7 +207,6 @@ export function useEditorDocMenu(deps: EditorDocMenuDeps) {
     },
     [
       activePath,
-      appMenuCtxRef,
       bumpColdOpenGeneration,
       confirmAppDialog,
       dispatchOpenDocumentInTab,
@@ -225,7 +214,6 @@ export function useEditorDocMenu(deps: EditorDocMenuDeps) {
       mainPaneMode,
       mainPaneModeRef,
       openRenameDialog,
-      paletteUiDepsRef,
       pasteImageIntoVisualEditor,
       resetModeSwitchEditorBootstrap,
       rootDir,
@@ -237,5 +225,5 @@ export function useEditorDocMenu(deps: EditorDocMenuDeps) {
     ],
   )
 
-  return { editorDiskFileReady, editorCanRevealInOs, handleEditorTextColorPick, handleEditorDocMenuPick }
+  return { editorDiskFileReady, editorCanRevealInOs, handleEditorDocMenuPick }
 }

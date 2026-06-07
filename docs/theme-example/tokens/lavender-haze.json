@@ -1,0 +1,22 @@
+{
+  "id": "lavender-haze",
+  "name": "Lavender Haze",
+  "label": "Lavender Haze",
+  "family": "lavender-haze",
+  "variant": "dark",
+  "colors": {
+    "background": "#15121f",
+    "foreground": "#e8e4f5",
+    "primary": "#a78bfa",
+    "border": "rgba(232, 228, 245, 0.12)",
+    "muted": "#8b83a8"
+  },
+  "radius": {
+    "card": 20,
+    "control": 12
+  },
+  "spacing": {
+    "row": 16,
+    "section": 28
+  }
+}

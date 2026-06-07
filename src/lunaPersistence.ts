@@ -46,12 +46,6 @@ export function scheduleLunaWorkspaceSnapshot(
   const timer = window.setTimeout(() => {
     timers.delete(snapshot.workspaceId)
     const latest = latestSnapshots.get(snapshot.workspaceId) ?? snapshot
-    console.log('[NAV] workspace_snapshot_write', {
-      workspaceId: latest.workspaceId,
-      activePath: latest.activePath,
-      openTabs: latest.openTabs.length,
-      updatedAt: latest.updatedAt,
-    })
     const prev = writeQueues.get(latest.workspaceId) ?? Promise.resolve()
     const next = prev
       .catch(() => undefined)
@@ -76,6 +70,9 @@ export async function flushLunaWorkspaceSnapshotWrites(): Promise<void> {
   await Promise.all([...writeQueues.values()].map((task) => task.catch(() => undefined)))
 }
 
-export function appendLunaLog(line: string): void {
-  void appendLunaLogLine(line)
+export function appendLunaLog(
+  line: string,
+  kind: 'app' | 'crash' = 'app',
+): void {
+  void appendLunaLogLine(line, kind).catch(() => undefined)
 }

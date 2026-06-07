@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useRef } from 'react'
+import { useFocusTrap } from '../lib/useFocusTrap'
 
 export type DeleteConfirmDialogProps = {
   open: boolean
@@ -21,24 +22,17 @@ export function DeleteConfirmDialog({
   onConfirm,
   onCancel,
 }: DeleteConfirmDialogProps) {
-  useEffect(() => {
-    if (!open) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCancel()
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [open, onCancel])
+  const dialogRef = useRef<HTMLDivElement | null>(null)
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null)
+
+  useFocusTrap(open, dialogRef.current, { initialFocus: cancelButtonRef.current, onEscape: onCancel })
 
   if (!open) return null
 
   return (
-    <div
-      className="about-modal-backdrop delete-modal-backdrop"
-      role="presentation"
-      onClick={onCancel}
-    >
+    <div className="about-modal-backdrop delete-modal-backdrop" role="presentation">
       <div
+        ref={dialogRef}
         className="about-modal delete-modal"
         role="alertdialog"
         aria-modal="true"
@@ -79,7 +73,12 @@ export function DeleteConfirmDialog({
           <span className="delete-modal-file-name">{fileLabel}</span>
         </div>
         <div className="rename-modal-actions delete-modal-actions">
-          <button type="button" className="about-modal-close rename-modal-cancel" onClick={onCancel}>
+          <button
+            ref={cancelButtonRef}
+            type="button"
+            className="about-modal-close rename-modal-cancel"
+            onClick={onCancel}
+          >
             {cancelLabel}
           </button>
           <button type="button" className="about-modal-close delete-modal-confirm" onClick={onConfirm}>

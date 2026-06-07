@@ -1,16 +1,11 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react'
-import { Icon } from '../../../design-system/icons'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { EmptyState } from '../../../design-system/EmptyState'
 import { useGraphSlice } from './useKnowledgeOSSlice'
-import { dispatchKnowledgeNavigate } from './interactionTransaction'
 import { useSurfaceLayout } from './useSurfaceLayout'
 import { useFrozenSurfaceLayout } from './useFrozenSurfaceLayout'
 import { useGraphViewportLive } from './useGraphViewportLive'
 import { isSurfaceResizing } from '../layout/surfaceSplitLayoutRuntime'
-import {
-  buildGraphNodeSpatialIndex,
-  findGraphNodeAtScreen,
-  type GraphViewportTransform,
-} from '../layout/graphHitTest'
+import { buildGraphNodeSpatialIndex, type GraphViewportTransform } from '../layout/graphHitTest'
 import { useHostLayoutFallback } from './useHostLayoutFallback'
 import {
   flushPendingGraphNavigationCenter,
@@ -29,10 +24,9 @@ import {
 } from '../graphReadinessRuntime'
 import { resolveRouteCenterNode, setGraphInteracting, syncNoteGraphTopologyFromRoute } from '../noteGraphRuntime'
 import { setGraphViewportIntent } from '../graphViewportRuntime'
-import { resolveClickIntent } from '../../navigation/clickIntentResolver'
-import { normalizeDocKeyForNavigation } from '../../knowledgeRuntime'
 import type { NoteGraphNode } from '../types'
 import { useI18n } from '../../../i18n'
+import { hitGraphNodeAtEvent, navigateGraphNodeFromHit } from './graphPanelNavigate'
 
 type Props = {
   /** Route SSOT：workspace activeDocKey */
@@ -41,8 +35,18 @@ type Props = {
 
 const NODE_HIT_RADIUS = 24
 const MIN_TRUSTED_LAYOUT_PX = 48
+const GRAPH_INTERACTION_HINT_KEY = 'luna.graph.interactionHint.dismissed'
 const loggedGraphRenderKeys = new Set<string>()
 const MAX_LOGGED_GRAPH_RENDER_KEYS = 2000
+
+type GraphNodeHover = {
+  id: string
+  label: string
+  linkCount: number
+  status: NoteGraphNode['status']
+  clientX: number
+  clientY: number
+}
 
 function isAgentLogEnabled(): boolean {
   if (!import.meta.env.DEV) return false
@@ -50,6 +54,14 @@ function isAgentLogEnabled(): boolean {
   if (g.__KOS_AGENT_LOG__ === true) return true
   try {
     return localStorage.getItem('kos.agentLog') === '1'
+  } catch {
+    return false
+  }
+}
+
+function isGraphInteractionHintDismissed(): boolean {
+  try {
+    return localStorage.getItem(GRAPH_INTERACTION_HINT_KEY) === '1'
   } catch {
     return false
   }
@@ -67,6 +79,8 @@ export function GraphPanel({ centerDocKey }: Props) {
   const layout = useSurfaceLayout('graph', hostRef)
   const layoutWithHostFallback = useHostLayoutFallback(hostRef, layout)
   const frozenLayout = useFrozenSurfaceLayout(layoutWithHostFallback)
+  const [nodeHover, setNodeHover] = useState<GraphNodeHover | null>(null)
+  const [interactionHintDismissed, setInteractionHintDismissed] = useState(isGraphInteractionHintDismissed)
   const activeGraphNodeId = useSyncExternalStore(
     subscribeActiveGraphNode,
     getActiveGraphNodeId,
@@ -134,6 +148,14 @@ export function GraphPanel({ centerDocKey }: Props) {
     () => buildGraphNodeSpatialIndex(snap.nodes, NODE_HIT_RADIUS),
     [snap.nodes],
   )
+  const linkCountByNodeId = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const edge of snap.edges) {
+      counts.set(edge.from, (counts.get(edge.from) ?? 0) + 1)
+      counts.set(edge.to, (counts.get(edge.to) ?? 0) + 1)
+    }
+    return counts
+  }, [snap.edges])
 
   const routeCenterNode = useMemo(
     () => resolveRouteCenterNode(snap.nodes, centerDocKey),
@@ -148,46 +170,74 @@ export function GraphPanel({ centerDocKey }: Props) {
     height: H,
   }), [x, y, zoom, W, H])
 
-  const onClick = useCallback(
-    (e: React.MouseEvent<SVGSVGElement>) => {
-      const traceId = `nav-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-      const hit = findGraphNodeAtScreen(
-        e.clientX,
-        e.clientY,
+  const resolveHitAtEvent = useCallback(
+    (e: { clientX: number; clientY: number }) =>
+      hitGraphNodeAtEvent(
+        e,
         graphGroupRef.current,
         snap.nodes,
-        NODE_HIT_RADIUS,
         nodeSpatialIndex,
         viewportHitFallback,
-      )
-      const normalizedHit = hit
-        ? {
-            ...hit,
-            docKey: normalizeDocKeyForNavigation(hit.docKey),
-            heading: hit.id.startsWith('heading:') ? hit.label : undefined,
-          }
-        : null
-      const intent = resolveClickIntent({
-        type: 'graph',
-        event: e,
-        uiDisabled: false,
-        hitTestResult: normalizedHit,
-        meta: {
-          nodeId: normalizedHit?.id,
-          nodeDocKey: normalizedHit?.docKey,
-          nodeStatus: normalizedHit?.status,
-        },
-      })
-      if (agentLogEnabled) {
-        // #region agent log
-        console.debug('[graph-node-click]', { traceId, nodeId: normalizedHit?.id ?? null, docKey: normalizedHit?.docKey ?? null, label: normalizedHit?.label ?? null, status: normalizedHit?.status ?? null, navigable: normalizedHit?.navigable ?? false })
-        console.debug('[graph-node-dom-click]', { traceId, docKey: normalizedHit?.docKey ?? null, resolvedPath: null, root: null, eventType: null, commandType: null, clientX: e.clientX, clientY: e.clientY, hitId: normalizedHit?.id ?? null, allowDispatch: intent.allowDispatch, reason: intent.reason })
-        // #endregion
-      }
-      dispatchKnowledgeNavigate('graph', { intent, hit: normalizedHit, traceId })
-    },
-    [agentLogEnabled, nodeSpatialIndex, snap.nodes, viewportHitFallback],
+        NODE_HIT_RADIUS,
+      ),
+    [nodeSpatialIndex, snap.nodes, viewportHitFallback],
   )
+
+  const navigateFromEvent = useCallback(
+    (e: React.MouseEvent) => {
+      const hit = resolveHitAtEvent(e)
+      navigateGraphNodeFromHit(e, hit, agentLogEnabled)
+    },
+    [agentLogEnabled, resolveHitAtEvent],
+  )
+
+  const onClick = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      navigateFromEvent(e)
+    },
+    [navigateFromEvent],
+  )
+
+  const onNodeDoubleClick = useCallback(
+    (e: React.MouseEvent<SVGGElement>) => {
+      e.stopPropagation()
+      navigateFromEvent(e)
+    },
+    [navigateFromEvent],
+  )
+
+  const onNodeMouseEnter = useCallback(
+    (n: NoteGraphNode, e: React.MouseEvent<SVGGElement>) => {
+      setNodeHover({
+        id: n.id,
+        label: n.label,
+        linkCount: linkCountByNodeId.get(n.id) ?? 0,
+        status: n.status,
+        clientX: e.clientX,
+        clientY: e.clientY,
+      })
+    },
+    [linkCountByNodeId],
+  )
+
+  const onNodeMouseMove = useCallback((e: React.MouseEvent<SVGGElement>) => {
+    setNodeHover((prev) =>
+      prev ? { ...prev, clientX: e.clientX, clientY: e.clientY } : null,
+    )
+  }, [])
+
+  const onNodeMouseLeave = useCallback(() => {
+    setNodeHover(null)
+  }, [])
+
+  const dismissInteractionHint = useCallback(() => {
+    setInteractionHintDismissed(true)
+    try {
+      localStorage.setItem(GRAPH_INTERACTION_HINT_KEY, '1')
+    } catch {
+      /* ignore */
+    }
+  }, [])
 
   const flushWheelZoom = useCallback(() => {
     wheelRafRef.current = 0
@@ -235,8 +285,7 @@ export function GraphPanel({ centerDocKey }: Props) {
   if (!centerDocKey) {
     return (
       <div className="kos-surface-host kos-surface-host--empty" ref={hostRef}>
-        <Icon name="graph" size="display" tone="muted" />
-        <p className="kos-panel-empty">{t('knowledge.graph.emptyDoc')}</p>
+        <EmptyState variant="compact" icon="graph" title={t('knowledge.graph.emptyDoc')} />
       </div>
     )
   }
@@ -245,6 +294,18 @@ export function GraphPanel({ centerDocKey }: Props) {
     <div className="kos-surface-host" ref={hostRef}>
       <div className={`kos-graph-panel${resizing ? ' kos-graph-panel--resizing' : ''}`}>
         <p className="kos-panel-muted kos-graph-hint">{t('knowledge.graph.hint', { depth: snap.depth })}</p>
+        {!interactionHintDismissed ? (
+          <div className="kos-graph-interaction-hint">
+            <span className="kos-graph-interaction-hint-text">{t('knowledge.graph.interactionHint')}</span>
+            <button
+              type="button"
+              className="kos-graph-interaction-hint-dismiss"
+              onClick={dismissInteractionHint}
+            >
+              {t('knowledge.graph.interactionDismiss')}
+            </button>
+          </div>
+        ) : null}
         <div className="kos-graph-stage">
           <svg
             className="kos-graph-svg"
@@ -298,8 +359,12 @@ export function GraphPanel({ centerDocKey }: Props) {
                   <g
                     key={n.id}
                     data-graph-node-id={n.id}
-                    className={`kos-graph-node${isHighlighted ? ' kos-graph-node--selected' : ''}${isRouteCenter ? ' kos-graph-node--center' : ''}${n.status === 'unresolved' ? ' kos-graph-node--unresolved' : ''}`}
+                    className={`kos-graph-node${isHighlighted ? ' kos-graph-node--selected' : ''}${isRouteCenter ? ' kos-graph-node--center' : ''}${n.status === 'unresolved' ? ' kos-graph-node--unresolved' : ''}${n.navigable ? ' kos-graph-node--navigable' : ''}`}
                     transform={`translate(${n.x}, ${n.y})`}
+                    onMouseEnter={(e) => onNodeMouseEnter(n, e)}
+                    onMouseMove={onNodeMouseMove}
+                    onMouseLeave={onNodeMouseLeave}
+                    onDoubleClick={n.navigable ? onNodeDoubleClick : undefined}
                   >
                     <circle
                       r={isRouteCenter ? 10 : 7}
@@ -313,6 +378,21 @@ export function GraphPanel({ centerDocKey }: Props) {
               })}
             </g>
           </svg>
+          {nodeHover ? (
+            <div
+              className="kos-graph-tooltip"
+              style={{ left: nodeHover.clientX + 12, top: nodeHover.clientY + 12 }}
+              role="tooltip"
+            >
+              <div className="kos-graph-tooltip-title">{nodeHover.label}</div>
+              <div className="kos-graph-tooltip-meta">
+                {t('knowledge.graph.nodeTooltipLinks', { count: nodeHover.linkCount })}
+                {nodeHover.status === 'unresolved'
+                  ? ` · ${t('knowledge.graph.nodeTooltipUnresolved')}`
+                  : null}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

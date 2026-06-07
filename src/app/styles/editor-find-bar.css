@@ -1,0 +1,82 @@
+/* Shared top-strip find bar (Visual editor aligned with CodeMirror cm-panels-top) */
+.editor-search-overlay--strip {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  width: 100%;
+  padding: 10px 48px 12px 14px;
+  border-bottom: var(--hairline) solid var(--border-subtle);
+  background: var(--luna-overlay-panel-bg);
+  color: var(--text-primary);
+  box-shadow: none;
+  pointer-events: auto;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.4;
+  box-sizing: border-box;
+}
+
+.editor-search-overlay--strip.editor-search-overlay--replace {
+  row-gap: 8px;
+}
+
+.preview-pane.markdown-visual-editor .editor-search-overlay--strip .editor-search-input,
+.preview-pane.markdown-visual-editor .editor-search-overlay--strip .editor-search-replace-input {
+  flex: 1 1 200px;
+  min-width: 0;
+  width: auto;
+  max-width: none;
+  height: var(--luna-field-height-compact);
+  padding: 0 12px;
+  border: var(--hairline) solid var(--luna-field-border);
+  border-radius: var(--luna-field-radius-compact);
+  background: var(--luna-field-bg-editor);
+  color: var(--text-primary);
+  outline: none;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+/* Field focus: fields-app.css */
+
+.preview-pane.markdown-visual-editor .editor-search-overlay--strip .editor-search-button--text {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.preview-pane.markdown-visual-editor .editor-search-overlay--strip .editor-search-count {
+  flex-shrink: 0;
+  min-width: 3.5em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.preview-pane.markdown-visual-editor .editor-search-overlay--strip .editor-search-button {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: var(--hairline) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-hover) 70%, var(--surface-editor));
+  color: var(--text-primary);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.preview-pane.markdown-visual-editor .editor-search-overlay--strip .editor-search-button:hover {
+  background: var(--surface-hover);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+}
+
+.preview-pane.markdown-visual-editor .editor-search-overlay--strip .editor-search-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}

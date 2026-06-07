@@ -18,11 +18,6 @@
       <stop offset="1" stop-color="#DDE3EA"/>
     </linearGradient>
 
-    <linearGradient id="glassEdge" x1="256" y1="36" x2="256" y2="210" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.16"/>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
-    </linearGradient>
-
     <filter id="symbolGlow" x="-60%" y="-60%" width="220%" height="220%">
       <feGaussianBlur stdDeviation="4" result="blur"/>
       <feMerge>
@@ -43,32 +38,35 @@
     <filter id="softBlur" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur stdDeviation="16"/>
     </filter>
+
+    <clipPath id="iconSquircle">
+      <rect width="512" height="512" rx="114" ry="114"/>
+    </clipPath>
   </defs>
 
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <rect width="512" height="512" rx="112" fill="url(#centerGlow)"/>
+  <!-- 832/1024 live-area inset matches generate_app_icons.py (dock/taskbar optical size). -->
+  <g transform="translate(256 256) scale(0.8125) translate(-256 -256)">
+    <g clip-path="url(#iconSquircle)">
+      <rect width="512" height="512" fill="url(#bg)"/>
+      <rect width="512" height="512" fill="url(#centerGlow)"/>
 
-  <g opacity="0.24" filter="url(#symbolGlow)" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-weight="600">
-    <text x="72" y="118" fill="#8FA3BA" font-size="44">{ }</text>
-    <text x="372" y="132" fill="#7F96B0" font-size="40">#</text>
-    <text x="88" y="286" fill="#8FA3BA" font-size="36">( )</text>
-    <text x="360" y="300" fill="#9AADC0" font-size="34">=&gt;</text>
-    <text x="104" y="418" fill="#7F96B0" font-size="38">&lt;/&gt;</text>
-    <text x="372" y="412" fill="#8FA3BA" font-size="42">;</text>
-    <text x="318" y="208" fill="#9AADC0" font-size="30">[ ]</text>
-    <text x="118" y="196" fill="#A8BAC9" font-size="28">fn</text>
+      <g opacity="0.24" filter="url(#symbolGlow)" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-weight="600">
+        <text x="72" y="118" fill="#8FA3BA" font-size="44">{ }</text>
+        <text x="372" y="132" fill="#7F96B0" font-size="40">#</text>
+        <text x="88" y="286" fill="#8FA3BA" font-size="36">( )</text>
+        <text x="360" y="300" fill="#9AADC0" font-size="34">=&gt;</text>
+        <text x="104" y="418" fill="#7F96B0" font-size="38">&lt;/&gt;</text>
+        <text x="372" y="412" fill="#8FA3BA" font-size="42">;</text>
+        <text x="318" y="208" fill="#9AADC0" font-size="30">[ ]</text>
+        <text x="118" y="196" fill="#A8BAC9" font-size="28">fn</text>
+      </g>
+
+      <circle cx="118" cy="156" r="30" fill="#6E849C" opacity="0.07" filter="url(#softBlur)"/>
+      <circle cx="396" cy="356" r="36" fill="#5E7896" opacity="0.06" filter="url(#softBlur)"/>
+
+      <g transform="translate(256 256) scale(0.72) translate(-256 -256)" filter="url(#nGlow)">
+        <path fill="url(#nFill)" d="M162 138h56v236H162V138zm132 0h56v236h-56V138zM218 138h56l72 236h-56l-72-236z"/>
+      </g>
+    </g>
   </g>
-
-  <circle cx="118" cy="156" r="30" fill="#6E849C" opacity="0.07" filter="url(#softBlur)"/>
-  <circle cx="396" cy="356" r="36" fill="#5E7896" opacity="0.06" filter="url(#softBlur)"/>
-
-  <rect x="28" y="28" width="456" height="456" rx="96" fill="#FFFFFF" fill-opacity="0.03"/>
-  <rect x="28" y="28" width="456" height="456" rx="96" fill="url(#glassEdge)"/>
-  <rect x="28" y="28" width="456" height="456" rx="96" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="2"/>
-
-  <g filter="url(#nGlow)">
-    <path fill="url(#nFill)" d="M162 138h56v236H162V138zm132 0h56v236h-56V138zM218 138h56l72 236h-56l-72-236z"/>
-  </g>
-
-  <ellipse cx="256" cy="88" rx="168" ry="42" fill="#FFFFFF" fill-opacity="0.05"/>
 </svg>

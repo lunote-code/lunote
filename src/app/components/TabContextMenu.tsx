@@ -1,5 +1,6 @@
 import type { RefObject } from 'react'
 import { useI18n } from '../../i18n'
+import { useClampedMenuPosition } from '../../lib/useClampedMenuPosition'
 import type { TabContextMenuPick } from '../workspace/contextMenuTypes'
 
 export function TabContextMenu({
@@ -13,6 +14,8 @@ export function TabContextMenu({
 }) {
   const { t } = useI18n()
   const { x, y, path, index, total } = state
+  const openKey = `${x}:${y}:${path}:${index}:${total}`
+  const { x: menuX, y: menuY } = useClampedMenuPosition(menuRef, { x, y }, openKey)
   const hasLeft = index > 0
   const hasRight = index < total - 1
   const canCloseOthers = total > 1
@@ -21,7 +24,7 @@ export function TabContextMenu({
       ref={menuRef}
       role="menu"
       className="file-ctx-menu"
-      style={{ left: x, top: y }}
+      style={{ left: menuX, top: menuY }}
       onContextMenu={(e) => e.preventDefault()}
     >
       <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('close', path, index)}>

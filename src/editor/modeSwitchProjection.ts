@@ -47,9 +47,13 @@ export function projectAlongRow(
   const cm = slice.markdownFrom + Math.min(lo, mdLen)
   const pmSpan = Math.max(0, slice.pmToExclusive - slice.pmFrom)
   const pm = slice.pmFrom + Math.min(lo, pmSpan)
+  const boundedPm =
+    row.pmEnd < row.pmStart
+      ? row.pmStart
+      : Math.max(row.pmStart, Math.min(pm, row.pmEnd))
   return {
     cm: Math.max(0, Math.min(fullMdLen, cm)),
-    pm: clampPmDocPos(innerMax, row.pmEnd < row.pmStart ? row.pmStart : pm),
+    pm: clampPmDocPos(innerMax, boundedPm),
   }
 }
 

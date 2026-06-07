@@ -1,26 +1,27 @@
-/*Command panel (⌘⇧P)*/
+/*Command panel (⌘⇧P) & workspace search (⌘⇧F)*/
 .command-palette-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 20000;
+  z-index: var(--z-overlay-command-palette);
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding: 12vh 16px 24px;
-  background: color-mix(in srgb, #000 38%, transparent);
+  background: var(--luna-overlay-backdrop);
   backdrop-filter: blur(6px);
 }
 
 .command-palette {
   width: min(520px, 100%);
   border-radius: var(--radius-xl);
-  border: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 82%, var(--accent) 6%);
-  background: color-mix(in srgb, var(--surface-panel) 96%, var(--surface-editor));
-  box-shadow:
-    var(--shadow-panel),
-    0 24px 64px color-mix(in srgb, #000 14%, transparent);
+  border: var(--hairline) solid var(--luna-overlay-panel-border);
+  background: var(--luna-overlay-panel-bg);
+  box-shadow: var(--luna-overlay-panel-shadow);
   overflow: hidden;
-  backdrop-filter: saturate(150%) blur(18px);
+}
+
+.command-palette:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
 }
 
 .command-palette-input {
@@ -29,6 +30,8 @@
   padding: 14px 16px;
   border: none;
   border-bottom: var(--hairline) solid var(--border-subtle);
+  appearance: none;
+  -webkit-appearance: none;
   background: transparent;
   color: var(--text-primary);
   font-size: 15px;
@@ -36,14 +39,22 @@
   outline: none;
 }
 
+.command-palette-input:focus {
+  background: transparent;
+  outline: none;
+}
+
+/* focus-visible ring: fields-app.css tier 2 */
+
 .command-palette-input::placeholder {
   color: var(--text-muted);
 }
 
+/* Scrollbar chrome: .command-palette-list / .luna-overlay-scroll (scrollbars-app.css) */
 .command-palette-list {
   max-height: min(52vh, 420px);
   overflow: auto;
-  padding: 6px;
+  padding: 8px;
   margin: 0;
   list-style: none;
 }
@@ -71,10 +82,7 @@
   cursor: pointer;
 }
 
-.command-palette-item:hover,
-.command-palette-item[data-active='true'] {
-  background: color-mix(in srgb, var(--surface-hover) 88%, var(--accent) 8%);
-}
+/* hover / focus: overlay-app.css */
 
 .command-palette-item-row {
   display: flex;
@@ -114,6 +122,26 @@
   color: var(--text-muted);
 }
 
+.command-palette-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.command-palette-loading-icon {
+  animation: luna-spin 1s linear infinite;
+}
+
+.command-palette-empty-item {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.command-palette-empty-item .luna-empty-state--compact {
+  padding: 12px 8px 16px;
+}
+
 .global-search-snippet mark {
   background: color-mix(in srgb, var(--accent) 28%, transparent);
   color: inherit;
@@ -121,13 +149,38 @@
   padding: 0 1px;
 }
 
+/* ⌘⇧F workspace search — wider shell, hint + input header */
+.global-search-modal.command-palette {
+  width: min(560px, 100%);
+}
+
+.global-search-header {
+  border-bottom: var(--hairline) solid var(--border-subtle);
+}
+
+.global-search-scope-hint {
+  margin: 0;
+  padding: 12px 16px 4px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.global-search-modal .global-search-input,
+.global-search-modal .command-palette-input {
+  padding: 8px 16px 14px;
+  border: none;
+  border-bottom: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .command-palette-loading-icon {
+    animation: none;
+  }
+}
 
 .sidebar-scroll .file-list {
   flex: 1 1 0;
   min-height: 0;
   padding-right: var(--space-2);
-  scrollbar-gutter: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--luna-sidebar-scrollbar-thumb) transparent;
 }
-

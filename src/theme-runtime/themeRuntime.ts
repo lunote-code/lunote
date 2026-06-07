@@ -30,6 +30,24 @@ function notify(): void {
   for (const subscriber of subscribers) subscriber(activeTheme)
 }
 
+function readExternalCssFileName(): string {
+  const value = getSetting('theme.cssFile')
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function syncExternalCssFileMarker(fileName: string): void {
+  if (typeof document === 'undefined') return
+  const root = document.documentElement
+  const body = document.body
+  if (fileName) {
+    root.setAttribute('data-theme-css-file', fileName)
+    body?.setAttribute('data-theme-css-file', fileName)
+  } else {
+    root.removeAttribute('data-theme-css-file')
+    body?.removeAttribute('data-theme-css-file')
+  }
+}
+
 function readThemeMode(): ThemeVariant {
   const value = getSetting('theme.active')
   return normalizeThemeVariant(value)
@@ -168,9 +186,15 @@ export function applyCompatibleTheme(theme: ThemeDefinition): void {
   if (nextSignature === activeThemeSignature) return
   activeThemeSignature = nextSignature
   activeTheme = safeTheme
-  applyThemeCssVariables(safeTheme)
-  const root = document.documentElement
   const themeMode = isLightTheme(safeTheme) ? 'light' : 'dark'
+  const externalCssFile = readExternalCssFileName()
+  syncExternalCssFileMarker(externalCssFile)
+  applyThemeCssVariables(safeTheme, {
+    externalCssActive: Boolean(externalCssFile),
+    themePreset: presetForTheme(safeTheme),
+    themeMode,
+  })
+  const root = document.documentElement
   root.setAttribute('data-theme', themeMode)
   root.setAttribute('data-theme-preset', presetForTheme(safeTheme))
   document.body?.classList.remove('theme-dark', 'theme-light')
@@ -181,7 +205,10 @@ export function applyCompatibleTheme(theme: ThemeDefinition): void {
 }
 
 function presetForTheme(theme: ThemeDefinition): string {
-  if (!theme.builtIn) return 'custom'
+  if (!theme.builtIn) {
+    const id = theme.id.trim()
+    return id || 'custom'
+  }
   const preset = theme.family ?? theme.id
   if (preset === 'idea' || preset === 'dim') return preset
   return 'github'
@@ -232,6 +259,10 @@ export function getCurrentTheme(): ThemeDefinition {
   return activeTheme
 }
 
+export function getCurrentThemeMode(): 'light' | 'dark' {
+  return isLightTheme(activeTheme) ? 'light' : 'dark'
+}
+
 export function getCurrentThemeSelection(): string {
   return readThemeMode()
 }
@@ -246,12 +277,7 @@ export function subscribeThemeRuntime(): () => void {
   const unsubscribers = [
     subscribe('theme.active', refreshThemeFromSettings),
     subscribe('theme.customThemeJSON', refreshThemeFromSettings),
-    subscribe('theme.cssFile', () => {
-      void refreshThemeStylesheetFromSettings()
-    }),
-    subscribe('theme.cssCompatMode', () => {
-      void refreshThemeStylesheetFromSettings()
-    }),
+    subscribe('theme.cssFile', refreshThemeFromSettings),
     subscribe('theme.cssSnippets', () => {
       void refreshThemeSnippetsFromSettings()
     }),

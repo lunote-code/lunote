@@ -1,0 +1,36 @@
+/**
+ * Editor polish — legacy alias (same rules as extra-chrome.css)
+ *
+ * @deprecated Prefer extra-chrome.css for new installs. Kept for existing
+ * ~/.luna/theme/snippets/editor-polish.css users after Rescan.
+ *
+ * Built-in defaults ship with the app; this snippet adds table / preview / raw-pre chrome only.
+ */
+
+.markdown-preview-view pre {
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-soft);
+}
+
+.markdown-preview-view img {
+  border-radius: 8px;
+  box-shadow: var(--shadow-soft);
+}
+
+.markdown-preview-view table {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror > pre {
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-soft);
+}
+
+.markdown-preview-view .markdown-table-wrap.luna-md-table-card,
+.markdown-preview-view table {
+  border-radius: 8px;
+  overflow: hidden;
+}

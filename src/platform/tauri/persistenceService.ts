@@ -48,8 +48,13 @@ export async function writeLunaWorkspace(
   })
 }
 
-export async function appendLunaLogLine(line: string): Promise<void> {
-  await invoke('append_luna_log', { line })
+export type LunaLogFileKind = 'app' | 'crash'
+
+export async function appendLunaLogLine(
+  line: string,
+  kind: LunaLogFileKind = 'app',
+): Promise<void> {
+  await invoke('append_luna_log', { line, kind })
 }
 
 export async function readLunaAssetIndex(workspaceId: string): Promise<AssetIndexRecord> {

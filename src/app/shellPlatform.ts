@@ -1,6 +1,13 @@
 import { isTauri } from '@tauri-apps/api/core'
 
-/** The desktop side uniformly uses the in-app custom menu bar (no longer relying on the system’s native menu)*/
+import { isMacDesktopPlatform } from '../platform/desktopPlatform'
+
+/** Win/Linux Tauri uses the in-app React menu bar; macOS uses the system menu bar. */
 export function usesInAppMenuBar(): boolean {
-  return isTauri()
+  return isTauri() && !isMacDesktopPlatform()
+}
+
+/** macOS Tauri installs a native app menu via `@tauri-apps/api/menu`. */
+export function usesNativeMacAppMenu(): boolean {
+  return isTauri() && isMacDesktopPlatform()
 }

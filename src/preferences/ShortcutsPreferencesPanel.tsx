@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import type { TranslateFn } from '../i18n'
 import {
   SettingsButton,
-  SettingsDescription,
+  SettingsHelpPopover,
   SettingsPage,
   SettingsRow,
   SettingsSection,
@@ -29,6 +29,13 @@ import {
 
 type Props = {
   t: TranslateFn
+  highlightQuery?: string
+}
+
+function rowHighlight(label: string, query: string): string | undefined {
+  const q = query.trim().toLowerCase()
+  if (!q) return undefined
+  return label.toLowerCase().includes(q) ? 'is-search-match' : undefined
 }
 
 function useShortcutOverridesRevision(): void {
@@ -39,7 +46,7 @@ function useShortcutOverridesRevision(): void {
   )
 }
 
-export function ShortcutsPreferencesPanel({ t }: Props) {
+export function ShortcutsPreferencesPanel({ t, highlightQuery = '' }: Props) {
   useShortcutOverridesRevision()
   const settings = getAppSettingsSnapshot()
   const overrides = getShortcutOverrides(settings)
@@ -130,10 +137,22 @@ export function ShortcutsPreferencesPanel({ t }: Props) {
 
   const hasAnyOverride = Object.keys(overrides).length > 0
 
+  useEffect(() => {
+    const q = highlightQuery.trim()
+    if (!q) return
+    const frame = window.requestAnimationFrame(() => {
+      document.querySelector('.settings-row.is-search-match')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [highlightQuery, sections])
+
   return (
-    <SettingsPage title={t('settings.sidebar.shortcuts')}>
-      <SettingsDescription>{t('prefs.section.shortcuts.lead')}</SettingsDescription>
+    <SettingsPage className="settings-page--prefs">
       <div className="prefs-shortcuts-toolbar">
+        <SettingsHelpPopover
+          title={t('settings.sidebar.shortcuts')}
+          body={t('prefs.section.shortcuts.lead')}
+        />
         <SettingsButton
           type="button"
           variant="secondary"
@@ -167,7 +186,12 @@ export function ShortcutsPreferencesPanel({ t }: Props) {
             ) : undefined
 
             return (
-              <SettingsRow key={entry.id} label={label} description={rowHintNode}>
+              <SettingsRow
+                key={entry.id}
+                label={label}
+                description={rowHintNode}
+                className={rowHighlight(label, highlightQuery)}
+              >
                 <div className="prefs-shortcuts-row-controls">
                   {readOnly ? (
                     <kbd className="prefs-shortcut-key prefs-shortcut-key--readonly" aria-readonly="true">

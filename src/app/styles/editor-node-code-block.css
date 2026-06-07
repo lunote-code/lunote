@@ -1,0 +1,944 @@
+/*What you see is what you get: the code block and the title are on the left edge of the same column; the language bar is above the code area (keyboard ↑↓ and language switching)*/
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  margin: 1.15rem 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  overflow: visible;
+  outline: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus-visible,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus-within {
+  outline: none;
+}
+
+/*Typora style: single-line pre-flow - line number and text share typography tokens from code-block-tokens.css*/
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-surface {
+  --luna-code-toolbar-inset: 12px;
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  cursor: text;
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow:
+    inset 0 0 0 var(--hairline) color-mix(in srgb, var(--border-subtle) 78%, transparent),
+    var(--shadow-panel, 0 10px 24px color-mix(in srgb, #000 10%, transparent));
+  background: var(--code-bg);
+  overflow: visible;
+  font-synthesis: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-pre {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: inherit;
+  background: transparent;
+  overflow: visible;
+  min-width: 0;
+  font-family: var(--font-code-block);
+  font-size: var(--code-block-font-size);
+  line-height: var(--code-block-line-height);
+  letter-spacing: normal;
+  white-space: pre;
+  tab-size: 4;
+}
+
+/* Gutter uses the same pre-flow line breaks as code content (inline spans + `\n`). */
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-linenos {
+  position: relative;
+  z-index: 2;
+  grid-column: 1;
+  grid-row: 1;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 10px 0 12px;
+  border-right: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 48%, transparent);
+  background: var(--code-bg);
+  white-space: pre;
+  text-align: right;
+  font: inherit;
+  line-height: inherit;
+  min-height: calc(var(--code-block-line-count, 1) * var(--code-block-row-height));
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-linenos[data-gutter-positioned] {
+  pointer-events: auto;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-lineno {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  color: var(--code-gutter-fg, color-mix(in srgb, var(--text-muted) 70%, transparent));
+  font: inherit;
+  line-height: inherit;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content-scroll {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--code-gutter-width, 3.25rem) minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: visible;
+  cursor: text;
+  padding: var(--code-block-pad-top) 0 var(--code-block-pad-bottom);
+  font-family: var(--font-code-block);
+  font-size: var(--code-block-font-size);
+  line-height: var(--code-block-line-height);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-body-col {
+  position: relative;
+  z-index: 2;
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  min-height: calc(var(--code-block-line-count, 1) * var(--code-block-row-height));
+  cursor: text;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+/* Code block scroll tier: thin hover-reveal bar (legacy body col + CM scroller + fenced pre). */
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-body-col,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-scroller {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:hover .pm-code-body-col,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus-within .pm-code-body-col,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:hover .pm-code-block-cm .cm-scroller,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus-within .pm-code-block-cm .cm-scroller {
+  scrollbar-color: var(--luna-code-block-scrollbar-thumb) transparent;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-body-col::-webkit-scrollbar,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-scroller::-webkit-scrollbar {
+  width: var(--luna-code-block-scrollbar-size, 4px);
+  height: var(--luna-code-block-scrollbar-size, 4px);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-body-col::-webkit-scrollbar-button,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-scroller::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-body-col::-webkit-scrollbar-corner,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-scroller::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-body-col::-webkit-scrollbar-track,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-scroller::-webkit-scrollbar-track {
+  margin: 0 6px 2px;
+  background: transparent;
+  border-radius: 999px;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-body-col::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-scroller::-webkit-scrollbar-thumb {
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  transition: background 0.18s ease;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:hover .pm-code-body-col::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus-within .pm-code-body-col::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:hover .pm-code-block-cm .cm-scroller::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus-within .pm-code-block-cm .cm-scroller::-webkit-scrollbar-thumb {
+  background: var(--luna-code-block-scrollbar-thumb);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-body-col::-webkit-scrollbar-thumb:hover,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background: var(--luna-code-block-scrollbar-thumb-hover);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-body-col::-webkit-scrollbar-thumb:active,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-scroller::-webkit-scrollbar-thumb:active {
+  background: var(--luna-code-block-scrollbar-thumb-active);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content {
+  display: block;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 100%;
+  min-height: calc(var(--code-block-line-count, 1) * var(--code-block-row-height));
+  margin: 0;
+  padding: 0 18px 0 var(--code-block-gutter-content-gap);
+  font: inherit;
+  line-height: inherit;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+  background: transparent !important;
+  outline: none;
+  position: relative;
+  caret-color: var(--accent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content [data-node-view-content],
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content [data-node-view-content-react] {
+  display: block;
+  min-height: inherit;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  white-space: inherit;
+  outline: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content :where(span, kbd, samp) {
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  vertical-align: baseline;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content :where(span[class*='hljs-']) {
+  display: inline;
+  line-height: inherit !important;
+  vertical-align: baseline;
+  font: inherit;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content.hljs {
+  line-height: inherit;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-content .ProseMirror-composition {
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  text-decoration: none;
+  border-bottom: none;
+}
+
+/*Compatible with old export/paste HTML still with .pm-code-block-code*/
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-pre .pm-code-block-code {
+  display: contents;
+}
+
+/*—— Luna code block toolbar: VSCode/Notion style floating bar, unified design system ——*/
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar {
+  --luna-toolbar-h: calc(var(--reveal-source-btn-height) + 2px);
+  --luna-toolbar-radius: 8px;
+  --luna-toolbar-pad-x: calc(var(--reveal-source-btn-pad-x) - 2px);
+  --luna-toolbar-font: 12px;
+  --luna-toolbar-bg: var(--reveal-source-btn-bg);
+  --luna-toolbar-bg-hover: color-mix(in srgb, var(--surface-hover) 88%, var(--surface-panel));
+  --luna-toolbar-border: var(--reveal-source-btn-border);
+  position: absolute;
+  z-index: 4;
+  top: var(--luna-code-toolbar-inset);
+  right: var(--luna-code-toolbar-inset);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:hover .luna-code-toolbar,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--palette-open .luna-code-toolbar,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus-within .luna-code-toolbar,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--copy-failed .luna-code-toolbar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap .luna-code-toolbar {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--luna-toolbar-h);
+  margin: 0;
+  padding: 2px var(--luna-toolbar-pad-x);
+  border: var(--hairline) solid var(--luna-toolbar-border);
+  border-radius: var(--luna-toolbar-radius);
+  background: var(--luna-toolbar-bg);
+  color: var(--reveal-source-btn-fg);
+  font-family: var(--font-ui);
+  font-size: var(--luna-toolbar-font);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn:hover {
+  background: var(--luna-toolbar-bg-hover);
+  border-color: color-mix(in srgb, var(--border-subtle) 92%, var(--text-muted));
+  color: var(--text-primary);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn:active {
+  transform: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn:focus,
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--luna-focus-ring);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn--icon {
+  width: var(--luna-toolbar-h);
+  min-width: var(--luna-toolbar-h);
+  padding: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn--icon svg {
+  flex-shrink: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--surface-hover) 70%, var(--surface-panel));
+  border-color: color-mix(in srgb, var(--text-muted) 35%, var(--border-subtle));
+  color: var(--text-primary);
+}
+
+/*Language chip: pill aligned with overlay menu typography*/
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn--chip.pm-code-lang-chip {
+  min-width: 6.25rem;
+  max-width: min(14rem, calc(100vw - 120px));
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 2px 10px 2px 10px;
+  border-radius: var(--radius-md);
+  background: var(--code-lang-bg, color-mix(in srgb, var(--luna-overlay-panel-bg) 72%, var(--luna-toolbar-bg)));
+  border-color: color-mix(in srgb, var(--border-subtle) 82%, transparent);
+  color: var(--code-lang-fg, var(--text-primary));
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--text-primary) 4%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn--chip.pm-code-lang-chip:hover {
+  background: color-mix(in srgb, var(--code-lang-bg, var(--luna-overlay-panel-bg)) 88%, var(--surface-hover));
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--border-subtle));
+  color: var(--code-lang-fg, var(--text-primary));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn--chip.pm-code-lang-chip:focus-visible {
+  background: color-mix(in srgb, var(--accent) 12%, var(--code-lang-bg, var(--luna-overlay-panel-bg)));
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--border-subtle));
+  color: var(--text-primary);
+  box-shadow: var(--luna-focus-ring);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--palette-open .luna-btn--chip.pm-code-lang-chip {
+  background: color-mix(in srgb, var(--accent) 10%, var(--luna-overlay-panel-bg));
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border-subtle));
+  color: var(--text-primary);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent),
+    0 4px 14px color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-lang-chip__glyph {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: color-mix(in srgb, var(--accent) 68%, var(--text-muted));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-lang-chip__label {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-lang-chip__chev {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-left: 2px;
+  color: var(--text-muted);
+  opacity: 0.88;
+  transition: transform 0.16s ease, opacity 0.12s ease, color 0.12s ease;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-lang-chip__chev-svg {
+  display: block;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--palette-open .pm-code-lang-chip__chev {
+  transform: rotate(180deg);
+  color: color-mix(in srgb, var(--accent) 70%, var(--text-muted));
+  opacity: 1;
+}
+
+/*Copy: dual icon switching + successful micro-animation (no system blue ring)*/
+.preview-pane.markdown-visual-editor .ProseMirror .luna-btn--copy {
+  position: relative;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-btn__copy-icons {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-btn__copy-icon {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    opacity 0.14s ease,
+    transform 0.22s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-btn__copy-icon--done {
+  opacity: 0;
+  transform: scale(0.65);
+  color: var(--luna-color-success, rgb(34, 197, 94));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-btn--copy-success .luna-btn__copy-icon--idle {
+  opacity: 0;
+  transform: scale(0.85);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-btn--copy-success .luna-btn__copy-icon--done {
+  opacity: 1;
+  transform: scale(1);
+  animation: luna-code-copy-check-pop 0.45s ease-out;
+}
+
+@keyframes luna-code-copy-check-pop {
+  0% {
+    transform: scale(0.5);
+  }
+  55% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-lineno--caret {
+  color: var(--accent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-folded-hint {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 7px 14px 9px;
+  border-top: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 55%, transparent);
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--code-bg) 88%, transparent) 0%,
+    color-mix(in srgb, var(--code-bg) 96%, var(--surface-panel)) 100%
+  );
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+  user-select: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-folded-hint__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.65rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 10%, var(--code-bg));
+  border: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-folded-hint__text {
+  color: color-mix(in srgb, var(--text-muted) 92%, var(--text-primary));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--folded .pm-code-block-pre {
+  max-height: calc(var(--code-block-row-height) + var(--code-block-pad-top) + 6px);
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 0%, #000 72%, transparent 100%);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--folded .pm-code-block-static--folded-preview {
+  padding-bottom: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--folded .pm-code-block-static--folded-preview .pm-code-linenos {
+  min-height: var(--code-block-row-height);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--folded .pm-code-block-content-scroll {
+  padding-bottom: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--folded .pm-code-block-content-scroll,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--folded .pm-code-body-col,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--folded .pm-code-block-content {
+  overflow-x: hidden;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--copy-failed .luna-btn--copy {
+  border-color: color-mix(in srgb, var(--luna-color-danger, #ef4444) 55%, var(--luna-toolbar-border));
+  color: color-mix(in srgb, var(--luna-color-danger, #ef4444) 82%, var(--text-primary));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--diff {
+  box-shadow:
+    inset 3px 0 0 color-mix(in srgb, #22c55e 55%, transparent),
+    inset 0 0 0 var(--hairline) color-mix(in srgb, var(--border-subtle) 78%, transparent),
+    0 10px 24px color-mix(in srgb, #000 10%, transparent);
+}
+
+/*Code Block NodeView: Avoid the entire ProseMirror-selectednode blue stroke flashing when clicking on the toolbar*/
+.preview-pane.markdown-visual-editor .ProseMirror-selectednode:has(.pm-code-block-wrap),
+.preview-pane.markdown-visual-editor .ProseMirror > .react-renderer.ProseMirror-selectednode:has(.pm-code-block-wrap),
+.preview-pane.markdown-visual-editor .ProseMirror .react-renderer.ProseMirror-selectednode:has(.pm-code-block-wrap) {
+  outline: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--copied .pm-code-block-surface {
+  animation: luna-code-copy-surface 0.24s ease-out;
+}
+
+@keyframes luna-code-copy-surface {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  45% {
+    opacity: 0.97;
+    transform: scale(1.004);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Language palette — aligned with command palette / workspace menu overlay tokens */
+.luna-code-lang-palette {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  border-radius: var(--radius-lg);
+  border: var(--hairline) solid var(--luna-overlay-panel-border);
+  background: var(--luna-overlay-panel-bg);
+  box-shadow: var(--luna-overlay-panel-shadow);
+  overflow: hidden;
+  transition: border-color 140ms ease;
+}
+
+.luna-code-lang-palette:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+}
+
+.luna-code-lang-palette--above {
+  box-shadow:
+    var(--reveal-popover-shadow-above, 0 -8px 24px color-mix(in srgb, var(--text-primary) 10%, transparent)),
+    var(--luna-overlay-panel-shadow);
+}
+
+.luna-code-lang-palette__header {
+  padding: 10px 14px 0;
+}
+
+.luna-code-lang-palette__title {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  color: var(--text-primary);
+}
+
+.luna-code-lang-palette__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 10px;
+  border-bottom: var(--hairline) solid var(--border-subtle);
+}
+
+.luna-code-lang-palette__search-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  opacity: 0.9;
+}
+
+.luna-code-lang-palette__input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  min-height: 0;
+  margin: 0;
+  padding: 2px 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.luna-code-lang-palette__input::placeholder {
+  color: var(--text-muted);
+}
+
+.luna-code-lang-palette__input:hover,
+.luna-code-lang-palette__input:focus,
+.luna-code-lang-palette__input:focus-visible {
+  border-color: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.luna-code-lang-palette__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: min(300px, 42vh);
+  overflow-y: auto;
+  padding: 6px 8px 8px;
+}
+
+.luna-code-lang-palette__empty {
+  padding: 16px 12px;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.luna-code-lang-palette__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 10px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 110ms ease;
+}
+
+.luna-code-lang-palette__row:focus,
+.luna-code-lang-palette__row:focus-visible {
+  outline: none;
+}
+
+.luna-code-lang-palette__check {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: var(--accent);
+}
+
+.luna-code-lang-palette__name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.luna-code-lang-palette__id {
+  flex-shrink: 0;
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: var(--hairline) solid var(--border-subtle);
+  background: var(--surface-elevated);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--text-muted);
+}
+
+.luna-code-lang-palette__row--current .luna-code-lang-palette__name {
+  color: color-mix(in srgb, var(--accent) 72%, var(--text-primary));
+}
+
+.luna-code-lang-palette__row--current .luna-code-lang-palette__id {
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--border-subtle));
+  color: color-mix(in srgb, var(--accent) 55%, var(--text-muted));
+}
+
+/* Code block context menu — language flyout submenu */
+.file-ctx-submenu--code-lang {
+  min-width: 260px;
+  max-width: min(320px, calc(100vw - 24px));
+  max-height: min(60vh, 420px);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.file-ctx-submenu--code-lang__search {
+  flex-shrink: 0;
+  margin: 8px 8px 0;
+}
+
+.file-ctx-submenu--code-lang__list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  margin-top: 6px;
+  padding: 0 6px 6px;
+}
+
+.file-ctx-submenu--code-lang .luna-code-lang-palette__row.file-ctx-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+}
+
+/* Hide CM active-line / caret chrome while the code-block context menu is open (keep selection visible) */
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--ctx-menu-open .cm-activeLine,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--ctx-menu-open .cm-activeLineGutter {
+  background: transparent !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--ctx-menu-open .cm-cursor {
+  visibility: hidden;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--ctx-menu-open .cm-selectionLayer .cm-selectionBackground {
+  background-color: color-mix(in srgb, var(--accent) 15%, transparent) !important;
+  opacity: 1 !important;
+}
+
+/*Compatible with direct children pre (paste, etc., not NodeView wrapper)*/
+.preview-pane.markdown-visual-editor .ProseMirror > pre {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: min(var(--editor-column-width), 100%);
+  margin: 0.85rem auto;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 var(--hairline) color-mix(in srgb, var(--border-subtle) 75%, transparent);
+  background: var(--code-bg);
+  overflow: hidden;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror > pre code {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: var(--code-block-pad-top) 14px var(--code-block-pad-bottom) 0;
+  overflow-x: auto;
+  font-family: var(--font-code-block);
+  font-size: var(--code-block-font-size);
+  line-height: var(--code-block-line-height);
+  background: transparent !important;
+  color: var(--text-primary);
+}
+
+/* CodeMirror 6 embedded code block (feature flag: codeblockCm=1) */
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-pre--cm {
+  padding: var(--code-block-pad-top) 0 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-content {
+  padding-bottom: var(--code-block-pad-bottom);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-scroller {
+  column-gap: var(--code-block-gutter-content-gap);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-line {
+  padding: 0 18px 0 0;
+}
+
+/* Active line / selection belong to document text — not the gutter↔content gap */
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-activeLineGutter {
+  background: transparent !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm {
+  width: 100%;
+  min-width: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm-root {
+  width: 100%;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-editor {
+  width: 100%;
+  background: transparent;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-editor.cm-focused {
+  outline: none;
+}
+
+/* CM code block: never show PM contenteditable caret (prevents gutter ghost typing). */
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--cm {
+  caret-color: transparent;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--cm .cm-content {
+  caret-color: var(--accent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-lineNumbers,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-gutters {
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--cm .pm-code-block-content-scroll {
+  display: none;
+}
+
+/* PM contentDOM mirror: off-screen; CM owns visible editing and focus */
+/* CM focused inside a code block: hide PM contenteditable caret (avoid "caret at doc start") */
+.preview-pane.markdown-visual-editor
+  .ProseMirror:has(.pm-code-block-cm .cm-editor.cm-focused:focus-within) {
+  caret-color: transparent;
+}
+
+/*
+ * CM editing suspends PM contenteditable (WebKit nested editables). Browsers show
+ * the default arrow cursor over non-editable roots — keep text cursor on body content.
+ */
+.preview-pane.markdown-visual-editor .ProseMirror[contenteditable='false'] {
+  cursor: text;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror[contenteditable='false'] .pm-code-block-wrap {
+  cursor: default;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror[contenteditable='false'] .pm-code-block-surface,
+.preview-pane.markdown-visual-editor .ProseMirror[contenteditable='false'] .pm-code-block-cm,
+.preview-pane.markdown-visual-editor .ProseMirror[contenteditable='false'] .pm-code-block-cm .cm-content {
+  cursor: text;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-pm-mirror,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-pm-mirror[data-pm-readonly='true'] {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+  white-space: pre;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  contain: strict;
+}

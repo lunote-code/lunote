@@ -3,7 +3,7 @@ import versionConfig from '../../../version.json'
 /** Installation package/executable file name (short name), consistent with tauri.conf productName*/
 export const APP_SHORT_NAME = 'Lunote'
 /** The complete product name displayed in the interface and "About"*/
-export const APP_DISPLAY_NAME = 'Luna Note'
+export const APP_DISPLAY_NAME = 'Lunote'
 
 /** Application semver; configured in `version.json` and synced via `npm run version:sync`. */
 export const APP_VERSION = versionConfig.version
@@ -25,3 +25,6 @@ export const INITIAL_NOTE_MD =
   '# New note\n\nStart writing your ideas...\n\n```ts\nconsole.log("hello markdown")\n```\n\n<!-- This comment is hidden in preview -->\n'
 
 export const LARGE_DOC_THRESHOLD = 400_000
+
+/** Maximum recent workspace files shown in the sidebar empty state. */
+export const RECENT_FILES_LIMIT = 16

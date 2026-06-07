@@ -1,0 +1,91 @@
+/* ── Input field tiers (see tokens.css --luna-field-*) ──
+ * 1. Bordered form fields — settings, panels, dialogs, editor find bar
+ * 2. Overlay search — command palette / global & knowledge search modals (borderless shell)
+ * 3. Sidebar chrome — embedded header search (no border, background focus)
+ */
+
+/*── Tier 1: bordered fields — shared hover / focus ──*/
+.settings-input,
+.settings-textarea,
+.kos-search-input,
+.kos-frontmatter-tag-input,
+.kos-frontmatter-title-input,
+.rename-modal-input,
+.search-input,
+.prefs-search-input,
+.preview-pane.markdown-visual-editor .editor-search-overlay--strip .editor-search-input,
+.preview-pane.markdown-visual-editor .editor-search-overlay--strip .editor-search-replace-input,
+.editor-pane .cm-panel.cm-search .cm-textfield,
+.luna-emoji-picker__search,
+.editor-format-color-hex-input {
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.settings-input:hover,
+.settings-textarea:hover,
+.kos-search-input:hover,
+.kos-frontmatter-tag-input:hover,
+.kos-frontmatter-title-input:hover,
+.rename-modal-input:hover,
+.search-input:hover,
+.prefs-search-input:hover,
+.preview-pane.markdown-visual-editor .editor-search-overlay--strip .editor-search-input:hover,
+.preview-pane.markdown-visual-editor .editor-search-overlay--strip .editor-search-replace-input:hover,
+.editor-pane .cm-panel.cm-search .cm-textfield:hover,
+.luna-emoji-picker__search:hover,
+.editor-format-color-hex-input:hover {
+  border-color: var(--luna-field-border-hover);
+}
+
+.settings-input:focus,
+.settings-input:focus-visible,
+.settings-textarea:focus,
+.settings-textarea:focus-visible,
+.kos-search-input:focus,
+.kos-search-input:focus-visible,
+.kos-frontmatter-tag-input:focus,
+.kos-frontmatter-tag-input:focus-visible,
+.kos-frontmatter-title-input:focus,
+.kos-frontmatter-title-input:focus-visible,
+.rename-modal-input:focus,
+.rename-modal-input:focus-visible,
+.search-input:focus,
+.search-input:focus-visible,
+.prefs-search-input:focus,
+.prefs-search-input:focus-visible,
+.preview-pane.markdown-visual-editor .editor-search-overlay--strip .editor-search-input:focus,
+.preview-pane.markdown-visual-editor .editor-search-overlay--strip .editor-search-input:focus-visible,
+.preview-pane.markdown-visual-editor .editor-search-overlay--strip .editor-search-replace-input:focus,
+.preview-pane.markdown-visual-editor .editor-search-overlay--strip .editor-search-replace-input:focus-visible,
+.editor-pane .cm-panel.cm-search .cm-textfield:focus,
+.editor-pane .cm-panel.cm-search .cm-textfield:focus-visible,
+.luna-emoji-picker__search:focus,
+.luna-emoji-picker__search:focus-visible,
+.editor-format-color-hex-input:focus,
+.editor-format-color-hex-input:focus-visible {
+  border-color: var(--luna-field-border-focus);
+  box-shadow: var(--luna-field-focus-ring);
+}
+
+/*── Tier 2: overlay command / search palette (borderless input in modal header) ──*/
+.command-palette-input:focus-visible,
+.global-search-input:focus-visible,
+.luna-code-lang-palette__input:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border-subtle));
+  box-shadow: var(--luna-field-focus-ring);
+}
+
+/*── Tier 3: sidebar chrome embedded search (no border ring) ──*/
+.sidebar-search-chrome .search-input:focus,
+.sidebar-search-chrome .search-input:focus-visible,
+.sidebar-search-chrome .sidebar-search-input:focus,
+.sidebar-search-chrome .sidebar-search-input:focus-visible {
+  background: color-mix(in srgb, var(--surface-hover) 55%, transparent);
+  border-color: transparent;
+  box-shadow: none;
+  outline: none;
+}

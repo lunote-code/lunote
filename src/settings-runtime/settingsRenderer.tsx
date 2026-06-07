@@ -1,10 +1,13 @@
-import { useMemo, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react'
 import { useI18n } from '../i18n'
 import {
   SettingsButton,
   SettingsDescription,
   SettingsFileInput,
+  SettingsHelpPopover,
+  SettingsInlineHelp,
   SettingsInput,
+  SettingsLabelWithHelp,
   SettingsPage,
   SettingsRow,
   SettingsSection,
@@ -29,7 +32,8 @@ import { getCurrentTheme, subscribeTheme } from '../theme-runtime/themeRuntime'
 
 type SettingsRendererProps = {
   section: SettingsSectionId
-  title?: string
+  title?: ReactNode
+  highlightQuery?: string
   resolveOptions?: (item: LeafSetting) => readonly SettingsSelectOption<string>[] | undefined
   renderBeforeSection?: (group: GroupSetting) => React.ReactNode
   renderAfterSection?: (group: GroupSetting) => React.ReactNode
@@ -74,29 +78,77 @@ function toFileDisplayValue(path: string): string {
   return segments.at(-1) ?? trimmed
 }
 
+function renderSettingLabel(
+  item: LeafSetting,
+  label: string,
+  description: string | undefined,
+  t: ReturnType<typeof useI18n>['t'],
+): { label: ReactNode; description?: string } {
+  if (description && item.descriptionAsHelp) {
+    const helpTitle = item.helpTitleKey ? t(item.helpTitleKey) : label
+    const extraHelp = item.type === 'input' && item.helpTextKey ? t(item.helpTextKey) : undefined
+    const helpBody = extraHelp ? `${description}\n${extraHelp}` : description
+    return {
+      label: (
+        <SettingsLabelWithHelp
+          label={label}
+          help={<SettingsHelpPopover title={helpTitle} body={helpBody} />}
+        />
+      ),
+    }
+  }
+  return { label, description }
+}
+
+function settingMatchesQuery(
+  label: string,
+  description: string | undefined,
+  query: string,
+): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return false
+  return `${label} ${description ?? ''}`.toLowerCase().includes(q)
+}
+
+function rowHighlightProps(
+  item: LeafSetting,
+  labelText: string,
+  descriptionText: string | undefined,
+  highlightQuery?: string,
+) {
+  const matched = settingMatchesQuery(labelText, descriptionText, highlightQuery ?? '')
+  return {
+    className: matched ? 'is-search-match' : undefined,
+    dataSettingId: item.path,
+  }
+}
+
 function renderSetting(
   item: LeafSetting,
   t: ReturnType<typeof useI18n>['t'],
   resolveOptions?: SettingsRendererProps['resolveOptions'],
   onAction?: SettingsActionHandler,
   onFile?: SettingsRendererProps['onFile'],
+  highlightQuery?: string,
 ) {
   if (!isVisible(item)) return null
 
   const value = bindValue(item.path)
-  const label = translateSettingLabel(item, t)
-  const description = translateSettingDescription(item, t)
+  const labelText = translateSettingLabel(item, t)
+  const descriptionText = translateSettingDescription(item, t)
+  const { label, description } = renderSettingLabel(item, labelText, descriptionText, t)
+  const rowProps = rowHighlightProps(item, labelText, descriptionText, highlightQuery)
 
   switch (item.type) {
     case 'select': {
       const options = resolveOptions?.(item) ?? translateSettingOptions(item.options, t)
       return (
-        <SettingsRow key={item.path} label={label} description={description}>
+        <SettingsRow key={item.path} label={label} description={description} {...rowProps}>
           <SettingsSelect
             value={toStringValue(value ?? item.default)}
             activeValue={activeValueForSetting(item.path)}
             options={options}
-            ariaLabel={label}
+            ariaLabel={labelText}
             onPreviewValue={(next) => previewValueForSetting(item.path, next)}
             onClearPreview={() => clearPreviewForSetting(item.path)}
             onValueChange={(next) => void onChange(item.path, next)}
@@ -106,7 +158,7 @@ function renderSetting(
     }
     case 'input':
       return (
-        <SettingsRow key={item.path} label={label} description={description}>
+        <SettingsRow key={item.path} label={label} description={description} {...rowProps}>
           <div className={item.action ? 'settings-path-control' : 'settings-stack'}>
             <SettingsInput
               type={item.numeric ? 'number' : undefined}
@@ -160,23 +212,25 @@ function renderSetting(
                 {t(item.action.labelKey)}
               </SettingsButton>
             ) : null}
-            {item.helpTextKey ? <SettingsDescription>{t(item.helpTextKey)}</SettingsDescription> : null}
+            {item.helpTextKey && !item.descriptionAsHelp ? (
+              <SettingsDescription>{t(item.helpTextKey)}</SettingsDescription>
+            ) : null}
           </div>
         </SettingsRow>
       )
     case 'switch':
       return (
-        <SettingsRow key={item.path} label={label} description={description}>
+        <SettingsRow key={item.path} label={label} description={description} {...rowProps}>
           <SettingsSwitch
             checked={toBooleanValue(value ?? item.default)}
-            ariaLabel={label}
+            ariaLabel={labelText}
             onCheckedChange={(next) => void onChange(item.path, next)}
           />
         </SettingsRow>
       )
     case 'textarea':
       return (
-        <SettingsRow key={item.path} label={label} description={description}>
+        <SettingsRow key={item.path} label={label} description={description} {...rowProps}>
           <SettingsTextArea
             value={toStringValue(value ?? item.default)}
             placeholder={item.placeholderKey ? t(item.placeholderKey) : undefined}
@@ -192,7 +246,7 @@ function renderSetting(
             ? toFileDisplayValue(stringValue)
             : stringValue
       return (
-        <SettingsRow key={item.path} label={label} description={description}>
+        <SettingsRow key={item.path} label={label} description={description} {...rowProps}>
           <div className="settings-stack">
             <SettingsFileInput
               value={fileDisplayValue}
@@ -232,6 +286,20 @@ function renderSetting(
   }
 }
 
+function renderGroupTitle(group: GroupSetting, t: ReturnType<typeof useI18n>['t']): ReactNode {
+  const title = t(group.titleKey)
+  if (group.descriptionKey && group.descriptionAsHelp) {
+    return (
+      <SettingsInlineHelp
+        className="settings-section-title-with-help"
+        label={title}
+        help={<SettingsHelpPopover title={title} body={t(group.descriptionKey)} />}
+      />
+    )
+  }
+  return title
+}
+
 function renderGroup(
   group: GroupSetting,
   t: ReturnType<typeof useI18n>['t'],
@@ -240,17 +308,34 @@ function renderGroup(
   renderAfterSection: SettingsRendererProps['renderAfterSection'],
   onAction: SettingsRendererProps['onAction'],
   onFile: SettingsRendererProps['onFile'],
+  highlightQuery?: string,
 ) {
   const renderedItems = group.items
     .map((path) => {
       const item = getSchemaSetting(path)
       if (!item) return null
-      return renderSetting(item, t, resolveOptions, onAction, onFile)
+      return renderSetting(item, t, resolveOptions, onAction, onFile, highlightQuery)
     })
     .filter(Boolean)
 
+  if (group.hideHeader) {
+    return (
+      <div key={group.id} className="settings-section settings-section-bare">
+        {renderBeforeSection?.(group)}
+        {renderedItems}
+        {renderAfterSection?.(group)}
+      </div>
+    )
+  }
+
   return (
-    <SettingsSection key={group.id} title={t(group.titleKey)} description={group.descriptionKey ? t(group.descriptionKey) : undefined}>
+    <SettingsSection
+      key={group.id}
+      title={renderGroupTitle(group, t)}
+      description={
+        group.descriptionKey && !group.descriptionAsHelp ? t(group.descriptionKey) : undefined
+      }
+    >
       {renderBeforeSection?.(group)}
       {renderedItems}
       {renderAfterSection?.(group)}
@@ -261,6 +346,7 @@ function renderGroup(
 export function SettingsRenderer({
   section,
   title,
+  highlightQuery,
   resolveOptions,
   renderBeforeSection,
   renderAfterSection,
@@ -272,10 +358,29 @@ export function SettingsRenderer({
   const { t } = useI18n()
   const schema = useMemo(() => getSection(section), [section])
 
+  useEffect(() => {
+    const q = highlightQuery?.trim()
+    if (!q) return
+    const frame = window.requestAnimationFrame(() => {
+      const match = document.querySelector('.settings-row.is-search-match')
+      match?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [section, highlightQuery])
+
   return (
-    <SettingsPage title={title}>
+    <SettingsPage title={title} className="settings-page--prefs">
       {schema.groups.map((group) =>
-        renderGroup(group, t, resolveOptions, renderBeforeSection, renderAfterSection, onAction, onFile),
+        renderGroup(
+          group,
+          t,
+          resolveOptions,
+          renderBeforeSection,
+          renderAfterSection,
+          onAction,
+          onFile,
+          highlightQuery,
+        ),
       )}
     </SettingsPage>
   )

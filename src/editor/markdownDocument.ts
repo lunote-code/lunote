@@ -7,6 +7,7 @@ import markdownItSub from 'markdown-it-sub'
 import markdownItSup from 'markdown-it-sup'
 import texmath from 'markdown-it-texmath'
 import katex from 'katex'
+import { LUNA_KATEX_HTML_OPTIONS } from './lunaKatexOptions'
 import {
   MarkdownParser,
   MarkdownSerializer,
@@ -17,7 +18,7 @@ import { Fragment } from 'prosemirror-model'
 import type { Mark, Node as ProseMirrorNode, Schema, Attrs, NodeType } from 'prosemirror-model'
 import { Transform } from 'prosemirror-transform'
 import { TableMap } from '@tiptap/pm/tables'
-import { calloutFirstLineForKind, matchCalloutFirstLine, parseCalloutLeadingParagraph } from './lunaCallout'
+import { calloutFirstLineForKind, matchCalloutFirstLine, parseCalloutLeadingParagraph, CALLOUT_BRACKET_TAGS } from './lunaCallout'
 import type { CalloutKind } from './lunaCallout'
 import {
   preprocessLunaMarkdownAdmonitionsWithLineMap,
@@ -34,6 +35,7 @@ import { normalizeLunaRawSource, type LunaRawSource } from './lunaRawBlock'
 import { parseCellTextAlign, type LunaCellTextAlign } from './lunaTableCellAlign'
 import { validateASTBeforeCommit } from './astGuardrails'
 import { liftInlineHtmlFormattingMarksIterated } from './lunaInlineHtmlMarkLift'
+import { newMermaidBlockId } from './extensions/MermaidNode'
 import {
   alignSerializedTrailingBlankLines,
   countTrailingEmptyParagraphs,
@@ -49,6 +51,8 @@ import {
   liftMarkdownTaskLists,
 } from './markdownStructuralTransforms'
 import { normalizeTextColor } from './lunaTextColor'
+import { formatCodeFenceInfo, parseCodeFenceInfo } from './codeBlock/markdownFenceAttrs'
+import { normalizeCodeBlockTrailingEmptyLinesInDoc } from './codeBlock/behavior/trailingEmptyLines'
 
 /**
  * markdown-it GFM table: second row `| :--- | :---: | ---: |` is parsed as a column-aligned array and written to each
@@ -106,6 +110,34 @@ function withRawTextSerializerScope<T>(state: MarkdownSerializerState, fn: () =>
   } finally {
     st.lunaRawTextDepth = Math.max(0, (st.lunaRawTextDepth ?? 1) - 1)
   }
+}
+
+const WIKI_LINK_SERIALIZE_RE =
+  /(!)?\[\[([^\]|#^]+?)(?:#([^\]|^]+?))?(?:\^([^\]]+?))?(?:\|([^\]]+?))?\]\]/gu
+
+/** Escape plain text for markdown while preserving Obsidian wiki block-ref carets (`[[note^block]]`).*/
+function escapeLunaPlainText(text: string): string {
+  const protectedCarets = new Set<number>()
+  WIKI_LINK_SERIALIZE_RE.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = WIKI_LINK_SERIALIZE_RE.exec(text)) !== null) {
+    if (m[4] === undefined) continue
+    const caretIdx = m[0].indexOf('^')
+    if (caretIdx >= 0) protectedCarets.add(m.index + caretIdx)
+  }
+  let str = text.replace(
+    /[`*\\~\][[_]/g,
+    (ch, i) =>
+      ch === '_' &&
+      i > 0 &&
+      i + 1 < text.length &&
+      /\w/u.test(text[i - 1]!) &&
+      /\w/u.test(text[i + 1]!)
+        ? ch
+        : `\\${ch}`,
+  )
+  str = str.replace(/\^/g, (ch, i) => (protectedCarets.has(i) ? ch : `\\${ch}`))
+  return str
 }
 
 function gfmTableSeparatorForAlign(align: LunaCellTextAlign | null): string {
@@ -168,7 +200,7 @@ markdownIt.use(markdownItSup).use(markdownItSub).use(markdownItDeflist)
 markdownIt.use(texmath, {
   engine: katex,
   delimiters: 'dollars',
-  katexOptions: { throwOnError: false, output: 'html' },
+  katexOptions: LUNA_KATEX_HTML_OPTIONS,
 })
 markdownIt.use(markdownItEmoji)
 
@@ -372,7 +404,7 @@ export function activeHeadingIdBeforeMarkdownOffset(markdown: string, cursorOffs
 }
 
 /** Incremented to invalidate cached MarkdownParser in WeakMap after token/getAttrs logic changes (to avoid HMR stale handlers).*/
-const LUNA_MARKDOWN_PARSER_CACHE_REV = 9
+const LUNA_MARKDOWN_PARSER_CACHE_REV = 12
 type CachedMarkdownParser = { rev: number; parser: MarkdownParser }
 const markdownParserCache = new WeakMap<Schema, CachedMarkdownParser>()
 const markdownSerializerCache = new WeakMap<Schema, MarkdownSerializer>()
@@ -399,7 +431,7 @@ const tiptapMarkdownTokens: Record<string, ParseSpec> = {
   code_block: { block: 'codeBlock', noCloseToken: true },
   fence: {
     block: 'codeBlock',
-    getAttrs: (tok) => ({ language: (tok.info || '').trim().split(/\s+/u)[0] || null }),
+    getAttrs: (tok) => parseCodeFenceInfo(tok.info),
     noCloseToken: true,
   },
   hr: { node: 'horizontalRule' },
@@ -537,18 +569,64 @@ function liftMermaidCodeBlocks(doc: ProseMirrorNode, schema: Schema): ProseMirro
   let tr = new Transform(doc)
   for (const { pos, node } of hits) {
     const source = node.textContent
-    const next = mermaidType.create({ source })
+    const next = mermaidType.create({ source, blockId: newMermaidBlockId() })
     tr = tr.replaceWith(pos, pos + node.nodeSize, next)
   }
   return tr.doc
 }
 
-function liftTyporaCallouts(doc: ProseMirrorNode, schema: Schema): ProseMirrorNode {
+function liftTyporaCallouts(doc: ProseMirrorNode, schema: Schema, markdown?: string): ProseMirrorNode {
   const calloutType = schema.nodes.callout
   const bq = schema.nodes.blockquote
-  if (!calloutType || !bq) return doc
+  const paragraphType = schema.nodes.paragraph
+  if (!calloutType || !bq || !paragraphType) return doc
+  const leadingBlankCounts = markdown ? collectLeadingBlankQuoteLineCounts(markdown) : []
+  let calloutOrdinal = 0
 
-  type Hit = { pos: number; node: ProseMirrorNode; kind: CalloutKind; bodyFromFirst: string | undefined }
+  const stripLeadingCalloutMarkerFromParagraph = (paragraph: ProseMirrorNode): ProseMirrorNode | null => {
+    if (paragraph.type.name !== 'paragraph' || paragraph.childCount === 0) return null
+    const prefix = paragraph.textContent.match(new RegExp(`^\\[!\\s*(${CALLOUT_BRACKET_TAGS})\\s*\\]\\s*`, 'iu'))?.[0]
+    if (!prefix) return null
+    let remaining = prefix.length
+    const children: ProseMirrorNode[] = []
+    let stripped = false
+
+    paragraph.forEach((child) => {
+      if (remaining <= 0) {
+        children.push(child)
+        return
+      }
+      if (!child.isText) {
+        children.push(child)
+        return
+      }
+      const text = child.text ?? ''
+      if (!text.length) return
+      if (text.length <= remaining) {
+        remaining -= text.length
+        stripped = true
+        return
+      }
+      children.push(schema.text(text.slice(remaining), child.marks))
+      remaining = 0
+      stripped = true
+    })
+
+    if (!stripped || remaining > 0) return null
+    const normalizedChildren =
+      children.length > 0 && children[0]?.type.name === 'hardBreak' ? children.slice(1) : children
+    return paragraph.copy(
+      normalizedChildren.length > 0 ? Fragment.fromArray(normalizedChildren) : Fragment.empty,
+    )
+  }
+
+  type Hit = {
+    pos: number
+    node: ProseMirrorNode
+    kind: CalloutKind
+    firstBodyParagraph: ProseMirrorNode | null
+    leadingBlankLines: number
+  }
   const hits: Hit[] = []
   doc.descendants((node, pos) => {
     if (node.type !== bq || node.childCount < 1) return
@@ -556,7 +634,6 @@ function liftTyporaCallouts(doc: ProseMirrorNode, schema: Schema): ProseMirrorNo
     if (first.type.name !== 'paragraph' || first.content.size === 0) return
     const text = first.textContent
     const led = parseCalloutLeadingParagraph(text)
-    let bodyFromFirst: string | undefined
     const kind: CalloutKind | null = led
       ? led.kind
       : (() => {
@@ -565,22 +642,19 @@ function liftTyporaCallouts(doc: ProseMirrorNode, schema: Schema): ProseMirrorNo
           return k
         })()
     if (!kind) return
-    if (led) {
-      bodyFromFirst = led.body
-    } else {
-      bodyFromFirst = undefined
-    }
-    hits.push({ pos, node, kind, bodyFromFirst })
+    const firstBodyParagraph = led ? stripLeadingCalloutMarkerFromParagraph(first) : null
+    const leadingBlankLines = leadingBlankCounts[calloutOrdinal] ?? 0
+    calloutOrdinal += 1
+    hits.push({ pos, node, kind, firstBodyParagraph, leadingBlankLines })
   })
   if (hits.length === 0) return doc
   hits.sort((a, b) => b.pos - a.pos)
   let tr = new Transform(doc)
-  for (const { pos, node, kind, bodyFromFirst } of hits) {
+  for (const { pos, node, kind, firstBodyParagraph, leadingBlankLines } of hits) {
     const parts: ProseMirrorNode[] = []
-    if (bodyFromFirst !== undefined) {
-      if (bodyFromFirst.length > 0) {
-        parts.push(schema.nodes.paragraph.create({}, schema.text(bodyFromFirst)))
-      }
+    for (let i = 0; i < leadingBlankLines; i += 1) parts.push(paragraphType.create())
+    if (firstBodyParagraph) {
+      if (firstBodyParagraph.content.size > 0) parts.push(firstBodyParagraph)
       for (let i = 1; i < node.childCount; i += 1) parts.push(node.child(i))
     } else {
       for (let i = 1; i < node.childCount; i += 1) parts.push(node.child(i))
@@ -593,6 +667,44 @@ function liftTyporaCallouts(doc: ProseMirrorNode, schema: Schema): ProseMirrorNo
     tr = tr.replaceWith(pos, pos + node.nodeSize, c)
   }
   return tr.doc
+}
+
+function isMarkdownFenceToggleLine(line: string): boolean {
+  return /^\s*(?:`{3,}|~{3,})\s*[^\n]*$/u.test(line)
+}
+
+function collectLeadingBlankQuoteLineCounts(markdown: string): number[] {
+  const src = preprocessMarkdownForEditParse(markdown)
+  const lines = src.split('\n')
+  const counts: number[] = []
+  let inFence = false
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i] ?? ''
+    if (isMarkdownFenceToggleLine(line)) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence) continue
+    if (!/^\s*>\s*\[![^\]]+\]/u.test(line)) continue
+
+    let blanks = 0
+    let j = i + 1
+    while (j < lines.length) {
+      const current = lines[j] ?? ''
+      if (!/^\s*>/u.test(current)) break
+      const body = current.replace(/^\s*>\s?/u, '')
+      if (body.trim().length > 0) break
+      blanks += 1
+      j += 1
+    }
+    counts.push(blanks)
+
+    while (j < lines.length && /^\s*>/u.test(lines[j] ?? '')) j += 1
+    i = j - 1
+  }
+
+  return counts
 }
 
 function liftStandaloneTocDirectiveParagraphs(doc: ProseMirrorNode, schema: Schema): ProseMirrorNode {
@@ -781,7 +893,12 @@ function getMarkdownSerializer(schema: Schema): MarkdownSerializer {
       codeBlock(state, node) {
         const backticks = node.textContent.match(/`{3,}/gmu)
         const fence = backticks ? `${backticks.sort().slice(-1)[0]}\`` : '```'
-        state.write(`${fence}${node.attrs.language || ''}\n`)
+        const info = formatCodeFenceInfo(node.attrs as {
+          language?: string | null
+          folded?: boolean | null
+          diffMode?: boolean | null
+        })
+        state.write(info ? `${fence}${info}\n` : `${fence}\n`)
         state.text(node.textContent, false)
         state.write('\n')
         state.write(fence)
@@ -937,6 +1054,7 @@ function getMarkdownSerializer(schema: Schema): MarkdownSerializer {
         const st = state as LunaMarkdownSerializerState
         st.lunaSerParagraphParent = parent
         const isEmpty = node.content.size === 0
+        const inQuotedContainer = parent.type.name === 'callout' || parent.type.name === 'blockquote'
         const standaloneToc =
           !isEmpty &&
           parent.type.name === 'doc' &&
@@ -946,9 +1064,11 @@ function getMarkdownSerializer(schema: Schema): MarkdownSerializer {
           LUNA_STANDALONE_TOC_LINE.test(node.child(0).text ?? '')
         try {
           if (isEmpty) {
-            // Flush the previous block delimiter before replacing `closed`; otherwise
-            // prosemirror-markdown drops the empty paragraph and blank lines vanish on save.
-            state.write()
+            if (!inQuotedContainer) {
+              // Flush the previous block delimiter before replacing `closed`; otherwise
+              // prosemirror-markdown drops the empty paragraph and blank lines vanish on save.
+              state.write()
+            }
           } else if (standaloneToc) {
             withRawTextSerializerScope(state, () => state.renderInline(node))
           } else {
@@ -1005,7 +1125,11 @@ function getMarkdownSerializer(schema: Schema): MarkdownSerializer {
         }
         void parent
         const escape = (st.lunaRawTextDepth ?? 0) === 0
-        state.text(txt, escape)
+        if (escape) {
+          state.write(escapeLunaPlainText(txt))
+        } else {
+          state.text(txt, false)
+        }
       },
     },
     {
@@ -1075,7 +1199,7 @@ function getMarkdownSerializer(schema: Schema): MarkdownSerializer {
         expelEnclosingWhitespace: true,
       },
     },
-    { hardBreakNodeName: 'hardBreak', strict: false, escapeExtraCharacters: /\^/g },
+    { hardBreakNodeName: 'hardBreak', strict: false },
   )
   // Touch the schema so the cache key and serializer creation stay tied to the active TipTap schema.
   void schema
@@ -1123,7 +1247,7 @@ export function parseMarkdownToDoc(
   }
 
   try {
-    doc = liftTyporaCallouts(doc, schema)
+    doc = liftTyporaCallouts(doc, schema, markdown)
   } catch {
     /*Keep the parsing results that have not been promoted to callout to avoid the entire article falling back to a single fallback*/
   }
@@ -1132,6 +1256,12 @@ export function parseMarkdownToDoc(
     doc = liftMermaidCodeBlocks(doc, schema)
   } catch {
     /*Keep codeBlock parsing results*/
+  }
+
+  try {
+    doc = normalizeCodeBlockTrailingEmptyLinesInDoc(doc, schema)
+  } catch {
+    /*Keep codeBlock body as parsed*/
   }
 
   try {
@@ -1195,7 +1325,48 @@ export function serializeDocToMarkdownStrict(doc: ProseMirrorNode, schema: Schem
   assertSerializerNodeCoverage(serializer, lifted)
   const serialized = serializer.serialize(lifted) as ProductionMarkdown
   const trailingEmptyParagraphs = countTrailingEmptyParagraphs(lifted)
-  return alignSerializedTrailingBlankLines(serialized, trailingEmptyParagraphs) as ProductionMarkdown
+  return restoreSerializedLeadingBlankCalloutLines(
+    normalizeSerializedBlankQuoteLines(alignSerializedTrailingBlankLines(serialized, trailingEmptyParagraphs)),
+    lifted,
+  ) as ProductionMarkdown
+}
+
+function normalizeSerializedBlankQuoteLines(markdown: string): string {
+  return markdown.replace(/^(\s*>)[ \t]+$/gmu, '$1')
+}
+
+function restoreSerializedLeadingBlankCalloutLines(markdown: string, doc: ProseMirrorNode): string {
+  const lines = markdown.split('\n')
+  let searchFrom = 0
+
+  doc.forEach((node) => {
+    if (node.type.name !== 'callout') return
+    let leadingBlankParagraphs = 0
+    while (leadingBlankParagraphs < node.childCount) {
+      const child = node.child(leadingBlankParagraphs)
+      if (child.type.name !== 'paragraph' || child.content.size !== 0) break
+      leadingBlankParagraphs += 1
+    }
+    const marker = `> ${calloutFirstLineForKind(String(node.attrs.kind || 'note'))}`
+    let markerLine = -1
+    for (let i = searchFrom; i < lines.length; i += 1) {
+      if ((lines[i] ?? '') === marker) {
+        markerLine = i
+        break
+      }
+    }
+    if (markerLine < 0) return
+    if (leadingBlankParagraphs <= 0) {
+      searchFrom = markerLine + 1
+      return
+    }
+    let runEnd = markerLine + 1
+    while (runEnd < lines.length && /^\s*>[ \t]*$/u.test(lines[runEnd] ?? '')) runEnd += 1
+    lines.splice(markerLine + 1, runEnd - (markerLine + 1), ...Array(leadingBlankParagraphs).fill('>'))
+    searchFrom = markerLine + 1 + leadingBlankParagraphs
+  })
+
+  return lines.join('\n')
 }
 
 export function serializeDocToMarkdownWithMode(

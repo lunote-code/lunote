@@ -1,9 +1,72 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
-  <rect width="512" height="512" rx="112" fill="#0F1117"/>
-  <rect x="112" y="88" width="288" height="336" rx="56" stroke="#F4F7FB" stroke-width="30"/>
-  <path d="M302 88v98h98" stroke="#F4F7FB" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M156 318h86l74-106" stroke="#8EA7FF" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="156" cy="318" r="30" fill="#0F1117" stroke="#8EA7FF" stroke-width="26"/>
-  <circle cx="242" cy="318" r="30" fill="#0F1117" stroke="#8EA7FF" stroke-width="26"/>
-  <circle cx="316" cy="212" r="30" fill="#0F1117" stroke="#8EA7FF" stroke-width="26"/>
+  <defs>
+    <linearGradient id="bg" x1="88" y1="48" x2="424" y2="464" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2C3038"/>
+      <stop offset="0.52" stop-color="#1A1D24"/>
+      <stop offset="1" stop-color="#101216"/>
+    </linearGradient>
+
+    <radialGradient id="centerGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 252) rotate(90) scale(200 170)">
+      <stop offset="0" stop-color="#5E7896" stop-opacity="0.16"/>
+      <stop offset="0.62" stop-color="#3D5570" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#3D5570" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="nFill" x1="162" y1="136" x2="352" y2="376" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.55" stop-color="#F3F5F7"/>
+      <stop offset="1" stop-color="#DDE3EA"/>
+    </linearGradient>
+
+    <filter id="symbolGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="nGlow" x="-35%" y="-35%" width="170%" height="170%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.78  0 0 0 0 0.82  0 0 0 0 0.88  0 0 0 0.42 0"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="softBlur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+
+    <clipPath id="iconSquircle">
+      <rect width="512" height="512" rx="114" ry="114"/>
+    </clipPath>
+  </defs>
+
+  <!-- 832/1024 live-area inset matches generate_app_icons.py (dock/taskbar optical size). -->
+  <g transform="translate(256 256) scale(0.8125) translate(-256 -256)">
+    <g clip-path="url(#iconSquircle)">
+      <rect width="512" height="512" fill="url(#bg)"/>
+      <rect width="512" height="512" fill="url(#centerGlow)"/>
+
+      <g opacity="0.24" filter="url(#symbolGlow)" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-weight="600">
+        <text x="72" y="118" fill="#8FA3BA" font-size="44">{ }</text>
+        <text x="372" y="132" fill="#7F96B0" font-size="40">#</text>
+        <text x="88" y="286" fill="#8FA3BA" font-size="36">( )</text>
+        <text x="360" y="300" fill="#9AADC0" font-size="34">=&gt;</text>
+        <text x="104" y="418" fill="#7F96B0" font-size="38">&lt;/&gt;</text>
+        <text x="372" y="412" fill="#8FA3BA" font-size="42">;</text>
+        <text x="318" y="208" fill="#9AADC0" font-size="30">[ ]</text>
+        <text x="118" y="196" fill="#A8BAC9" font-size="28">fn</text>
+      </g>
+
+      <circle cx="118" cy="156" r="30" fill="#6E849C" opacity="0.07" filter="url(#softBlur)"/>
+      <circle cx="396" cy="356" r="36" fill="#5E7896" opacity="0.06" filter="url(#softBlur)"/>
+
+      <g transform="translate(256 256) scale(0.72) translate(-256 -256)" filter="url(#nGlow)">
+        <path fill="url(#nFill)" d="M162 138h56v236H162V138zm132 0h56v236h-56V138zM218 138h56l72 236h-56l-72-236z"/>
+      </g>
+    </g>
+  </g>
 </svg>

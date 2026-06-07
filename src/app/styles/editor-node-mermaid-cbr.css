@@ -1,0 +1,401 @@
+/*CBR: Document flow embedded code / mermaid block (following Theme Runtime)*/
+.preview-pane.markdown-visual-editor .ProseMirror .code-block {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: min(var(--editor-column-width), 100%);
+  margin: 12px auto;
+  border-radius: 10px;
+  border: 1px solid var(--color-border-subtle, var(--border-subtle));
+  background: var(--color-surface-panel, var(--color-bg-panel, var(--surface-panel)));
+  color: var(--color-text-primary, var(--text-primary));
+  overflow: hidden;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .code-block--mermaid,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-cbr.code-block {
+  background: var(--color-bg-surface, var(--surface-app)) !important;
+  border-color: var(--color-border-subtle, var(--border-subtle));
+  color: var(--color-text-primary, var(--text-primary));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .code-block .code-header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+  color: var(--color-text-muted, var(--text-muted));
+  background: var(--color-surface-panel, var(--color-bg-panel, var(--surface-panel)));
+  border-bottom: 1px solid var(--color-border-subtle, var(--border-subtle));
+  pointer-events: auto;
+  user-select: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .code-block--mermaid .code-header-tabs button {
+  background: var(--color-bg-surface, var(--surface-app));
+  color: var(--color-text-muted, var(--text-muted));
+  border-color: var(--color-border-subtle, var(--border-subtle));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .code-block--mermaid .code-header-tabs button.is-active {
+  color: var(--color-text-primary, var(--text-primary));
+  border-color: color-mix(in srgb, var(--color-accent-primary, var(--accent)) 45%, var(--color-border-subtle, var(--border-subtle)));
+  background: color-mix(in srgb, var(--color-accent-primary, var(--accent)) 12%, var(--color-bg-surface, var(--surface-app)));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .code-block .code-header-type {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .code-block .code-header-tabs {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .code-block .code-header-tabs button {
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  border: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .code-block .code-header-tabs button.is-active {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-editor));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .code-block .code-body {
+  position: relative;
+  width: 100%;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .code-block .code-body textarea,
+.preview-pane.markdown-visual-editor .ProseMirror .code-block-input {
+  display: block;
+  width: 100%;
+  min-height: 120px;
+  margin: 0;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 0.55rem 0.65rem;
+  border: none;
+  outline: none;
+  background: var(--color-bg-surface, var(--surface-app));
+  color: var(--color-text-primary, var(--text-primary));
+  caret-color: var(--color-text-primary, var(--text-primary));
+  font-family: var(--font-code-block);
+  font-size: var(--code-block-font-size);
+  line-height: var(--code-block-line-height);
+  -webkit-user-select: text;
+  user-select: text;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-user-drag: none;
+  cursor: text;
+  position: relative;
+  z-index: 1;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .code-block-input::selection {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-wrap {
+  --mermaid-panel-min-height: 180px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: min(var(--editor-column-width), 100%);
+  margin: 0.85rem auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+  contain: layout style paint;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-wrap--source-edit {
+  -webkit-user-drag: none;
+  user-select: auto;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-wrap--source-edit .code-body {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-frame {
+  position: relative;
+  width: 100%;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-cbr.code-block {
+  margin: 0.85rem auto;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-toolbar {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.45rem;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-toolbar button {
+  pointer-events: auto;
+  font: inherit;
+  font-size: 0.78rem;
+  min-height: var(--reveal-source-btn-height);
+  padding: 0 calc(var(--reveal-source-btn-pad-x) - 1px);
+  border-radius: var(--reveal-source-btn-radius);
+  border: var(--hairline) solid var(--reveal-source-btn-border);
+  background: var(--reveal-source-btn-bg);
+  color: var(--reveal-source-btn-fg);
+  cursor: pointer;
+  transition:
+    background-color var(--reveal-bg-duration, 120ms) var(--reveal-ease, ease),
+    border-color var(--reveal-bg-duration, 120ms) var(--reveal-ease, ease),
+    color var(--reveal-color-duration, 110ms) var(--reveal-ease, ease),
+    box-shadow var(--reveal-shadow-duration, 150ms) var(--reveal-ease, ease);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-toolbar button:hover {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--reveal-source-btn-border));
+  color: var(--text-primary);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-toolbar button.is-active {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-editor));
+}
+
+/*legacy: CBR has replaced slot/panel absolute positioning*/
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-panel {
+  position: static;
+  inset: auto;
+  min-height: var(--mermaid-panel-min-height);
+  overflow-y: auto;
+  overflow-x: hidden;
+  resize: none;
+  padding-bottom: 1.35rem;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-resize-handle {
+  position: absolute;
+  right: 0.4rem;
+  bottom: 0.35rem;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px 0 4px 0;
+  background:
+    linear-gradient(135deg, transparent 0 42%, color-mix(in srgb, var(--border-strong) 80%, transparent) 42% 49%, transparent 49% 58%, color-mix(in srgb, var(--border-strong) 80%, transparent) 58% 66%, transparent 66% 100%);
+  cursor: ns-resize;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-resize-handle:hover {
+  background:
+    linear-gradient(135deg, transparent 0 38%, color-mix(in srgb, var(--accent) 70%, var(--border-strong)) 38% 46%, transparent 46% 56%, color-mix(in srgb, var(--accent) 70%, var(--border-strong)) 56% 64%, transparent 64% 100%);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-panel::-webkit-resizer {
+  cursor: ns-resize;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .code-block-preview,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-preview,
+.preview-pane.markdown-visual-editor .ProseMirror .mermaid-preview {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: var(--mermaid-panel-min-height);
+  cursor: default;
+  user-select: none;
+  pointer-events: none;
+  background: var(--color-bg-surface, var(--surface-app)) !important;
+  color: var(--color-text-primary, var(--text-primary)) !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-preview button,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-preview .pm-mermaid-error-back,
+.preview-pane.markdown-visual-editor .ProseMirror .mermaid-preview button {
+  pointer-events: auto;
+}
+
+/*Mermaid NodeView: Avoid selecting strokes from interfering with source code editing*/
+.preview-pane.markdown-visual-editor .ProseMirror-selectednode:has(.pm-mermaid-wrap),
+.preview-pane.markdown-visual-editor .ProseMirror > .react-renderer.ProseMirror-selectednode:has(.pm-mermaid-wrap),
+.preview-pane.markdown-visual-editor .ProseMirror .react-renderer.ProseMirror-selectednode:has(.pm-mermaid-wrap) {
+  outline: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-slot[hidden],
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-preview[hidden],
+.preview-pane.markdown-visual-editor .ProseMirror .mermaid-preview[hidden] {
+  display: none !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  overflow-x: auto;
+  background: var(--color-bg-surface, var(--surface-app)) !important;
+  background-color: var(--color-bg-surface, var(--surface-app)) !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-preview.mermaid,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host.mermaid,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host svg {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 100%;
+  height: auto;
+  background: var(--color-bg-surface, var(--surface-app)) !important;
+  background-color: var(--color-bg-surface, var(--surface-app)) !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .mermaid svg,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host svg {
+  background: var(--color-bg-surface, var(--surface-app)) !important;
+  background-color: var(--color-bg-surface, var(--surface-app)) !important;
+  contain: layout paint;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host foreignObject {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host text,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host tspan {
+  fill: var(--color-text-primary, var(--text-primary)) !important;
+  font-family: var(--font-ui, system-ui, sans-serif) !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host foreignObject,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host foreignObject div,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host foreignObject span,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host foreignObject p,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .nodeLabel,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .edgeLabel,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .label {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  text-align: center !important;
+  line-height: 1.35 !important;
+  background: var(--color-surface-panel, var(--color-bg-panel, var(--surface-panel))) !important;
+  background-color: var(--color-surface-panel, var(--color-bg-panel, var(--surface-panel))) !important;
+  color: var(--color-text-primary, var(--text-primary)) !important;
+  font-family: var(--font-ui, system-ui, sans-serif) !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .cluster rect {
+  fill: var(--color-bg-elevated, var(--color-bg-panel, var(--surface-panel))) !important;
+  stroke: var(--color-border-subtle, var(--border-subtle)) !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .node rect,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .node polygon,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .node circle,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .node path {
+  fill: var(--color-bg-panel, var(--surface-panel)) !important;
+  stroke: var(--color-border-subtle, var(--border-subtle)) !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .edgePath path,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .edgePaths path,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .edges path,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .flowchart-link,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .messageLine0,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .messageLine1,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .actor-line {
+  stroke: var(--color-text-muted, var(--text-muted, var(--border-subtle))) !important;
+  stroke-width: 1.75px !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host marker path,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host defs marker path {
+  fill: var(--color-text-muted, var(--text-muted, var(--border-subtle))) !important;
+  stroke: var(--color-text-muted, var(--text-muted, var(--border-subtle))) !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .actor,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .actor-top,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .actor-bottom {
+  fill: var(--color-bg-panel, var(--surface-panel)) !important;
+  stroke: var(--color-border-subtle, var(--border-subtle)) !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .note rect {
+  fill: var(--color-bg-elevated, var(--color-bg-panel, var(--surface-panel))) !important;
+  stroke: var(--color-border-subtle, var(--border-subtle)) !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-svg-host .labelBox {
+  fill: var(--color-bg-surface, var(--surface-app)) !important;
+  background: var(--color-bg-surface, var(--surface-app)) !important;
+  background-color: var(--color-bg-surface, var(--surface-app)) !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-loading {
+  font-size: 0.82rem;
+  color: var(--color-text-muted, var(--text-muted));
+  padding: 0.35rem 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-fallback,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-fallback code {
+  color: var(--color-text-primary, var(--text-primary));
+  background: var(--color-bg-elevated, var(--color-bg-panel, var(--surface-panel)));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-preview-host {
+  background: var(--color-bg-surface, var(--surface-app));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-error {
+  font-size: 0.82rem;
+  color: var(--luna-color-warning-muted, var(--luna-color-warning));
+  padding: 0.35rem 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-error-back {
+  display: inline-block;
+  margin-left: 0.5rem;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-fallback {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  overflow-x: auto;
+}

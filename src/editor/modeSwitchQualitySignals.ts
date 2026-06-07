@@ -11,11 +11,12 @@ export type ModeSwitchRestoreDistanceKind =
 
 type ModeSwitchHierarchicalLike = Pick<
   HierarchicalSelectionCore,
-  'blockIndex' | 'rowKey' | 'blockPath'
+  'blockIndex' | 'rowId' | 'rowKey' | 'blockPath'
 >
 
 export type ModeSwitchAnchorQualitySummary = {
   readonly blockIndex: number
+  readonly rowId: string | null
   readonly rowKey: string
   readonly blockPath: readonly number[]
   readonly blockPathLabel: string
@@ -33,6 +34,7 @@ export function compareModeSwitchRestoreDistance(
   actual: ModeSwitchHierarchicalLike | null | undefined,
 ): ModeSwitchRestoreDistanceKind {
   if (!expected || !actual) return 'unknown'
+  if (expected.rowId && actual.rowId && expected.rowId === actual.rowId) return 'same_leaf_row'
   if (expected.rowKey === actual.rowKey) return 'same_leaf_row'
   if (expected.blockPath.length === actual.blockPath.length) {
     let samePath = true
@@ -55,6 +57,7 @@ export function summarizeModeSwitchAnchorQuality(
   if (!anchor) return null
   return Object.freeze({
     blockIndex: anchor.blockIndex,
+    rowId: anchor.rowId ?? null,
     rowKey: anchor.rowKey,
     blockPath: Object.freeze([...anchor.blockPath]),
     blockPathLabel: anchor.blockPath.join('.'),

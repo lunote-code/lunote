@@ -30,6 +30,7 @@ pub struct ShellMenuStrings {
     pub file_export_image: String,
     pub file_export_pdf: String,
     pub file_export_word: String,
+    pub file_history_bar: String,
     pub file_import: String,
     pub file_new: String,
     pub file_new_tab: String,

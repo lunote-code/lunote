@@ -1,6 +1,6 @@
 # Themes
 
-Lunote separates **what you see while editing** from **how exported files look**. You can combine a built-in color scheme with Obsidian-style CSS, optional snippets, and export-only styles.
+Lunote separates **what you see while editing** from **how exported files look**. You can combine a built-in color scheme with JSON token themes, external CSS, optional snippets, and export-only styles.
 
 Open **File → Preferences** (`Cmd+,` on macOS, `Ctrl+,` on Windows/Linux), then use the **Appearance** tab (and **Export** for print/PDF-related options).
 
@@ -8,7 +8,7 @@ Open **File → Preferences** (`Cmd+,` on macOS, `Ctrl+,` on Windows/Linux), the
 
 ## Built-in themes
 
-These control Lunote’s own UI tokens (sidebars, editor chrome, default colors). They do **not** load files from the Theme folder by themselves.
+These control Lunote’s default UI tokens (sidebars, editor chrome). They do **not** read files from `.luna/theme/` by themselves.
 
 | Option | Effect |
 |--------|--------|
@@ -19,73 +19,81 @@ These control Lunote’s own UI tokens (sidebars, editor chrome, default colors)
 | **GitHub** | GitHub-like light styling |
 | **IDEA** | IDE-inspired light styling |
 
-You can switch quickly from the desktop **Theme** menu (menu bar) or from Appearance in Preferences.
+Switch from the desktop **Theme** menu or **Preferences → Appearance**.
 
-**Custom JSON theme:** Import a JSON token file to override built-in colors. This is separate from Obsidian `.css` themes. Use **Import Theme** / **Open Theme Folder** in Preferences when you maintain your own token file.
+**Custom JSON theme:** Place `.json` files in **`.luna/theme/tokens/`**, rescan, then use **Import Theme** or pick a file under **Custom theme file**. See [token schema](../theme/tokens/custom-theme.example.json) and [theme examples](../theme-example/README.md#json-token-themes).
 
 ---
 
 ## Theme folder layout
 
-Lunote uses a **Theme** directory next to your workspace or in the app data area (open it from Preferences or **Theme → Open Theme folder…**).
-
-Typical layout:
+All user appearance files live under **`~/.luna/theme/`** (**Theme → Open Theme folder…** or **Preferences → Appearance**).
 
 ```text
-Theme/
-  SomeTheme.css          ← full UI theme (Obsidian-style)
+~/.luna/theme/
+  README.md              ← short guide (created on first run)
+  style/
+    my-theme.css         ← external CSS (editor UI)
   snippets/
-    my-tweak.css         ← small UI overrides (stackable)
+    tweak.css            ← stackable UI overrides
   export/
-    print.css            ← HTML / PDF / PNG export only
+    print.css            ← HTML / PDF / PNG only
+  tokens/
+    my-colors.json       ← JSON color token themes
 ```
 
-| Location | Affects editor UI | Affects export |
-|----------|-------------------|----------------|
-| `Theme/*.css` (root) | Yes | No |
-| `Theme/snippets/*.css` | Yes (stacked) | No |
-| `Theme/export/*.css` | No | Yes (HTML, PDF, PNG) |
+| Path | Editor UI | Export |
+|------|-----------|--------|
+| `style/*.css` | Yes (one active external theme) | No |
+| `snippets/*.css` | Yes (multiple, stacked) | No |
+| `export/*.css` | No | Yes |
+| `tokens/*.json` | Yes (token override / import) | No |
 
-After adding or editing files, click **Rescan** in Preferences (or **Theme → Rescan Theme/*.css** on the menu bar) so Lunote picks up changes.
+**Rescan** after adding or editing files (**Preferences** or **Theme → Rescan**).
+
+The repo documents the layout under [docs/theme/](../theme/README.md). **Ready-made themes for users** live in **[docs/theme-example/](../theme-example/README.md)** (copy → rescan → enable)—committed with the project, not a local-only folder.
+
+Older installs: content under `~/.luna/config/Theme/` or loose `.css` / `.json` in the theme root is migrated into these subfolders automatically.
 
 ---
 
-## External CSS theme (Obsidian-compatible)
+## External CSS theme
 
-1. Place a `.css` file in the **Theme** folder (not in `export/`).
-2. In **Preferences → Appearance**, under **External CSS Theme**, choose the file from the dropdown.
-3. Set **CSS Theme Compatibility** if needed:
-   - **Native CSS only** — standard CSS as written.
-   - **Auto-detect Obsidian themes** — better compatibility with many community Obsidian theme files.
+1. Copy a `.css` file into **`~/.luna/theme/style/`** (not `snippets/`, `export/`, or `tokens/`).
+2. Choose it under **Preferences → Appearance → External CSS Theme**.
 
-Only **one** full external CSS theme is active at a time. Built-in theme tokens can still apply underneath depending on your settings.
+Only **one** full external CSS file is active at a time. When it is active, built-in preset colors and JSON token variables step aside so the CSS file owns the palette; **UI snippets** still stack on top.
+
+**Priority (low → high):** built-in presets → token variables → **external CSS** → UI snippets.
+
+Reference: [External CSS](../theme/external-css.md) · starter: [crossplatnote-theme.example.css](../theme/style/crossplatnote-theme.example.css) · gallery: [theme-example/style/](../theme-example/README.md#external-css-themes).
 
 ---
 
 ## UI snippets
 
-Snippets are extra `.css` files in `Theme/snippets/`. You can enable **multiple** snippets at once; they stack on top of the built-in theme and any active external CSS theme.
+Extra `.css` files in **`.luna/theme/snippets/`**. Enable **multiple** snippets in **Preferences → Appearance**; they apply after the active external CSS theme.
 
-Use snippets for small tweaks (fonts, link colors, callout spacing) without replacing an entire Obsidian theme.
+Use snippets for small tweaks (fonts, links, callouts) without replacing a full theme. Examples: [theme-example/snippets/](../theme-example/README.md#ui-snippets).
 
 ---
 
 ## Export-only CSS
 
-Files in `Theme/export/` style **exported** HTML, PDF, and PNG output. They do **not** change the live editor.
+Files in **`.luna/theme/export/`** style **exported** HTML, PDF, and PNG. They do **not** change the live editor.
 
-Enable one or more export styles in **Preferences → Export**. Paper size, margins, and related export options live in the same area.
+Enable styles in **Preferences → Export**. Paper size and margins are in the same area.
 
 ---
 
 ## Color presets (toolbar)
 
-In **visual mode**, the toolbar may offer a **color preset** control for quick accent experiments in the browser preview build. On the **desktop app**, use the **Theme** menu and **Preferences → Appearance** for the full set of options.
+In **visual mode**, the browser preview build may show a toolbar **color preset** control. On the **desktop app**, use the **Theme** menu and **Preferences → Appearance** for the full set.
 
 ---
 
 ## Tips
 
-- **Editor looks wrong after importing an Obsidian theme:** Try **Auto-detect Obsidian themes**, rescan, or disable snippets one by one to find a conflict.
-- **Export looks different from the editor:** That is expected if you use `Theme/export/` styles — tune export CSS separately.
-- **Missing file warning:** If a saved theme path no longer exists, reselect the file or run **Rescan** after restoring it under `Theme/`.
+- **Editor looks wrong after CSS changes:** Rescan, or disable snippets one by one to find a conflict.
+- **Export differs from the editor:** Expected when using `export/` styles—tune export CSS separately.
+- **Missing file warning:** Rescan after restoring the file under `style/`, `tokens/`, or `snippets/`.

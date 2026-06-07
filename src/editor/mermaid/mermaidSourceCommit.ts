@@ -1,6 +1,7 @@
 import type { Editor } from '@tiptap/core'
 
 import { CBR_COMMIT_META, type CbrCommitMeta } from '../codeBlockRuntime/bridge/syncGuard'
+import { preserveProseMirrorScrollDuring } from '../preserveProseMirrorScroll'
 
 /** @deprecated use CBR_COMMIT_META*/
 export const MERMAID_SOURCE_COMMIT_META = CBR_COMMIT_META
@@ -61,17 +62,14 @@ export function commitMermaidSourceAtPos(
 
   const blockId = cbr?.blockId ?? nodeBlockId
 
-  return editor
-    .chain()
-    .command(({ tr }) => {
-      tr.setNodeMarkup(resolved, undefined, { ...node.attrs, source })
-      tr.setMeta(CBR_COMMIT_META, {
-        from: 'cbr',
-        blockId,
-        commitId,
-        reason: cbr?.reason ?? 'explicit',
-      } satisfies CbrCommitMeta)
-      return true
-    })
-    .run()
+  const tr = editor.state.tr
+    .setNodeMarkup(resolved, undefined, { ...node.attrs, source })
+    .setMeta(CBR_COMMIT_META, {
+      from: 'cbr',
+      blockId,
+      commitId,
+      reason: cbr?.reason ?? 'explicit',
+    } satisfies CbrCommitMeta)
+  preserveProseMirrorScrollDuring(editor, () => editor.view.dispatch(tr))
+  return true
 }

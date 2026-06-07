@@ -16,6 +16,13 @@ import { tryDispatchViewAppAction } from './viewActionRegistry'
 import { resolveManifestActionFromMenuAction } from './menuActionMapping'
 import { revealThemeDirectory } from '../platform/tauri/themeService'
 import { reloadThemeStylesheetsFromDisk } from '../theme-runtime/themeStylesheetRuntime'
+import { raiseMainWindow } from '../platform/tauri/raiseMainWindow'
+
+const RAISE_WINDOW_DAILY_NOTE_ACTIONS = new Set([
+  'daily-note-open',
+  'daily-note-open-yesterday',
+  'daily-note-open-tomorrow',
+])
 
 const THEME_MENU_ACTIONS: Record<string, string> = Object.fromEntries(
   THEME_CATALOG.map((entry) => [`theme-${entry.id}`, entry.id]),
@@ -47,6 +54,15 @@ export async function dispatchAppMenuFromTauri(
     return
   }
 
+  if (action === 'quick-capture-show') {
+    await raiseMainWindow()
+    return
+  }
+
+  if (isTauri() && RAISE_WINDOW_DAILY_NOTE_ACTIONS.has(action)) {
+    await raiseMainWindow()
+  }
+
   if (action === 'open-recent' && recentPath) {
     void (async () => {
       let targetRoot = m.rootDir
@@ -57,7 +73,6 @@ export async function dispatchAppMenuFromTauri(
           m.setStatus(m.t('app.menu.recentDirUnavailable'))
           return
         }
-        m.setRootDir(targetRoot)
         await m.loadNotes(targetRoot, recentPath)
         loadedWorkspace = true
       }

@@ -1,96 +1,181 @@
-<div align="center">
+<p align="center">
+  <img src="../src-tauri/icons/icon.svg" alt="Lunote" width="96" />
+</p>
 
-# Lunote
+<h1 align="center">Lunote</h1>
 
-**Um workspace Markdown local-first para escrever, conectar ideias e construir uma base de conhecimento pessoal**
+<p align="center">
+  <strong>Abra sua pasta Markdown—escreva, ligue e explore um grafo. Sem plugins.</strong><br />
+  <em>Grátis, código aberto, offline. Cada nota é um <code>.md</code> no disco.</em><br />
+  <em>As notas ficam no seu computador. Sem conta nem envio—sincronize a pasta você mesmo (Git, Syncthing, iCloud, etc.).</em>
+</p>
 
-**Escrita estilo Typora + links estilo Obsidian — integrado, sem plugins.**
-*Escreva em um editor refinado, conecte ideias com links wiki e mantenha cada nota como arquivo `.md` local. Gratuito, open source e feito para trabalho offline.*
+<p align="center">
+  Disponível para <strong>macOS</strong>, <strong>Windows</strong> e <strong>Linux</strong>.
+</p>
 
-[![GitHub stars](https://img.shields.io/github/stars/lunote-code/lunote?style=social)](https://github.com/lunote-code/lunote/stargazers)
-[![GitHub release](https://img.shields.io/github/v/release/lunote-code/lunote?include_prereleases)](https://github.com/lunote-code/lunote/releases)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)](#download)
-[![License](https://img.shields.io/badge/license-Open%20Source-lightgrey)](#license)
+<p align="center">
+  <a href="https://github.com/lunote-code/lunote/stargazers"><img src="https://img.shields.io/github/stars/lunote-code/lunote?style=social" alt="GitHub stars" /></a>
+  <a href="https://github.com/lunote-code/lunote/releases"><img src="https://img.shields.io/github/v/release/lunote-code/lunote?include_prereleases" alt="latest release" /></a>
+  <a href="#download"><img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue" alt="platform" /></a>
+  <a href="#license"><img src="https://img.shields.io/badge/license-Open%20Source-lightgrey" alt="license" /></a>
+</p>
 
-**Documentação:** [Todos os idiomas](README.md) · [English](README.en.md)
+<h3 align="center">
+  <a href="#preview">Captura</a> &nbsp;|&nbsp;
+  <a href="#overview">Visão geral</a> &nbsp;|&nbsp;
+  <a href="#capabilities">Recursos</a> &nbsp;|&nbsp;
+  <a href="#download">Download</a> &nbsp;|&nbsp;
+  <a href="#development">Desenvolvimento</a> &nbsp;|&nbsp;
+  <a href="#contribution">Contribuição</a>
+</h3>
 
-**Guia (inglês):** [Temas](guide/themes.md) · [Atalhos & comandos `/`](guide/shortcuts-and-menus.md) · [Índice](guide/README.md)
+<p align="center">
+  <strong>Docs:</strong> <a href="README.md">All languages</a> · <a href="../README.md">English</a>
+</p>
 
-[![Download for macOS](https://img.shields.io/badge/Download-macOS-black?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/lunote-code/lunote/releases)
-[![Download for Windows](https://img.shields.io/badge/Download-Windows-blue?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/lunote-code/lunote/releases)
-[![Download for Linux](https://img.shields.io/badge/Download-Linux-orange?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/lunote-code/lunote/releases)
+<p align="center">
+  <strong>Traduções:</strong>
+  <a href="../README.md">🇬🇧</a>
+  <a href="README.zh-CN.md">🇨🇳</a>
+  <a href="README.zh-TW.md">🇹🇼</a>
+  <a href="README.ja.md">🇯🇵</a>
+  <a href="README.ko.md">🇰🇷</a>
+  <a href="README.de.md">🇩🇪</a>
+  <a href="README.fr.md">🇫🇷</a>
+  <a href="README.es.md">🇪🇸</a>
+  <a href="README.it.md">🇮🇹</a>
+  <a href="README.ru.md">🇷🇺</a>
+</p>
 
-[Prévia](#preview) · [Por que Lunote](#why-lunote) · [Typora vs Obsidian vs Lunote](#typora-vs-obsidian-vs-lunote) · [Download](#download) · [Início rápido](#quick-start) · [Guia](#user-guide) · [FAQ](#faq)
+<p align="center">
+  <strong>Guia (inglês):</strong> <a href="guide/themes.md">Temas</a> · <a href="guide/shortcuts-and-menus.md">Atalhos & comandos <code>/</code></a> · <a href="guide/README.md">Índice</a>
+</p>
+
+<p align="center">
+  <strong>Escrita estilo Typora + links estilo Obsidian — integrado.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/lunote-code/lunote/releases"><img src="https://img.shields.io/badge/Download-macOS-black?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download-macOS" /></a>
+  <a href="https://github.com/lunote-code/lunote/releases"><img src="https://img.shields.io/badge/Download-Windows-blue?style=for-the-badge&amp;logo=windows&amp;logoColor=white" alt="Download-Windows" /></a>
+  <a href="https://github.com/lunote-code/lunote/releases"><img src="https://img.shields.io/badge/Download-Linux-orange?style=for-the-badge&amp;logo=linux&amp;logoColor=white" alt="Download-Linux" /></a>
+</p>
+
+<p align="center">
+  <a href="#preview">Captura</a> · <a href="#overview">Visão geral</a> · <a href="#capabilities">Recursos</a> · <a href="#download">Download</a> · <a href="#quick-start">Início rápido</a> · <a href="#user-guide">Guia</a> · <a href="#faq">FAQ</a>
+</p>
 
 <!-- readme-demo-gif -->
 <p align="center">
   <a href="#preview">
-    <img src="assets/demo/lunote-demo.gif" alt="Lunote — demo de 10 s: escrita, links wiki, grafo e temas" width="720" />
+    <img src="assets/demo/lunote-demo.gif" alt="Lunote — demo: escrita, links wiki, grafo, temas" width="720" />
   </a>
 </p>
-<p align="center"><sub>Tour 10 s · Markdown local · links wiki · grafo · temas · sem plugins</sub></p>
-
-</div>
-
----
-
-## O que é o Lunote?
-
-Lunote é um workspace Markdown para desktop para quem quer três coisas ao mesmo tempo:
-
-- **Arquivos Markdown locais e simples**
-- **Uma experiência forte de escrita**
-- **Fluxos de conhecimento integrados**
-
-Você pode abrir qualquer pasta como workspace e continuar usando arquivos `.md` normais que continuam sendo seus. Escreva no modo visual quando quiser fluidez, mude para o modo source Markdown quando quiser controle total e use links wiki, backlinks, grafo e busca sem depender de plugins.
-
-| | |
-|---|---|
-| **Plataformas** | macOS, Windows, Linux |
-| **Idiomas da interface** | English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Français, Español, Русский, Português (Brasil), Italiano |
-| **Exportação** | PDF, Word (DOCX), HTML, PNG |
-| **Tecnologia** | Tauri 2 · Rust · React · TipTap · CodeMirror |
+<p align="center"><sub>Escrever · `[[links wiki]]` · backlinks · grafo · exportar · temas</sub></p>
 
 ---
 
 <a id="preview"></a>
 
-## Prévia
-
+## Captura
 
 <p align="center">
-  <img src="assets/screenshots/hero-preview.png" alt="Workspace principal do Lunote" width="720" />
+  <img src="assets/screenshots/head-view.png" alt="Lunote — primeira abertura" width="720" />
 </p>
 
-| Editor visual | Grafo de conhecimento | Tema |
+| Editor de código | Grafo de conhecimento | Pesquisa global |
 | :---: | :---: | :---: |
-| <img src="assets/screenshots/editor-visual.png" alt="Editor visual" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/knowledge-graph.png" alt="Grafo de conhecimento" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme-presets.png" alt="Temas" width="240" style="max-width: 100%; height: auto;" /> |
+| <img src="assets/screenshots/code-view.png" alt="Editor de código" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="Grafo de conhecimento" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/search.png" alt="Pesquisa global" width="240" style="max-width: 100%; height: auto;" /> |
+
+| Instantâneos do histórico | Configurações de tema |
+| :---: | :---: |
+| <img src="assets/screenshots/snipaste.png" alt="Instantâneos do histórico" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="Configurações de tema" width="240" style="max-width: 100%; height: auto;" /> |
+
+### Mais pré-visualizações de tema
+
+Mais capturas em `assets/screenshots/theme/`. CSS, tokens JSON e snippets prontos: **[Exemplos de temas](theme-example/README.md)**.
+
+| GitHub Light | GitHub Dark | IDEA Light | IDEA Dark | Dim Light |
+| :---: | :---: | :---: | :---: | :---: |
+| <img src="assets/screenshots/theme/github-light.png" alt="GitHub Light" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/github-dark.png" alt="GitHub Dark" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/idea-light.png" alt="IDEA Light" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/idea-dark.png" alt="IDEA Dark" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/dim-light.png" alt="Dim Light" width="200" style="max-width: 100%; height: auto;" /> |
+
+| Dim Dark | Forest Dawn | Ember Glow | Graphite Noir | Lavender Haze |
+| :---: | :---: | :---: | :---: | :---: |
+| <img src="assets/screenshots/theme/dim-dark.png" alt="Dim Dark" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/forest-dawn.png" alt="Forest Dawn" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/ember-glow.png" alt="Ember Glow" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/graphite-noir.png" alt="Graphite Noir" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/lavender-haze.png" alt="Lavender Haze" width="200" style="max-width: 100%; height: auto;" /> |
 
 ---
 
-<a id="why-lunote"></a>
+<!-- readme-body-start -->
+<a id="overview"></a>
 
-## Por que Lunote
+## Visão geral
 
-- **Local-first**: suas notas continuam sendo arquivos Markdown normais nas suas próprias pastas.
-- **Editor-first**: edição visual e source Markdown têm o mesmo nível de importância.
-- **Pronto para conhecimento**: links wiki, backlinks, grafo, outline e busca já vêm integrados.
-- **Prático**: exporte quando precisar, sincronize com suas próprias ferramentas e trabalhe offline.
+Abra uma pasta de **arquivos `.md`** e escreva. Lunote traz `[[links wiki]]`, backlinks e grafo—**sem conta nem loja de plugins**.
+
+- Abra uma **pasta `.md`**
+- **Visual e fonte** com um atalho
+- **Links wiki**, backlinks, grafo, esboço e busca integrados
+
+| | |
+|---|---|
+| **Plataformas** | macOS, Windows, Linux |
+| **Idiomas da interface** | English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Français, Español, Русский, Português (Brasil), Italiano |
+| **Exportar** | PDF, Word (DOCX), HTML, PNG · print |
 
 ---
 
-<a id="typora-vs-obsidian-vs-lunote"></a>
+<a id="capabilities"></a>
 
-## Typora vs Obsidian vs Lunote
+## Recursos
 
-| Ponto de comparação | Typora | Obsidian | Lunote |
-|---|---|---|---|
-| **Melhor para** | Escrita limpa em documento único | PKM com muitos plugins e personalização do vault | Escrita + conhecimento conectado em um só app |
-| **Estilo de edição** | Editor Markdown minimalista | Plataforma Markdown extensível | Edição visual + source Markdown |
-| **Recursos de conhecimento** | Limitados | Fortes, muitas vezes guiados por plugins | Links wiki, backlinks, grafo e busca integrados |
-| **Complexidade de configuração** | Baixa | Média a alta | Baixa a média |
-| **Dependência de plugins** | Baixa | Alta | Baixa |
-| **Escolha se...** | Você quer principalmente um app de escrita | Você quer principalmente um ecossistema | Você quer equilibrar escrita e workflows de conhecimento |
+Escolha seu fluxo—tudo abaixo já vem no app:
+
+### Escrever
+
+*Ensaios, docs e notas diárias—texto formatado ou Markdown bruto.*
+
+- Editor visual e **fonte Markdown**; `Cmd+/` / `Ctrl+/`
+- Menu **`/`** para blocos, tabelas, Mermaid, links wiki
+- Tabelas, matemática, imagens, **modo foco**, paleta de comandos
+- **Blocos de código** com números de linha, realce, idioma, recolher e copiar
+- **Barra de formatação** (callouts, cores, etc.); ocultar em **Arquivo → Preferências → Tipografia**
+- **Largura da coluna**, fonte e tamanho em **Preferências → Tipografia**
+
+### Ligar
+
+*Segundo cérebro: `[[links]]`, backlinks e grafo sem plugins.*
+
+- `[[links wiki]]` com autocompletar
+- **Painel de conhecimento**: backlinks, grafo local, incorporações, tags e **frontmatter YAML**
+- Renomear atualiza os `[[links]]`
+
+### Organizar
+
+*Quando o cofre cresce: abas, notas diárias, outline e busca em todas as notas.*
+
+- Árvore de arquivos, abas, **busca global**
+- **Esboço** e mudanças externas
+- Salvar, conflitos, revelar no gerenciador
+- **Notas diárias**: hoje, ontem ou amanhã—a partir do modelo (`Cmd+Shift+D` / `Ctrl+Shift+D`)
+- **Modelos de nota** com variáveis (`{{date:…}}`, `{{title}}`, …) em **Arquivo → Modelos**
+- **Captura rápida**: bandeja do sistema + atalho global abrem a nota de hoje em segundo plano
+
+### Exportar e tema
+
+*Compartilhar ou imprimir: PDF, Word, HTML—e temas sob seu controle.*
+
+- **PDF, HTML, DOCX, PNG** e **impressão**
+- Temas, pasta **Theme**, CSS externo
+- Predefinições de **largura da coluna** (Estreita / Padrão / Larga) no modo visual e na pré-visualização
+
+### Histórico
+
+*Edite com confiança—snapshots mostram antes de gravar no disco.*
+
+- **Instantâneos**; restaurar sem sobrescrever até salvar
+
+<!-- readme-body-end -->
 
 ---
 
@@ -98,22 +183,25 @@ Você pode abrir qualquer pasta como workspace e continuar usando arquivos `.md`
 
 ## Download
 
-**[Última versão →](https://github.com/lunote-code/lunote/releases)**
+**[Baixar última versão →](https://github.com/lunote-code/lunote/releases)**
 
-O GitHub release workflow publica atualmente estes pacotes:
+Sem cadastro · só `.md` locais · funciona offline
 
-| Plataforma | Pacote | Referência do workflow |
-|---|---|---|
-| macOS (Apple Silicon) | `.dmg` (arm64) | `macos-14` |
-| Windows (x86_64) | `.msi` (x64) | `windows-2022` |
-| Windows (ARM64) | `.msi` (arm64) | `windows-11-arm` |
-| Linux (Debian/Ubuntu) | `.deb` (+ optional `.deb.asc`) | `ubuntu-22.04` |
+<details>
+<summary><strong>Primeira abertura no macOS (Gatekeeper)</strong></summary>
 
-Primeira execução no macOS:
+1. Mover **Lunote** para **Aplicativos**
+2. **Clique direito → Abrir → Abrir**
+3. Se precisar: `xattr -cr /Applications/Lunote.app`
 
-1. Mova o **Lunote** para **Applications**
-2. **Clique com o botão direito → Open → Open**
-3. Se necessário, execute `xattr -cr /Applications/Lunote.app`
+</details>
+
+| Platform | Package |
+|---|---|
+| macOS (Apple Silicon) | `.dmg` (arm64) |
+| Windows (x86_64) | `.msi` (x64) |
+| Windows (ARM64) | `.msi` (arm64) |
+| Linux (Debian/Ubuntu) | `.deb` (+ optional `.deb.asc`) |
 
 ---
 
@@ -121,13 +209,38 @@ Primeira execução no macOS:
 
 ## Início rápido
 
-1. Instale o Lunote para a sua plataforma.
-2. Abra uma pasta com notas Markdown ou crie um novo workspace.
-3. Escreva, conecte notas com `[[`, pesquise com `Ctrl+Shift+F` / `Cmd+Shift+F` e exporte quando precisar.
+1. Instale pelo **[Download](#download)**.
+2. **Abra seu cofre existente**—Obsidian, Logseq, Typora ou qualquer pasta `.md`. Sem importar.
+3. Escreva, use `[[` para ligar, `Cmd+Shift+F` / `Ctrl+Shift+F` para buscar, exporte para PDF ou Word quando quiser.
 
-Se você já tem uma biblioteca Markdown do Obsidian, Logseq ou Typora, basta abrir a pasta. Não é necessário importar.
+> **Migrando?** Os arquivos ficam no lugar. Outras ferramentas leem o mesmo Markdown.
 
 ---
+
+<a id="why-lunote"></a>
+
+## Por que Lunote
+
+- **Seus arquivos**: `.md` normais em pastas que você controla.
+- **Um app só**: boa escrita, links wiki e grafo integrados—sem plugins.
+
+---
+
+<a id="typora-vs-obsidian-vs-lunote"></a>
+
+## Comparação
+
+Usa Typora ou Obsidian? Lunote é para quem quer **escrita confortável e links wiki em um app desktop**, sem ajustar plugins.
+
+| | Typora | Obsidian | Lunote |
+|---|---|---|---|
+| **Escrita** | Excelente | Boa | Excelente, integrada |
+| **Links wiki e grafo** | Limitado | Forte (muitos plugins) | Forte, integrado |
+| **Plugins para começar** | Poucos | Muitos | Nenhum |
+
+
+---
+
 
 <a id="user-guide"></a>
 
@@ -135,9 +248,41 @@ Se você já tem uma biblioteca Markdown do Obsidian, Logseq ou Typora, basta ab
 
 Guias em inglês (temas, atalhos e a lista completa de comandos **`/`**):
 
-- [Temas](guide/themes.md) — built-in themes, Theme folder, Obsidian CSS, snippets, export styles
+- [Temas](guide/themes.md) — built-in themes, Theme folder, external CSS, snippets, export styles
 - [Atalhos e menus rápidos](guide/shortcuts-and-menus.md) — Command Palette, keyboard shortcuts, full **`/`** slash command list
+- [Templates](Templates/README.md) — default and daily note templates, variables
+- [Diferenças por plataforma](guide/platform-differences.md) — PDF, impressão, revelar no gerenciador de arquivos e notas por SO
 - [Índice do guia](guide/README.md) — all guide pages
+
+---
+
+
+<a id="development"></a>
+
+## Desenvolvimento
+
+Compilar o Lunote você mesmo:
+
+- **Pré-requisitos:** Node.js, Rust e ferramentas [Tauri](https://tauri.app/)
+- **Dev:** `npm install` e depois `npm run tauri:dev`
+- **Build:** `npm run tauri:bundle` (ou `tauri:bundle:dmg` / `msi` / `deb`)
+- **Documentação:** [Índice da documentação](README.md) · [Packaging](packaging-strategy.md) · [Scripts](../scripts/README.md)
+
+Dúvidas? [Abrir issue](https://github.com/lunote-code/lunote/issues). PRs bem-vindos.
+
+---
+
+<a id="contribution"></a>
+
+## Contribuição
+
+Antes de um pull request:
+
+- Ler [Scripts e manutenção](../scripts/README.md) (locales e releases)
+- Executar `npm run lint` e testes relevantes ao alterar editor ou exportação
+- Manter textos alinhados nos [READMEs localizados](README.md)
+
+Ideias: [Discussions](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
 
 ---
 
@@ -145,20 +290,20 @@ Guias em inglês (temas, atalhos e a lista completa de comandos **`/`**):
 
 ## FAQ
 
-**Preciso de conta ou internet?**  
-Não. O Lunote funciona offline e mantém suas notas locais, a menos que você decida sincronizá-las.
+**Precisa de conta ou internet?**  
+Não. Funciona offline; notas locais até você sincronizar a pasta.
 
-**Posso usar uma biblioteca Markdown existente?**  
-Sim. Basta abrir qualquer pasta com arquivos `.md` / `.markdown`.
+**Abrir pasta do Obsidian ou Typora?**  
+Sim. Abra como workspace—os mesmos `.md`.
 
-**É compatível com outras ferramentas?**  
-Sim. O Lunote usa Markdown padrão, então a mesma pasta pode continuar sendo usada com Obsidian, VS Code, Typora ou Git.
+**Usar junto com o Obsidian?**  
+Sim. A mesma pasta para ambos. Lunote não trava seus dados.
 
-**Ele substitui totalmente o Obsidian ou o Notion?**  
-O Lunote é focado em Markdown local, uma forte experiência de edição e links integrados. Se você precisa de app móvel ou de um grande ecossistema de plugins, ainda pode combiná-lo com outras ferramentas.
+**Substitui Obsidian ou Notion?**  
+Nem sempre. Foco: escrita no desktop + links integrados.
 
-**Como reporto bugs ou peço novos recursos?**  
-[Abra uma issue](https://github.com/lunote-code/lunote/issues) ou inicie uma [discussion](https://github.com/lunote-code/lunote/discussions).
+**Feedback?**  
+[Abrir issue](https://github.com/lunote-code/lunote/issues) ou [discussion](https://github.com/lunote-code/lunote/discussions).
 
 ---
 
@@ -166,18 +311,11 @@ O Lunote é focado em Markdown local, uma forte experiência de edição e links
 
 ## Licença
 
-Software open source. Consulte o arquivo de licença do repositório para mais detalhes.
-
----
+Software de código aberto. Consulte o arquivo de licença do repositório.
 
 <a id="sponsor"></a>
 
 ## Apoiar o projeto
-
-Se o Lunote ajuda você:
-
-- **[Dê uma estrela ao repositório](https://github.com/lunote-code/lunote)** — ajuda outras pessoas a descobri-lo
-- **[Compartilhe feedback](https://github.com/lunote-code/lunote/discussions)** — ideias e casos de uso importam tanto quanto o código
 
 Se o Lunote ajuda você, pode patrocinar voluntariamente o desenvolvimento via **USDT TRC20** na rede Tron.
 
@@ -185,7 +323,6 @@ Se o Lunote ajuda você, pode patrocinar voluntariamente o desenvolvimento via *
 |---|---|
 | **Rede** | Tron (TRC20) · USDT |
 | **Endereço** | USDT · `TEDgPJzSmv7YTjrs2EZrFF5kCNbuZY15iY` |
-
 
 <sub>Confira o endereço antes de enviar. Transferências on-chain não podem ser revertidas. O patrocínio é voluntário e não constitui compra de serviço.</sub>
 

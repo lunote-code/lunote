@@ -6,7 +6,10 @@ import type {
   RefObject,
   SetStateAction,
 } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Icon } from '../../design-system/icons'
+import { EmptyState } from '../../design-system/EmptyState'
+import { formatCommandShortcutDisplay } from '../../menu'
 import { EditorTabBar } from './EditorTabBar'
 import {
   TiptapMarkdownEditor,
@@ -21,6 +24,25 @@ import type { WikiLinkTarget } from '../../editor/knowledgeRuntime/types'
 import type { AssetMeta } from '../../assets/workspaceAssetStore'
 import type { EditorDocMenuState, FileContextMenuState } from '../workspace/contextMenuTypes'
 import type { TranslateFn } from '../../i18n'
+import { isPathDirty } from '../../lib/documentDirty'
+import { pathsEqual } from '../../lib/workspacePathUtils'
+import type { AppStatusTone } from '../hooks/useAppStatus'
+import type { TocHeading } from './DocumentOutlineBlock'
+import { getHistoryRestoreState } from '../../documentHistory/historyRestoreState'
+import type { ToolbarItemDef } from '../../menu/menu.types'
+import { EditorFormatToolbar } from './EditorFormatToolbar'
+import { EditorDocumentLoadingOverlay } from './EditorDocumentLoadingOverlay'
+import { KnowledgeGraphToolbarHint } from './KnowledgeGraphToolbarHint'
+import {
+  dismissKnowledgeGraphToolbarHint,
+  isKnowledgeGraphToolbarHintDismissed,
+} from '../knowledgeGraphToolbarHintStorage'
+import { bridgeCaptureEditorSelection } from '../../editor/editorMutationBridge'
+
+function hasExternalDiskDrift(path: string, externalDiskChangedPaths: ReadonlySet<string>): boolean {
+  if (!path) return false
+  return [...externalDiskChangedPaths].some((candidate) => pathsEqual(candidate, path))
+}
 
 export type AppEditorMainProps = {
   t: TranslateFn
@@ -38,7 +60,6 @@ export type AppEditorMainProps = {
   activeDocumentSubtitle: string
   setFocusMode: Dispatch<SetStateAction<boolean>>
   sidebarListMode: 'files' | 'outline'
-  toggleSidebarListOutline: () => void
   rootDir: string
   knowledgeRailVisible: boolean
   setKnowledgeRailVisible: Dispatch<SetStateAction<boolean>>
@@ -47,8 +68,8 @@ export type AppEditorMainProps = {
   activateTab: (path: string) => void | Promise<void>
   closeTab: (path: string) => void
   onTabContextMenu: (e: MouseEvent, path: string, index: number) => void
+  onReorderOpenedTabs: (fromIndex: number, toIndex: number) => void
   mainPaneMode: 'visual' | 'source'
-  toggleMainPaneMode: () => void
   panesRef: RefObject<HTMLElement | null>
   editorSurfaceStyle: CSSProperties | undefined
   setFileContextMenu: Dispatch<SetStateAction<FileContextMenuState | null>>
@@ -60,13 +81,12 @@ export type AppEditorMainProps = {
     scrollRatio?: number
   } | null>
   visualEditorRef: RefObject<TiptapMarkdownEditorHandle | null>
-  editorViewRef: RefObject<import('@codemirror/view').EditorView | null>
   content: string
   handleEditorContentChange: (value: string) => void
   setActiveOutlineId: Dispatch<SetStateAction<string>>
-  setStatus: (msg: string) => void
+  setStatus: (msg: string, toneOverride?: AppStatusTone) => void
   pasteImageIntoVisualEditor: (file: File, mimeHint: string) => Promise<string | null>
-  importDroppedAssets: (files: File[]) => Promise<AssetMeta[]>
+  dropFilesIntoActiveNote: (files: File[]) => Promise<void>
   pickAndImportLunaAsset: () => Promise<AssetMeta | null>
   handleLunaAssetLinkClick: (href: string, event: globalThis.MouseEvent) => void
   getLunaAssetTooltip: (href: string) => string | null
@@ -80,13 +100,23 @@ export type AppEditorMainProps = {
   visualMountKey: string
   editorExtensions: Extension[]
   handleSourceViewReady: (view: import('@codemirror/view').EditorView) => void
-  importDroppedAssetLinks: (files: File[]) => Promise<string[]>
   statusbarVisible: boolean
   status: string
+  statusTone: AppStatusTone
   savedAt: string
   contentStats: { lines: number; chars: number; headings: number }
-  performanceMode: boolean
+  isLargeDoc: boolean
   knowledgeRailSlot: React.ReactNode
+  createNewNote: () => void | Promise<void>
+  chooseFolder: () => void | Promise<void>
+  onOutlineHeadingsChange?: (headings: TocHeading[]) => void
+  toolbarEditorFormat: ToolbarItemDef[]
+  onFormatCommand: (commandId: string) => void
+  editorHasTextSelection: boolean
+  isFormatCommandActive?: (commandId: string) => boolean
+  onEditorTextColorPick: (color: string | null) => void
+  onVisualSelectionActivity?: () => void
+  editorDocumentLoading: boolean
 }
 
 export function AppEditorMain(props: AppEditorMainProps) {
@@ -106,7 +136,6 @@ export function AppEditorMain(props: AppEditorMainProps) {
     activeDocumentSubtitle,
     setFocusMode,
     sidebarListMode,
-    toggleSidebarListOutline,
     rootDir,
     knowledgeRailVisible,
     setKnowledgeRailVisible,
@@ -115,21 +144,20 @@ export function AppEditorMain(props: AppEditorMainProps) {
     activateTab,
     closeTab,
     onTabContextMenu,
+    onReorderOpenedTabs,
     mainPaneMode,
-    toggleMainPaneMode,
     panesRef,
     editorSurfaceStyle,
     setFileContextMenu,
     setEditorDocMenu,
     sourceCodeMirrorBootSelectionRef,
     visualEditorRef,
-    editorViewRef,
     content,
     handleEditorContentChange,
     setActiveOutlineId,
     setStatus,
     pasteImageIntoVisualEditor,
-    importDroppedAssets,
+    dropFilesIntoActiveNote,
     pickAndImportLunaAsset,
     handleLunaAssetLinkClick,
     getLunaAssetTooltip,
@@ -143,19 +171,52 @@ export function AppEditorMain(props: AppEditorMainProps) {
     visualMountKey,
     editorExtensions,
     handleSourceViewReady,
-    importDroppedAssetLinks,
     statusbarVisible,
     status,
+    statusTone,
     savedAt,
     contentStats,
-    performanceMode,
+    isLargeDoc,
     knowledgeRailSlot,
+    createNewNote,
+    chooseFolder,
+    onOutlineHeadingsChange,
+    toolbarEditorFormat,
+    onFormatCommand,
+    editorHasTextSelection,
+    isFormatCommandActive,
+    onEditorTextColorPick,
+    onVisualSelectionActivity,
+    editorDocumentLoading,
   } = props
+
+  const activeDocumentDirty = isPathDirty(activePath)
+  const activeDocumentExternal = hasExternalDiskDrift(activePath, externalDiskChangedPaths)
+  const activeDocumentHistoryRestore = activePath ? getHistoryRestoreState(activePath) : null
+  const showEmptyState = !activePath && openedTabs.length === 0
+  const graphButtonRef = useRef<HTMLButtonElement>(null)
+  const [graphToolbarHintOpen, setGraphToolbarHintOpen] = useState(
+    () => !isKnowledgeGraphToolbarHintDismissed(),
+  )
+
+  const dismissGraphToolbarHint = useCallback(() => {
+    dismissKnowledgeGraphToolbarHint()
+    setGraphToolbarHintOpen(false)
+  }, [])
+
+  useEffect(() => {
+    if (knowledgeRailVisible && graphToolbarHintOpen) {
+      dismissGraphToolbarHint()
+    }
+  }, [knowledgeRailVisible, graphToolbarHintOpen, dismissGraphToolbarHint])
+
+  const showGraphToolbarHint = Boolean(rootDir) && !focusMode && graphToolbarHintOpen
 
   return (
       <main
         ref={mainWithRailRef}
         className={`main main-with-rail workspace-leaf mod-active${knowledgeRailOpen ? ' has-kos-rail' : ''}${editorBodyFocused ? ' editor-body-focused' : ''}`}
+        data-drop-zone="editor"
       >
         <div
           className="main-editor-stack workspace-leaf-content"
@@ -166,11 +227,12 @@ export function AppEditorMain(props: AppEditorMainProps) {
           <header className="editor-header view-header">
             <div className="editor-header-left">
               {!sidebarVisible && (
-                <button
-                  className="icon-btn ghost-btn"
-                  onClick={() => setSidebarVisible(true)}
-                  title={t('app.sidebar.show')}
-                >
+              <button
+                className="icon-btn ghost-btn"
+                onClick={() => setSidebarVisible(true)}
+                title={t('app.sidebar.show')}
+                aria-label={t('app.sidebar.show')}
+              >
                   <Icon name="sidebar-open" size="md" />
                 </button>
               )}
@@ -185,34 +247,40 @@ export function AppEditorMain(props: AppEditorMainProps) {
                 onClick={() => {
                   setFocusMode(true)
                 }}
-                title={t('app.focusMode.title')}
+                title={`${t('app.focusMode.title')} (${formatCommandShortcutDisplay('toggle-focus')})`}
+                aria-label={t('app.focusMode.title')}
               >
                 <Icon name="focus" size="md" />
               </button>
-              <button
-                type="button"
-                className={`icon-btn ghost-btn${sidebarListMode === 'outline' ? ' icon-btn-active' : ''}`}
-                onClick={toggleSidebarListOutline}
-                title={sidebarListMode === 'outline' ? t('app.sidebar.toggleOutlineFiles') : t('app.sidebar.toggleOutline')}
-                aria-pressed={sidebarListMode === 'outline'}
-                aria-label={t('app.sidebar.toggleOutlineAria')}
-              >
-                <Icon name="outline" size="md" stroke="strong" />
-              </button>
               {rootDir && (
                 <button
+                  ref={graphButtonRef}
                   type="button"
                   className={`icon-btn ghost-btn${knowledgeRailVisible ? ' icon-btn-active' : ''}`}
-                  onClick={() => setKnowledgeRailVisible((v) => !v)}
-                  title={knowledgeRailVisible ? 'Hide knowledge panel' : 'Show backlinks and graph'}
+                  onClick={() => {
+                    dismissGraphToolbarHint()
+                    setKnowledgeRailVisible((v) => !v)
+                  }}
+                  title={
+                    knowledgeRailVisible ? t('app.knowledge.hidePanel') : t('app.knowledge.showPanel')
+                  }
                   aria-pressed={knowledgeRailVisible}
+                  aria-label={
+                    knowledgeRailVisible ? t('app.knowledge.hidePanel') : t('app.knowledge.showPanel')
+                  }
                 >
-                  <Icon name="preview" size="md" stroke="strong" />
+                  <Icon name="graph" size="md" stroke="strong" />
                 </button>
               )}
             </div>
           </header>
         )}
+        <KnowledgeGraphToolbarHint
+          t={t}
+          anchorRef={graphButtonRef}
+          open={showGraphToolbarHint}
+          onDismiss={dismissGraphToolbarHint}
+        />
         {!focusMode && openedTabs.length > 0 && (
           <EditorTabBar
             t={t}
@@ -222,9 +290,30 @@ export function AppEditorMain(props: AppEditorMainProps) {
             tabLabel={tabLabel}
             onActivate={(path) => void activateTab(path)}
             onClose={closeTab}
+            onReorder={onReorderOpenedTabs}
             onContextMenu={onTabContextMenu}
           />
         )}
+        {!focusMode && !showEmptyState && mainPaneMode === 'visual' && openedTabs.length > 0 ? (
+          <EditorFormatToolbar
+            t={t}
+            commands={toolbarEditorFormat}
+            onCommand={onFormatCommand}
+            hasTextSelection={editorHasTextSelection}
+            isCommandActive={isFormatCommandActive}
+            onTextColorPick={onEditorTextColorPick}
+          />
+        ) : null}
+        {activeDocumentHistoryRestore ? (
+          <div
+            className={`editor-history-restore-banner${focusMode ? ' editor-history-restore-banner--focus' : ''}`}
+            role="status"
+            aria-live="polite"
+          >
+            <Icon name="history" size="sm" />
+            <span>{t('app.history.banner')}</span>
+          </div>
+        ) : null}
         {focusMode && (
           <div className="focus-mode-actions">
             <button
@@ -233,25 +322,9 @@ export function AppEditorMain(props: AppEditorMainProps) {
               onClick={() => {
                 setFocusMode(false)
               }}
-              title={t('app.focus.exit')}
+              title={`${t('app.focus.exit')} (${formatCommandShortcutDisplay('toggle-focus')})`}
             >
               {t('app.focus.exitLabel')}
-            </button>
-            <button
-              type="button"
-              className={`focus-preview-toggle icon-btn ghost-btn${mainPaneMode === 'source' ? ' icon-btn-active' : ''}`}
-              onClick={() => toggleMainPaneMode()}
-              title={
-                mainPaneMode === 'source'
-                  ? t('app.toolbar.modeToVisual')
-                  : t('app.toolbar.modeToSource')
-              }
-              aria-pressed={mainPaneMode === 'source'}
-              aria-label={
-                mainPaneMode === 'source' ? t('app.toolbar.modeToVisualShort') : t('app.toolbar.modeToSourceShort')
-              }
-            >
-              {mainPaneMode === 'source' ? <Icon name="preview" size="md" /> : <Icon name="source" size="md" />}
             </button>
           </div>
         )}
@@ -267,13 +340,22 @@ export function AppEditorMain(props: AppEditorMainProps) {
           >
           <div
             data-testid="editor-main"
+            id="editor-main-panel"
+            role="tabpanel"
             className={
               mainPaneMode === 'source'
                 ? 'editor-pane markdown-source-view mod-cm6 is-live-preview'
                 : 'preview-pane markdown-visual-editor markdown-preview-view markdown-reading-view'
             }
+            style={{ position: 'relative' }}
+            onMouseDownCapture={(e) => {
+              if (e.button !== 2) return
+              e.preventDefault()
+              bridgeCaptureEditorSelection()
+            }}
             onContextMenu={(e) => {
               e.preventDefault()
+              bridgeCaptureEditorSelection()
               const pad = 8
               const mw = 240
               const mh = 400
@@ -284,20 +366,39 @@ export function AppEditorMain(props: AppEditorMainProps) {
               if (x < pad) x = pad
               if (y < pad) y = pad
               setFileContextMenu(null)
-              let hasTextSelection = false
-              if (mainPaneMode === 'visual') {
-                hasTextSelection = (visualEditorRef.current?.getSelectedText() ?? '').length > 0
-              } else {
-                const v = editorViewRef.current
-                if (v) {
-                  const { from, to } = v.state.selection.main
-                  hasTextSelection = from !== to
-                }
-              }
-              setEditorDocMenu({ x, y, hasTextSelection })
+              setEditorDocMenu({
+                x,
+                y,
+                clientX: e.clientX,
+                clientY: e.clientY,
+              })
             }}
           >
-            {mainPaneMode === 'visual' ? (
+            <EditorDocumentLoadingOverlay t={t} visible={editorDocumentLoading && !showEmptyState} />
+            {showEmptyState ? (
+              <EmptyState
+                variant="page"
+                icon={rootDir ? 'note' : 'workspace-open'}
+                title={rootDir ? t('app.editor.empty.noNoteTitle') : t('app.sidebar.empty.title')}
+                description={rootDir ? t('app.editor.empty.noNoteDesc') : undefined}
+                actions={
+                  rootDir ? (
+                    <button type="button" className="focus-exit-btn" onClick={() => void createNewNote()}>
+                      {t('app.sidebar.newNoteWithRoot')}
+                    </button>
+                  ) : (
+                    <>
+                      <button type="button" className="focus-exit-btn" onClick={() => void chooseFolder()}>
+                        {t('app.sidebar.empty.openFolderCta')}
+                      </button>
+                      <button type="button" className="luna-empty-state-btn-secondary" onClick={() => void createNewNote()}>
+                        {t('app.sidebar.empty.scratchCta')}
+                      </button>
+                    </>
+                  )
+                }
+              />
+            ) : mainPaneMode === 'visual' ? (
               <TiptapMarkdownEditor
                 key={visualMountKey}
                 ref={visualEditorRef}
@@ -308,9 +409,11 @@ export function AppEditorMain(props: AppEditorMainProps) {
                 sidebarListMode={sidebarListMode}
                 onMarkdownChange={handleEditorContentChange}
                 onActiveHeadingChange={(id) => setActiveOutlineId((prev) => (prev === id ? prev : id))}
-                onStatus={(msg) => setStatus(msg)}
+                onSelectionActivity={onVisualSelectionActivity}
+                onOutlineHeadingsChange={onOutlineHeadingsChange}
+                onStatus={(msg, tone) => setStatus(msg, tone)}
                 onPasteImage={pasteImageIntoVisualEditor}
-                onAssetFilesDrop={importDroppedAssets}
+                onAssetFilesDrop={dropFilesIntoActiveNote}
                 onPickLunaAsset={pickAndImportLunaAsset}
                 onLunaAssetLinkClick={handleLunaAssetLinkClick}
                 getLunaAssetTooltip={getLunaAssetTooltip}
@@ -339,7 +442,7 @@ export function AppEditorMain(props: AppEditorMainProps) {
                 extensions={editorExtensions}
                 onChange={handleEditorContentChange}
                 onViewReady={handleSourceViewReady}
-                onFilesDrop={importDroppedAssetLinks}
+                onFilesDrop={dropFilesIntoActiveNote}
                 className="source-cm-pane markdown-source-view mod-cm6"
                 style={{ height: '100%' }}
               />
@@ -348,15 +451,41 @@ export function AppEditorMain(props: AppEditorMainProps) {
           </div>
         </section>
         {statusbarVisible ? (
-          <footer className="editor-footer">
+          <footer
+            className={`editor-footer${status ? ' has-status' : ''}${statusTone !== 'neutral' ? ` editor-footer--${statusTone}` : ''}${focusMode ? ' editor-footer--focus-minimal' : ''}`}
+          >
             <span className="editor-footer-message" aria-live="polite">
-              {status || (savedAt ? t('app.search.savedAt', { time: savedAt }) : '')}
+              {status ||
+                (activeDocumentHistoryRestore
+                  ? t('app.history.banner')
+                  : activeDocumentExternal
+                  ? t('app.statusbar.externalChanged')
+                  : activeDocumentDirty
+                    ? t('app.statusbar.unsaved')
+                    : savedAt
+                      ? t('app.search.savedAt', { time: savedAt })
+                      : t('app.statusbar.ready'))}
             </span>
             <span className="editor-footer-stats">
               <span>{t('app.statusbar.lines', { n: contentStats.lines })}</span>
               <span>{t('app.statusbar.chars', { n: contentStats.chars })}</span>
               <span>{t('app.statusbar.headings', { n: contentStats.headings })}</span>
-              {performanceMode && <span>{t('app.statusbar.perf')}</span>}
+              {isLargeDoc ? (
+                <button
+                  type="button"
+                  className="editor-footer-perf editor-footer-perf--large editor-footer-perf-btn"
+                  title={t('app.statusbar.perfLargeDocHint')}
+                  aria-label={t('app.statusbar.perfLargeDocHint')}
+                  onClick={() => setStatus(t('app.status.perfLargeDocEnabled'), 'info')}
+                >
+                  {t('app.statusbar.perfLargeDoc')}
+                </button>
+              ) : null}
+              {focusMode ? (
+                <span className="editor-footer-perf editor-footer-perf--focus" title={t('app.statusbar.perfFocusHint')}>
+                  {t('app.statusbar.perfFocus')}
+                </span>
+              ) : null}
             </span>
           </footer>
         ) : null}

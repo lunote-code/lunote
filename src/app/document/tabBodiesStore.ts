@@ -5,9 +5,10 @@
 import { subscribeDocumentEvents } from '../../documentRuntime/documentEventStream'
 import { getDocumentRuntimeSnapshot } from '../../documentRuntime/documentKernel'
 import { pathsEqual } from '../../lib/workspacePathUtils'
+import { MAX_OPEN_DOCUMENT_TABS } from './openTabLimits'
 
-/** Inactive tab bodies kept in memory (LRU); open tabs are always retained via prune. */
-export const MAX_TAB_BODY_CACHE_ENTRIES = 12
+/** Inactive tab bodies kept in memory (LRU); aligned with max open document tabs. */
+export const MAX_TAB_BODY_CACHE_ENTRIES = MAX_OPEN_DOCUMENT_TABS
 
 const bodies: Record<string, string> = {}
 const accessOrder: string[] = []

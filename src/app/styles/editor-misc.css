@@ -1,5 +1,18 @@
 /*Markdown reading table: see src/editor/lunaMarkdownTable.css*/
 
+:root {
+  --z-overlay-surface-popover: 10050;
+  --z-overlay-surface-popover-floating: 10052;
+  --z-overlay-surface-popover-submenu: 10055;
+  --z-overlay-surface-menu: 10060;
+  --z-overlay-focus-actions: 10070;
+  --z-overlay-menubar: 10080;
+  --z-overlay-modal-base: 10100;
+  --z-overlay-dialog: 10120;
+  --z-overlay-dialog-confirm: 10140;
+  --z-overlay-command-palette: 10200;
+}
+
 .preview-pane input[type='checkbox'] {
   accent-color: var(--accent);
 }
@@ -14,14 +27,25 @@
 }
 
 .focus-mode .editor-footer {
+  display: flex;
+  height: 26px;
+  opacity: 0.72;
+  border-top-color: color-mix(in srgb, var(--border-subtle) 18%, transparent);
+}
+
+.focus-mode .editor-footer--focus-minimal .editor-footer-stats {
   display: none;
+}
+
+.focus-mode .editor-footer-message {
+  font-size: 10.5px;
 }
 
 .focus-mode-actions {
   position: absolute;
   top: 12px;
   right: 14px;
-  z-index: 10070;
+  z-index: var(--z-overlay-focus-actions);
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -39,7 +63,6 @@
   font-weight: 500;
   cursor: pointer;
   box-shadow: none;
-  backdrop-filter: blur(10px);
   transition:
     background 0.15s ease,
     border-color 0.15s ease;
@@ -50,13 +73,9 @@
   border-color: color-mix(in srgb, var(--accent) 22%, var(--border-subtle));
 }
 
-.focus-outline-toggle,
-.focus-preview-toggle {
-  width: 34px;
-  height: 34px;
-  flex-shrink: 0;
-  border-radius: 999px;
-  box-shadow: none;
+.focus-exit-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--luna-focus-ring);
 }
 
 .editor-footer {
@@ -75,6 +94,11 @@
   min-width: 0;
 }
 
+.editor-footer.has-status,
+.main.editor-body-focused .editor-footer.has-status {
+  opacity: 1;
+}
+
 .editor-footer-message {
   flex: 1 1 auto;
   min-width: 0;
@@ -85,6 +109,53 @@
   font-size: 11px;
 }
 
+.editor-footer--success .editor-footer-message {
+  color: color-mix(in srgb, var(--luna-color-success) 88%, var(--text-primary));
+}
+
+.editor-footer--info .editor-footer-message {
+  color: color-mix(in srgb, var(--accent) 78%, var(--text-primary));
+}
+
+.editor-footer--warning .editor-footer-message {
+  color: color-mix(in srgb, var(--luna-color-warning-muted) 88%, var(--text-primary));
+}
+
+.editor-footer--error .editor-footer-message {
+  color: color-mix(in srgb, var(--luna-color-danger) 88%, var(--text-primary));
+}
+
+.editor-footer-perf {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: color-mix(in srgb, var(--accent) 82%, var(--text-secondary));
+  white-space: nowrap;
+}
+
+.editor-footer-perf--focus {
+  background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+  color: var(--text-secondary);
+}
+
+.editor-footer-perf-btn {
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.editor-footer-perf-btn:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: color-mix(in srgb, var(--accent) 88%, var(--text-secondary));
+}
+
+.editor-footer-perf-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--luna-focus-ring);
+}
+
 .editor-footer-stats {
   display: flex;
   flex-shrink: 0;
@@ -93,334 +164,14 @@
 }
 
 .main.editor-body-focused .editor-footer {
-  opacity: 0.26;
+  opacity: 0.92;
 }
 
 .main.editor-body-focused .editor-footer:hover {
   opacity: 1;
 }
 
-.about-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 10100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: color-mix(in srgb, #0f172a 42%, transparent);
-  backdrop-filter: blur(8px);
-}
-
-html[data-theme='dark'] .about-modal-backdrop {
-  background: color-mix(in srgb, #000 55%, transparent);
-}
-
-.about-modal {
-  width: 100%;
-  max-width: 400px;
-  padding: 28px 28px 24px;
-  border-radius: var(--radius-xl);
-  background: var(--surface-editor);
-  border: var(--hairline) solid var(--border-subtle);
-  box-shadow: var(--shadow-panel);
-  text-align: center;
-}
-
-.about-modal-title {
-  margin: 0 0 8px;
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
-}
-
-.about-modal-version {
-  margin: 0 0 16px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--accent);
-}
-
-.about-modal-desc {
-  margin: 0 0 20px;
-  font-size: 14px;
-  line-height: 1.55;
-  color: var(--text-secondary);
-}
-
-.about-modal-update-status {
-  margin: 0 0 12px;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.45;
-}
-
-.about-modal-update-status--checking {
-  color: var(--text-muted);
-}
-
-.about-modal-update-status--latest {
-  color: color-mix(in srgb, #2e9d5c 88%, var(--text-secondary));
-}
-
-.about-modal-update-status--available {
-  color: color-mix(in srgb, var(--accent) 92%, var(--text-primary));
-}
-
-.about-modal-update-status--error {
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.about-modal-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.about-modal-download {
-  background: color-mix(in srgb, var(--accent) 22%, var(--surface-panel));
-  border-color: color-mix(in srgb, var(--accent) 36%, var(--border-subtle));
-}
-
-.about-modal-close {
-  width: 100%;
-  padding: 11px 16px;
-  border-radius: var(--radius-md);
-  border: var(--hairline) solid var(--border-subtle);
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface-panel));
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    transform 0.12s ease;
-}
-
-.about-modal-close:hover {
-  background: color-mix(in srgb, var(--accent) 20%, var(--surface-hover));
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
-}
-
-.about-modal-close:active {
-  transform: scale(0.98);
-}
-
-.rename-modal {
-  max-width: 460px;
-  text-align: left;
-}
-
-.rename-modal-input {
-  width: 100%;
-  height: 38px;
-  padding: 0 11px;
-  border-radius: var(--radius-md);
-  border: var(--hairline) solid var(--border-subtle);
-  background: var(--surface-panel);
-  color: var(--text-primary);
-  font-size: 14px;
-  font-family: var(--font-ui);
-}
-
-.rename-modal-input:focus {
-  outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
-  outline-offset: 1px;
-  border-color: color-mix(in srgb, var(--accent) 32%, var(--border-subtle));
-}
-
-.rename-modal-actions {
-  margin-top: 14px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.rename-modal-error {
-  margin: 10px 0 0;
-  color: #b91c1c;
-  font-size: 12px;
-}
-
-.about-modal-close:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.rename-modal-cancel {
-  background: transparent;
-}
-
-.delete-modal {
-  max-width: 440px;
-  text-align: left;
-}
-
-.delete-modal-title {
-  margin-bottom: 6px;
-}
-
-.delete-modal-desc {
-  margin-bottom: 0;
-}
-
-.delete-modal-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  margin-bottom: 14px;
-  border-radius: 14px;
-  background: color-mix(in srgb, #dc2626 12%, var(--surface-panel));
-  color: #dc2626;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #dc2626 18%, transparent);
-}
-
-html[data-theme='dark'] .delete-modal-icon {
-  background: color-mix(in srgb, #f87171 16%, var(--surface-panel));
-  color: #fca5a5;
-}
-
-.delete-modal-file {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  margin: 18px 0 22px;
-  padding: 11px 12px;
-  border-radius: var(--radius-md);
-  border: var(--hairline) solid var(--border-subtle);
-  background: color-mix(in srgb, var(--surface-panel) 88%, var(--accent) 4%);
-}
-
-.delete-modal-file-icon {
-  flex: 0 0 auto;
-  display: flex;
-  color: var(--accent);
-}
-
-.delete-modal-file-name {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.delete-modal-actions {
-  margin-top: 0;
-}
-
-.delete-modal-confirm {
-  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
-  border-color: color-mix(in srgb, #dc2626 72%, #000);
-  color: #fff;
-}
-
-.delete-modal-confirm:hover {
-  background: linear-gradient(180deg, #f87171 0%, #ef4444 100%);
-  border-color: color-mix(in srgb, #ef4444 80%, #000);
-  color: #fff;
-}
-
-.delete-modal-confirm:active {
-  transform: scale(0.98);
-}
-
-.confirm-modal {
-  max-width: 440px;
-  text-align: left;
-}
-
-.confirm-modal-title {
-  margin-bottom: 6px;
-}
-
-.confirm-modal-desc {
-  margin-bottom: 0;
-}
-
-.confirm-modal-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  margin-bottom: 14px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface-panel));
-  color: var(--accent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
-}
-
-.confirm-modal-icon-info {
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface-panel));
-}
-
-.confirm-modal-warning .confirm-modal-icon {
-  background: color-mix(in srgb, #d97706 12%, var(--surface-panel));
-  color: #d97706;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #d97706 18%, transparent);
-}
-
-html[data-theme='dark'] .confirm-modal-warning .confirm-modal-icon {
-  background: color-mix(in srgb, #fbbf24 16%, var(--surface-panel));
-  color: #fcd34d;
-}
-
-.confirm-modal-actions {
-  margin-top: 22px;
-}
-
-/*Three-button dialog box such as unsaved prompt: same family as ConfirmDialog, right-aligned main operation*/
-.confirm-modal-actions-multi {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 10px;
-}
-
-.confirm-modal-actions-multi .about-modal-close {
-  width: auto;
-  min-width: 96px;
-  flex: 0 1 auto;
-}
-
-.confirm-modal-confirm {
-  background: var(--accent);
-  color: var(--accent-contrast, #fff);
-}
-
-.confirm-modal-confirm:hover {
-  filter: brightness(1.05);
-}
-
-.confirm-modal-confirm-warning {
-  background: #d97706;
-  color: #fff;
-}
-
-.confirm-modal-confirm-warning:hover {
-  background: #b45309;
-}
-
-.confirm-modal-single-ok {
-  margin-top: 22px;
-  width: 100%;
-}
-
-.alert-modal-desc {
-  white-space: pre-wrap;
-}
+/* Modals / dialogs: dialogs-app.css */
 
 @media (max-width: 980px) {
   .layout,
@@ -457,10 +208,10 @@ html[data-theme='dark'] .confirm-modal-warning .confirm-modal-icon {
   pointer-events: auto;
   min-width: 168px;
   padding: 10px 12px;
-  border-radius: var(--radius-md);
-  border: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 85%, transparent);
-  background: var(--surface-editor);
-  box-shadow: 0 10px 32px color-mix(in srgb, var(--text-primary) 16%, transparent);
+  border-radius: var(--radius-xl);
+  border: var(--hairline) solid var(--luna-overlay-panel-border);
+  background: var(--luna-overlay-panel-bg);
+  box-shadow: var(--luna-overlay-panel-shadow);
   font-family: var(--font-ui);
 }
 
@@ -523,7 +274,7 @@ html[data-theme='dark'] .confirm-modal-warning .confirm-modal-icon {
 
 .luna-table-insert-picker__hint {
   font-size: 11px;
-  color: var(--text-tertiary);
+  color: var(--text-tertiary, var(--text-muted));
 }
 
 .luna-emoji-picker {
@@ -537,10 +288,10 @@ html[data-theme='dark'] .confirm-modal-warning .confirm-modal-icon {
   flex-direction: column;
   gap: 8px;
   padding: 10px 12px 12px;
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--text-tertiary) 35%, transparent);
-  background: var(--surface-popover, var(--surface-editor));
-  box-shadow: 0 12px 40px color-mix(in srgb, var(--text-primary) 18%, transparent);
+  border-radius: var(--radius-xl);
+  border: var(--hairline) solid var(--luna-overlay-panel-border);
+  background: var(--luna-overlay-panel-bg);
+  box-shadow: var(--luna-overlay-panel-shadow);
 }
 
 .luna-emoji-picker__title {
@@ -552,12 +303,14 @@ html[data-theme='dark'] .confirm-modal-warning .confirm-modal-icon {
 .luna-emoji-picker__search {
   width: 100%;
   box-sizing: border-box;
-  padding: 6px 8px;
-  border-radius: 6px;
-  border: 1px solid color-mix(in srgb, var(--text-tertiary) 40%, transparent);
-  background: var(--surface-editor);
+  min-height: var(--luna-field-height-compact);
+  padding: 6px 10px;
+  border-radius: var(--luna-field-radius-compact);
+  border: var(--hairline) solid var(--luna-field-border);
+  background: var(--luna-field-bg);
   color: var(--text-primary);
   font-size: 13px;
+  font-family: var(--font-ui);
 }
 
 .luna-emoji-picker__tabs {
@@ -609,14 +362,23 @@ html[data-theme='dark'] .confirm-modal-warning .confirm-modal-icon {
   padding: 24px 8px;
   text-align: center;
   font-size: 12px;
-  color: var(--text-tertiary);
+  color: var(--text-tertiary, var(--text-muted));
+}
+
+.luna-emoji-picker__hint {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: var(--hairline) solid var(--border-subtle);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-tertiary, var(--text-muted));
 }
 
 /*rawBlock: non-HTML is pre; html_block (source=html) is an independent block + text alignment, without code font*/
 .preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-block--text {
   position: relative;
   margin: 0.75rem 0;
-  border: 1px dashed color-mix(in srgb, var(--text-tertiary) 48%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--text-tertiary, var(--text-muted)) 48%, transparent);
   border-radius: var(--reveal-block-radius);
   background: var(--reveal-block-index-bg);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-subtle) 38%, transparent);
@@ -674,14 +436,14 @@ html[data-theme='dark'] .confirm-modal-warning .confirm-modal-icon {
 .preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-block-source-button:focus-visible {
   outline: none;
   border-color: color-mix(in srgb, var(--accent) 54%, var(--border-subtle));
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: var(--luna-focus-ring);
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-block-surface {
   isolation: isolate;
   contain: content;
   font-family: var(--editor-content-font-family, var(--font-reading));
-  font-size: var(--editor-content-font-size, 16px);
+  font-size: var(--editor-content-font-size, 17px);
   line-height: var(--line-reading);
   letter-spacing: var(--letter-reading);
   color: var(--text-primary);
@@ -724,7 +486,8 @@ html[data-theme='dark'] .confirm-modal-warning .confirm-modal-icon {
   padding: var(--reveal-chip-pad-y) var(--reveal-chip-pad-x);
   border-radius: var(--reveal-chip-radius);
   background: var(--reveal-chip-bg-code);
-  color: color-mix(in srgb, var(--text-primary) 88%, var(--text-secondary));
+  color: var(--luna-raw-inline-fg);
+  box-shadow: var(--luna-raw-inline-inset-shadow);
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-inline {
@@ -743,22 +506,13 @@ html[data-theme='dark'] .confirm-modal-warning .confirm-modal-icon {
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
   font-size: var(--reveal-chip-mono-size);
   line-height: 1.45;
-  color: color-mix(in srgb, var(--text-secondary) 88%, var(--text-muted));
+  color: var(--luna-html-comment-badge-fg);
   background: var(--reveal-chip-bg-annotation);
   border-radius: var(--reveal-chip-radius);
   padding: var(--reveal-chip-pad-y) calc(var(--reveal-chip-pad-x) + 0.02em);
   white-space: pre-wrap;
   letter-spacing: 0.005em;
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-inline--text {
-  color: color-mix(in srgb, var(--text-primary) 82%, var(--text-secondary));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-subtle) 44%, transparent);
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-comment-badge {
-  color: color-mix(in srgb, var(--text-secondary) 78%, var(--text-muted));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-subtle) 38%, transparent);
+  box-shadow: var(--luna-html-comment-badge-inset-shadow);
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-inline-surface {

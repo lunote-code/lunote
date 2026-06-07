@@ -1,0 +1,304 @@
+.preview-pane.markdown-visual-editor .ProseMirror .pm-video-block {
+  margin: 0.75rem auto;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: min(var(--editor-column-width), 100%);
+  border-radius: var(--radius-md);
+  border: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 78%, transparent);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--text-primary) 4%, var(--surface-editor));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-video-block video {
+  display: block;
+  width: 100%;
+  max-height: min(70vh, 520px);
+  background: #000;
+}
+
+/* Image NodeView: preview card by default; double-click opens Markdown source strip */
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-node-root.pm-image-card {
+  display: block;
+  max-width: min(var(--editor-column-width), 100%);
+  margin: 0.75rem auto;
+  vertical-align: bottom;
+  text-align: center;
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-card-source-input {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Loading / asset check (no full card yet) */
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-card:not(.pm-image-card--open) {
+  display: inline-block;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-card:not(.pm-image-card--open) .pm-image-card-preview {
+  padding: 0;
+  background: transparent;
+}
+
+.preview-pane.markdown-visual-editor
+  .ProseMirror
+  .pm-image-card:not(.pm-image-card--open)
+  .pm-image-card-preview--pending {
+  padding: 0.5rem 0.75rem;
+  justify-content: flex-start;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--text-primary) 4%, var(--surface-editor));
+  border: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 50%, transparent);
+}
+
+/* Preview card (default) */
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-card--open {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: left;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: var(--hairline) solid var(--luna-image-card-open-border);
+  background: var(--luna-image-card-open-bg);
+  box-shadow: var(--luna-image-card-open-shadow);
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+@media (hover: hover) {
+  .preview-pane.markdown-visual-editor .ProseMirror .pm-image-card--open:not(.pm-image-card--focus):hover {
+    border-color: color-mix(in srgb, var(--border-subtle) 72%, transparent);
+    box-shadow: 0 2px 10px color-mix(in srgb, var(--text-primary) 7%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-pane.markdown-visual-editor .ProseMirror .pm-image-card--open {
+    transition: none;
+  }
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-card--open.pm-image-card--focus {
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border-subtle));
+  box-shadow: var(--luna-image-card-focus-shadow);
+}
+
+/* Source strip (double-click) */
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-card-source {
+  padding: 0.55rem 0.75rem;
+  background: color-mix(in srgb, var(--text-primary) 5%, var(--surface-editor));
+  border-bottom: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 48%, transparent);
+  overflow: hidden;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-card-source-input {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  resize: none;
+  overflow: hidden;
+  scrollbar-width: none;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  background: transparent !important;
+  -webkit-appearance: none;
+  appearance: none;
+  caret-color: var(--accent);
+  min-height: 1.5em;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-card-source-input::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-card-source-input:focus {
+  outline: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-card-preview {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.5rem;
+  background: color-mix(in srgb, var(--text-primary) 2.5%, var(--surface-editor));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-card--source-open .pm-image-card-preview {
+  padding: 0.65rem 0.75rem 0.75rem;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-card-preview:has(> .pm-markdown-image-preview) {
+  line-height: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-card-preview > .pm-markdown-image-preview,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-card-preview > .pm-image-block-img {
+  display: block;
+  box-sizing: border-box;
+  width: auto;
+  max-width: 100%;
+  max-height: min(72vh, 520px);
+  height: auto;
+  object-fit: contain;
+  margin: 0 auto;
+  border-radius: calc(var(--radius-md) - 2px);
+  cursor: default;
+  -webkit-user-drag: none;
+  transition: opacity 0.12s ease;
+}
+
+@media (hover: hover) {
+  .preview-pane.markdown-visual-editor
+    .ProseMirror
+    .pm-image-card--open:not(.pm-image-card--source-open)
+    .pm-image-card-preview
+    > .pm-markdown-image-preview,
+  .preview-pane.markdown-visual-editor
+    .ProseMirror
+    .pm-image-card--open:not(.pm-image-card--source-open)
+    .pm-image-card-preview
+    > .pm-image-block-img {
+    cursor: pointer;
+  }
+
+  .preview-pane.markdown-visual-editor
+    .ProseMirror
+    .pm-image-card--open:not(.pm-image-card--source-open):hover
+    .pm-image-card-preview
+    > .pm-markdown-image-preview,
+  .preview-pane.markdown-visual-editor
+    .ProseMirror
+    .pm-image-card--open:not(.pm-image-card--source-open):hover
+    .pm-image-card-preview
+    > .pm-image-block-img {
+    opacity: 0.96;
+  }
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-card-preview--pending {
+  padding: 0.55rem 0.75rem;
+  justify-content: flex-start;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-pending-line {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-broken-placeholder {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 5rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  text-align: center;
+  line-height: 1.45;
+  border-radius: calc(var(--radius-md) - 2px);
+  border: 1px dashed color-mix(in srgb, var(--border-subtle) 85%, transparent);
+  background: color-mix(in srgb, var(--surface-editor) 90%, var(--text-muted) 5%);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease;
+}
+
+@media (hover: hover) {
+  .preview-pane.markdown-visual-editor .ProseMirror .pm-image-broken-placeholder:hover {
+    border-color: color-mix(in srgb, var(--accent) 35%, var(--border-subtle));
+    background: color-mix(in srgb, var(--accent) 6%, var(--surface-editor));
+  }
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-broken-placeholder-title {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-broken-placeholder-meta {
+  font-size: 11px;
+  opacity: 0.9;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+/* Editing source: subtle lift on preview image */
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-card--source-open .pm-markdown-image-preview,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-card--source-open .pm-image-block-img {
+  box-shadow: var(--luna-image-card-source-open-preview-shadow);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-broken {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-sm);
+  border: var(--hairline) dashed color-mix(in srgb, var(--border-subtle) 90%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 5%, var(--surface-editor));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-broken-icon {
+  flex: 0 0 auto;
+  display: flex;
+  color: color-mix(in srgb, var(--text-primary) 55%, var(--text-muted));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-image-broken-snippet {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+  word-break: break-all;
+  white-space: pre-wrap;
+  color: var(--text-primary);
+  background: transparent;
+}
+
+/* Fallback: non-NodeView img (rare) */
+.preview-pane.markdown-visual-editor .ProseMirror > p img:not(.pm-image-block-img):not(.pm-markdown-image-preview) {
+  max-width: min(var(--editor-column-width), 100%);
+  height: auto;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror img:not(.pm-image-block-img):not(.pm-markdown-image-preview) {
+  box-sizing: border-box;
+  max-width: min(var(--editor-column-width), 100%);
+  height: auto;
+  border-radius: var(--radius-sm);
+  margin: 0.5rem auto;
+  display: block;
+  box-shadow: var(--shadow-soft);
+}

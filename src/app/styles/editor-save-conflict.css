@@ -1,0 +1,91 @@
+.save-conflict-dialog {
+  max-width: min(920px, 96vw);
+}
+
+.save-conflict-source-badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  margin-bottom: 10px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-editor));
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.save-conflict-merge {
+  display: block;
+  margin: 12px 0;
+  max-height: 50vh;
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.save-conflict-merge-header,
+.save-conflict-merge-row {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr 1fr 1fr;
+  gap: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.save-conflict-merge-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-elevated, var(--surface-panel));
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.save-conflict-merge-line {
+  padding: 4px 6px;
+  text-align: right;
+  color: var(--text-muted);
+  border-right: 1px solid var(--border-subtle);
+  user-select: none;
+}
+
+.save-conflict-merge-cell {
+  margin: 0;
+  padding: 4px 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-right: 1px solid color-mix(in srgb, var(--border-subtle) 60%, transparent);
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.save-conflict-merge-row--local .save-conflict-merge-cell:nth-child(3) {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.save-conflict-merge-row--disk .save-conflict-merge-cell:nth-child(4) {
+  background: color-mix(in srgb, var(--luna-tag-orange) 14%, transparent);
+}
+
+.save-conflict-merge-row--both .save-conflict-merge-cell:nth-child(3),
+.save-conflict-merge-row--both .save-conflict-merge-cell:nth-child(4) {
+  background: color-mix(in srgb, #c0392b 10%, transparent);
+}
+
+.save-conflict-dialog .settings-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.save-conflict-truncated {
+  font-size: var(--size-small, 13px);
+  color: var(--text-muted);
+}
+
+.save-conflict-unavailable {
+  color: color-mix(in srgb, var(--luna-color-warning-muted) 88%, var(--text-primary));
+}

@@ -1,10 +1,12 @@
 const BLOCKED_SELECTOR_TOKENS = [
+  '.app-shell',
   '.workspace',
   '.sidebar',
   '.workspace-split',
   '.workspace-ribbon',
   '.workspace-tabs',
   '.workspace-tab-',
+  '.kos-right-rail',
   '.nav-files-container',
   '.nav-folder',
   '.nav-file',
@@ -14,7 +16,7 @@ const BLOCKED_SELECTOR_TOKENS = [
   '.search-input-container',
   '.clickable-icon',
   '.tree-item',
-  /* Obsidian themes often ship sidebar outline rules under these selectors; they break export TOC layout. */
+  /* UI theme rules for in-app outline widgets break export TOC layout. */
   '.document-outline',
   '.inline-doc-toc',
 ]

@@ -9,16 +9,6 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  --reveal-popover-radius: 10px;
-  --reveal-popover-pad: 8px;
-  --reveal-popover-bg: color-mix(in srgb, var(--surface-panel) 76%, var(--surface-editor));
-  --reveal-popover-border: color-mix(in srgb, var(--border-subtle) 82%, transparent);
-  --reveal-popover-shadow:
-    0 10px 28px color-mix(in srgb, var(--text-primary) 10%, transparent),
-    0 2px 6px color-mix(in srgb, var(--text-primary) 7%, transparent);
-  --reveal-popover-shadow-above:
-    0 -8px 24px color-mix(in srgb, var(--text-primary) 10%, transparent),
-    0 -2px 6px color-mix(in srgb, var(--text-primary) 7%, transparent);
   --reveal-field-radius: 8px;
   --reveal-field-pad-x: 10px;
   --reveal-list-item-bg-active: color-mix(in srgb, var(--accent) 14%, transparent);
@@ -146,38 +136,51 @@
 }
 
 .editor-pane .cm-lineNumbers {
-  flex: 0 0 3.25rem;
-  min-width: 3.25rem;
+  flex: 0 0 auto;
+  min-width: 2.75rem;
   min-height: 100%;
+  overflow: hidden;
   pointer-events: none;
   user-select: none;
   -webkit-user-select: none;
   background: var(--code-gutter-bg, var(--surface-panel)) !important;
   color: var(--code-gutter-fg, var(--text-muted)) !important;
-  font-family: var(--editor-content-font-family, var(--font-content));
+  font-family: var(--font-mono, ui-monospace, monospace);
   font-size: var(--editor-content-font-size, 17px);
+  line-height: var(--line-content);
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
 
 .editor-pane .cm-lineNumbers .cm-gutterElement {
   text-align: right;
   padding: 0 10px 0 4px;
-  min-width: 100%;
   box-sizing: border-box;
   font-size: inherit;
+  line-height: var(--line-content);
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .editor-pane .cm-activeLineGutter {
   color: var(--accent) !important;
-  font-weight: 600;
 }
 
 /*CodeMirror Find (Cmd+F): Card-style panel consistent with the theme*/
+.editor-pane .cm-visible-line-break {
+  display: inline-block;
+  margin-left: 2px;
+  color: color-mix(in srgb, var(--text-muted) 72%, transparent);
+  font-size: 0.85em;
+  pointer-events: none;
+  user-select: none;
+}
+
 .editor-pane .cm-panels.cm-panels-top {
-  background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-editor));
+  background: var(--luna-overlay-panel-bg);
   color: var(--text-primary);
   border-bottom: var(--hairline) solid var(--border-subtle);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--text-primary) 8%, transparent);
+  box-shadow: none;
 }
 
 .editor-pane .cm-panels.cm-panels-top .cm-panel.cm-search {
@@ -202,24 +205,19 @@
 .editor-pane .cm-panel.cm-search .cm-textfield {
   flex: 1 1 200px;
   min-width: 0;
-  height: 34px;
+  height: var(--luna-field-height-compact);
   padding: 0 12px;
-  border-radius: var(--radius-md);
-  border: var(--hairline) solid var(--border-subtle);
-  background: var(--surface-editor);
+  border-radius: var(--luna-field-radius-compact);
+  border: var(--hairline) solid var(--luna-field-border);
+  background: var(--luna-field-bg-editor);
   color: var(--text-primary);
   font: inherit;
   outline: none;
   box-sizing: border-box;
-  box-shadow: inset 0 1px 1px color-mix(in srgb, var(--text-primary) 5%, transparent);
+  box-shadow: none;
 }
 
-.editor-pane .cm-panel.cm-search .cm-textfield:focus {
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--border-subtle));
-  box-shadow:
-    inset 0 1px 1px color-mix(in srgb, var(--text-primary) 5%, transparent),
-    0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
-}
+/* .cm-textfield focus: fields-app.css */
 
 .editor-pane .cm-panel.cm-search .cm-button {
   height: 32px;
@@ -241,7 +239,7 @@
 }
 
 .editor-pane .cm-panel.cm-search .cm-button:active {
-  transform: translateY(0.5px);
+  transform: none;
 }
 
 .editor-pane .cm-panel.cm-search label {
@@ -300,13 +298,13 @@
   font-family: var(--font-content);
 }
 
-.preview-pane:not(.markdown-visual-editor) {
+.preview-pane:not(.markdown-visual-editor):not(.document-history-preview-body) {
   padding: 28px 28px 72px;
   background: var(--surface-preview);
 }
 
-.preview-pane:not(.markdown-visual-editor) > * {
-  max-width: 720px;
+.preview-pane:not(.markdown-visual-editor):not(.document-history-preview-body) > * {
+  max-width: min(var(--editor-column-width), 100%);
   margin-left: auto;
   margin-right: auto;
 }

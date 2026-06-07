@@ -1,29 +1,73 @@
-# Lunote Documentation
+# Lunote documentation
 
-This folder contains the localized Lunote README files.
-If you only need the main product overview and download info, start with
-the root [`README.md`](../README.md).
+What you see on GitHub under `docs/` — **user-facing docs only**. Start with the root [README.md](../README.md) or pick a language below.
 
-Each localized README links to the **user guide** below (English; paths work on GitHub).
+## What is in this repository
 
-Supported UI languages: English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Français, Español, Русский, Português (Brasil), Italiano.
+```text
+docs/
+├── README.md              ← this file
+├── README.{locale}.md     ← product overview (10 languages)
+├── README.en.md           ← English copy (same structure as root README; links relative to `docs/`)
+├── assets/                ← screenshots & demo GIF for READMEs
+├── guide/                 ← user guide (English)
+├── theme/                 ← theme folder layout & external CSS reference
+└── theme-example/         ← ready-made themes (copy into ~/.luna/theme/)
+```
+
+| Path | Description |
+|------|-------------|
+| [guide/](guide/README.md) | How to use the desktop app |
+| [theme/](theme/README.md) | `~/.luna/theme/` layout, starters, [external CSS](theme/external-css.md) |
+| **[theme-example/](theme-example/README.md)** | **23 sample files** (5 CSS themes, 12 JSON tokens, 6 snippets) |
+| [README.en.md](README.en.md) etc. | Localized product pages |
 
 ## User guide (English)
 
-- [Guide index](guide/README.md)
-- [Themes](guide/themes.md) — built-in themes, Theme folder, Obsidian CSS, snippets, export styles
-- [Shortcuts & quick menus](guide/shortcuts-and-menus.md) — Command Palette, shortcuts, slash menu, global search
+| Doc | Topic |
+|-----|--------|
+| [Guide index](guide/README.md) | Entry point |
+| [Themes](guide/themes.md) | Built-in themes, Theme folder, CSS, snippets, export |
+| [Shortcuts & menus](guide/shortcuts-and-menus.md) | Command Palette, shortcuts, **`/`** slash commands |
+| [Templates](Templates/README.md) | Default and daily note templates, variables |
+| [Platform differences](guide/platform-differences.md) | PDF, print, reveal in file manager, OS notes |
+| [Packaging & signing](packaging-strategy.md) | Release workflow, GitHub Secrets, installers |
+
+Localized READMEs link here as `docs/guide/…` on GitHub.
+
+## Themes
+
+| Doc | Topic |
+|-----|--------|
+| [Theme index](theme/README.md) | Maps to `~/.luna/theme/{style,snippets,export,tokens}/` |
+| [External CSS](theme/external-css.md) | Variables, selectors, migration |
+| **[Theme examples](theme-example/README.md)** | **Start here for ready-made themes** — copy files, rescan, enable in Preferences |
+
+`theme-example/` is part of this repo (not local-only): `style/*.css`, `tokens/*.json`, `snippets/*.css`.
 
 ## Languages
 
-- [English](README.en.md)
-- [简体中文](README.zh-CN.md)
-- [繁體中文](README.zh-TW.md)
-- [日本語](README.ja.md)
-- [한국어](README.ko.md)
-- [Deutsch](README.de.md)
-- [Français](README.fr.md)
-- [Español](README.es.md)
-- [Русский](README.ru.md)
-- [Português (Brasil)](README.pt.md)
-- [Italiano](README.it.md)
+English · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Русский](README.ru.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [English (docs)](README.en.md)
+
+Supported in the app UI: the languages above.
+
+## Assets
+
+READMEs expect media under `docs/assets/`:
+
+```text
+assets/demo/lunote-demo.gif
+assets/screenshots/head-view.png
+assets/screenshots/code-view.png
+assets/screenshots/graph.png
+assets/screenshots/search.png
+assets/screenshots/snipaste.png
+assets/screenshots/theme.png
+assets/screenshots/theme/*.png   ← preset previews (10 files, see screenshots/README.md)
+```
+
+Root [README.md](../README.md) uses the `docs/assets/` prefix; files in `docs/README.*.md` use `assets/` (relative to `docs/`).
+
+## Maintainer-only (not in this repo)
+
+These stay on your machine (`.gitignore`): `.cursor/`, `.venv-*/`, `scripts/sponsor.json`, `docs/compatibility/`, `docs/qa/`, `docs/adr/`, and most of `scripts/` — see [scripts/README.md](../scripts/README.md) for what **is** committed for CI/release.

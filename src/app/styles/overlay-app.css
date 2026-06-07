@@ -1,0 +1,59 @@
+/* ── Overlay utilities: menu rows, focus ring, loading spin ── */
+
+@keyframes luna-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.luna-spin {
+  animation: luna-spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .luna-spin,
+  .command-palette-loading-icon,
+  .kos-panel-loading-icon {
+    animation: none;
+  }
+}
+
+/* Unified menu row hover / active surfaces */
+.command-palette-item:hover,
+.command-palette-item[data-active='true'],
+.luna-code-lang-palette__row:hover,
+.luna-code-lang-palette__row--active,
+.file-ctx-item:hover,
+.file-ctx-item--active,
+.file-ctx-item.file-ctx-item--active,
+.file-ctx-submenu-wrap:hover > .file-ctx-item,
+.file-ctx-submenu-wrap:focus-within > .file-ctx-item,
+.file-ctx-submenu-wrap:has([aria-expanded='true']) > .file-ctx-item,
+.app-menubar-item:hover:not(:disabled),
+.app-menubar-row.is-active > .app-menubar-item,
+.kos-search-results .kos-search-hit:hover,
+.kos-search-results .kos-search-hit[data-active='true'] {
+  background: var(--luna-menu-item-hover-bg);
+}
+
+.command-palette-item:focus-visible,
+.luna-code-lang-palette__row:focus-visible {
+  outline: none;
+  background: var(--luna-menu-item-focus-bg);
+  box-shadow: none;
+}
+
+.kos-search-results .kos-search-hit:focus-visible {
+  outline: none;
+  background: var(--luna-menu-item-focus-bg);
+}
+
+.file-ctx-item:focus-visible,
+.app-menubar-item:focus-visible {
+  outline: none;
+  box-shadow: var(--luna-focus-ring);
+}

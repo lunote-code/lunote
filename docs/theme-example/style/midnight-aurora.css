@@ -1,0 +1,133 @@
+/**
+ * Midnight Aurora — external CSS theme
+ *
+ * Deep night sky with aurora teal and violet accents.
+ * Layer: palette tokens + personality deltas only.
+ *
+ * Copy to ~/.luna/theme/style/midnight-aurora.css → Rescan → External CSS Theme.
+ * Reference: docs/theme-example/SELECTORS.md
+ */
+
+html[data-theme='dark'] {
+  --surface-app: #0b0f14;
+  --surface-panel: rgba(14, 20, 28, 0.94);
+  --surface-editor: #0e1218;
+  --surface-preview: #080b10;
+  --surface-hover: rgba(56, 189, 186, 0.1);
+  --surface-elevated: #152028;
+  --text-primary: #e2eaf0;
+  --text-secondary: #94a8b8;
+  --text-muted: #5c7080;
+  --text-tertiary: #5c7080;
+  --border-subtle: rgba(56, 189, 186, 0.1);
+  --border-strong: rgba(56, 189, 186, 0.18);
+  --accent: #38bdba;
+  --link: #5eead4;
+  --link-hover: #7ef0de;
+  --link-visited: #a78bfa;
+  --focus-ring: rgba(56, 189, 186, 0.3);
+  --code-bg: #0a0e13;
+  --code-gutter-fg: #5c7080;
+  --code-gutter-bg: #0e1218;
+  --inline-code-bg: #152028;
+  --shadow-soft: 0 1px 4px rgba(0, 0, 0, 0.5);
+  --shadow-panel: 0 16px 48px rgba(0, 0, 0, 0.6);
+  --luna-callout-important: #a78bfa;
+}
+
+html[data-theme='light'] {
+  --surface-app: #eef4f6;
+  --surface-panel: rgba(255, 255, 255, 0.92);
+  --surface-editor: #ffffff;
+  --surface-preview: #f4f8fa;
+  --surface-hover: rgba(13, 148, 136, 0.07);
+  --surface-elevated: #ffffff;
+  --text-primary: #0f1720;
+  --text-secondary: #4a5f6e;
+  --text-muted: #7a909e;
+  --text-tertiary: #7a909e;
+  --border-subtle: rgba(15, 23, 32, 0.1);
+  --border-strong: rgba(15, 23, 32, 0.16);
+  --accent: #0d9488;
+  --link: #0d9488;
+  --link-hover: #0f766e;
+  --link-visited: #7c3aed;
+  --focus-ring: rgba(13, 148, 136, 0.22);
+  --code-bg: #f4f8fa;
+  --code-gutter-fg: #7a909e;
+  --code-gutter-bg: #eef4f6;
+  --inline-code-bg: #e0f2f1;
+  --shadow-soft: 0 1px 2px rgba(15, 23, 32, 0.06);
+  --shadow-panel: 0 10px 32px rgba(15, 23, 32, 0.08);
+  --luna-callout-important: #7c3aed;
+}
+
+.workspace-root {
+  background:
+    radial-gradient(ellipse 80% 50% at 10% 0%, rgba(56, 189, 186, 0.08), transparent 50%),
+    radial-gradient(ellipse 65% 45% at 90% 100%, rgba(167, 139, 250, 0.07), transparent 45%),
+    var(--surface-app);
+}
+
+html[data-theme='light'] .workspace-root {
+  background:
+    radial-gradient(ellipse 80% 50% at 10% 0%, rgba(13, 148, 136, 0.06), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 90% 100%, rgba(124, 58, 237, 0.04), transparent 45%),
+    var(--surface-app);
+}
+
+.sidebar {
+  border-right: 1px solid var(--border-subtle);
+  backdrop-filter: blur(8px);
+}
+
+/* —— Aurora gradient h1 —— */
+.preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l1 .pm-heading-content,
+.preview-pane.markdown-visual-editor .ProseMirror > h1,
+.markdown-preview-view h1 {
+  background: linear-gradient(135deg, var(--link) 0%, var(--link-visited) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l2 .pm-heading-content,
+.preview-pane.markdown-visual-editor .ProseMirror > h2,
+.markdown-preview-view h2 {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline,
+.markdown-preview-view a {
+  text-underline-offset: 3px;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror > blockquote,
+.markdown-preview-view blockquote {
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-editor));
+  border-radius: 0 10px 10px 0;
+  color: var(--text-secondary);
+}
+
+/* Raw pre fallback + export preview */
+.preview-pane.markdown-visual-editor .ProseMirror > pre,
+.markdown-preview-view pre {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    var(--shadow-soft),
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 3%, transparent);
+}
+
+.source-pane .cm-editor .cm-cursor {
+  border-left-color: var(--accent);
+}
+
+.source-pane .cm-editor .cm-activeLine {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}

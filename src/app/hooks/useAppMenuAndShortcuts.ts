@@ -24,6 +24,7 @@ export type AppMenuAndShortcutsDeps = {
   pastePlainFromClipboard: (plainOnly?: boolean) => Promise<void>
   setFocusMode: Dispatch<SetStateAction<boolean>>
   globalSearchOpen: boolean
+  knowledgeSearchOpen: boolean
   aboutOpen: boolean
   setAboutOpen: Dispatch<SetStateAction<boolean>>
   closeTab: (path: string) => void
@@ -34,8 +35,10 @@ export type AppMenuAndShortcutsDeps = {
   commandPaletteIndex: number
   setCommandPaletteIndex: Dispatch<SetStateAction<number>>
   commandPaletteInputRef: RefObject<HTMLInputElement | null>
+  globalSearchInputRef: RefObject<HTMLInputElement | null>
   paletteCommandDefs: PaletteCommandDef[]
   activePathRef: RefObject<string>
+  documentHistoryOpen: boolean
   appMenuCtxRef: MutableRefObject<AppMenuContext>
   paletteUiDepsRef: MutableRefObject<AppMenuUiDeps>
 }
@@ -49,6 +52,7 @@ export function useAppMenuAndShortcuts(deps: AppMenuAndShortcutsDeps) {
     pastePlainFromClipboard,
     setFocusMode,
     globalSearchOpen,
+    knowledgeSearchOpen,
     aboutOpen,
     setAboutOpen,
     closeTab,
@@ -59,8 +63,10 @@ export function useAppMenuAndShortcuts(deps: AppMenuAndShortcutsDeps) {
     commandPaletteIndex,
     setCommandPaletteIndex,
     commandPaletteInputRef,
+    globalSearchInputRef,
     paletteCommandDefs,
     activePathRef,
+    documentHistoryOpen,
     appMenuCtxRef,
     paletteUiDepsRef,
   } = deps
@@ -97,6 +103,11 @@ export function useAppMenuAndShortcuts(deps: AppMenuAndShortcutsDeps) {
     if (!commandPaletteOpen) return
     commandPaletteInputRef.current?.focus()
   }, [commandPaletteInputRef, commandPaletteOpen])
+
+  useEffect(() => {
+    if (!globalSearchOpen) return
+    globalSearchInputRef.current?.focus()
+  }, [globalSearchInputRef, globalSearchOpen])
 
   useEffect(() => {
     setCommandPaletteIndex((i) => {
@@ -171,7 +182,8 @@ export function useAppMenuAndShortcuts(deps: AppMenuAndShortcutsDeps) {
         toggleMainPaneMode()
       },
       onEditorPaste: (plainOnly) => pastePlainFromClipboard(plainOnly),
-      isBlocked: () => commandPaletteOpen || globalSearchOpen,
+      isBlocked: () =>
+        commandPaletteOpen || globalSearchOpen || knowledgeSearchOpen || documentHistoryOpen,
     })
     window.addEventListener('keydown', onRegistryShortcut, true)
     return () => window.removeEventListener('keydown', onRegistryShortcut, true)
@@ -180,7 +192,9 @@ export function useAppMenuAndShortcuts(deps: AppMenuAndShortcutsDeps) {
     appMenuCtxRef,
     closeTab,
     commandPaletteOpen,
+    documentHistoryOpen,
     globalSearchOpen,
+    knowledgeSearchOpen,
     paletteUiDepsRef,
     pastePlainFromClipboard,
     saveAsCurrent,
@@ -209,29 +223,44 @@ export function useAppMenuAndShortcuts(deps: AppMenuAndShortcutsDeps) {
     let cancelled = false
     let unlistenMenu: (() => void) | undefined
     let unlistenResized: (() => void) | undefined
+    const disposeListeners = () => {
+      unlistenMenu?.()
+      unlistenMenu = undefined
+      unlistenResized?.()
+      unlistenResized = undefined
+    }
     void (async () => {
       const win = getCurrentWindow()
-      unlistenMenu = await win.listen<{ action: string; path?: string; name?: string; url?: string }>(
+      const offMenu = await win.listen<{ action: string; path?: string; name?: string; url?: string }>(
         'app-menu',
         (event) => {
+          if (documentHistoryOpen) return
           void dispatchAppMenuFromTauri(() => appMenuCtxRef.current, event.payload, paletteUiDepsRef.current)
         },
       )
-      unlistenResized = await win.onResized(() => {
+      if (cancelled) {
+        offMenu()
+        return
+      }
+      unlistenMenu = offMenu
+
+      const offResized = await win.onResized(() => {
         void syncViewFullscreenMenuChecked()
       })
-      await syncViewFullscreenMenuChecked()
       if (cancelled) {
-        unlistenMenu?.()
-        unlistenResized?.()
+        offResized()
+        disposeListeners()
+        return
       }
+      unlistenResized = offResized
+
+      await syncViewFullscreenMenuChecked()
     })()
     return () => {
       cancelled = true
-      unlistenMenu?.()
-      unlistenResized?.()
+      disposeListeners()
     }
-  }, [appMenuCtxRef, paletteUiDepsRef])
+  }, [appMenuCtxRef, documentHistoryOpen, paletteUiDepsRef])
 
   return { paletteFiltered, runPaletteCommand }
 }

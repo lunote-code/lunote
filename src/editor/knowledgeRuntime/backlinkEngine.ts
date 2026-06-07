@@ -7,12 +7,9 @@ import { listHeadingCanonicalsForHost } from './headingLinkTargets'
 import {
   getIncomingLinkRefsForDocPanel,
   getLinkGraphIndexRevision,
-  getLinkGraphEdgeCounts,
   linkTargetMatchesDoc,
-  listOutgoingDocKeys,
   type LinkRef,
 } from './linkGraphIndex'
-import { getLinkIndexState } from './linkIndexState'
 import { normalizeDocKeyForComparison, normalizeDocKeyForNavigation } from './docKeyNormalization'
 import type { BacklinkEntry, DocKey, ParsedWikiLink } from './types'
 
@@ -111,25 +108,6 @@ export function getBacklinksForDoc(docKey: DocKey): BacklinkEntry[] {
 
   const incoming = getIncomingLinkRefsForDocPanel(docKey)
   const entries = buildEntriesFromIncomingRefs(docKey, incoming)
-
-  if (entries.length === 0 && import.meta.env.DEV) {
-    const counts = getLinkGraphEdgeCounts()
-    console.debug('[Backlinks] incoming empty', {
-      activeDocKey: docKey,
-      linkIndexState: getLinkIndexState(),
-      outgoingSize: listOutgoingDocKeys().length,
-      outgoingEdges: counts.outgoingEdges,
-      incomingEdges: counts.incomingEdges,
-    })
-  }
-
-  if (import.meta.env.DEV) {
-    console.debug('[Backlinks]', {
-      activeDocKey: docKey,
-      backlinksCount: entries.length,
-      incomingRefs: incoming.length,
-    })
-  }
 
   backlinkCache.set(docKey, entries)
   return entries

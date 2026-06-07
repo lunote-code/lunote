@@ -11,140 +11,7 @@
   font-family: var(--font-content);
 }
 
-/*Inline Markdown reveal is now an in-document plain text replacement, no floating layer (old .luna-md-inline-reveal has been removed)*/
-
-/*Source Reveal Card (old): Possibly reused by other floating UIs; not related to document inline reveal*/
-.luna-source-reveal-card {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  border-radius: var(--luna-source-reveal-radius);
-  border: var(--hairline) solid var(--luna-source-reveal-border);
-  background: var(--luna-source-reveal-chrome-bg);
-  box-shadow: var(--luna-source-reveal-shadow);
-}
-
-.luna-source-reveal-card--floating {
-  position: fixed;
-  z-index: 10052;
-  min-width: 140px;
-  max-width: min(640px, calc(100vw - 24px));
-  max-height: min(42vh, 360px);
-  width: auto;
-  opacity: 0;
-  transform: scale(0.985);
-  transition:
-    opacity 0.16s var(--luna-source-reveal-ease),
-    transform 0.2s var(--luna-source-reveal-ease),
-    box-shadow 0.18s ease;
-}
-
-.luna-source-reveal-card--floating.luna-source-reveal-card--visible {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.luna-source-reveal-card__meta {
-  flex: 0 0 auto;
-  padding: 6px 10px 5px;
-  font-family: var(--font-ui);
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--luna-source-reveal-chrome-fg);
-  border-bottom: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 65%, transparent);
-  background: color-mix(in srgb, var(--luna-source-reveal-chrome-bg) 70%, transparent);
-}
-
-.luna-source-reveal-card__editor-row {
-  display: flex;
-  flex-direction: row;
-  flex: 1 1 auto;
-  align-items: stretch;
-  min-height: 0;
-  box-sizing: border-box;
-  padding: 8px 10px 10px;
-  gap: 8px;
-  background: var(--luna-source-reveal-surface-bg);
-}
-
-.luna-source-reveal-card__gutter {
-  flex: 0 0 2.75rem;
-  min-width: 2.75rem;
-  max-width: 2.75rem;
-  overflow: hidden;
-  pointer-events: none;
-  user-select: none;
-  -webkit-user-select: none;
-  color: color-mix(in srgb, var(--text-muted) 78%, transparent);
-  font-family: var(--luna-source-reveal-font-mono);
-  font-size: 12.5px;
-  line-height: 1.5;
-}
-
-.luna-source-reveal-card__gutter-scroll {
-  height: 100%;
-  max-height: min(280px, 38vh);
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: none;
-}
-
-.luna-source-reveal-card__gutter-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-.luna-source-reveal-card__gutter-line {
-  text-align: right;
-  padding-right: 4px;
-  white-space: nowrap;
-  box-sizing: border-box;
-}
-
-.luna-source-reveal-card__surface {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-  box-sizing: border-box;
-  padding: 0;
-  background: transparent;
-}
-
-.luna-source-reveal-card__input {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 28px;
-  max-height: min(280px, 38vh);
-  margin: 0;
-  padding: 0;
-  border: none;
-  outline: none;
-  resize: none;
-  overflow-y: auto;
-  background: transparent;
-  font-family: var(--luna-source-reveal-font-mono);
-  font-size: 12.5px;
-  line-height: 1.5;
-  letter-spacing: 0.01em;
-  color: var(--text-primary);
-  caret-color: var(--luna-source-reveal-caret);
-  transition: opacity 0.15s ease;
-}
-
-.luna-source-reveal-card__input::selection {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-}
-
-.luna-source-reveal-card__input:focus {
-  outline: none;
-}
+/*Markdown source reveal: in-document plain text via lunaMarkdownSourceReveal (no floating card layer).*/
 
 /*[toc]: Render the table of contents (NodeView) at the document occupancy; expand naturally with the document without internal scrolling*/
 .preview-pane.markdown-visual-editor .ProseMirror .inline-doc-toc {
@@ -152,17 +19,9 @@
   margin: 1rem auto 1.25rem;
   padding: 0;
   border-radius: var(--radius-lg);
-  border: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--accent) 5%, transparent),
-      transparent 42%
-    ),
-    color-mix(in srgb, var(--surface-panel) 48%, var(--surface-editor));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 4%, transparent),
-    0 8px 22px color-mix(in srgb, #000 5%, transparent);
+  border: var(--hairline) solid var(--border-subtle);
+  background: var(--surface-panel);
+  box-shadow: none;
   user-select: none;
 }
 
@@ -254,8 +113,8 @@
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .document-outline-link:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  outline-offset: 1px;
+  outline: none;
+  box-shadow: var(--luna-focus-ring);
 }
 
 .preview-pane.markdown-visual-editor .tiptap-editor-shell {
@@ -267,16 +126,6 @@
   width: 100%;
   overflow: hidden;
   /* Slash / wiki popovers live on the shell, not inside ProseMirror — define tokens here */
-  --reveal-popover-radius: 10px;
-  --reveal-popover-pad: 8px;
-  --reveal-popover-bg: color-mix(in srgb, var(--surface-panel) 76%, var(--surface-editor));
-  --reveal-popover-border: color-mix(in srgb, var(--border-subtle) 82%, transparent);
-  --reveal-popover-shadow:
-    0 10px 28px color-mix(in srgb, var(--text-primary) 10%, transparent),
-    0 2px 6px color-mix(in srgb, var(--text-primary) 7%, transparent);
-  --reveal-popover-shadow-above:
-    0 -8px 24px color-mix(in srgb, var(--text-primary) 10%, transparent),
-    0 -2px 6px color-mix(in srgb, var(--text-primary) 7%, transparent);
   --reveal-field-radius: 8px;
   --reveal-field-pad-x: 10px;
   --reveal-list-item-bg-active: color-mix(in srgb, var(--accent) 14%, transparent);
@@ -307,84 +156,6 @@
 
 .preview-pane.markdown-visual-editor .tiptap-editor-shell > .editor-slash-menu-host {
   pointer-events: auto;
-}
-
-.preview-pane.markdown-visual-editor .editor-search-overlay {
-  position: absolute;
-  top: 14px;
-  right: 18px;
-  z-index: 20;
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  max-width: min(520px, calc(100% - 36px));
-  padding: 6px;
-  border: var(--hairline) solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-panel) 96%, var(--surface-editor));
-  color: var(--text-primary);
-  box-shadow: var(--shadow-panel);
-  pointer-events: auto;
-}
-
-.preview-pane.markdown-visual-editor .editor-search-overlay--replace {
-  row-gap: 6px;
-}
-
-.preview-pane.markdown-visual-editor .editor-search-input,
-.preview-pane.markdown-visual-editor .editor-search-replace-input {
-  width: min(220px, 42vw);
-  height: 30px;
-  padding: 0 10px;
-  border: var(--hairline) solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  background: var(--surface-editor);
-  color: var(--text-primary);
-  outline: none;
-  font: 12px/1.2 var(--font-ui);
-}
-
-.preview-pane.markdown-visual-editor .editor-search-input:focus,
-.preview-pane.markdown-visual-editor .editor-search-replace-input:focus {
-  border-color: color-mix(in srgb, var(--accent) 48%, var(--border-subtle));
-  box-shadow: 0 0 0 3px var(--focus-ring);
-}
-
-.preview-pane.markdown-visual-editor .editor-search-button--text {
-  width: auto;
-  min-width: 52px;
-  padding: 0 8px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.preview-pane.markdown-visual-editor .editor-search-count {
-  min-width: 44px;
-  color: var(--text-muted);
-  font: 11px/1 var(--font-ui);
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.preview-pane.markdown-visual-editor .editor-search-button {
-  width: 28px;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: var(--hairline) solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font: 13px/1 var(--font-ui);
-}
-
-.preview-pane.markdown-visual-editor .editor-search-button:hover {
-  background: var(--surface-hover);
-  color: var(--text-primary);
-  border-color: var(--border-subtle);
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .editor-search-match {
@@ -418,8 +189,8 @@
   font-size: var(--editor-content-font-size, 17px);
   line-height: 1.7;
   letter-spacing: 0.015em;
-  /** Read the main column: titles, paragraphs, and code blocks have the same width and the same starting line*/
-  --editor-column-width: 860px;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
   --editor-code-line-height: 1.62;
   --editor-heading-gutter: 52px;
   padding-left: max(clamp(18px, 4vw, 40px), calc(var(--editor-heading-gutter) + 10px));
@@ -451,6 +222,7 @@
   height: 0;
   color: var(--text-muted);
   pointer-events: none;
+  white-space: pre-line;
 }
 
 /*Vertical rhythm of paragraphs and block-level elements: In Markdown, empty lines are mostly semantically referred to as "block spacing". Margin is used here to restore readable gaps.*/
@@ -459,16 +231,19 @@
   padding-left: 0;
   padding-right: 0;
   min-height: 1lh;
+  font-size: inherit;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror li {
+  font-size: inherit;
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror > p:empty,
 .preview-pane.markdown-visual-editor .ProseMirror > p:has(> br.ProseMirror-trailingBreak:only-child) {
-  /* Lifted blank-line paragraphs should read like an extra text line, not a
-     full paragraph block with normal vertical rhythm. */
+  /* Blank lines keep compact vertical rhythm via margin only — line-height must
+     match body text so the caret height stays consistent across lines. */
   margin-top: 0;
   margin-bottom: 0;
-  line-height: 1.35;
-  min-height: 1.35em;
 }
 
 /*What you see is what you get: Typora-style title block (NodeView), left Hn tag + double-click inline ATX source code (plain text within ProseMirror)*/
@@ -553,29 +328,16 @@
   --reveal-block-pad-y: 0.5rem;
   --reveal-block-pad-x: 0.75rem;
   --reveal-block-bar-width: 3px;
-  --reveal-block-bg-static: color-mix(in srgb, var(--text-primary) 3.5%, var(--surface-editor));
-  --reveal-block-reading-bg: color-mix(in srgb, var(--surface-panel) 62%, transparent);
-  --reveal-block-reading-bar: color-mix(in srgb, var(--accent) 48%, var(--border-strong));
-  --reveal-block-index-bg: color-mix(in srgb, var(--text-primary) 3.5%, var(--surface-editor));
   --reveal-chip-radius: 4px;
   --reveal-chip-pad-y: 0.05em;
   --reveal-chip-pad-x: 0.24em;
-  --reveal-chip-bg-static: color-mix(in srgb, var(--text-secondary) 6%, var(--surface-editor));
-  --reveal-chip-bg-code: color-mix(in srgb, var(--text-secondary) 7%, var(--surface-editor));
-  --reveal-chip-bg-annotation: color-mix(in srgb, var(--text-secondary) 5%, var(--surface-editor));
   --reveal-chip-mono-size: 0.9em;
   --reveal-source-btn-height: 24px;
   --reveal-source-btn-radius: 999px;
   --reveal-source-btn-pad-x: 8px;
-  --reveal-source-btn-bg: color-mix(in srgb, var(--surface-hover) 60%, var(--surface-editor));
-  --reveal-source-btn-border: color-mix(in srgb, var(--border-subtle) 82%, transparent);
-  --reveal-source-btn-fg: var(--text-secondary);
   --reveal-badge-height: 22px;
   --reveal-badge-radius: 999px;
   --reveal-badge-pad-x: 8px;
-  --reveal-badge-bg: color-mix(in srgb, var(--surface-hover) 58%, var(--surface-editor));
-  --reveal-badge-border: color-mix(in srgb, var(--border-subtle) 84%, transparent);
-  --reveal-badge-fg: var(--text-secondary);
   --reveal-micro-font-size: 11px;
   --reveal-micro-font-weight: 600;
   --reveal-micro-letter-spacing: 0.04em;
@@ -585,8 +347,6 @@
   --reveal-code-chip-letter-spacing: 0.02em;
   --reveal-popover-radius: 10px;
   --reveal-popover-pad: 8px;
-  --reveal-popover-bg: color-mix(in srgb, var(--surface-panel) 76%, var(--surface-editor));
-  --reveal-popover-border: color-mix(in srgb, var(--border-subtle) 82%, transparent);
   --reveal-popover-shadow:
     0 10px 28px color-mix(in srgb, var(--text-primary) 10%, transparent),
     0 2px 6px color-mix(in srgb, var(--text-primary) 7%, transparent);
@@ -596,8 +356,6 @@
   --reveal-field-radius: 8px;
   --reveal-field-pad-y: 8px;
   --reveal-field-pad-x: 10px;
-  --reveal-field-bg: color-mix(in srgb, var(--surface-editor) 92%, var(--surface-panel));
-  --reveal-field-border: color-mix(in srgb, var(--border-subtle) 85%, transparent);
   --reveal-field-border-focus: color-mix(in srgb, var(--accent) 56%, var(--border-subtle));
   --reveal-field-ring: color-mix(in srgb, var(--accent) 18%, transparent);
   --reveal-list-item-bg-active: color-mix(in srgb, var(--accent) 14%, transparent);
@@ -606,7 +364,6 @@
   --reveal-list-nested-offset: 12px;
   --reveal-empty-pad-y: 12px;
   --reveal-empty-pad-x: 14px;
-  --reveal-helper-fg: color-mix(in srgb, var(--text-secondary) 92%, var(--text-muted));
   --reveal-helper-opacity: 0.85;
   --reveal-group-opacity: 0.92;
   --reveal-disabled-opacity: 0.72;
@@ -701,9 +458,7 @@
 .preview-pane.markdown-visual-editor .ProseMirror > .pm-link-reference-def:hover,
 .preview-pane.markdown-visual-editor .ProseMirror .pm-math-block:hover {
   background: var(--reveal-hover-bg);
-  box-shadow:
-    inset 0 0 0 1px var(--reveal-hover-ring),
-    0 1px 2px color-mix(in srgb, var(--text-primary) 4%, transparent);
+  box-shadow: none;
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror [data-type='inline-math']:hover,
@@ -712,7 +467,7 @@
 .preview-pane.markdown-visual-editor .ProseMirror sup.pm-footnote-ref:hover,
 .preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline:hover {
   background: var(--reveal-hover-bg);
-  box-shadow: inset 0 0 0 1px var(--reveal-hover-ring);
+  box-shadow: none;
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror span[data-color]:hover,
@@ -723,37 +478,8 @@
 .preview-pane.markdown-visual-editor .ProseMirror code:hover,
 .preview-pane.markdown-visual-editor .ProseMirror mark.md-mark-highlight:hover {
   background: var(--reveal-hover-bg);
-  box-shadow: inset 0 -1px 0 0 var(--reveal-hover-ring);
+  box-shadow: none;
 }
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .tiptap-editor-shell,
-html[data-theme='dark'] .editor-pane {
-  --reveal-popover-bg: color-mix(in srgb, var(--surface-panel) 82%, #000);
-  --reveal-popover-border: color-mix(in srgb, var(--border-subtle) 74%, transparent);
-  --reveal-helper-fg: color-mix(in srgb, var(--text-secondary) 86%, var(--text-primary));
-}
-
-html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror {
-  --reveal-block-bg-static: color-mix(in srgb, var(--surface-panel) 84%, #000);
-  --reveal-block-reading-bg: color-mix(in srgb, var(--surface-panel) 78%, #000);
-  --reveal-block-reading-bar: color-mix(in srgb, var(--accent) 42%, var(--border-subtle));
-  --reveal-block-index-bg: color-mix(in srgb, var(--surface-panel) 88%, #000);
-  --reveal-chip-bg-static: color-mix(in srgb, var(--surface-panel) 70%, #000);
-  --reveal-chip-bg-code: color-mix(in srgb, var(--surface-panel) 76%, #000);
-  --reveal-chip-bg-annotation: color-mix(in srgb, var(--surface-panel) 66%, #000);
-  --reveal-source-btn-bg: color-mix(in srgb, var(--surface-panel) 82%, #000);
-  --reveal-source-btn-border: color-mix(in srgb, var(--border-subtle) 74%, transparent);
-  --reveal-source-btn-fg: color-mix(in srgb, var(--text-secondary) 92%, var(--text-primary));
-  --reveal-badge-bg: color-mix(in srgb, var(--surface-panel) 78%, #000);
-  --reveal-badge-border: color-mix(in srgb, var(--border-subtle) 72%, transparent);
-  --reveal-badge-fg: color-mix(in srgb, var(--text-secondary) 90%, var(--text-primary));
-  --reveal-popover-bg: color-mix(in srgb, var(--surface-panel) 82%, #000);
-  --reveal-popover-border: color-mix(in srgb, var(--border-subtle) 74%, transparent);
-  --reveal-field-bg: color-mix(in srgb, var(--surface-editor) 84%, #000);
-  --reveal-field-border: color-mix(in srgb, var(--border-subtle) 72%, transparent);
-  --reveal-helper-fg: color-mix(in srgb, var(--text-secondary) 86%, var(--text-primary));
-}
-
 
 .preview-pane.markdown-visual-editor .ProseMirror .pm-heading-content {
   margin: 0;
@@ -785,7 +511,7 @@ html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror {
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l2 {
-  margin-top: 32px;
+  margin-top: 36px;
   margin-bottom: 16px;
 }
 
@@ -795,7 +521,7 @@ html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror {
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l3 {
-  margin-top: 24px;
+  margin-top: 28px;
   margin-bottom: 12px;
 }
 
@@ -805,7 +531,7 @@ html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror {
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l4 {
-  margin-top: 20px;
+  margin-top: 24px;
   margin-bottom: 10px;
 }
 
@@ -853,15 +579,21 @@ html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror {
   border-bottom: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 50%, transparent);
 }
 
+.preview-pane.markdown-visual-editor .ProseMirror > h1:not(:first-child) {
+  margin-top: 1.5em;
+}
+
 .preview-pane.markdown-visual-editor .ProseMirror > h2 {
   font-size: 1.8em;
   font-weight: 620;
+  margin-top: 1.25em;
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror > h3 {
   font-size: 1.5em;
   font-weight: 600;
   color: color-mix(in srgb, var(--text-primary) 94%, var(--text-secondary));
+  margin-top: 1.1em;
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror > h4 {
@@ -981,7 +713,7 @@ html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror {
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror-selectednode {
-  outline: 2px solid color-mix(in srgb, var(--accent) 42%, transparent);
+  outline: 3px solid color-mix(in srgb, var(--accent) 42%, transparent);
   border-radius: var(--radius-sm);
 }
 
@@ -997,7 +729,7 @@ html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror {
   > p:has(> br.ProseMirror-trailingBreak:only-child).ProseMirror-selectednode {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   border-radius: var(--radius-sm);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+  box-shadow: none;
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror > .pm-editor-task-list {
@@ -1060,5 +792,20 @@ html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror {
 .preview-pane.markdown-visual-editor .ProseMirror .pm-task-item p,
 .preview-pane.markdown-visual-editor .ProseMirror [data-type='taskItem'] p {
   margin: 0;
+}
+
+/* Default reading polish (subset of docs/theme-example/snippets/editor-polish.css) */
+.preview-pane.markdown-visual-editor .ProseMirror hr {
+  border: none;
+  height: 1px;
+  margin: 2rem auto;
+  max-width: min(var(--editor-column-width), 100%);
+  opacity: 0.85;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--border-strong) 55%, transparent),
+    transparent
+  );
 }
 

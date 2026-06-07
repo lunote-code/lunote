@@ -2,6 +2,7 @@ import {
   MERMAID_CSS_BACKGROUND,
   MERMAID_CSS_ACCENT,
   MERMAID_CSS_BORDER,
+  MERMAID_CSS_EDGE,
   MERMAID_CSS_ELEVATED,
   MERMAID_CSS_PANEL,
   MERMAID_CSS_TEXT,
@@ -15,6 +16,7 @@ function resolveMermaidCssColors(colors?: MermaidResolvedColors) {
     elevated: colors?.elevated ?? MERMAID_CSS_ELEVATED,
     text: colors?.text ?? MERMAID_CSS_TEXT,
     border: colors?.border ?? MERMAID_CSS_BORDER,
+    edge: colors?.edge ?? MERMAID_CSS_EDGE,
     accent: colors?.accent ?? MERMAID_CSS_ACCENT,
   }
 }
@@ -75,8 +77,8 @@ export function buildMermaidThemeCss(colors?: MermaidResolvedColors): string {
     foreignObject p {
       font-size: 13px !important;
       color: ${c.text} !important;
-      background: ${c.background} !important;
-      background-color: ${c.background} !important;
+      background: ${c.panel} !important;
+      background-color: ${c.panel} !important;
       white-space: nowrap !important;
       word-break: keep-all !important;
       overflow-wrap: normal !important;
@@ -84,10 +86,27 @@ export function buildMermaidThemeCss(colors?: MermaidResolvedColors): string {
       display: inline-block !important;
     }
     .mermaid .edgePath path,
+    .mermaid .edgePaths path,
+    .mermaid .edges path,
     .mermaid .flowchart-link,
+    .mermaid .messageLine0,
+    .mermaid .messageLine1,
+    .mermaid .actor-line,
     .edgePath path,
-    .flowchart-link {
-      stroke: ${c.border} !important;
+    .edgePaths path,
+    .edges path,
+    .flowchart-link,
+    .messageLine0,
+    .messageLine1,
+    .actor-line {
+      stroke: ${c.edge} !important;
+      stroke-width: 1.75px !important;
+    }
+    .mermaid marker path,
+    .mermaid defs marker path,
+    marker path {
+      fill: ${c.edge} !important;
+      stroke: ${c.edge} !important;
     }
     .mermaid .cluster rect,
     .cluster rect {
@@ -104,9 +123,7 @@ export function buildMermaidThemeCss(colors?: MermaidResolvedColors): string {
       stroke: ${c.border} !important;
     }
     .mermaid .actor,
-    .mermaid .actor-line,
-    .actor,
-    .actor-line {
+    .actor {
       stroke: ${c.border} !important;
       fill: ${c.panel} !important;
     }

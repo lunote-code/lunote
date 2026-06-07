@@ -1,4 +1,5 @@
 import type { EphemeralCommandType } from '../editor/ephemeralFormatting'
+import { LUNA_TEXT_COLOR_PRESETS } from '../editor/lunaTextColor'
 import type { EditorContext } from './commandContext'
 import { isCodeGuardedContext } from './commandContext'
 import type { CommandResolver, ResolvedCommand } from './commandResolution.types'
@@ -16,15 +17,11 @@ export const EPHEMERAL_EMPTY_SELECTION_PLACEHOLDER: Record<EphemeralCommandType,
   underline: 'underline',
   strike: 'strike',
   code: 'code',
+  highlight: 'text',
 }
 
 function noop(commandId: string, reason: string): ResolvedCommand {
   return { kind: 'noop', reason, commandId }
-}
-
-function noopExplicit(commandId: string, reason: string): CommandResolver {
-  const resolved: ResolvedCommand = { kind: 'noop-explicit', commandId, reason }
-  return () => resolved
 }
 
 /** For non-editor change commands, use dispatchAppMenuAction directly.*/
@@ -65,6 +62,26 @@ function resolveEditorCommand(
   }
 }
 
+function resolveFmtTextColor(color: string | null, commandId: string): CommandResolver {
+  return (ctx: EditorContext): ResolvedCommand => {
+    if (ctx.isReadonly) return noop(commandId, 'readonly')
+    if (isCodeGuardedContext(ctx)) return noop(commandId, 'code-guard')
+    if (ctx.selectionEmpty) return noop(commandId, 'empty-selection')
+    if (ctx.mode === 'source') {
+      return { kind: 'source-command', commandId, op: { kind: 'set-text-color', color } }
+    }
+    return { kind: 'tiptap-command', commandId, command: { type: 'setTextColor', color } }
+  }
+}
+
+const FMT_TEXT_COLOR_RESOLVERS: Record<string, CommandResolver> = Object.fromEntries([
+  ...LUNA_TEXT_COLOR_PRESETS.map(
+    (preset) =>
+      [`fmt-text-color-${preset.id}`, resolveFmtTextColor(preset.value, `fmt-text-color-${preset.id}`)] as const,
+  ),
+  ['fmt-text-color-default', resolveFmtTextColor(null, 'fmt-text-color-default')],
+])
+
 // ─────────────────────────────────────────────────────────────
 // COMMAND_RESOLUTION_REGISTRY
 //Each commandId must register a resolver here or mark runtime:'noop' in the manifest
@@ -76,17 +93,17 @@ export const COMMAND_RESOLUTION_REGISTRY: Record<string, CommandResolver> = {
   'fmt-italic': resolveFmtEphemeral('italic', 'fmt-italic'),
   'fmt-underline': resolveFmtEphemeral('underline', 'fmt-underline'),
   'fmt-strike': resolveFmtEphemeral('strike', 'fmt-strike'),
+  'fmt-highlight': resolveFmtEphemeral('highlight', 'fmt-highlight'),
   'fmt-inline-code': resolveFmtEphemeral('code', 'fmt-inline-code'),
 
   //── Inline / block format ───────────────────────────────────────
-  'fmt-ul': resolveEditorCommand('fmt-ul', { type: 'bulletList' }, { kind: 'insert-prefix-line', prefix: '- ' }),
-  'fmt-ol': resolveEditorCommand('fmt-ol', { type: 'orderedList' }, { kind: 'insert-prefix-line', prefix: '1. ' }),
   'fmt-link': resolveEditorCommand('fmt-link', { type: 'link' }, { kind: 'insert-link' }),
   'fmt-image': delegateApp('fmt-image'),
   'fmt-image-insert-local': delegateApp('fmt-image-insert-local'),
   'fmt-inline-math': resolveEditorCommand('fmt-inline-math', { type: 'inlineMath' }, { kind: 'surround-selection', left: '$', right: '$' }),
   'fmt-comment': resolveEditorCommand('fmt-comment', { type: 'comment' }, { kind: 'surround-selection', left: '<!-- ', right: ' -->' }),
   'fmt-clear-style': resolveEditorCommand('fmt-clear-style', { type: 'clearFormatting' }, { kind: 'strip-common-marks' }, { allowInCode: true }),
+  ...FMT_TEXT_COLOR_RESOLVERS,
 
   //fmt-link-open / fmt-link-copy: non-editor changes, go directly to dispatchAppMenuAction
   'fmt-link-open': delegateApp('fmt-link-open'),
@@ -118,8 +135,7 @@ export const COMMAND_RESOLUTION_REGISTRY: Record<string, CommandResolver> = {
   'fmt-image-root-dir': delegateApp('fmt-image-root-dir'),
   'fmt-image-global-settings': delegateApp('fmt-image-global-settings'),
   // fmt-image-zoom-* handled by prefix match in executeManifestCommand
-  // fmt-image-rename: noop-explicit — functionality not implemented
-  'fmt-image-rename': noopExplicit('fmt-image-rename', 'not-implemented'),
+  'fmt-image-rename': delegateApp('fmt-image-rename'),
 
   //──Paragraph ─────────────────────────────────────────────
   'para-h1': resolveEditorCommand('para-h1', { type: 'heading', level: 1 }, { kind: 'insert-prefix-line', prefix: '# ' }),
@@ -181,11 +197,10 @@ export const COMMAND_RESOLUTION_REGISTRY: Record<string, CommandResolver> = {
   'edit-replace-next': delegateApp('edit-replace-next'),
   'edit-jump-to-selection': delegateApp('edit-jump-to-selection'),
 
-  // stub commands — explicitly marked noop in manifest, resolvers reflect that
-  'edit-eol-crlf': noopExplicit('edit-eol-crlf', 'not-implemented'),
-  'edit-eol-lf': noopExplicit('edit-eol-lf', 'not-implemented'),
-  'edit-indent-first-line': noopExplicit('edit-indent-first-line', 'not-implemented'),
-  'edit-show-br': noopExplicit('edit-show-br', 'not-implemented'),
+  'edit-eol-crlf': delegateApp('edit-eol-crlf'),
+  'edit-eol-lf': delegateApp('edit-eol-lf'),
+  'edit-indent-first-line': delegateApp('edit-indent-first-line'),
+  'edit-show-br': delegateApp('edit-show-br'),
   'edit-emoji': resolveEditorCommand('edit-emoji', { type: 'openEmojiPicker' }, { kind: 'open-emoji-picker' }),
 
   //── View/Window/Document (all delegate-app) ─────────────────
@@ -194,17 +209,29 @@ export const COMMAND_RESOLUTION_REGISTRY: Record<string, CommandResolver> = {
   'file-save-as': delegateApp('file-save-as'),
   'app-quit': delegateApp('app-quit'),
   'file-new': delegateApp('file-new'),
+  'file-new-from-template': delegateApp('file-new-from-template'),
   'file-new-tab': delegateApp('file-new-tab'),
   'file-new-window': delegateApp('file-new-window'),
+  'daily-note-open': delegateApp('daily-note-open'),
+  'daily-note-open-yesterday': delegateApp('daily-note-open-yesterday'),
+  'daily-note-open-tomorrow': delegateApp('daily-note-open-tomorrow'),
+  'template-edit-default': delegateApp('template-edit-default'),
+  'template-edit-daily': delegateApp('template-edit-daily'),
+  'template-open-folder': delegateApp('template-open-folder'),
+  'template-preferences': delegateApp('template-preferences'),
   'file-open-file': delegateApp('file-open-file'),
   'open-folder': delegateApp('open-folder'),
   'file-recent-placeholder': delegateApp('file-recent-placeholder'),
+  'file-clear-recent': delegateApp('file-clear-recent'),
+  'file-close': delegateApp('file-close'),
   'file-close-workspace': delegateApp('file-close-workspace'),
   'file-show-intro': delegateApp('file-show-intro'),
   'file-reveal': delegateApp('file-reveal'),
   'file-delete': delegateApp('file-delete'),
   'file-copy-path': delegateApp('file-copy-path'),
   'file-rename': delegateApp('file-rename'),
+  'file-history-open': delegateApp('file-history-open'),
+  'file-history-create-snapshot': delegateApp('file-history-create-snapshot'),
   'file-revert': delegateApp('file-revert'),
   'file-save-all': delegateApp('file-save-all'),
   'file-import': delegateApp('file-import'),
@@ -217,6 +244,8 @@ export const COMMAND_RESOLUTION_REGISTRY: Record<string, CommandResolver> = {
   'file-print': delegateApp('file-print'),
   'command-palette-open': delegateApp('command-palette-open'),
   'command-palette-open-alt': delegateApp('command-palette-open'),
+  'toggle-source-mode': delegateApp('toggle-source-mode'),
+  'toggle-focus': delegateApp('toggle-focus'),
   'toggle-sidebar': delegateApp('toggle-sidebar'),
   'view-sidebar-outline': delegateApp('view-sidebar-outline', 'toggle-sidebar-outline'),
   'view-sidebar-files': delegateApp('view-sidebar-files', 'toggle-sidebar-files'),
@@ -233,6 +262,7 @@ export const COMMAND_RESOLUTION_REGISTRY: Record<string, CommandResolver> = {
   'win-move-resize-half-top': delegateApp('win-move-resize-half-top'),
   'win-move-resize-half-bottom': delegateApp('win-move-resize-half-bottom'),
   'win-tile-full': delegateApp('win-tile-full'),
+  'help-shortcuts': delegateApp('help-shortcuts'),
   'help-about': delegateApp('help-about'),
   'help-privacy': delegateApp('help-privacy'),
   'help-website': delegateApp('help-website'),

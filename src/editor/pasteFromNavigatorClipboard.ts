@@ -1,5 +1,7 @@
+import { getFocusedCodeBlockCmView, isCodeBlockCmFocused } from './codeBlock/cm/codeBlockCmFocus'
 import { bridgeReplaceSelection } from './editorMutationBridge'
 import { recordSuccessfulPaste, shouldSkipDuplicatePaste, computePasteFingerprint } from './pasteDedupe'
+import { debugPasteScroll, logPasteScrollPhase, startPasteScrollTrace } from './pasteScrollDebug'
 import {
   applyWebviewPasteFallback,
   readNavigatorClipboardImageFile,
@@ -40,23 +42,40 @@ export async function pasteFromNavigatorClipboard(options: {
     return true
   }
 
-  const pmView =
+  let pmView =
     mode === 'visual' ? options.visualEditorRef?.current?.getEditor()?.view ?? null : null
-  const cmView = mode === 'source' ? options.sourceViewRef?.current ?? null : null
+  let cmView = mode === 'source' ? options.sourceViewRef?.current ?? null : null
+
+  if (mode === 'visual' && isCodeBlockCmFocused()) {
+    const codeBlockCm = getFocusedCodeBlockCmView()
+    if (codeBlockCm) {
+      pmView = null
+      cmView = codeBlockCm
+    }
+  }
 
   if (pmView || cmView) {
+    startPasteScrollTrace({
+      source: plainOnly ? 'menu-paste-plain' : 'menu-paste',
+      pmView,
+      context: { mode, plainOnly, textPreviewLength: textPreview.length },
+    })
+    logPasteScrollPhase('pasteFromNavigatorClipboard-start', { pmView, mode, plainOnly })
     const ok = await applyWebviewPasteFallback({
       pmView,
       cmView,
       onPasteImage: options.onPasteImage,
       prefetchedText: textPreview || undefined,
     })
+    logPasteScrollPhase('pasteFromNavigatorClipboard-done', { pmView, ok })
     if (ok && fingerprint) recordSuccessfulPaste(fingerprint)
     return ok
   }
 
   const text = textPreview || (await readNavigatorClipboardText())
   if (text) {
+    debugPasteScroll('pasteFromNavigatorClipboard-bridge-replace', { textLength: text.length })
+    startPasteScrollTrace({ source: 'bridge-replace', context: { textLength: text.length } })
     bridgeReplaceSelection(text)
     if (fingerprint) recordSuccessfulPaste(fingerprint)
     return true

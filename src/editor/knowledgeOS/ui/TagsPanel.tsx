@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { EmptyState } from '../../../design-system/EmptyState'
 import { getDocumentMeta, getDocumentsByTag, listAllTags } from '../../knowledgeRuntime'
 import { asMetadataResolvedTarget, dispatchKnowledgeNavigate } from './interactionTransaction'
 import { useOsRevision } from './useKnowledgeOSSlice'
@@ -40,7 +41,7 @@ export function TagsPanel() {
         aria-label={t('knowledge.tags.filter.aria')}
       />
       {tags.length === 0 ? (
-        <p className="kos-panel-muted">{t('knowledge.tags.empty')}</p>
+        <EmptyState variant="compact" icon="tags" title={t('knowledge.tags.empty')} />
       ) : (
         <ul className="kos-virtual-list kos-tags-list">
           {tags.map((tag) => (

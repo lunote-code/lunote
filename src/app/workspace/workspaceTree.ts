@@ -114,3 +114,32 @@ export function filterSidebarWorkspaceTree(nodes: FsTreeNode[]): FsTreeNode[] {
   }
   return out
 }
+
+function nodeMatchesFilterQuery(node: FsTreeNode, query: string, rootDir: string): boolean {
+  if (node.name.toLowerCase().includes(query)) return true
+  const rel = relativePathUnderRoot(rootDir, node.path)
+  return Boolean(rel && rel.toLowerCase().includes(query))
+}
+
+/** Client-side filename / path filter for the sidebar file tree.*/
+export function filterWorkspaceTreeByQuery(nodes: FsTreeNode[], rawQuery: string, rootDir: string): FsTreeNode[] {
+  const query = rawQuery.trim().toLowerCase()
+  if (!query) return nodes
+
+  const out: FsTreeNode[] = []
+  for (const n of nodes) {
+    if (n.kind === 'dir') {
+      const children = filterWorkspaceTreeByQuery(n.children, query, rootDir)
+      if (children.length > 0 || n.name.toLowerCase().includes(query)) {
+        out.push({ ...n, children })
+      }
+    } else if (nodeMatchesFilterQuery(n, query, rootDir)) {
+      out.push(n)
+    }
+  }
+  return out
+}
+
+export function countFilesInTree(nodes: FsTreeNode[]): number {
+  return nodes.reduce((acc, n) => acc + (n.kind === 'file' ? 1 : countFilesInTree(n.children)), 0)
+}

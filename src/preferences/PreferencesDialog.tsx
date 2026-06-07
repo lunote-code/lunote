@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { AlertDialog } from '../components/AlertDialog'
+import { Icon } from '../design-system/icons'
 import { isTauri } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import { useI18n } from '../i18n'
@@ -10,6 +11,7 @@ import {
   isPreferencesDialogOpen,
   openPreferencesDialog,
   subscribePreferencesDialog,
+  takePendingPreferencesTab,
 } from './preferencesDialogStore'
 import {
   getPendingRestartReason,
@@ -46,6 +48,8 @@ export type PreferencesDialogProps = {
   /** Controlled mode: choose one from the global store; only use `preferencesDialogStore` when not passed*/
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  /** Current workspace root for per-vault template / daily note settings */
+  workspaceRoot?: string
 }
 
 function readStoredTab(): PrefsTabId {
@@ -81,8 +85,13 @@ function buildCustomThemeFileName(fileName: string, themeId: string): string {
   return normalized.toLowerCase().endsWith('.json') ? normalized : `${normalized}${ext}`
 }
 
-export function PreferencesDialog({ open: openProp, onOpenChange }: PreferencesDialogProps = {}) {
+export function PreferencesDialog({
+  open: openProp,
+  onOpenChange,
+  workspaceRoot = '',
+}: PreferencesDialogProps = {}) {
   const dlgRef = useRef<HTMLDialogElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const titleId = useId()
   const { t, effectiveLocale } = useI18n()
   const [storeOpen, setStoreOpen] = useState(() => isPreferencesDialogOpen())
@@ -111,7 +120,15 @@ export function PreferencesDialog({ open: openProp, onOpenChange }: PreferencesD
   useEffect(() => {
     if (isControlled) return
     return subscribePreferencesDialog(() => {
-      setStoreOpen(isPreferencesDialogOpen())
+      const nowOpen = isPreferencesDialogOpen()
+      setStoreOpen(nowOpen)
+      if (nowOpen) {
+        const tab = takePendingPreferencesTab()
+        if (tab) {
+          setActiveTab(tab)
+          writeStoredTab(tab)
+        }
+      }
     })
   }, [isControlled])
 
@@ -138,6 +155,9 @@ export function PreferencesDialog({ open: openProp, onOpenChange }: PreferencesD
     if (!dlg) return
     if (isOpen) {
       if (!dlg.open) dlg.showModal()
+      requestAnimationFrame(() => {
+        searchInputRef.current?.focus({ preventScroll: true })
+      })
     } else if (dlg.open) {
       dlg.close()
     }
@@ -175,7 +195,7 @@ export function PreferencesDialog({ open: openProp, onOpenChange }: PreferencesD
       const selected = await open({
         directory: true,
         multiple: false,
-        title: 'Choose asset storage folder',
+        title: t('settings.assets.absolutePath.selectFolder'),
       })
       if (typeof selected !== 'string') return
       await setSetting('assets.storage.mode', 'absolute_path')
@@ -341,7 +361,7 @@ export function PreferencesDialog({ open: openProp, onOpenChange }: PreferencesD
             aria-label={t('prefs.close')}
             onClick={requestClose}
           >
-            ×
+            <Icon name="close" size="sm" tone="muted" />
           </button>
         </header>
         <div className="prefs-layout">
@@ -352,6 +372,7 @@ export function PreferencesDialog({ open: openProp, onOpenChange }: PreferencesD
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             visibleTabs={visibleTabs}
+            searchInputRef={searchInputRef}
           />
           {visibleTabs.length === 0 ? (
             <div className="prefs-content prefs-content-empty" role="status">
@@ -362,6 +383,8 @@ export function PreferencesDialog({ open: openProp, onOpenChange }: PreferencesD
               t={t}
               activeTab={panelTab}
               effectiveLocale={effectiveLocale}
+              workspaceRoot={workspaceRoot}
+              searchQuery={searchQuery}
               pendingRestart={pendingRestart}
               onSettingAction={onSettingAction}
               onSettingFile={onSettingFile}

@@ -34,6 +34,7 @@ export const SHELL_TO_UI_LABEL_KEY: Record<string, string> = {
   file_save: 'menu.file.save',
   file_copy_path: 'menu.file.copyPath',
   file_rename: 'menu.file.rename',
+  file_history_bar: 'menu.file.history',
   file_revert: 'menu.file.revert',
   file_save_all: 'menu.file.saveAll',
   file_import: 'menu.file.import',

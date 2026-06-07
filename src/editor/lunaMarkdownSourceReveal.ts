@@ -280,14 +280,37 @@ function shouldSuppressBlockRevealAtPos(
   return false
 }
 
-function resolveRevealableBlockAtPos(doc: PMNode, pos: number): { from: number; to: number; node: PMNode } | null {
-  if (shouldSuppressBlockRevealAtPos(doc, pos, null)) return null
+/** Headings only reveal on dblclick when the pointer is inside the heading text, not on the next line below. */
+function isPosInsideHeadingContent(node: PMNode, from: number, pos: number): boolean {
+  const to = from + node.nodeSize
+  const innerFrom = from + 1
+  const innerTo = to - 1
+  if (innerTo <= innerFrom) return pos >= from && pos <= to
+  return pos >= innerFrom && pos <= innerTo
+}
+
+function resolveRevealableBlockAtPos(
+  doc: PMNode,
+  pos: number,
+  target?: HTMLElement | null,
+): { from: number; to: number; node: PMNode } | null {
+  if (shouldSuppressBlockRevealAtPos(doc, pos, target ?? null)) return null
   let bestDist = Infinity
   let best: { from: number; to: number; node: PMNode } | null = null
   doc.descendants((node, from) => {
     if (!node.isBlock) return
     if (!BLOCK_REVEAL_TYPES.has(node.type.name)) return
     const to = from + node.nodeSize
+    if (node.type.name === 'heading') {
+      if (!isPosInsideHeadingContent(node, from, pos)) return
+      if (target && !target.closest('.pm-heading-block')) return
+      const dist = 0
+      if (dist < bestDist) {
+        bestDist = dist
+        best = { from, to, node }
+      }
+      return
+    }
     const dist = pos < from ? from - pos : pos > to ? pos - to : 0
     if (dist > 2) return
     if (dist < bestDist) {
@@ -770,7 +793,7 @@ export const LunaMarkdownSourceReveal = Extension.create({
               if (pos == null) return false
               if (shouldSuppressBlockRevealAtPos(view.state.doc, pos, target)) return false
 
-              const block = resolveRevealableBlockAtPos(view.state.doc, pos)
+              const block = resolveRevealableBlockAtPos(view.state.doc, pos, target)
               if (block) {
                 let markdown: string
                 if (block.node.type.name === 'footnoteDef') {

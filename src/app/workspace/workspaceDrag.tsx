@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { isHiddenAssetFolderName, parentDirectoryOfFile, pathsEqual } from '../../lib/workspacePathUtils'
+import { isHiddenAssetFolderName, isPathInsideDirectory, parentDirectoryOfFile, pathsEqual } from '../../lib/workspacePathUtils'
 import type { FsTreeNode } from './types'
 
 export const WORKSPACE_FILE_DRAG_MIME = 'application/x-luna-workspace-file'
@@ -56,11 +56,32 @@ export function workspaceParentDir(rootDir: string, filePath: string): string {
   return parent
 }
 
-export function isValidMoveDest(filePath: string, destDir: string): boolean {
+export function isValidMoveDest(sourcePath: string, destDir: string): boolean {
   const norm = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/u, '')
   const destName = destDir.replace(/\\/g, '/').split('/').pop() ?? ''
   if (isHiddenAssetFolderName(destName)) return false
-  return norm(parentDirectoryOfFile(filePath)) !== norm(destDir)
+  const sourceNorm = norm(sourcePath)
+  const destNorm = norm(destDir)
+  if (pathsEqual(sourceNorm, destNorm)) return false
+  if (isPathInsideDirectory(destNorm, sourcePath)) return false
+  return norm(parentDirectoryOfFile(sourcePath)) !== destNorm
+}
+
+export function isValidBulkMoveDest(sourcePaths: string[], destDir: string): boolean {
+  if (sourcePaths.length === 0) return false
+  return sourcePaths.every((p) => isValidMoveDest(p, destDir))
+}
+
+export function normalizeDraggingPaths(dragging: string[] | string | null | undefined): string[] {
+  if (!dragging) return []
+  return Array.isArray(dragging) ? dragging : [dragging]
+}
+
+export function isWorkspacePathDragging(
+  dragging: string[] | string | null | undefined,
+  path: string,
+): boolean {
+  return normalizeDraggingPaths(dragging).some((p) => pathsEqual(p, path))
 }
 
 export type WorkspaceDragTarget = {
@@ -73,9 +94,9 @@ export type WorkspaceFolderDropProps = {
   folderPath: string
   folderName: string
   dragOverTarget?: WorkspaceDragTarget | null
-  draggingFilePath?: string | null
+  draggingFilePath?: string[] | string | null
   onDragOverTarget?: (target: WorkspaceDragTarget | null) => void
-  onMoveFileToFolder?: (filePath: string, destDir: string) => void
+  onMoveFileToFolder?: (sourcePath: string | string[], destDir: string, isDirectory?: boolean) => void
   className?: string
   style?: CSSProperties
   children: ReactNode
@@ -97,7 +118,7 @@ export function WorkspaceFolderDropTarget({
   const isAssets = isHiddenAssetFolderName(folderName)
   const isDropTarget = dragOverTarget?.kind === 'folder' && pathsEqual(dragOverTarget.anchorPath, folderPath)
   const canAcceptWorkspaceDrag = (e?: { dataTransfer: DataTransfer | null }) =>
-    Boolean(draggingFilePath) || (e ? isWorkspaceFileDragEvent(e) : false)
+    normalizeDraggingPaths(draggingFilePath).length > 0 || (e ? isWorkspaceFileDragEvent(e) : false)
   const emitFolderTarget = () => {
     onDragOverTarget?.({ destDir: folderPath, kind: 'folder', anchorPath: folderPath })
   }
@@ -145,9 +166,10 @@ export function WorkspaceFolderDropTarget({
         e.preventDefault()
         e.stopPropagation()
         onDragOverTarget?.(null)
-        const filePath = draggingFilePath || readWorkspaceFileDragData(e)
+        const dragging = normalizeDraggingPaths(draggingFilePath)
+        const filePath = dragging[0] ?? readWorkspaceFileDragData(e)
         if (!filePath || !isValidMoveDest(filePath, folderPath)) return
-        onMoveFileToFolder(filePath, folderPath)
+        onMoveFileToFolder(dragging.length > 1 ? dragging : filePath, folderPath)
       }}
     >
       {children}

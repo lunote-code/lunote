@@ -1,15 +1,10 @@
-type BootScreenProps = {
-  title: string
-  message?: string
-  detail?: string
-  onRetry?: () => void
-}
+import { getBootMessages } from '../i18n/bootStrings'
 
-function BootFrame({ title, message, detail, onRetry }: BootScreenProps) {
+export function BootErrorScreen({ error, onRetry }: { error: string; onRetry?: () => void }) {
+  const boot = getBootMessages()
   return (
     <div
-      className="boot-screen"
-      role="status"
+      role="alert"
       style={{
         height: '100%',
         display: 'flex',
@@ -23,23 +18,21 @@ function BootFrame({ title, message, detail, onRetry }: BootScreenProps) {
         fontFamily: 'var(--font-ui, system-ui, sans-serif)',
       }}
     >
-      <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>{title}</h1>
-      {message ? <p style={{ margin: 0, maxWidth: 480, textAlign: 'center', opacity: 0.85 }}>{message}</p> : null}
-      {detail ? (
-        <pre
-          style={{
-            margin: 0,
-            maxWidth: 'min(640px, 92vw)',
-            padding: 12,
-            borderRadius: 8,
-            fontSize: 12,
-            overflow: 'auto',
-            background: 'color-mix(in srgb, var(--text-primary, #fff) 6%, transparent)',
-          }}
-        >
-          {detail}
-        </pre>
-      ) : null}
+      <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>{boot.failedTitle}</h1>
+      <p style={{ margin: 0, maxWidth: 480, textAlign: 'center', opacity: 0.85 }}>{boot.failedMessage}</p>
+      <pre
+        style={{
+          margin: 0,
+          maxWidth: 'min(640px, 92vw)',
+          padding: 12,
+          borderRadius: 8,
+          fontSize: 12,
+          overflow: 'auto',
+          background: 'color-mix(in srgb, var(--text-primary, #fff) 6%, transparent)',
+        }}
+      >
+        {error}
+      </pre>
       {onRetry ? (
         <button
           type="button"
@@ -50,28 +43,13 @@ function BootFrame({ title, message, detail, onRetry }: BootScreenProps) {
             borderRadius: 8,
             border: '1px solid color-mix(in srgb, var(--text-primary, #fff) 20%, transparent)',
             background: 'var(--accent, #3b82f6)',
-            color: '#fff',
+            color: 'var(--luna-on-accent, var(--surface-editor, #fff))',
             cursor: 'pointer',
           }}
         >
-          Retry
+          {boot.retry}
         </button>
       ) : null}
     </div>
-  )
-}
-
-export function BootLoadingScreen() {
-  return <BootFrame title="Luna Note" message="Starting..." />
-}
-
-export function BootErrorScreen({ error, onRetry }: { error: string; onRetry?: () => void }) {
-  return (
-    <BootFrame
-      title="Startup failed"
-      message="The app failed to complete initialization, but you can try again. If it continues to fail, please check the error message below."
-      detail={error}
-      onRetry={onRetry}
-    />
   )
 }

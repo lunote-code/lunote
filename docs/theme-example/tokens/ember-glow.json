@@ -1,0 +1,22 @@
+{
+  "id": "ember-glow",
+  "name": "Ember Glow",
+  "label": "Ember Glow",
+  "family": "ember-glow",
+  "variant": "dark",
+  "colors": {
+    "background": "#18120e",
+    "foreground": "#f5ebe4",
+    "primary": "#f97316",
+    "border": "rgba(245, 235, 228, 0.11)",
+    "muted": "#9a8478"
+  },
+  "radius": {
+    "card": 14,
+    "control": 10
+  },
+  "spacing": {
+    "row": 16,
+    "section": 28
+  }
+}

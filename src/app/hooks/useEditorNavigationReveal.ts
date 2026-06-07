@@ -2,6 +2,7 @@ import { useCallback, useMemo, type MutableRefObject, type RefObject } from 'rea
 
 import { scrollCodeMirrorViewToLine } from '../../editor/caretAnchorScroll'
 import { jumpCodeMirrorToOutlineHeading } from '../../editor/cmOutlineJump'
+import { getSourceModeIdentity } from '../../editor/sourceModeIdentity'
 import {
   resolveEditorAnchor,
   type EditorAnchorRevealRequest,
@@ -45,9 +46,12 @@ export function useEditorNavigationReveal(deps: EditorNavigationRevealDeps) {
       }
       const v = editorViewRef.current
       if (!v) return
-      jumpCodeMirrorToOutlineHeading(v, id, contentRef.current)
+      const path = activePathRef.current
+      const sourceMd =
+        (path && path !== 'scratch' ? getSourceModeIdentity(path) : undefined) ?? contentRef.current
+      jumpCodeMirrorToOutlineHeading(v, id, sourceMd)
     },
-    [contentRef, editorViewRef, mainPaneMode, visualEditorRef],
+    [activePathRef, contentRef, editorViewRef, mainPaneMode, visualEditorRef],
   )
 
   const editorNavigationReadinessProbe = useMemo<EditorNavigationReadinessProbe>(
@@ -78,29 +82,12 @@ export function useEditorNavigationReveal(deps: EditorNavigationRevealDeps) {
     return contentRef.current
   }, [contentRef, editorViewRef, mainPaneModeRef, visualEditorRef])
 
-  const scrollEditorToMarkdownLine = useCallback(
-    (line1Based: number, markdownText?: string) => {
-      if (line1Based < 1) return
-      const md = markdownText ?? contentRef.current
-      if (mainPaneModeRef.current === 'visual') {
-        requestAnimationFrame(() => {
-          const dom = document.querySelector('.tiptap-editor-shell .ProseMirror') as HTMLElement | null
-          if (!dom) return
-          const lines = md.split('\n')
-          const ratio = (line1Based - 1) / Math.max(1, lines.length - 1)
-          const max = dom.scrollHeight - dom.clientHeight
-          if (max > 0) {
-            dom.scrollTop = Math.max(0, Math.min(max, ratio * max))
-          }
-        })
-        return
-      }
-      const v = editorViewRef.current
-      if (!v) return
-      scrollCodeMirrorViewToLine(v, line1Based)
-    },
-    [contentRef, editorViewRef, mainPaneModeRef],
-  )
+  const scrollSourceEditorToMarkdownLine = useCallback((line1Based: number) => {
+    if (line1Based < 1) return
+    const v = editorViewRef.current
+    if (!v) return
+    scrollCodeMirrorViewToLine(v, line1Based)
+  }, [editorViewRef])
 
   const applyNavigationAnchorReveal = useCallback(
     async (
@@ -127,7 +114,7 @@ export function useEditorNavigationReveal(deps: EditorNavigationRevealDeps) {
           const handled = await visualEditorRef.current?.revealNavigationAnchor({ line: 1 })
           return Boolean(handled)
         }
-        scrollEditorToMarkdownLine(1, request.markdown)
+        scrollSourceEditorToMarkdownLine(1)
         return true
       }
 
@@ -139,10 +126,10 @@ export function useEditorNavigationReveal(deps: EditorNavigationRevealDeps) {
         })
         return Boolean(handled)
       }
-      scrollEditorToMarkdownLine(anchor.line, request.markdown)
+      scrollSourceEditorToMarkdownLine(anchor.line)
       return true
     },
-    [scrollEditorToMarkdownLine, visualEditorRef],
+    [scrollSourceEditorToMarkdownLine, visualEditorRef],
   )
 
   const revealNavigationAnchor = useCallback(
@@ -181,9 +168,9 @@ export function useEditorNavigationReveal(deps: EditorNavigationRevealDeps) {
     [
       activePathRef,
       applyNavigationAnchorReveal,
-      contentRef,
       editorNavigationReadinessProbe,
       mainPaneModeRef,
+      resolveActiveMarkdown,
     ],
   )
 
@@ -227,7 +214,7 @@ export function useEditorNavigationReveal(deps: EditorNavigationRevealDeps) {
         { navigationGeneration },
       )
     },
-    [contentRef, revealNavigationAnchor],
+    [activePathRef, contentRef, revealNavigationAnchor, resolveActiveMarkdown],
   )
 
   return {

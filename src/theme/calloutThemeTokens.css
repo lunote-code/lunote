@@ -1,0 +1,27 @@
+/**
+ * Callout type accents — preset-aware via --link / --accent.
+ * Shared by editor (tokens.css) and export (markdown.css).
+ */
+:root,
+html.markdown-export-root,
+body.markdown-export-root,
+div.markdown-export-root {
+  --luna-callout-note: var(--link, var(--accent));
+  --luna-callout-info: var(--link, var(--accent));
+  --luna-callout-tip: var(--luna-tag-green, #10b981);
+  --luna-callout-success: color-mix(in srgb, var(--luna-tag-green, #22c55e) 78%, var(--accent));
+  --luna-callout-important: color-mix(in srgb, var(--accent) 42%, var(--luna-tag-purple, #8b5cf6));
+  --luna-callout-warning: var(--luna-tag-orange, #e67e22);
+  --luna-callout-caution: var(--luna-color-danger, #dc2626);
+  --luna-callout-danger: var(--luna-color-danger-muted, #b91c1c);
+}
+
+html[data-theme='dark'],
+body.markdown-export-root[data-theme='dark'],
+div.markdown-export-root[data-theme='dark'] {
+  --luna-callout-tip: color-mix(in srgb, var(--luna-tag-green, #10b981) 62%, var(--text-primary));
+  --luna-callout-success: color-mix(in srgb, var(--luna-tag-green, #22c55e) 62%, var(--text-primary));
+  --luna-callout-warning: color-mix(in srgb, var(--luna-tag-orange, #e67e22) 62%, var(--text-primary));
+  --luna-callout-caution: var(--luna-color-danger-soft, #fca5a5);
+  --luna-callout-danger: var(--luna-color-danger-soft, #fca5a5);
+}

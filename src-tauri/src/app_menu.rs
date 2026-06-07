@@ -3,16 +3,46 @@
 
 use tauri::{AppHandle, Manager, Runtime};
 
+#[cfg(target_os = "macos")]
+fn hide_application<R: Runtime>(app: &AppHandle<R>) {
+  let _ = app.hide();
+}
+
+#[cfg(not(target_os = "macos"))]
+fn hide_application<R: Runtime>(app: &AppHandle<R>) {
+  if let Some(w) = app.get_webview_window("main") {
+    let _ = w.hide();
+    return;
+  }
+  for w in app.webview_windows().values() {
+    let _ = w.hide();
+  }
+}
+
+#[cfg(target_os = "macos")]
+fn show_all_application<R: Runtime>(app: &AppHandle<R>) {
+  let _ = app.show();
+  for w in app.webview_windows().values() {
+    let _ = w.show();
+    let _ = w.unminimize();
+  }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn show_all_application<R: Runtime>(app: &AppHandle<R>) {
+  for w in app.webview_windows().values() {
+    let _ = w.show();
+    let _ = w.unminimize();
+  }
+}
+
 /// Handle native shell menu items without forwarding the frontend.
 pub fn handle_native_shell_menu<R: Runtime>(app: &AppHandle<R>, id: &str) -> bool {
   match id {
     //app-quit: No hard exit, forward app-menu by lib.rs on_menu_event, save before closing the front end
     "app-quit" => false,
     "app-hide" => {
-      #[cfg(target_os = "macos")]
-      {
-        let _ = app.hide();
-      }
+      hide_application(app);
       true
     }
     "app-hide-others" => {
@@ -30,14 +60,7 @@ pub fn handle_native_shell_menu<R: Runtime>(app: &AppHandle<R>, id: &str) -> boo
       true
     }
     "app-show-all" => {
-      #[cfg(target_os = "macos")]
-      {
-        let _ = app.show();
-      }
-      for w in app.webview_windows().values() {
-        let _ = w.show();
-        let _ = w.unminimize();
-      }
+      show_all_application(app);
       true
     }
     "win-close" => {

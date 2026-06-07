@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useRef, useState } from 'react'
+import { useFocusTrap } from '../lib/useFocusTrap'
 
 export type ConfirmDialogVariant = 'default' | 'warning'
 
@@ -23,24 +24,21 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  useEffect(() => {
-    if (!open) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCancel()
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [open, onCancel])
+  const dialogRef = useRef<HTMLDivElement | null>(null)
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null)
+  const [dialogEl, setDialogEl] = useState<HTMLDivElement | null>(null)
+
+  useFocusTrap(open, dialogEl, { initialFocusRef: cancelButtonRef, onEscape: onCancel })
 
   if (!open) return null
 
   return (
-    <div
-      className="about-modal-backdrop confirm-modal-backdrop"
-      role="presentation"
-      onClick={onCancel}
-    >
+    <div className="about-modal-backdrop confirm-modal-backdrop" role="presentation">
       <div
+        ref={(el) => {
+          dialogRef.current = el
+          setDialogEl(el)
+        }}
         className={`about-modal confirm-modal confirm-modal-${variant}`}
         role="alertdialog"
         aria-modal="true"
@@ -74,7 +72,12 @@ export function ConfirmDialog({
           {message}
         </p>
         <div className="rename-modal-actions confirm-modal-actions">
-          <button type="button" className="about-modal-close rename-modal-cancel" onClick={onCancel}>
+          <button
+            ref={cancelButtonRef}
+            type="button"
+            className="about-modal-close rename-modal-cancel"
+            onClick={onCancel}
+          >
             {cancelLabel}
           </button>
           <button

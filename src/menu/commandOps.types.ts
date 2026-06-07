@@ -15,6 +15,7 @@ export type SourceEditorOp =
   | { kind: 'insert-paragraph-below' }
   | { kind: 'surround-selection'; left: string; right: string }
   | { kind: 'strip-common-marks' }
+  | { kind: 'set-text-color'; color: string | null }
   //New: Structure insertion
   | { kind: 'insert-literal'; text: string }        //Directly insert fixed text (hr/toc/footnote)
   | { kind: 'indent-more' }                         //List/code indentation increased

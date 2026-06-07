@@ -1,0 +1,236 @@
+/*Enclosed code block shell with language label (scrolling only occurs in the inner pre, to avoid misalignment with the figure double scroll bar)*/
+.preview-pane .markdown-pre-figure,
+.markdown-body .markdown-pre-figure {
+  /*Leave a breathing gap between the line number column and the text to avoid sticking to the gutter line by line.*/
+  --code-gutter-column-gap: 12px;
+  /*Typora sense: leaving a more obvious breathing area with the upper and lower text*/
+  margin: 1.55rem 0;
+  border-radius: var(--radius-lg);
+  border: var(--hairline) solid var(--border-subtle);
+  box-shadow: var(--shadow-soft);
+  min-width: 0;
+  overflow: hidden;
+  background: var(--code-bg);
+}
+
+.preview-pane .markdown-pre-lang,
+.markdown-body .markdown-pre-lang {
+  display: flex;
+  align-items: center;
+  padding: 7px 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+  color: var(--code-lang-fg, var(--text-secondary));
+  background: var(--code-lang-bg, color-mix(in srgb, var(--surface-panel) 82%, var(--code-bg)));
+  border-bottom: var(--hairline) solid var(--border-subtle);
+  user-select: none;
+}
+
+/*The line number is the same as code pre: grid + minmax(0,1fr) constrains super long lines; the line number column is sticky when scrolling horizontally*/
+.preview-pane .markdown-pre-figure > pre.markdown-pre-inner,
+.markdown-body .markdown-pre-figure > pre.markdown-pre-inner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--code-gutter-column-gap);
+  /*start: Both columns are based on the height of the content; the row number column is no longer "pulled up" and there is a large blank space at the bottom but countless*/
+  align-items: start;
+  width: 100%;
+  max-width: 100%;
+  padding: 0 !important;
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  max-height: min(70vh, 560px);
+  overflow: auto;
+  min-width: 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  /*Syntax color is written on .hljs by highlight.js theme; do not set color on pre to avoid overpowering token*/
+}
+
+.preview-pane .markdown-pre-figure > pre.markdown-pre-inner:hover,
+.preview-pane .markdown-pre-figure > pre.markdown-pre-inner:focus-within,
+.markdown-body .markdown-pre-figure > pre.markdown-pre-inner:hover,
+.markdown-body .markdown-pre-figure > pre.markdown-pre-inner:focus-within {
+  scrollbar-color: var(--luna-code-block-scrollbar-thumb) transparent;
+}
+
+.preview-pane .markdown-pre-figure > pre.markdown-pre-inner::-webkit-scrollbar,
+.markdown-body .markdown-pre-figure > pre.markdown-pre-inner::-webkit-scrollbar {
+  width: var(--luna-code-block-scrollbar-size);
+  height: var(--luna-code-block-scrollbar-size);
+}
+
+.preview-pane .markdown-pre-figure > pre.markdown-pre-inner::-webkit-scrollbar-button,
+.markdown-body .markdown-pre-figure > pre.markdown-pre-inner::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.preview-pane .markdown-pre-figure > pre.markdown-pre-inner::-webkit-scrollbar-corner,
+.markdown-body .markdown-pre-figure > pre.markdown-pre-inner::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.preview-pane .markdown-pre-figure > pre.markdown-pre-inner::-webkit-scrollbar-track,
+.markdown-body .markdown-pre-figure > pre.markdown-pre-inner::-webkit-scrollbar-track {
+  margin: 0 6px 2px;
+  background: transparent;
+  border-radius: 999px;
+}
+
+.preview-pane .markdown-pre-figure > pre.markdown-pre-inner::-webkit-scrollbar-thumb,
+.markdown-body .markdown-pre-figure > pre.markdown-pre-inner::-webkit-scrollbar-thumb {
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  transition: background 0.18s ease;
+}
+
+.preview-pane .markdown-pre-figure > pre.markdown-pre-inner:hover::-webkit-scrollbar-thumb,
+.preview-pane .markdown-pre-figure > pre.markdown-pre-inner:focus-within::-webkit-scrollbar-thumb,
+.markdown-body .markdown-pre-figure > pre.markdown-pre-inner:hover::-webkit-scrollbar-thumb,
+.markdown-body .markdown-pre-figure > pre.markdown-pre-inner:focus-within::-webkit-scrollbar-thumb {
+  background: var(--luna-code-block-scrollbar-thumb);
+}
+
+.preview-pane .markdown-pre-figure > pre.markdown-pre-inner::-webkit-scrollbar-thumb:hover,
+.markdown-body .markdown-pre-figure > pre.markdown-pre-inner::-webkit-scrollbar-thumb:hover {
+  background: var(--luna-code-block-scrollbar-thumb-hover);
+}
+
+.preview-pane .markdown-pre-figure > pre.markdown-pre-inner::-webkit-scrollbar-thumb:active,
+.markdown-body .markdown-pre-figure > pre.markdown-pre-inner::-webkit-scrollbar-thumb:active {
+  background: var(--luna-code-block-scrollbar-thumb-active);
+}
+
+.preview-pane .markdown-pre-linenos,
+.markdown-body .markdown-pre-linenos {
+  grid-column: 1;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  align-self: start;
+  padding: var(--code-block-pad-top) 8px var(--code-block-pad-bottom) 12px;
+  user-select: none;
+  font-family: var(--font-code-block);
+  font-size: var(--code-block-font-size);
+  line-height: var(--code-block-line-height);
+  font-variant-numeric: tabular-nums;
+  color: var(--code-gutter-fg, color-mix(in srgb, var(--text-secondary) 92%, var(--surface-preview)));
+  background: var(--code-gutter-bg, var(--code-bg));
+  border-right: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 75%, transparent);
+  box-shadow: 4px 0 12px color-mix(in srgb, #000 6%, transparent);
+}
+
+html[data-theme='light'] .preview-pane .markdown-pre-linenos,
+html[data-theme='light'] .markdown-body .markdown-pre-linenos {
+  box-shadow: 4px 0 10px color-mix(in srgb, var(--border-subtle) 55%, transparent);
+}
+
+.preview-pane .markdown-pre-lineno,
+.markdown-body .markdown-pre-lineno {
+  display: block;
+  line-height: var(--code-block-line-height);
+  padding-right: 6px;
+}
+
+.preview-pane .markdown-pre-figure pre code.hljs,
+.markdown-body .markdown-pre-figure pre code.hljs,
+.preview-pane .markdown-pre-figure pre code,
+.markdown-body .markdown-pre-figure pre code {
+  grid-column: 2;
+  min-width: 0;
+  display: block !important;
+  margin: 0 !important;
+  padding: var(--code-block-pad-top) 16px var(--code-block-pad-bottom) 10px !important;
+  overflow-x: visible;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+  font-family: var(--font-code-block) !important;
+  font-size: var(--code-block-font-size) !important;
+  line-height: var(--code-block-line-height) !important;
+  letter-spacing: 0.02em;
+  font-feature-settings: 'liga' 0, 'calt' 0;
+  background: transparent !important;
+}
+
+/*Excluding the pre in the fence figure (use .markdown-pre-inner for the fence, color alone)*/
+.preview-pane pre:not(.markdown-pre-inner),
+.markdown-body pre:not(.markdown-pre-inner) {
+  background: color-mix(in srgb, var(--code-bg) 94%, var(--surface-preview));
+  color: var(--text-primary);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  overflow-x: auto;
+  border: var(--hairline) solid var(--border-subtle);
+  box-shadow: var(--shadow-soft);
+  margin: 1.55rem 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/*Typora style ==highlight== (remark output is strong.md-mark-highlight, without HTML pipeline)*/
+.markdown-body .md-mark-highlight,
+.preview-pane .md-mark-highlight,
+.preview-pane.markdown-visual-editor .ProseMirror mark.md-mark-highlight,
+.markdown-body strong.md-mark-highlight,
+.preview-pane strong.md-mark-highlight {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--text-primary);
+  padding: 0.08em 0.28em;
+  border-radius: 4px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  font-weight: inherit;
+}
+
+.preview-pane pre code,
+.markdown-body pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  border-radius: 0;
+}
+
+.preview-pane blockquote,
+.markdown-body blockquote {
+  margin: 1.15rem 0;
+  padding: 1rem 1.15rem 1rem 1.25rem;
+  border-left: 3px solid color-mix(in srgb, var(--accent) 48%, var(--border-strong));
+  background: color-mix(in srgb, var(--surface-panel) 62%, transparent);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  color: var(--text-secondary);
+  line-height: var(--line-reading);
+  letter-spacing: var(--letter-reading);
+}
+
+.preview-pane blockquote p,
+.markdown-body blockquote p {
+  margin: 0.45rem 0;
+}
+
+.preview-pane blockquote p:first-child,
+.markdown-body blockquote p:first-child {
+  margin-top: 0;
+}
+
+.preview-pane blockquote p:last-child,
+.markdown-body blockquote p:last-child {
+  margin-bottom: 0;
+}

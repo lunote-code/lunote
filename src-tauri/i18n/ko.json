@@ -24,6 +24,7 @@
     "file_export_image": "이미지",
     "file_export_pdf": "PDF",
     "file_export_word": "Word",
+    "file_history_bar": "버전 기록",
     "file_import": "가져오기",
     "file_new": "새로 만들기",
     "file_new_tab": "새 탭",
@@ -82,11 +83,11 @@
     "fmt_strike": "취소선",
     "fmt_underline": "밑줄",
     "format_menu": "서식",
-    "native_app_hide": "Luna Note 가리기",
+    "native_app_hide": "Lunote 가리기",
     "native_app_hide_others": "나머지 가리기",
     "native_app_show_all": "모두 보기",
-    "native_app_quit": "Luna Note 종료",
-    "native_help_about": "Luna Note 정보",
+    "native_app_quit": "Lunote 종료",
+    "native_help_about": "Lunote 정보",
     "native_help_bar": "도움말",
     "native_help_feedback": "피드백 보내기",
     "native_help_privacy": "개인정보 처리방침",
@@ -161,7 +162,7 @@
     "window_menu": "창"
   },
   "tray": {
-    "placeholder": "Luna Note"
+    "placeholder": "Lunote"
   },
   "dialog": {
     "placeholder": "Reserved"

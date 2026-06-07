@@ -6,6 +6,7 @@ export const CALLOUT_KINDS = [
   'important',
   'caution',
   'tip',
+  'success',
   'warning',
   'info',
   'danger',
@@ -13,7 +14,11 @@ export const CALLOUT_KINDS = [
 
 export type CalloutKind = (typeof CALLOUT_KINDS)[number]
 
-const BRACKET = /^\[!\s*(NOTE|TIP|IMPORTANT|CAUTION|WARNING|INFO|DANGER)\s*\]$/iu
+/** Bracket tag names in `[!TAG]` (GitHub + Obsidian). Shared by parse + markdownDocument lift. */
+export const CALLOUT_BRACKET_TAGS = 'NOTE|TIP|IMPORTANT|CAUTION|WARNING|INFO|DANGER|SUCCESS'
+
+const BRACKET = new RegExp(`^\\[!\\s*(${CALLOUT_BRACKET_TAGS})\\s*\\]$`, 'iu')
+const LEADING = new RegExp(`^\\[!\\s*(${CALLOUT_BRACKET_TAGS})\\s*\\]\\s*(.*)$`, 'isu')
 
 function mapBracket(tag: string): CalloutKind {
   switch (tag.toUpperCase()) {
@@ -31,6 +36,8 @@ function mapBracket(tag: string): CalloutKind {
       return 'info'
     case 'DANGER':
       return 'danger'
+    case 'SUCCESS':
+      return 'success'
     default:
       return 'note'
   }
@@ -42,7 +49,7 @@ function mapBracket(tag: string): CalloutKind {
  */
 export function parseCalloutLeadingParagraph(text: string): { kind: CalloutKind; body: string } | null {
   const raw = text.replace(/\r\n/g, '\n')
-  const m = raw.match(/^\[!\s*(NOTE|TIP|IMPORTANT|CAUTION|WARNING|INFO|DANGER)\s*\]\s*(.*)$/isu)
+  const m = raw.match(LEADING)
   if (!m) return null
   return { kind: mapBracket(m[1]), body: m[2].trim() }
 }
@@ -56,6 +63,7 @@ export function matchCalloutFirstLine(text: string): CalloutKind | null {
   if (t === '信息' || t === 'Info' || t === 'Information') return 'info'
   if (t === '错误' || t === 'Error' || t === 'Danger') return 'danger'
   if (t === '提示' || t === 'Tip' || t === 'Hint') return 'tip'
+  if (t === '成功' || t === 'Success') return 'success'
   return null
 }
 
@@ -69,6 +77,8 @@ export function calloutFirstLineForKind(kind: string): string {
       return '[!NOTE]'
     case 'tip':
       return '[!TIP]'
+    case 'success':
+      return '[!SUCCESS]'
     case 'important':
       return '[!IMPORTANT]'
     case 'caution':

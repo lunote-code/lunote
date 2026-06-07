@@ -9,7 +9,7 @@ import {
   type ModeSwitchRestoreDistanceKind,
 } from './modeSwitchQualitySignals'
 import {
-  MODE_SWITCH_REGRESSION_CASES,
+  MODE_SWITCH_PRODUCTION_REGRESSION_CASES,
   type ModeSwitchRegressionCase,
   type ModeSwitchRegressionExpectation,
   type ModeToggleRegressionExpectation,
@@ -22,6 +22,18 @@ import { buildFrozenStructuralIR, type FrozenStructuralIR } from './modeSwitchSt
 import { decideModeToggleCommandAction, type ModeToggleCommandActionKind } from './modeToggleCommandSemantics'
 import type { ModeSwitchPrepareResultKind } from './viewportModeAnchor'
 import { canonicalMarkdownSemantics } from '../markdown/canonicalMarkdownSemantics'
+import { joinMarkdownWithFrontmatter } from './documentFrontmatter'
+import {
+  bodyOffsetToSourceOffset,
+  computeLeadingFrontmatterPrefixLength,
+  sourceSelectionToBodySelection,
+} from './documentFrontmatterOffsets'
+
+export {
+  MODE_SWITCH_PRODUCTION_REGRESSION_CASES,
+  MODE_SWITCH_REGRESSION_CASES,
+  MODE_SWITCH_STRICT_CONTRACT_REGRESSION_CASES,
+} from './modeSwitchRegressionCases'
 
 declare global {
   interface Window {
@@ -72,21 +84,53 @@ export type ModeSwitchRegressionMismatch = {
   readonly reason: string | null
 }
 
+export type ModeSwitchRegressionProgressEvent = {
+  readonly index: number
+  readonly total: number
+  readonly id: string
+  readonly description: string
+}
+
+export type ModeSwitchRegressionEvaluationOptions = {
+  readonly onCaseStart?: (event: ModeSwitchRegressionProgressEvent) => void
+  readonly onCaseDone?: (event: ModeSwitchRegressionProgressEvent) => void
+  readonly onStageStart?: (event: ModeSwitchRegressionProgressEvent & { readonly stage: string }) => void
+  readonly onStageDone?: (event: ModeSwitchRegressionProgressEvent & { readonly stage: string }) => void
+  readonly onDetail?: (line: string) => void
+}
+
 export type ModeSwitchArchitectureDecision = {
   readonly recommendation: 'stay_dual_editor_with_islands' | 'consider_deeper_runtime_unification'
   readonly rationale: readonly string[]
 }
 
+/** Primary quality signals for Cmd+/ mode switch (not confounded by the 3-stage test matrix). */
+export type ModeSwitchRegressionQualityMetrics = {
+  readonly caseCount: number
+  /** visualToSource + sourceToVisualStrict both strict — the normal Cmd+/ round-trip path. */
+  readonly roundTripStrictCount: number
+  readonly roundTripStrictRate: number
+  /** Each case intentionally exercises sourceToVisualDegraded (cold path without snapshot). */
+  readonly intentionalDegradedStageCount: number
+  readonly contractPassRate: number
+}
+
 export type ModeSwitchRegressionTrendSnapshot = {
-  readonly version: 1
+  readonly version: 2
   readonly caseCount: number
   readonly totalStageCount: number
+  /** @deprecated Structural ratio from the 3-stage matrix (≈67% when every case expects 2 strict + 1 degraded). Prefer roundTripStrictRate. */
   readonly strictSuccessCount: number
+  /** @deprecated See strictSuccessCount — not a user-facing degradation rate. */
   readonly degradedSuccessCount: number
   readonly hardFailCount: number
   readonly strictSuccessRate: number
   readonly degradedSuccessRate: number
   readonly hardFailRate: number
+  readonly roundTripStrictCount: number
+  readonly roundTripStrictRate: number
+  readonly intentionalDegradedStageCount: number
+  readonly contractPassRate: number
   readonly commandHardFailCount: number
   readonly commandLocalOpenRate: number | null
   readonly commandLocalCloseRate: number | null
@@ -131,14 +175,76 @@ type ModeSwitchP2GateSummary = {
 type ModeSwitchP2GateInput = {
   readonly results: readonly ModeSwitchRegressionEvaluation[]
   readonly totalStageCount: number
-  readonly strictSuccessRate: number
-  readonly degradedSuccessRate: number
+  readonly qualityMetrics: ModeSwitchRegressionQualityMetrics
   readonly hardFailRate: number
   readonly hardFailCount: number
   readonly commandHardFailCount: number
   readonly lookupResolutionCounts: Readonly<Record<FrozenRowLookupResolutionKind, number>>
   readonly mismatchCount: number
   readonly architectureDecision: ModeSwitchArchitectureDecision
+}
+
+function collectModeSwitchRegressionQualityMetrics(
+  results: readonly ModeSwitchRegressionEvaluation[],
+  mismatchCount: number,
+): ModeSwitchRegressionQualityMetrics {
+  const caseCount = results.length
+  const roundTripStrictCount = results.filter(
+    (result) =>
+      result.visualToSource.kind === 'strict_success' &&
+      result.sourceToVisualStrict.kind === 'strict_success',
+  ).length
+  return Object.freeze({
+    caseCount,
+    roundTripStrictCount,
+    roundTripStrictRate: caseCount > 0 ? roundTripStrictCount / caseCount : 0,
+    intentionalDegradedStageCount: caseCount,
+    contractPassRate: mismatchCount === 0 ? 1 : 0,
+  })
+}
+
+type LegacyModeSwitchRegressionTrendSnapshot = Omit<
+  ModeSwitchRegressionTrendSnapshot,
+  'version' | 'roundTripStrictCount' | 'roundTripStrictRate' | 'intentionalDegradedStageCount' | 'contractPassRate'
+> & {
+  readonly version?: 1 | 2
+  readonly roundTripStrictCount?: number
+  readonly roundTripStrictRate?: number
+  readonly intentionalDegradedStageCount?: number
+  readonly contractPassRate?: number
+}
+
+function normalizeModeSwitchRegressionTrendSnapshot(
+  snapshot: LegacyModeSwitchRegressionTrendSnapshot,
+): ModeSwitchRegressionTrendSnapshot {
+  if (snapshot.version === 2 && typeof snapshot.roundTripStrictRate === 'number') {
+    return snapshot as ModeSwitchRegressionTrendSnapshot
+  }
+  const caseCount = snapshot.caseCount
+  const roundTripStrictCount =
+    typeof snapshot.roundTripStrictCount === 'number' ? snapshot.roundTripStrictCount : caseCount
+  const roundTripStrictRate =
+    typeof snapshot.roundTripStrictRate === 'number'
+      ? snapshot.roundTripStrictRate
+      : caseCount > 0
+        ? roundTripStrictCount / caseCount
+        : 0
+  return Object.freeze({
+    ...snapshot,
+    version: 2,
+    roundTripStrictCount,
+    roundTripStrictRate,
+    intentionalDegradedStageCount:
+      typeof snapshot.intentionalDegradedStageCount === 'number'
+        ? snapshot.intentionalDegradedStageCount
+        : caseCount,
+    contractPassRate:
+      typeof snapshot.contractPassRate === 'number'
+        ? snapshot.contractPassRate
+        : snapshot.mismatchCount === 0
+          ? 1
+          : 0,
+  })
 }
 
 type ModeSwitchRegressionHistoryStageSummary = {
@@ -160,9 +266,9 @@ function modeSwitchRegressionHistoryPresetCommand(stage: string, note: string): 
 
 function evaluateModeSwitchP2GateSummaries(summary: ModeSwitchP2GateInput): readonly ModeSwitchP2GateSummary[] {
   const metricsRationale: string[] = []
+  const quality = summary.qualityMetrics
   if (summary.results.length === 0) metricsRationale.push('缺少 regression case，无法形成可比较指标。')
-  if (!Number.isFinite(summary.strictSuccessRate)) metricsRationale.push('strictSuccessRate 不可用。')
-  if (!Number.isFinite(summary.degradedSuccessRate)) metricsRationale.push('degradedSuccessRate 不可用。')
+  if (!Number.isFinite(quality.roundTripStrictRate)) metricsRationale.push('roundTripStrictRate 不可用。')
   if (!Number.isFinite(summary.hardFailRate)) metricsRationale.push('hardFailRate 不可用。')
   if (summary.totalStageCount <= 0) metricsRationale.push('stage 总数为 0，指标无效。')
   const metricsSummary = Object.freeze({
@@ -171,9 +277,9 @@ function evaluateModeSwitchP2GateSummaries(summary: ModeSwitchP2GateInput): read
     rationale: Object.freeze(
       metricsRationale.length === 0
         ? [
-            `strict=${(summary.strictSuccessRate * 100).toFixed(1)}%`,
-            `degraded=${(summary.degradedSuccessRate * 100).toFixed(1)}%`,
-            `hardFail=${(summary.hardFailRate * 100).toFixed(1)}%`,
+            `roundTripStrict=${quality.roundTripStrictCount}/${quality.caseCount}(${(quality.roundTripStrictRate * 100).toFixed(1)}%)`,
+            `contractPass=${(quality.contractPassRate * 100).toFixed(1)}% mismatches=${summary.mismatchCount}`,
+            `hardFail=${(summary.hardFailRate * 100).toFixed(1)}% intentionalDegradedStages=${quality.intentionalDegradedStageCount}`,
           ]
         : metricsRationale,
     ),
@@ -258,6 +364,29 @@ function stageResultFromError(error: unknown): ModeSwitchRegressionStageResult {
   }
 }
 
+type RegressionFrontmatterContext = {
+  readonly bodyMarkdown: string
+  readonly fullSourceMarkdown: string
+  readonly frontmatterPrefixLength: number
+}
+
+function regressionFrontmatterContext(
+  regressionCase: ModeSwitchRegressionCase,
+): RegressionFrontmatterContext | null {
+  if (!regressionCase.leadingFrontmatter) return null
+  const bodyMarkdown = regressionCase.markdown
+  const fullSourceMarkdown = joinMarkdownWithFrontmatter(
+    bodyMarkdown,
+    regressionCase.leadingFrontmatter,
+    false,
+  )
+  return {
+    bodyMarkdown,
+    fullSourceMarkdown,
+    frontmatterPrefixLength: computeLeadingFrontmatterPrefixLength(fullSourceMarkdown),
+  }
+}
+
 function pickRegressionCmPos(markdown: string): number {
   if (!markdown.length) return 0
   const texty = markdown.search(/[\p{L}\p{N}]/u)
@@ -314,7 +443,7 @@ function deriveRegressionActiveBlockType(markdown: string): { blockType: string 
   return { blockType: blockType ?? doc.firstChild?.type.name ?? null, cmPos }
 }
 
-function evaluateVisualToSourceStrict(markdown: string): {
+function evaluateVisualToSourceStrict(markdown: string, options: ModeSwitchRegressionEvaluationOptions = {}): {
   kind: 'strict_success'
   snapshot: ReturnType<typeof freezeModeSwitchSnapshot>
   cmPos: number
@@ -325,15 +454,24 @@ function evaluateVisualToSourceStrict(markdown: string): {
 } {
   const cmPos = pickRegressionCmPos(markdown)
   try {
+    options.onDetail?.('visualToSource.parse')
     const schema = getOutlineParseSchema()
     const doc = canonicalMarkdownSemantics.parse(markdown, schema)
-    const provisionalIR = buildFrozenStructuralIR({ canonicalBuffer: markdown, hierarchical: null, doc })
+    options.onDetail?.('visualToSource.buildFrozenStructuralIR')
+    const provisionalIR = buildFrozenStructuralIR({
+      canonicalBuffer: markdown,
+      hierarchical: null,
+      doc,
+      onDetail: options.onDetail,
+    })
+    options.onDetail?.('visualToSource.semanticAnchorToPm')
     const pmPos = semanticAnchorToPm(
       cmPosToSemanticAnchor(cmPos, provisionalIR),
       provisionalIR,
       markdown.length,
       Math.max(1, doc.content.size),
     )
+    options.onDetail?.('visualToSource.freezeModeSwitchSnapshot')
     const snapshot = freezeModeSwitchSnapshot({
       captureFrameId: 0,
       documentKey: `regression:${modeSwitchPlainTextFingerprint(markdown)}`,
@@ -349,20 +487,48 @@ function evaluateVisualToSourceStrict(markdown: string): {
     })
     return { kind: 'strict_success', snapshot, cmPos }
   } catch (error) {
+    if (isModeSwitchFreezeError(error)) {
+      options.onDetail?.(
+        `visualToSource.freezeError reason=${String(error.detail.reason ?? 'unknown')} pmJoinLen=${String(error.detail.pmJoinLen ?? 'n/a')} mdJoinLen=${String(error.detail.mdJoinLen ?? 'n/a')} bodySeg=${JSON.stringify(String(error.detail.bodySegPreview ?? ''))}`,
+      )
+    }
     return { kind: 'hard_fail', error, cmPos }
   }
 }
 
-function evaluateSourceToVisualDegraded(markdown: string, cmPos: number): ModeSwitchRegressionStageResult {
+function evaluateSourceToVisualDegraded(
+  markdown: string,
+  cmPos: number,
+  frontmatter: RegressionFrontmatterContext | null = null,
+): ModeSwitchRegressionStageResult {
   try {
+    const bodyMarkdown = frontmatter?.bodyMarkdown ?? markdown
+    const bodyCmPos = (() => {
+      if (!frontmatter) return cmPos
+      const sourcePos = bodyOffsetToSourceOffset(
+        cmPos,
+        frontmatter.frontmatterPrefixLength,
+        frontmatter.fullSourceMarkdown.length,
+      )
+      return sourceSelectionToBodySelection(
+        sourcePos,
+        sourcePos,
+        frontmatter.frontmatterPrefixLength,
+        bodyMarkdown.length,
+      ).bodyAnchor
+    })()
     const schema = getOutlineParseSchema()
-    const doc = canonicalMarkdownSemantics.parse(markdown, schema)
-    const provisionalIR = buildFrozenStructuralIR({ canonicalBuffer: markdown, hierarchical: null, doc })
-    const hierarchical = deriveHierarchicalFromCmSelection(cmPos, cmPos, provisionalIR)
+    const doc = canonicalMarkdownSemantics.parse(bodyMarkdown, schema)
+    const provisionalIR = buildFrozenStructuralIR({
+      canonicalBuffer: bodyMarkdown,
+      hierarchical: null,
+      doc,
+    })
+    const hierarchical = deriveHierarchicalFromCmSelection(bodyCmPos, bodyCmPos, provisionalIR)
     semanticAnchorToPm(
-      cmPosToSemanticAnchor(cmPos, provisionalIR),
+      cmPosToSemanticAnchor(bodyCmPos, provisionalIR),
       provisionalIR,
-      markdown.length,
+      bodyMarkdown.length,
       Math.max(1, doc.content.size),
     )
     return {
@@ -378,6 +544,7 @@ function evaluateSourceToVisualDegraded(markdown: string, cmPos: number): ModeSw
 
 function evaluateSourceToVisualStrict(
   visualResult: ReturnType<typeof evaluateVisualToSourceStrict>,
+  frontmatter: RegressionFrontmatterContext | null = null,
 ): ModeSwitchRegressionStageResult {
   if (visualResult.kind !== 'strict_success') {
     return {
@@ -388,10 +555,27 @@ function evaluateSourceToVisualStrict(
     }
   }
   try {
+    const bodyMarkdown = visualResult.snapshot.canonicalBuffer
+    const bodySel = (() => {
+      if (!frontmatter) {
+        return { bodyAnchor: visualResult.cmPos, bodyHead: visualResult.cmPos }
+      }
+      const sourcePos = bodyOffsetToSourceOffset(
+        visualResult.cmPos,
+        frontmatter.frontmatterPrefixLength,
+        frontmatter.fullSourceMarkdown.length,
+      )
+      return sourceSelectionToBodySelection(
+        sourcePos,
+        sourcePos,
+        frontmatter.frontmatterPrefixLength,
+        bodyMarkdown.length,
+      )
+    })()
     const restored = freezeReturningToVisualSnapshot(visualResult.snapshot, {
-      markdown: visualResult.snapshot.canonicalBuffer,
-      anchor: visualResult.cmPos,
-      head: visualResult.cmPos,
+      markdown: bodyMarkdown,
+      anchor: bodySel.bodyAnchor,
+      head: bodySel.bodyHead,
     })
     return {
       kind: 'strict_success',
@@ -455,8 +639,43 @@ function evaluateCommandSlashVisualLocalActive(markdown: string): ModeToggleRegr
 
 export function evaluateModeSwitchRegressionCase(
   regressionCase: ModeSwitchRegressionCase,
+  options: ModeSwitchRegressionEvaluationOptions = {},
+  progressEvent?: ModeSwitchRegressionProgressEvent,
 ): ModeSwitchRegressionEvaluation {
-  const visualToSource = evaluateVisualToSourceStrict(regressionCase.markdown)
+  const stageEvent = (stage: string) =>
+    progressEvent
+      ? Object.freeze({
+          ...progressEvent,
+          stage,
+        })
+      : null
+
+  const frontmatterCtx = regressionFrontmatterContext(regressionCase)
+
+  const visualToSourceStart = stageEvent('visualToSource')
+  if (visualToSourceStart) options.onStageStart?.(visualToSourceStart)
+  const visualToSource = evaluateVisualToSourceStrict(regressionCase.markdown, options)
+  if (visualToSourceStart) options.onStageDone?.(visualToSourceStart)
+  const sourceToVisualStrictStart = stageEvent('sourceToVisualStrict')
+  if (sourceToVisualStrictStart) options.onStageStart?.(sourceToVisualStrictStart)
+  const sourceToVisualStrict = evaluateSourceToVisualStrict(visualToSource, frontmatterCtx)
+  if (sourceToVisualStrictStart) options.onStageDone?.(sourceToVisualStrictStart)
+  const sourceToVisualDegradedStart = stageEvent('sourceToVisualDegraded')
+  if (sourceToVisualDegradedStart) options.onStageStart?.(sourceToVisualDegradedStart)
+  const sourceToVisualDegraded = evaluateSourceToVisualDegraded(
+    regressionCase.markdown,
+    visualToSource.cmPos,
+    frontmatterCtx,
+  )
+  if (sourceToVisualDegradedStart) options.onStageDone?.(sourceToVisualDegradedStart)
+  const commandSlashVisualIdleStart = stageEvent('commandSlash.visualIdle')
+  if (commandSlashVisualIdleStart) options.onStageStart?.(commandSlashVisualIdleStart)
+  const commandSlashVisualIdle = evaluateCommandSlashVisualIdle(regressionCase.markdown)
+  if (commandSlashVisualIdleStart) options.onStageDone?.(commandSlashVisualIdleStart)
+  const commandSlashVisualLocalActiveStart = stageEvent('commandSlash.visualLocalActive')
+  if (commandSlashVisualLocalActiveStart) options.onStageStart?.(commandSlashVisualLocalActiveStart)
+  const commandSlashVisualLocalActive = evaluateCommandSlashVisualLocalActive(regressionCase.markdown)
+  if (commandSlashVisualLocalActiveStart) options.onStageDone?.(commandSlashVisualLocalActiveStart)
   return Object.freeze({
     id: regressionCase.id,
     description: regressionCase.description,
@@ -474,20 +693,33 @@ export function evaluateModeSwitchRegressionCase(
             ),
           } satisfies ModeSwitchRegressionStageResult)
         : stageResultFromError(visualToSource.error),
-    sourceToVisualStrict: evaluateSourceToVisualStrict(visualToSource),
-    sourceToVisualDegraded: evaluateSourceToVisualDegraded(
-      regressionCase.markdown,
-      visualToSource.cmPos,
-    ),
-    commandSlashVisualIdle: evaluateCommandSlashVisualIdle(regressionCase.markdown),
-    commandSlashVisualLocalActive: evaluateCommandSlashVisualLocalActive(regressionCase.markdown),
+    sourceToVisualStrict,
+    sourceToVisualDegraded,
+    commandSlashVisualIdle,
+    commandSlashVisualLocalActive,
   })
 }
 
 export function evaluateModeSwitchRegressionCorpus(
-  cases: readonly ModeSwitchRegressionCase[] = MODE_SWITCH_REGRESSION_CASES,
+  cases: readonly ModeSwitchRegressionCase[] = MODE_SWITCH_PRODUCTION_REGRESSION_CASES,
+  options: ModeSwitchRegressionEvaluationOptions = {},
 ): readonly ModeSwitchRegressionEvaluation[] {
-  return Object.freeze(cases.map((regressionCase) => evaluateModeSwitchRegressionCase(regressionCase)))
+  const results: ModeSwitchRegressionEvaluation[] = []
+  const total = cases.length
+  for (let index = 0; index < total; index += 1) {
+    const regressionCase = cases[index]!
+    const event = Object.freeze({
+      index: index + 1,
+      total,
+      id: regressionCase.id,
+      description: regressionCase.description,
+    })
+    options.onCaseStart?.(event)
+    const result = evaluateModeSwitchRegressionCase(regressionCase, options, event)
+    results.push(result)
+    options.onCaseDone?.(event)
+  }
+  return Object.freeze(results)
 }
 
 export function collectModeSwitchRegressionMismatches(
@@ -536,16 +768,51 @@ export function collectModeSwitchRegressionMismatches(
   return Object.freeze(mismatches)
 }
 
+function collectModeSwitchRegressionQualityFailures(
+  results: readonly ModeSwitchRegressionEvaluation[],
+): readonly string[] {
+  const failures: string[] = []
+  for (const result of results) {
+    for (const [stageName, stage] of [
+      ['visualToSource', result.visualToSource],
+      ['sourceToVisualStrict', result.sourceToVisualStrict],
+      ['sourceToVisualDegraded', result.sourceToVisualDegraded],
+    ] as const) {
+      if (stage.kind === 'hard_fail') {
+        failures.push(`${result.id}:${stageName} hard_fail reason=${stage.reason ?? 'null'}`)
+      }
+      if (stage.distance === 'unrelated') {
+        failures.push(`${result.id}:${stageName} restoreDistance=unrelated`)
+      }
+      if (stage.lookupResolution === 'missing') {
+        failures.push(`${result.id}:${stageName} lookupResolution=missing`)
+      }
+    }
+  }
+  return Object.freeze(failures)
+}
+
 export function assertModeSwitchRegressionCorpus(
-  cases: readonly ModeSwitchRegressionCase[] = MODE_SWITCH_REGRESSION_CASES,
+  cases: readonly ModeSwitchRegressionCase[] = MODE_SWITCH_PRODUCTION_REGRESSION_CASES,
+  options: ModeSwitchRegressionEvaluationOptions = {},
 ): {
   readonly results: readonly ModeSwitchRegressionEvaluation[]
   readonly mismatches: readonly ModeSwitchRegressionMismatch[]
 } {
-  const results = evaluateModeSwitchRegressionCorpus(cases)
+  const results = evaluateModeSwitchRegressionCorpus(cases, options)
   const mismatches = collectModeSwitchRegressionMismatches(results)
-  if (mismatches.length > 0) {
-    throw new Error(formatModeSwitchRegressionMismatchReport(mismatches))
+  const qualityFailures = collectModeSwitchRegressionQualityFailures(results)
+  if (mismatches.length > 0 || qualityFailures.length > 0) {
+    throw new Error(
+      [
+        formatModeSwitchRegressionMismatchReport(mismatches),
+        qualityFailures.length > 0
+          ? ['[mode-switch][regression] quality gate failures:', ...qualityFailures.map((line) => `- ${line}`)].join('\n')
+          : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    )
   }
   return Object.freeze({ results, mismatches })
 }
@@ -592,7 +859,8 @@ function evaluateModeSwitchArchitectureDecision(input: {
 }
 
 export function summarizeModeSwitchRegressionCorpus(
-  cases: readonly ModeSwitchRegressionCase[] = MODE_SWITCH_REGRESSION_CASES,
+  cases: readonly ModeSwitchRegressionCase[] = MODE_SWITCH_PRODUCTION_REGRESSION_CASES,
+  options: ModeSwitchRegressionEvaluationOptions = {},
 ): {
   readonly totalStageCount: number
   readonly strictSuccessCount: number
@@ -601,6 +869,7 @@ export function summarizeModeSwitchRegressionCorpus(
   readonly strictSuccessRate: number
   readonly degradedSuccessRate: number
   readonly hardFailRate: number
+  readonly qualityMetrics: ModeSwitchRegressionQualityMetrics
   readonly commandHardFailCount: number
   readonly commandLocalOpenRate: number | null
   readonly commandLocalCloseRate: number | null
@@ -612,8 +881,9 @@ export function summarizeModeSwitchRegressionCorpus(
   readonly mismatches: readonly ModeSwitchRegressionMismatch[]
   readonly results: readonly ModeSwitchRegressionEvaluation[]
 } {
-  const results = evaluateModeSwitchRegressionCorpus(cases)
+  const results = evaluateModeSwitchRegressionCorpus(cases, options)
   const mismatches = collectModeSwitchRegressionMismatches(results)
+  const qualityMetrics = collectModeSwitchRegressionQualityMetrics(results, mismatches.length)
   const totalStageCount = results.length * 3
   let strictSuccessCount = 0
   let degradedSuccessCount = 0
@@ -631,6 +901,7 @@ export function summarizeModeSwitchRegressionCorpus(
     unknown: 0,
   }
   const lookupResolutionCounts: Record<FrozenRowLookupResolutionKind, number> = {
+    row_id: 0,
     row_key: 0,
     block_path: 0,
     block_index: 0,
@@ -692,8 +963,7 @@ export function summarizeModeSwitchRegressionCorpus(
   const p2GateSummaries = evaluateModeSwitchP2GateSummaries({
     results,
     totalStageCount,
-    strictSuccessRate,
-    degradedSuccessRate,
+    qualityMetrics,
     hardFailRate,
     hardFailCount,
     commandHardFailCount,
@@ -709,6 +979,7 @@ export function summarizeModeSwitchRegressionCorpus(
     strictSuccessRate,
     degradedSuccessRate,
     hardFailRate,
+    qualityMetrics,
     commandHardFailCount,
     commandLocalOpenRate,
     commandLocalCloseRate,
@@ -744,10 +1015,12 @@ export function formatModeSwitchRegressionSummary(
   }
   const distance = summary.restoreDistanceCounts
   const lookup = summary.lookupResolutionCounts
+  const quality = summary.qualityMetrics
   return [
-    `[mode-switch][regression] strict=${summary.strictSuccessCount}/${summary.totalStageCount}(${percent(summary.strictSuccessRate)}) degraded=${summary.degradedSuccessCount}/${summary.totalStageCount}(${percent(summary.degradedSuccessRate)}) hardFail=${summary.hardFailCount}/${summary.totalStageCount}(${percent(summary.hardFailRate)}) commandHardFail=${summary.commandHardFailCount} mismatches=${summary.mismatchCount}`,
+    `[mode-switch][regression] cases=${quality.caseCount} roundTripStrict=${quality.roundTripStrictCount}/${quality.caseCount}(${percent(quality.roundTripStrictRate)}) contractPass=${percent(quality.contractPassRate)} mismatches=${summary.mismatchCount} hardFail=${summary.hardFailCount}/${summary.totalStageCount}(${percent(summary.hardFailRate)}) commandHardFail=${summary.commandHardFailCount}`,
+    `[mode-switch][regression] stageMatrix strict=${summary.strictSuccessCount}/${summary.totalStageCount}(${percent(summary.strictSuccessRate)}) degraded=${summary.degradedSuccessCount}/${summary.totalStageCount}(${percent(summary.degradedSuccessRate)} intentional cold-path contract)`,
     `[mode-switch][regression] commandLocal open=${percent(summary.commandLocalOpenRate)} close=${percent(summary.commandLocalCloseRate)} restoreDistance sameLeaf=${distance.same_leaf_row} sameBlock=${distance.same_block_path} nearby=${distance.nearby_block} unrelated=${distance.unrelated} unknown=${distance.unknown}`,
-    `[mode-switch][regression] rowLookup rowKey=${lookup.row_key} blockPath=${lookup.block_path} blockIndex=${lookup.block_index} missing=${lookup.missing}`,
+    `[mode-switch][regression] rowLookup rowId=${lookup.row_id} rowKey=${lookup.row_key} blockPath=${lookup.block_path} blockIndex=${lookup.block_index} missing=${lookup.missing}`,
     ...summary.p2GateSummaries.flatMap((gate) => [
       `[mode-switch][p2-gate] stage=${gate.stage} status=${gate.status} recommendation=${gate.recommendation ?? 'n/a'}`,
       ...gate.rationale.map((line) => `  reason: ${line}`),
@@ -764,8 +1037,9 @@ export function formatModeSwitchRegressionSummary(
 export function createModeSwitchRegressionTrendSnapshot(
   summary: ReturnType<typeof summarizeModeSwitchRegressionCorpus>,
 ): ModeSwitchRegressionTrendSnapshot {
+  const quality = summary.qualityMetrics
   return Object.freeze({
-    version: 1,
+    version: 2,
     caseCount: summary.results.length,
     totalStageCount: summary.totalStageCount,
     strictSuccessCount: summary.strictSuccessCount,
@@ -774,6 +1048,10 @@ export function createModeSwitchRegressionTrendSnapshot(
     strictSuccessRate: summary.strictSuccessRate,
     degradedSuccessRate: summary.degradedSuccessRate,
     hardFailRate: summary.hardFailRate,
+    roundTripStrictCount: quality.roundTripStrictCount,
+    roundTripStrictRate: quality.roundTripStrictRate,
+    intentionalDegradedStageCount: quality.intentionalDegradedStageCount,
+    contractPassRate: quality.contractPassRate,
     commandHardFailCount: summary.commandHardFailCount,
     commandLocalOpenRate: summary.commandLocalOpenRate,
     commandLocalCloseRate: summary.commandLocalCloseRate,
@@ -785,29 +1063,31 @@ export function createModeSwitchRegressionTrendSnapshot(
 }
 
 export function compareModeSwitchRegressionTrend(
-  baseline: ModeSwitchRegressionTrendSnapshot,
-  current: ModeSwitchRegressionTrendSnapshot,
+  baselineInput: LegacyModeSwitchRegressionTrendSnapshot,
+  currentInput: LegacyModeSwitchRegressionTrendSnapshot,
 ): ModeSwitchRegressionTrendComparison {
+  const baseline = normalizeModeSwitchRegressionTrendSnapshot(baselineInput)
+  const current = normalizeModeSwitchRegressionTrendSnapshot(currentInput)
   const regressions: string[] = []
   const improvements: string[] = []
 
-  if (current.strictSuccessRate < baseline.strictSuccessRate) {
+  if (current.roundTripStrictRate < baseline.roundTripStrictRate) {
     regressions.push(
-      `strictSuccessRate ${(baseline.strictSuccessRate * 100).toFixed(1)}% -> ${(current.strictSuccessRate * 100).toFixed(1)}%`,
+      `roundTripStrictRate ${(baseline.roundTripStrictRate * 100).toFixed(1)}% -> ${(current.roundTripStrictRate * 100).toFixed(1)}%`,
     )
-  } else if (current.strictSuccessRate > baseline.strictSuccessRate) {
+  } else if (current.roundTripStrictRate > baseline.roundTripStrictRate) {
     improvements.push(
-      `strictSuccessRate ${(baseline.strictSuccessRate * 100).toFixed(1)}% -> ${(current.strictSuccessRate * 100).toFixed(1)}%`,
+      `roundTripStrictRate ${(baseline.roundTripStrictRate * 100).toFixed(1)}% -> ${(current.roundTripStrictRate * 100).toFixed(1)}%`,
     )
   }
 
-  if (current.degradedSuccessRate > baseline.degradedSuccessRate) {
+  if (current.contractPassRate < baseline.contractPassRate) {
     regressions.push(
-      `degradedSuccessRate ${(baseline.degradedSuccessRate * 100).toFixed(1)}% -> ${(current.degradedSuccessRate * 100).toFixed(1)}%`,
+      `contractPassRate ${(baseline.contractPassRate * 100).toFixed(1)}% -> ${(current.contractPassRate * 100).toFixed(1)}%`,
     )
-  } else if (current.degradedSuccessRate < baseline.degradedSuccessRate) {
+  } else if (current.contractPassRate > baseline.contractPassRate) {
     improvements.push(
-      `degradedSuccessRate ${(baseline.degradedSuccessRate * 100).toFixed(1)}% -> ${(current.degradedSuccessRate * 100).toFixed(1)}%`,
+      `contractPassRate ${(baseline.contractPassRate * 100).toFixed(1)}% -> ${(current.contractPassRate * 100).toFixed(1)}%`,
     )
   }
 
@@ -977,8 +1257,8 @@ export function formatModeSwitchRegressionTrendHistory(
   return [
     `[mode-switch][history] entries=${history.entries.length} showing=${recent.length}`,
     ...recent.map((entry) => {
-      const snapshot = entry.snapshot
-      return `- ${entry.label} recordedAt=${entry.recordedAt ?? 'n/a'} strict=${(snapshot.strictSuccessRate * 100).toFixed(1)}% degraded=${(snapshot.degradedSuccessRate * 100).toFixed(1)}% hardFail=${(snapshot.hardFailRate * 100).toFixed(1)}% rowLookupMissing=${snapshot.lookupResolutionCounts.missing} nearby=${snapshot.restoreDistanceCounts.nearby_block} arch=${snapshot.architectureRecommendation}`
+      const snapshot = normalizeModeSwitchRegressionTrendSnapshot(entry.snapshot)
+      return `- ${entry.label} recordedAt=${entry.recordedAt ?? 'n/a'} roundTripStrict=${(snapshot.roundTripStrictRate * 100).toFixed(1)}% contractPass=${(snapshot.contractPassRate * 100).toFixed(1)}% hardFail=${(snapshot.hardFailRate * 100).toFixed(1)}% rowLookupMissing=${snapshot.lookupResolutionCounts.missing} nearby=${snapshot.restoreDistanceCounts.nearby_block} arch=${snapshot.architectureRecommendation}`
     }),
   ].join('\n')
 }

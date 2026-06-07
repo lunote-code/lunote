@@ -1,4 +1,14 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react'
 import type { AppLanguageSetting } from '../settings/appSettingsTypes'
 import { getAppSettingsSnapshot, subscribeAppSettings } from '../settings/appSettingsStore'
 import type { I18nBootstrap } from './bootstrapI18n'
@@ -6,12 +16,13 @@ import { formatMessage } from './formatMessage'
 import { isMenuLabelKey, resolveMenuVisibleLabel } from './menuLabel'
 import { compileMenuForLocale } from '../menu/menu.compile'
 import { enforceMenuLabel, STRICT_ENFORCE_LOCALES } from '../menu/menu.enforcer'
-import { assertMenuGuard } from '../menu/menu.guard'
-import type { PaletteCommandDef, ToolbarCommandDef } from '../menu/menu.types'
+import type { PaletteCommandDef, ToolbarCommandDef, ToolbarItemDef } from '../menu/menu.types'
+import { isToolbarButton } from '../menu/menu.types'
 import { compileToolbarFromManifest } from '../menu/manifestCompile'
 import type { UiLocaleId } from './resolveLocale'
 import { getEnMessagesSnapshot, getLocaleMessagesSnapshot, getLocaleRawSnapshot } from './localeRegistry'
 import { resolveEffectiveUiLocale } from './resolveLocale'
+import { getCachedTauriOsLocaleTag, readTauriOsLocaleTag } from './systemLocale'
 
 export type TranslateFn = (key: string, vars?: Record<string, string | number>) => string
 
@@ -22,9 +33,15 @@ type I18nContextValue = {
   /** Compiled from Command Manifest*/
   paletteCommands: PaletteCommandDef[]
   toolbarSidebar: ToolbarCommandDef[]
+  toolbarEditorFormat: ToolbarItemDef[]
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null)
+
+type PaletteCompileState = {
+  readonly paletteCommands: PaletteCommandDef[]
+  readonly compileError: unknown | null
+}
 
 function getLanguageSettingSnapshot(): AppLanguageSetting {
   return getAppSettingsSnapshot().language
@@ -42,10 +59,22 @@ export function I18nProvider({
     getLanguageSettingSnapshot,
     () => bootstrap.languageSetting,
   )
-  const effectiveLocale = useMemo(
-    () => resolveEffectiveUiLocale(runtimeLanguageSetting, typeof navigator !== 'undefined' ? navigator.language : undefined),
-    [runtimeLanguageSetting],
-  )
+  const [osLocaleReady, setOsLocaleReady] = useState(() => getCachedTauriOsLocaleTag() !== undefined)
+  useEffect(() => {
+    if (getCachedTauriOsLocaleTag() !== undefined) return
+    void readTauriOsLocaleTag().finally(() => setOsLocaleReady(true))
+  }, [])
+  const navLang = typeof navigator !== 'undefined' ? navigator.language : undefined
+  const effectiveLocale = useMemo(() => {
+    if (!osLocaleReady && runtimeLanguageSetting === 'system') {
+      return bootstrap.effectiveLocale
+    }
+    return resolveEffectiveUiLocale(
+      runtimeLanguageSetting,
+      navLang,
+      getCachedTauriOsLocaleTag() ?? null,
+    )
+  }, [bootstrap.effectiveLocale, navLang, osLocaleReady, runtimeLanguageSetting])
   const enMessages = useMemo(() => getEnMessagesSnapshot(), [])
   const rawLocale = useMemo(
     () => (effectiveLocale === 'en' ? enMessages : getLocaleRawSnapshot(effectiveLocale)),
@@ -53,28 +82,6 @@ export function I18nProvider({
   )
   const mergedMessages = useMemo(() => getLocaleMessagesSnapshot(effectiveLocale), [effectiveLocale])
   const languageSetting = runtimeLanguageSetting
-
-  const menuGuardOk = useMemo(() => {
-    try {
-      assertMenuGuard({
-        locale: effectiveLocale,
-        merged: mergedMessages,
-        en: enMessages,
-        rawLocale,
-      })
-      return true
-    } catch {
-      return false
-    }
-  }, [effectiveLocale, mergedMessages, enMessages, rawLocale])
-
-  const menuGuardLoggedRef = useRef(false)
-  useEffect(() => {
-    if (menuGuardOk || menuGuardLoggedRef.current) return
-    menuGuardLoggedRef.current = true
-     
-    console.error('[BOOT] menu guard soft-fail (app continues)')
-  }, [menuGuardOk])
 
   const t = useCallback<TranslateFn>(
     (key, vars) => {
@@ -90,19 +97,49 @@ export function I18nProvider({
     [mergedMessages, enMessages, rawLocale, effectiveLocale],
   )
 
-  const paletteCommands = useMemo(() => {
+  const paletteCompile = useMemo<PaletteCompileState>(() => {
     try {
-      return compileMenuForLocale(effectiveLocale, mergedMessages, enMessages, rawLocale).paletteCommands
+      return {
+        paletteCommands: compileMenuForLocale(effectiveLocale, mergedMessages, enMessages, rawLocale)
+          .paletteCommands,
+        compileError: null,
+      }
     } catch (e) {
-       
-      console.error('[BOOT] palette compile failed, fallback to en:', e)
-      return compileMenuForLocale('en', enMessages, enMessages, enMessages, { skipGuard: true })
-        .paletteCommands
+      return {
+        paletteCommands: compileMenuForLocale('en', enMessages, enMessages, enMessages, { skipGuard: true })
+          .paletteCommands,
+        compileError: e,
+      }
     }
   }, [effectiveLocale, mergedMessages, enMessages, rawLocale])
 
+  const paletteCompileLoggedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (paletteCompile.compileError == null) {
+      paletteCompileLoggedRef.current = null
+      return
+    }
+    const signature =
+      paletteCompile.compileError instanceof Error
+        ? paletteCompile.compileError.message
+        : String(paletteCompile.compileError)
+    if (paletteCompileLoggedRef.current === signature) return
+    paletteCompileLoggedRef.current = signature
+    console.error('[BOOT] palette compile failed, fallback to en:', paletteCompile.compileError)
+  }, [paletteCompile])
+
+  const paletteCommands = paletteCompile.paletteCommands
+
   const toolbarSidebar = useMemo(
-    () => compileToolbarFromManifest('sidebar-header', t),
+    () =>
+      compileToolbarFromManifest('sidebar-header', t)
+        .filter(isToolbarButton)
+        .map(({ kind: _kind, ...cmd }) => cmd),
+    [t],
+  )
+
+  const toolbarEditorFormat = useMemo(
+    () => compileToolbarFromManifest('editor-format', t),
     [t],
   )
 
@@ -113,8 +150,9 @@ export function I18nProvider({
       t,
       paletteCommands,
       toolbarSidebar,
+      toolbarEditorFormat,
     }),
-    [effectiveLocale, languageSetting, t, paletteCommands, toolbarSidebar],
+    [effectiveLocale, languageSetting, t, paletteCommands, toolbarSidebar, toolbarEditorFormat],
   )
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>

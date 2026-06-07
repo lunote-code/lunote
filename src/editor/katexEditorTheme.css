@@ -1,0 +1,41 @@
+/**
+ * KaTeX — semantic theme tokens (follow preset + light/dark).
+ * Load after katex.min.css; explicit color instead of inheritance-only.
+ */
+
+.preview-pane.markdown-visual-editor .ProseMirror :is(.katex, .katex-display),
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-inline-inner,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-math-block-inner,
+.markdown-body :is(.katex, .katex-display) {
+  color: var(--text-primary);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror :is(.katex, .katex-display) svg,
+.markdown-body :is(.katex, .katex-display) svg {
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror :is(.katex, .katex-display) .mfrac .frac-line,
+.preview-pane.markdown-visual-editor .ProseMirror :is(.katex, .katex-display) .overline .overline-line,
+.preview-pane.markdown-visual-editor .ProseMirror :is(.katex, .katex-display) .underline .underline-line,
+.preview-pane.markdown-visual-editor .ProseMirror :is(.katex, .katex-display) .hline,
+.preview-pane.markdown-visual-editor .ProseMirror :is(.katex, .katex-display) .hdashline,
+.preview-pane.markdown-visual-editor .ProseMirror :is(.katex, .katex-display) .rule,
+.preview-pane.markdown-visual-editor .ProseMirror :is(.katex, .katex-display) .sout,
+.markdown-body :is(.katex, .katex-display) .mfrac .frac-line,
+.markdown-body :is(.katex, .katex-display) .overline .overline-line,
+.markdown-body :is(.katex, .katex-display) .underline .underline-line,
+.markdown-body :is(.katex, .katex-display) .hline,
+.markdown-body :is(.katex, .katex-display) .hdashline,
+.markdown-body :is(.katex, .katex-display) .rule,
+.markdown-body :is(.katex, .katex-display) .sout {
+  border-color: currentColor;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror :is(.katex, .katex-display) .fbox,
+.preview-pane.markdown-visual-editor .ProseMirror :is(.katex, .katex-display) .fcolorbox,
+.markdown-body :is(.katex, .katex-display) .fbox,
+.markdown-body :is(.katex, .katex-display) .fcolorbox {
+  border-color: color-mix(in srgb, currentColor 72%, var(--border-subtle, currentColor));
+}

@@ -1,0 +1,22 @@
+{
+  "id": "nordic-frost",
+  "name": "Nordic Frost",
+  "label": "Nordic Frost",
+  "family": "nordic-frost",
+  "variant": "light",
+  "colors": {
+    "background": "#f4f7fb",
+    "foreground": "#1a2332",
+    "primary": "#2563eb",
+    "border": "rgba(26, 35, 50, 0.1)",
+    "muted": "#64748b"
+  },
+  "radius": {
+    "card": 14,
+    "control": 10
+  },
+  "spacing": {
+    "row": 14,
+    "section": 24
+  }
+}

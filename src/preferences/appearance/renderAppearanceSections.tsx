@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import type { TranslateFn } from '../../i18n'
 import type { SettingsActionHandler } from '../../settings-runtime/settingsBindings'
 import type { GroupSetting } from '../../settings-runtime/settingsTypes'
-import { ObsidianCssFolderBlock } from './obsidianCssFolderBlock'
+import { ExternalCssFolderBlock } from './externalCssFolderBlock'
 import { ThemeExtensionBlock } from './ThemeExtensionBlock'
 
 type ThemeCatalogEntry = { name: string }
@@ -28,9 +28,9 @@ export function renderAppearanceAfterSection({
   availableExportStyles,
   onSettingAction,
 }: Args): ReactNode {
-  if (group.id === 'appearance.obsidianCss') {
+  if (group.id === 'appearance.externalCss') {
     return (
-      <ObsidianCssFolderBlock
+      <ExternalCssFolderBlock
         t={t}
         activeCssTheme={activeCssTheme}
         onOpenFolder={() => void onSettingAction('theme.openThemeFolder', 'theme.cssFile')}
@@ -46,6 +46,7 @@ export function renderAppearanceAfterSection({
         scope="ui"
         titleKey="settings.theme.cssSnippets.manageTitle"
         descriptionKey="settings.theme.cssSnippets.manageDescription"
+        descriptionAsHelp
         statusActiveKey="settings.theme.cssSnippets.activeMessage"
         statusInactiveKey="settings.theme.cssSnippets.inactiveMessage"
         activeCount={activeSnippetNames.size}
@@ -70,6 +71,7 @@ export function renderAppearanceAfterSection({
         scope="export"
         titleKey="settings.theme.exportCss.manageTitle"
         descriptionKey="settings.theme.exportCss.manageDescription"
+        descriptionAsHelp
         statusActiveKey="settings.theme.exportCss.activeMessage"
         statusInactiveKey="settings.theme.exportCss.inactiveMessage"
         activeCount={activeExportStyleNames.size}

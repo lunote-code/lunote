@@ -12,10 +12,12 @@ import Underline from '@tiptap/extension-underline'
 import { LunaBlockSelectAll } from './lunaBlockSelectAll'
 import { LunaCodeBlock, toggleCodeBlockWithFocusAndLog } from './lunaCodeBlock'
 import { isCodeEditGuardActive } from './lunaCodeContext'
-import { LunaCodeFenceGuard } from './lunaCodeFenceGuard'
-import { LunaCodeBlockNav } from './lunaCodeBlockNav'
+import { LunaCodeFenceGuard } from './codeBlock/behavior/fenceGuard'
+import { LunaCodeBlockNav } from './codeBlock/behavior/nav'
+import { LunaEditorCaretNav } from './lunaEditorCaretNav'
 import { proseMirrorLowlight } from './proseMirrorLowlight'
 import { CalloutNode } from './extensions/CalloutNode'
+import { LunaCodeBlockCmIsolation } from './extensions/LunaCodeBlockCmIsolation'
 import { LunaMermaidIsolation } from './extensions/LunaMermaidIsolation'
 import { LunaNativeTextInputIsolation } from './extensions/LunaNativeTextInputIsolation'
 import { LunaMermaidSourceKeyboardIsolation } from './extensions/LunaMermaidSourceKeyboardIsolation'
@@ -23,6 +25,7 @@ import { LunaMermaidSourceSync } from './extensions/LunaMermaidSourceSync'
 import { LunaDocumentRuntime } from './documentRuntime'
 import { MermaidBlock } from './extensions/MermaidNode'
 import { LunaBlockMath, LunaInlineMath } from './extensions/MathNode'
+import { LUNA_KATEX_HTML_OPTIONS } from './lunaKatexOptions'
 import { LunaEmoji } from './lunaEmoji'
 import { LunaRawBlock } from './lunaRawBlock'
 import { LunaRawInline } from './lunaRawInline'
@@ -33,6 +36,7 @@ import { LunaTabInText } from './lunaTabInText'
 import { TocDirective } from './tocDirective'
 import { LunaSplitBlockParagraphDefault } from './lunaSplitBlockParagraphDefault'
 import { LunaEmptyParagraphSelectionStyle } from './lunaEmptyParagraphSelectionStyle'
+import { LunaParagraphDoubleClickWordSelect } from './lunaParagraphDoubleClickWordSelect'
 import { LunaImeSwallowMarkShortcuts } from './lunaImeCoreUx'
 import { LunaEphemeralCommitOnEnter, LunaEphemeralFormattingShortcuts } from './lunaEphemeralFormatting'
 import { LunaMarkdownSourceReveal } from './lunaMarkdownSourceReveal'
@@ -52,6 +56,8 @@ import { LunaFootnoteDefLiveLift } from './lunaFootnoteDefLiveLift'
 import { LunaLinkReferenceDef } from './lunaLinkReferenceDef'
 import { LunaInputLayerGuard } from './extensions/LunaInputLayerGuard'
 import { LunaWebviewPasteBridge } from './extensions/LunaWebviewPasteBridge'
+import { LunaCodeBlockCmFocusDebug } from './extensions/LunaCodeBlockCmFocusDebug'
+import { LunaPasteScrollDebug } from './extensions/LunaPasteScrollDebug'
 import type { WebviewPasteImageHandler } from './webviewPasteBridge'
 import { VmTiptapRecorder } from '../vm/vmTiptapRecorder'
 import { VmInputRouter } from '../vm/inputRouter'
@@ -60,6 +66,8 @@ export type LunaMarkdownEditorExtensionOptions = {
   resolveMediaSrc: (src: string) => string
   getNoteAssetContext: () => { root: string; notePath: string } | null
   onPasteImage?: WebviewPasteImageHandler
+  placeholderText?: string
+  placeholderHint?: string
 }
 
 /**
@@ -101,6 +109,8 @@ export function createLunaMarkdownEditorExtensions(options: LunaMarkdownEditorEx
     VmInputRouter,
     /** Both the browser and Tauri intercept PM's native paste and use pure text/image pipelines.*/
     LunaWebviewPasteBridge.configure({ onPasteImage: options.onPasteImage }),
+    LunaPasteScrollDebug,
+    LunaCodeBlockCmFocusDebug,
     /** Intercept Mod-B/I/` etc. during word formation to avoid conflicts with CJK IME*/
     LunaInputLayerGuard,
     LunaImeSwallowMarkShortcuts,
@@ -140,6 +150,7 @@ export function createLunaMarkdownEditorExtensions(options: LunaMarkdownEditorEx
     LunaCodeFenceGuard,
     /** Code block boundary ↑↓ → language bar / body (higher than default keymap)*/
     LunaCodeBlockNav,
+    LunaEditorCaretNav,
     /** Mod-A block-level select all (before built-in keymap)*/
     LunaBlockSelectAll,
     LunaFootnoteRef,
@@ -157,19 +168,14 @@ export function createLunaMarkdownEditorExtensions(options: LunaMarkdownEditorEx
       },
     }),
     LunaBlockMath.configure({
-      katexOptions: {
-        throwOnError: false,
-        output: 'html',
-      },
+      katexOptions: LUNA_KATEX_HTML_OPTIONS,
     }),
     LunaInlineMath.configure({
-      katexOptions: {
-        throwOnError: false,
-        output: 'html',
-      },
+      katexOptions: LUNA_KATEX_HTML_OPTIONS,
     }),
     MermaidBlock,
     LunaNativeTextInputIsolation,
+    LunaCodeBlockCmIsolation,
     LunaMermaidIsolation,
     LunaMermaidSourceKeyboardIsolation,
     LunaMermaidSourceSync,
@@ -198,7 +204,15 @@ export function createLunaMarkdownEditorExtensions(options: LunaMarkdownEditorEx
     LunaTaskListLiveLift,
     TocDirective,
     Placeholder.configure({
-      placeholder: 'Start writing...',
+      placeholder: ({ editor, node }) => {
+        if (node.type.name !== 'paragraph') return ''
+        const main = options.placeholderText ?? 'Start writing...'
+        const hint = options.placeholderHint?.trim()
+        if (editor.isEmpty && hint) {
+          return `${main}\n${hint}`
+        }
+        return main
+      },
     }),
     Extension.create({
       name: 'lunaPasteImage',
@@ -255,6 +269,7 @@ export function createLunaMarkdownEditorExtensions(options: LunaMarkdownEditorEx
         }
       },
     }),
+    LunaParagraphDoubleClickWordSelect,
     LunaEmptyParagraphSelectionStyle,
     /** Put at the end of the list to override the splitBlock of @tiptap/core Commands*/
     LunaSplitBlockParagraphDefault,

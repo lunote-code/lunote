@@ -3,6 +3,9 @@ import { COMMAND_MANIFEST } from './commandManifest.entries'
 import { MENU_BAR_STRUCTURE } from './commandManifest.structure'
 import type { CommandManifestEntry } from './commandManifest.types'
 import type { MenuBarGroup, MenuLeaf, MenuNode, MenuPathSegment, MenuSchemaRoot } from './menu.types'
+import { resolveMenuCommandSemanticIcon, resolveMenuSubmenuSemanticIcon } from './menuSemanticIcons'
+import { resolveMenuTextColorSwatch } from './menuTextColorSwatch'
+import { getManifestDefaultAccelerator } from './shortcutPlatformDefaults'
 
 export function getManifestEntry(id: string): CommandManifestEntry | undefined {
   return COMMAND_MANIFEST[id]
@@ -17,12 +20,15 @@ export function getManifestEntryOrThrow(id: string): CommandManifestEntry {
 /** Generate menu leaves from manifest (prohibit external input of label/accelerator/icon)*/
 export function manifestToMenuLeaf(id: string): MenuLeaf {
   const m = getManifestEntryOrThrow(id)
+  const menuColorSwatch = resolveMenuTextColorSwatch(id)
   return {
     kind: 'item',
     id: m.id,
     labelKey: m.labelKey,
-    accelerator: m.accelerator,
+    accelerator: getManifestDefaultAccelerator(m.id) ?? m.accelerator,
     menuIcon: m.icon,
+    semanticIcon: menuColorSwatch ? undefined : resolveMenuCommandSemanticIcon(id),
+    menuColorSwatch,
     action: m.action ?? m.id,
     palette: m.ui.palette,
     paletteKeywords: m.ui.paletteKeywords,
@@ -45,6 +51,7 @@ function treeToMenuNodes(nodes: typeof MENU_BAR_STRUCTURE[0]['children']): MenuN
       kind: 'submenu',
       id: n.id,
       labelKey: n.labelKey,
+      semanticIcon: resolveMenuSubmenuSemanticIcon(n.id),
       children: collapseSeparators(treeToMenuNodes(n.children), { trimEnds: false }),
     })
   }

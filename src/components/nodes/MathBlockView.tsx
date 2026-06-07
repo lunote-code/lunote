@@ -1,10 +1,12 @@
 import katex from 'katex'
 import { NodeViewWrapper, type ReactNodeViewProps } from '@tiptap/react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useI18n } from '../../i18n'
 
 const cacheBlock = new Map<string, string>()
 
 export const MathBlockView = memo(function MathBlockView(props: ReactNodeViewProps) {
+  const { t } = useI18n()
   const latexRaw = String(props.node.attrs.latex ?? '')
   const [quickEditActive, setQuickEditActive] = useState(false)
   const [quickEditValue, setQuickEditValue] = useState(latexRaw)
@@ -93,6 +95,7 @@ export const MathBlockView = memo(function MathBlockView(props: ReactNodeViewPro
         throwOnError: false,
         displayMode: true,
         output: 'html',
+        trust: false,
       })
       cacheBlock.set(key, h)
       return h
@@ -113,11 +116,11 @@ export const MathBlockView = memo(function MathBlockView(props: ReactNodeViewPro
       className={`pm-math-block${!previewLatex ? ' pm-math-block--empty' : ''}${quickEditActive ? ' pm-math-block--quick-active' : ''}`}
       data-type="block-math"
       data-latex={previewLatex}
-      title={editable ? 'Click to quick edit LaTeX' : undefined}
+      title={editable ? t('editor.math.quickEditTitle') : undefined}
     >
       {quickEditActive ? (
         <div className="pm-math-quick-editor" contentEditable={false}>
-          <div className="pm-math-quick-title">LaTeX</div>
+          <div className="pm-math-quick-title">{t('editor.math.label')}</div>
           <textarea
             ref={textareaRef}
             className="pm-math-quick-textarea"
@@ -125,7 +128,7 @@ export const MathBlockView = memo(function MathBlockView(props: ReactNodeViewPro
             onChange={(event) => setQuickEditValue(event.currentTarget.value)}
             onKeyDown={handleQuickEditKeyDown}
             onBlur={commitQuickEdit}
-            placeholder="Enter LaTeX formula..."
+            placeholder={t('editor.math.placeholder')}
             spellCheck={false}
           />
         </div>

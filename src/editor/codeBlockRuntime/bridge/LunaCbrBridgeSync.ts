@@ -1,12 +1,24 @@
 import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 
+import { getBlock, getFocusedBlockId } from '../../codeBlockRuntime/codeBlockRuntimeStore'
 import { getMermaidSourceBoundEditor, getMermaidSourceBridge } from '../../mermaid/mermaidSourceBridge'
+import { isMermaidInputKernelActive } from '../../mermaid/mermaidSourceInputFocus'
+import { isPasteLayerSource, INPUT_LAYER_SOURCE_META, type InputLayerSource } from '../../inputLayer/inputLayerPaste'
 import { CBR_COMMIT_META } from './syncGuard'
 import { flushAllBlocksToPm } from './cbrToPmSync'
 import { notifyPmDocChangedForBridge } from './pmToCbrSync'
 
 const CBR_BRIDGE_SYNC_KEY = new PluginKey('lunaCbrBridgeSync')
+
+function shouldFlushMermaidBeforeDocChange(): boolean {
+  if (!isMermaidInputKernelActive()) return false
+  const focusedBlockId = getFocusedBlockId()
+  if (!focusedBlockId) return false
+  const focusedBlock = getBlock(focusedBlockId)
+  if (!focusedBlock || focusedBlock.type !== 'mermaid') return false
+  return focusedBlock.ui.dirty
+}
 
 /**
  * PM ↔ CBR Bridge: transaction driver bidirectional synchronization.
@@ -25,10 +37,16 @@ export const LunaCbrBridgeSync = Extension.create({
           if (!tr.docChanged) return true
           if (tr.getMeta(CBR_COMMIT_META)) return true
 
+          const inputSource = tr.getMeta(INPUT_LAYER_SOURCE_META) as InputLayerSource | undefined
+          if (inputSource === 'typing' || isPasteLayerSource(inputSource)) {
+            return true
+          }
+
+          if (!shouldFlushMermaidBeforeDocChange()) return true
+
           const bridge = getMermaidSourceBridge()
           const editor = getMermaidSourceBoundEditor()
           if (!bridge || !editor) return true
-
           bridge.flushBeforeDocChange(editor)
           return true
         },

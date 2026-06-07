@@ -2,6 +2,12 @@ import { Extension, type Editor } from '@tiptap/core'
 import { NodeSelection } from '@tiptap/pm/state'
 import { CellSelection, cellAround, cellNear } from '@tiptap/pm/tables'
 
+import { isCodeBlockCmEnabled } from './codeBlock/cm/codeBlockCmFeature'
+import {
+  isCodeBlockCmFocused,
+  selectAllInCodeBlockCmAtPos,
+  selectAllInFocusedCodeBlockCm,
+} from './codeBlock/cm/codeBlockCmFocus'
 import { selectAllInMermaidBlock } from './mermaid/mermaidBlockSelection'
 import { isMermaidInputKernelActive } from './mermaid/mermaidSourceInputFocus'
 
@@ -17,14 +23,35 @@ const PARA = 'paragraph'
 const HEADING = 'heading'
 
 export function selectAllInCurrentBlock(editor: Editor): boolean {
+  if (isMermaidInputKernelActive()) {
+    return selectAllInMermaidBlock(editor)
+  }
+
+  // CM owns Mod-a whenever its surface is focused — PM may still hold a stale paragraph selection.
+  if (isCodeBlockCmEnabled() && selectAllInFocusedCodeBlockCm()) {
+    return true
+  }
+
+  // Registry / command-path Mod-a can run while PM still points at a paragraph. Never PM-select that paragraph.
+  if (isCodeBlockCmEnabled() && isCodeBlockCmFocused()) {
+    const active = document.activeElement
+    if (active instanceof HTMLElement) {
+      const fromAttr = active.closest('[data-luna-code-block-wrap]')?.getAttribute('data-luna-code-block-from')
+      if (fromAttr) {
+        const blockPos = Number(fromAttr)
+        if (Number.isFinite(blockPos) && selectAllInCodeBlockCmAtPos(editor, blockPos)) {
+          return true
+        }
+      }
+    }
+    if (selectAllInFocusedCodeBlockCm()) return true
+    return true
+  }
+
   const state = editor.state
   const { $head } = state.selection
 
   if ($head.depth < 1) return false
-
-  if (isMermaidInputKernelActive()) {
-    return selectAllInMermaidBlock(editor)
-  }
 
   if (state.selection instanceof NodeSelection && state.selection.node.type.name === MERMAID) {
     return selectAllInMermaidBlock(editor)
@@ -57,6 +84,13 @@ export function selectAllInCurrentBlock(editor: Editor): boolean {
   }
 
   if (codeD !== null) {
+    if (isCodeBlockCmEnabled()) {
+      const blockPos = $head.before(codeD)
+      if (selectAllInCodeBlockCmAtPos(editor, blockPos)) return true
+      // Never fall back to PM text selection while CM is the editing surface.
+      if (isCodeBlockCmFocused()) return true
+    }
+    if (isCodeBlockCmFocused() && selectAllInFocusedCodeBlockCm()) return true
     const node = $head.node(codeD)
     const pos = $head.before(codeD)
     const from = pos + 1

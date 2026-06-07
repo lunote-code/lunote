@@ -83,7 +83,7 @@ export function resolveSettingOptions(
       ...listAvailableThemeStylesheets().map((entry) => ({
         value: entry.name,
         label: entry.name,
-        group: 'Theme/*.css',
+        group: '.luna/theme/style/*.css',
         description: entry.name,
       })),
     ]

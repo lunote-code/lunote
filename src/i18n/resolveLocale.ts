@@ -66,9 +66,11 @@ export function resolveNavigatorLocaleTag(navTag: string | undefined): UiLocaleI
 export function resolveEffectiveUiLocale(
   languageSetting: AppLanguageSetting,
   navigatorLanguage: string | undefined,
+  systemLocaleTag?: string | null,
 ): UiLocaleId {
   if (languageSetting === 'system') {
-    return resolveNavigatorLocaleTag(navigatorLanguage)
+    const tag = systemLocaleTag ?? navigatorLanguage
+    return resolveNavigatorLocaleTag(tag)
   }
   if (isUiLocaleId(languageSetting)) return languageSetting
   const n = normalizeTag(languageSetting)

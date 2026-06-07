@@ -8,7 +8,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Locale / menu scripts are OS-agnostic; run once on Linux.
   locale-and-scripts:
     name: Locale & menu validation
     runs-on: ubuntu-22.04
@@ -27,35 +26,24 @@ jobs:
       - name: Check version sync
         run: npm run version:check
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Locale & menu pipeline
+        uses: ./.github/actions/locale-pipeline
         with:
-          python-version: "3.12"
+          run-validation: "true"
+          check-git-clean: "true"
 
-      - name: Build UI locales from corpus
-        run: python3 scripts/build_ui_locales.py
+      - name: Validate publish paths (no local-only files tracked)
+        run: npm run validate:git-publish-paths
 
-      - name: Sync shell menu from UI locales
-        run: python3 scripts/sync_shell_menu_from_ui.py
+      - name: Validate macOS menu icon assets
+        run: npm run validate:mac-menu-assets
 
-      - name: Export menu canonical + validate UI/shell menu sync
-        run: |
-          python3 scripts/export_menu_canonical.py
-          python3 scripts/export_menu_rust_manifest.py
-          python3 scripts/validate_menu_i18n_sync.py
-          python3 scripts/validate_menu_runtime.py
-
-      - name: Validate locale truth (UI + shell, no merge masking)
-        run: python3 scripts/validate_locale.py --strict --check-min-translated
-
-      - name: Validate shell locale schema
-        run: python3 scripts/validate_shell_locale.py
+      - name: Validate release workflow config
+        run: npm run validate:release-config
 
       - name: Lint (allow existing warnings)
         run: npm run lint -- --max-warnings 100
 
-  # Compile and typecheck on multiple OS / runner versions (no installers).
-  # continue-on-error: one platform failing does not cancel the rest.
   build:
     name: Build · ${{ matrix.label }}
     needs: locale-and-scripts
@@ -64,14 +52,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Linux — glibc / WebKit baseline vs newer distro
           - runner: ubuntu-22.04
             platform: linux
             label: Linux · Ubuntu 22.04
           - runner: ubuntu-24.04
             platform: linux
             label: Linux · Ubuntu 24.04
-          # Windows — Server 2022 baseline vs rolling image
           - runner: windows-2022
             platform: windows
             label: Windows · Server 2022
@@ -81,7 +67,6 @@ jobs:
           - runner: windows-11-arm
             platform: windows
             label: Windows · ARM64
-          # macOS — Apple Silicon vs recent releases
           - runner: macos-14
             platform: macos
             label: macOS 14 · arm64
@@ -108,16 +93,43 @@ jobs:
       - name: Check version sync
         run: npm run version:check
 
+      - name: Locale & menu pipeline (build inputs)
+        uses: ./.github/actions/locale-pipeline
+
       - name: Typecheck and build frontend
         run: npm run build
 
       - name: cargo check
         run: cargo check --manifest-path src-tauri/Cargo.toml
 
-  # Locale checks must pass; platform builds may fail independently.
+  build-smoke:
+    name: Build smoke · Linux
+    needs: locale-and-scripts
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node and Rust
+        uses: ./.github/actions/setup-node-rust
+
+      - name: Install Linux Tauri dependencies
+        uses: ./.github/actions/install-linux-tauri-deps
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Locale & menu pipeline (build inputs)
+        uses: ./.github/actions/locale-pipeline
+
+      - name: Typecheck and build frontend
+        run: npm run build
+
+      - name: cargo build (Tauri backend link smoke)
+        run: cargo build --manifest-path src-tauri/Cargo.toml
+
   ci-gate:
     name: CI gate
-    needs: [locale-and-scripts, build]
+    needs: [locale-and-scripts, build-smoke, build]
     if: always() && !cancelled()
     runs-on: ubuntu-22.04
     steps:
@@ -128,7 +140,14 @@ jobs:
             exit 1
           fi
 
-      - name: Report platform build results
+      - name: Require Linux build smoke
+        run: |
+          if [ "${{ needs.build-smoke.result }}" != "success" ]; then
+            echo "Linux build smoke failed (npm run build + cargo build)."
+            exit 1
+          fi
+
+      - name: Report platform build matrix results
         run: |
           echo "Platform build job result: ${{ needs.build.result }}"
           if [ "${{ needs.build.result }}" != "success" ]; then

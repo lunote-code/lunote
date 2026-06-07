@@ -79,6 +79,7 @@ Push/PR runs [`.github/workflows/ci.yml`](../.github/workflows/ci.yml): locale c
 
 - `npm run validate:git-publish-paths` — fail if local-only paths (e.g. `scripts/maintenance/`) are tracked
 - `npm run validate:mac-menu-assets` — fail if `public/mac-menu-icons/` PNGs are missing or out of sync
+- `npm run validate:app-icons` — fail if `src-tauri/icons/` bundle assets are missing, wrong size, or out of sync with `icon.svg`
 - `npm run validate:release-config` — guard release workflow / `.github/release.yml` structure
 
 After changing `scripts/locale_corpus/` or menu sources, regenerate and commit:

@@ -89,6 +89,9 @@ jobs:
       - name: Validate macOS menu icon assets
         run: npm run validate:mac-menu-assets
 
+      - name: Validate app icon assets
+        run: npm run validate:app-icons
+
       - name: Validate release workflow config
         run: npm run validate:release-config
 

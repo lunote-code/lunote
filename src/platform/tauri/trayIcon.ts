@@ -11,7 +11,7 @@ import { getDesktopPlatform, type DesktopPlatform } from '../desktopPlatform'
 export const MACOS_TRAY_TEMPLATE_LOGICAL_PT = 18
 export const MACOS_TRAY_TEMPLATE_PIXEL_SIZE = 36
 
-/** Bundled tray icon paths (see `scripts/maintenance/generate_app_icons.py`). */
+/** Bundled tray icon paths (see `scripts/build/generate_app_icons.py`). */
 export const TRAY_ICON_RESOURCES = {
   /** 36×36 px (@2x for 18pt menu bar slot). */
   macTemplate: 'icons/trayTemplate.png',

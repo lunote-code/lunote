@@ -31,6 +31,7 @@ function testReleaseYml() {
 
 function testReleaseWorkflow() {
   const text = read('.github/workflows/release.yml')
+  assert(text.includes('validate:app-icons'), 'release.yml: must run validate:app-icons')
   assert(text.includes('generate_release_notes: true'), 'workflow: generate_release_notes must be true')
 
   const publishIdx = text.indexOf('  publish:')
@@ -57,8 +58,21 @@ function testCiWorkflow() {
   const text = read('.github/workflows/ci.yml')
   assert(text.includes('validate:git-publish-paths'), 'ci.yml: must run validate:git-publish-paths')
   assert(text.includes('validate:mac-menu-assets'), 'ci.yml: must run validate:mac-menu-assets')
+  assert(text.includes('validate:app-icons'), 'ci.yml: must run validate:app-icons')
   assert(text.includes('build-smoke:'), 'ci.yml: must define blocking build-smoke job')
   assert(text.includes('Require Linux build smoke'), 'ci-gate: must require build-smoke success')
+}
+
+function testRootTsconfig() {
+  const text = read('tsconfig.json')
+  assert(
+    !text.includes('scripts/test/tsconfig.json'),
+    'tsconfig.json: must not reference gitignored scripts/test/tsconfig.json (use scripts/tsconfig.playwright.json)',
+  )
+  assert(
+    text.includes('scripts/tsconfig.playwright.json'),
+    'tsconfig.json: must reference scripts/tsconfig.playwright.json for Playwright types',
+  )
 }
 
 function testPackagingDoc() {
@@ -71,6 +85,7 @@ const tests = [
   ['release.yml structure', testReleaseYml],
   ['release workflow publish job', testReleaseWorkflow],
   ['ci workflow guards', testCiWorkflow],
+  ['root tsconfig references', testRootTsconfig],
   ['packaging-strategy doc', testPackagingDoc],
 ]
 

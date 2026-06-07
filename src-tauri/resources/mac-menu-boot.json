@@ -502,7 +502,7 @@
               "action": "edit-find-prev",
               "labelKey": "menu.edit.find.prev",
               "semanticIcon": "find",
-              "tauriAccelerator": "Shift+F3"
+              "tauriAccelerator": "CmdOrCtrl+Shift+KeyG"
             },
             {
               "kind": "item",
@@ -510,7 +510,7 @@
               "action": "edit-find-next",
               "labelKey": "menu.edit.find.next",
               "semanticIcon": "find",
-              "tauriAccelerator": "F3"
+              "tauriAccelerator": "CmdOrCtrl+KeyG"
             },
             {
               "kind": "separator"
@@ -521,7 +521,7 @@
               "action": "edit-find-replace",
               "labelKey": "menu.edit.find.replace",
               "semanticIcon": "find",
-              "tauriAccelerator": "CmdOrCtrl+KeyH"
+              "tauriAccelerator": "CmdOrCtrl+Alt+KeyF"
             },
             {
               "kind": "item",
@@ -692,7 +692,7 @@
               "action": "para-table-insert",
               "labelKey": "menu.para.table.insert",
               "semanticIcon": "table",
-              "tauriAccelerator": "CmdOrCtrl+KeyT"
+              "tauriAccelerator": "CmdOrCtrl+Alt+KeyT"
             },
             {
               "kind": "separator"
@@ -719,7 +719,7 @@
           "action": "para-math-block",
           "labelKey": "menu.para.math",
           "semanticIcon": "math",
-          "tauriAccelerator": "CmdOrCtrl+Shift+KeyM"
+          "tauriAccelerator": "CmdOrCtrl+Alt+KeyB"
         },
         {
           "kind": "item",
@@ -727,7 +727,7 @@
           "action": "para-insert-code-block",
           "labelKey": "menu.para.code",
           "semanticIcon": "code",
-          "tauriAccelerator": "CmdOrCtrl+Shift+KeyK"
+          "tauriAccelerator": "CmdOrCtrl+Alt+KeyC"
         },
         {
           "kind": "submenu",
@@ -821,7 +821,7 @@
           "action": "para-ol",
           "labelKey": "menu.para.ol",
           "semanticIcon": "list-ordered",
-          "tauriAccelerator": "CmdOrCtrl+Shift+BracketRight"
+          "tauriAccelerator": "CmdOrCtrl+Alt+KeyO"
         },
         {
           "kind": "item",
@@ -829,7 +829,7 @@
           "action": "para-ul",
           "labelKey": "menu.para.ul",
           "semanticIcon": "list",
-          "tauriAccelerator": "CmdOrCtrl+Shift+BracketLeft"
+          "tauriAccelerator": "CmdOrCtrl+Alt+KeyU"
         },
         {
           "kind": "item",
@@ -837,7 +837,7 @@
           "action": "para-task",
           "labelKey": "menu.para.task",
           "semanticIcon": "task",
-          "tauriAccelerator": "CmdOrCtrl+Shift+KeyX"
+          "tauriAccelerator": "CmdOrCtrl+Alt+KeyX"
         },
         {
           "kind": "submenu",
@@ -990,7 +990,7 @@
           "action": "fmt-strike",
           "labelKey": "menu.fmt.strike",
           "menuIcon": "S",
-          "tauriAccelerator": "Alt+Shift+Digit5"
+          "tauriAccelerator": "Ctrl+Shift+Backquote"
         },
         {
           "kind": "item",
@@ -1052,7 +1052,7 @@
               "action": "fmt-image",
               "labelKey": "menu.fmt.image.insert",
               "semanticIcon": "image",
-              "tauriAccelerator": "CmdOrCtrl+Shift+KeyI"
+              "tauriAccelerator": "CmdOrCtrl+Ctrl+KeyI"
             },
             {
               "kind": "item",
@@ -1440,7 +1440,7 @@
           "id": "view-fullscreen",
           "action": "view-fullscreen",
           "labelKey": "menu.view.fullscreen",
-          "tauriAccelerator": "F11"
+          "tauriAccelerator": "CmdOrCtrl+Ctrl+KeyF"
         },
         {
           "kind": "item",

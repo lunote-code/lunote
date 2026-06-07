@@ -81,28 +81,28 @@
 ## 截圖
 
 <p align="center">
-  <img src="assets/screenshots/head-view.png" alt="Lunote — 首次開啟" width="720" />
+  <img src="assets/screenshots/language/cn-tw.png" alt="Lunote — 首次開啟" width="720" />
 </p>
 
-| 代码编辑 | 知識圖譜 | 全域搜尋 |
+| 程式碼編輯 | 原始碼檢視 | 知識圖譜 |
 | :---: | :---: | :---: |
-| <img src="assets/screenshots/code-view.png" alt="代码编辑" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="知識圖譜" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/search.png" alt="全域搜尋" width="240" style="max-width: 100%; height: auto;" /> |
+| <img src="assets/screenshots/code-view.png" alt="程式碼編輯" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/source-view.png" alt="原始碼檢視" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="知識圖譜" width="240" style="max-width: 100%; height: auto;" /> |
 
-| 历史快照 | 主題設定 |
-| :---: | :---: |
-| <img src="assets/screenshots/snipaste.png" alt="历史快照" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="主題設定" width="240" style="max-width: 100%; height: auto;" /> |
+| 全域搜尋 | 歷史快照 | 主題設定 |
+| :---: | :---: | :---: |
+| <img src="assets/screenshots/search.png" alt="全域搜尋" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/snipaste.png" alt="歷史快照" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="主題設定" width="240" style="max-width: 100%; height: auto;" /> |
 
 ### 更多主題預覽
 
-更多外观截圖見 `assets/screenshots/theme/`。可直接複製的 CSS、JSON 令牌與片段： **[主題示例](theme-example/README.md)**.
+更多外觀截圖見 `assets/screenshots/theme/`。可直接複製的 CSS、JSON 權杖與片段： **[主題範例](theme-example/README.md)**.
 
 | GitHub 淺色 | GitHub 深色 | IDEA 淺色 | IDEA 深色 | Dim 淺色 |
 | :---: | :---: | :---: | :---: | :---: |
 | <img src="assets/screenshots/theme/github-light.png" alt="GitHub 淺色" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/github-dark.png" alt="GitHub 深色" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/idea-light.png" alt="IDEA 淺色" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/idea-dark.png" alt="IDEA 深色" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/dim-light.png" alt="Dim 淺色" width="200" style="max-width: 100%; height: auto;" /> |
 
-| Dim 深色 | 森林晨曦 | 余烬微光 | 石墨黑 | 薰衣草霧 |
+| Dim 深色 | 森林晨曦 | 餘燼微光 | 石墨黑 | 薰衣草霧 |
 | :---: | :---: | :---: | :---: | :---: |
-| <img src="assets/screenshots/theme/dim-dark.png" alt="Dim 深色" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/forest-dawn.png" alt="森林晨曦" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/ember-glow.png" alt="余烬微光" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/graphite-noir.png" alt="石墨黑" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/lavender-haze.png" alt="薰衣草霧" width="200" style="max-width: 100%; height: auto;" /> |
+| <img src="assets/screenshots/theme/dim-dark.png" alt="Dim 深色" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/forest-dawn.png" alt="森林晨曦" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/ember-glow.png" alt="餘燼微光" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/graphite-noir.png" alt="石墨黑" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/lavender-haze.png" alt="薰衣草霧" width="200" style="max-width: 100%; height: auto;" /> |
 
 ---
 

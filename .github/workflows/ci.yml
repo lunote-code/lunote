@@ -1,7 +1,16 @@
-# Continuous integration — checkout and compile only (no validation gates).
+# CI — compile on every push/PR; auto-release after compile when:
+#   • a v* tag is pushed, or
+#   • main/master push changes version.json (uses v{version} from version.json).
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -29,35 +38,48 @@ jobs:
       - name: Build Tauri backend
         run: cargo build --manifest-path src-tauri/Cargo.toml
 
+  locale-check:
+    name: Locale & menu pipeline
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node and Rust
+        uses: ./.github/actions/setup-node-rust
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Locale & menu pipeline (validation + committed outputs)
+        uses: ./.github/actions/locale-pipeline
+        with:
+          run-validation: "true"
+          check-git-clean: "true"
+
+  # Cross-platform compile smoke — mirrors release targets (see release-build.yml):
+  #   Linux deb · Windows x86_64 + ARM64 · macOS arm64
   build-matrix:
     name: Build · ${{ matrix.label }}
     needs: build
+    if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/v')
     continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-24.04
+          - runner: ubuntu-22.04
             platform: linux
-            label: Linux · Ubuntu 24.04
+            label: Linux · deb
           - runner: windows-2022
             platform: windows
-            label: Windows · Server 2022
-          - runner: windows-latest
-            platform: windows
-            label: Windows · latest
+            label: Windows · x86_64
           - runner: windows-11-arm
             platform: windows
             label: Windows · ARM64
           - runner: macos-14
             platform: macos
-            label: macOS 14 · arm64
-          - runner: macos-15
-            platform: macos
-            label: macOS 15 · arm64
-          - runner: macos-latest
-            platform: macos
-            label: macOS · latest
+            label: macOS · arm64
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -77,3 +99,37 @@ jobs:
 
       - name: cargo check
         run: cargo check --manifest-path src-tauri/Cargo.toml
+
+  plan-release:
+    name: Plan release
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.plan.outputs.should_release }}
+      tag: ${{ steps.plan.outputs.tag }}
+      release_ref: ${{ steps.plan.outputs.release_ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decide whether to publish a release
+        id: plan
+        env:
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: node scripts/release/plan_release.mjs
+
+  release:
+    name: Publish GitHub Release
+    needs: [build, plan-release]
+    if: needs.plan-release.outputs.should_release == 'true'
+    uses: ./.github/workflows/release-build.yml
+    with:
+      release_ref: ${{ needs.plan-release.outputs.release_ref }}
+      tag: ${{ needs.plan-release.outputs.tag }}
+      draft: false
+    secrets: inherit
+    permissions:
+      contents: write

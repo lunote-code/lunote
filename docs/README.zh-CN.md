@@ -81,16 +81,16 @@
 ## 截图
 
 <p align="center">
-  <img src="assets/screenshots/head-view.png" alt="Lunote — 首次打开" width="720" />
+  <img src="assets/screenshots/language/cn.png" alt="Lunote — 首次打开" width="720" />
 </p>
 
-| 代码编辑 | 知识图谱 | 全局搜索 |
+| 代码编辑 | 源码视图 | 知识图谱 |
 | :---: | :---: | :---: |
-| <img src="assets/screenshots/code-view.png" alt="代码编辑" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="知识图谱" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/search.png" alt="全局搜索" width="240" style="max-width: 100%; height: auto;" /> |
+| <img src="assets/screenshots/code-view.png" alt="代码编辑" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/source-view.png" alt="源码视图" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="知识图谱" width="240" style="max-width: 100%; height: auto;" /> |
 
-| 历史快照 | 主题设置 |
-| :---: | :---: |
-| <img src="assets/screenshots/snipaste.png" alt="历史快照" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="主题设置" width="240" style="max-width: 100%; height: auto;" /> |
+| 全局搜索 | 历史快照 | 主题设置 |
+| :---: | :---: | :---: |
+| <img src="assets/screenshots/search.png" alt="全局搜索" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/snipaste.png" alt="历史快照" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="主题设置" width="240" style="max-width: 100%; height: auto;" /> |
 
 ### 更多主题预览
 
@@ -152,14 +152,11 @@
 
 ### 整理
 
-*笔记变多后：多标签、日记、大纲、全文搜索。*
+*笔记变多后：多标签、大纲、全文搜索。*
 
 - 侧栏文件树、多标签、**全局搜索**（`Cmd+Shift+F`）
 - 单篇**大纲**，并监测外部文件变更
 - 保存与冲突处理，在文件管理器中显示
-- **日记**：今日 / 昨日 / 明日，按模板自动创建（`Cmd+Shift+D` / `Ctrl+Shift+D`）
-- **笔记模板**：支持 `{{date:…}}`、`{{title}}` 等变量，在 **文件 → 模板** 中编辑
-- **快速捕获**：系统托盘 + 全局快捷键，后台也能打开今日日记
 
 ### 导出与外观
 

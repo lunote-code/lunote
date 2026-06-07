@@ -81,16 +81,16 @@
 ## Скриншот
 
 <p align="center">
-  <img src="assets/screenshots/head-view.png" alt="Lunote — первый запуск" width="720" />
+  <img src="assets/screenshots/language/ru.png" alt="Lunote — первый запуск" width="720" />
 </p>
 
-| Редактор кода | Граф знаний | Глобальный поиск |
+| Редактор кода | Режим исходного кода | Граф знаний |
 | :---: | :---: | :---: |
-| <img src="assets/screenshots/code-view.png" alt="Редактор кода" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="Граф знаний" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/search.png" alt="Глобальный поиск" width="240" style="max-width: 100%; height: auto;" /> |
+| <img src="assets/screenshots/code-view.png" alt="Редактор кода" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/source-view.png" alt="Режим исходного кода" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="Граф знаний" width="240" style="max-width: 100%; height: auto;" /> |
 
-| Снимки истории | Настройки темы |
-| :---: | :---: |
-| <img src="assets/screenshots/snipaste.png" alt="Снимки истории" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="Настройки темы" width="240" style="max-width: 100%; height: auto;" /> |
+| Глобальный поиск | Снимки истории | Настройки темы |
+| :---: | :---: | :---: |
+| <img src="assets/screenshots/search.png" alt="Глобальный поиск" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/snipaste.png" alt="Снимки истории" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="Настройки темы" width="240" style="max-width: 100%; height: auto;" /> |
 
 ### Другие превью тем
 
@@ -152,14 +152,11 @@
 
 ### Порядок
 
-*Когда хранилище растёт: вкладки, ежедневные заметки, структура и поиск по всем заметкам.*
+*Когда хранилище растёт: вкладки, структура и поиск по всем заметкам.*
 
 - Дерево файлов, вкладки, **глобальный поиск**
 - **Структура** и внешние изменения
 - Сохранение, конфликты, показать в проводнике
-- **Ежедневные заметки**: сегодня, вчера или завтра—из шаблона (`Cmd+Shift+D` / `Ctrl+Shift+D`)
-- **Шаблоны заметок** с переменными (`{{date:…}}`, `{{title}}`, …) в **Файл → Шаблоны**
-- **Быстрый захват**: системный трей + глобальное сочетание открывают сегодняшнюю заметку в фоне
 
 ### Экспорт и темы
 

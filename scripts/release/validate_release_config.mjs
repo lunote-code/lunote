@@ -31,34 +31,37 @@ function testReleaseYml() {
 
 function testReleaseWorkflow() {
   const text = read('.github/workflows/release.yml')
-  assert(text.includes('validate:app-icons'), 'release.yml: must run validate:app-icons')
-  assert(text.includes('generate_release_notes: true'), 'workflow: generate_release_notes must be true')
+  assert(text.includes('release-build.yml'), 'release.yml must call release-build reusable workflow')
+  assert(text.includes('workflow_dispatch'), 'release.yml must support manual release runs')
 
-  const publishIdx = text.indexOf('  publish:')
-  assert(publishIdx >= 0, 'workflow: publish job missing')
-  const publishBlock = text.slice(publishIdx)
-
+  const build = read('.github/workflows/release-build.yml')
+  assert(build.includes('softprops/action-gh-release@v2'), 'release-build must publish GitHub Release')
+  assert(build.includes('tauri:bundle:dmg'), 'release-build must build DMG')
+  assert(build.includes('tauri:bundle:msi'), 'release-build must build MSI')
+  assert(build.includes('tauri:bundle:deb'), 'release-build must build DEB')
+  assert(!build.includes('tauri:bundle:rpm'), 'release-build must not build RPM')
+  assert(build.includes('macos-14'), 'release-build must target macOS')
+  assert(build.includes('windows-2022'), 'release-build must target Windows x86_64')
+  assert(build.includes('windows-11-arm'), 'release-build must target Windows ARM64')
+  assert(build.includes('ubuntu-22.04'), 'release-build must target Linux deb on Ubuntu 22.04')
+  assert(build.includes('arch: x86_64'), 'release-build MSI matrix must include x86_64')
+  assert(build.includes('arch: aarch64'), 'release-build MSI matrix must include ARM64')
+  assert(!build.includes('WINDOWS_CERTIFICATE'), 'release-build must not use Windows code signing')
+  assert(!build.includes('GPG_PRIVATE_KEY'), 'release-build must not use GPG deb signing')
+  assert(!build.includes('.deb.asc'), 'release-build must not publish GPG signatures')
   assert(
-    publishBlock.includes('ref: ${{ env.RELEASE_REF }}'),
-    'workflow: publish checkout must use RELEASE_REF',
+    (build.match(/check-git-clean: "true"/g) ?? []).length >= 3,
+    'release-build locale-pipeline must check committed outputs on all platform jobs',
   )
-
-  const ghStep = publishBlock.match(/uses: softprops\/action-gh-release@v2[\s\S]*?(?=\n      - |\n  [a-z]|$)/)
-  assert(ghStep, 'workflow: gh-release step missing')
-  const body = ghStep[0]
-  assert(body.includes("## What's Changed"), "workflow: body must include What's Changed")
-  assert(body.includes('## Downloads'), 'workflow: body must include Downloads')
-
-  const downloadsAt = body.indexOf('## Downloads')
-  const changedAt = body.indexOf("## What's Changed")
-  assert(changedAt > downloadsAt, "workflow: What's Changed must come after Downloads (auto-notes append after body)")
 }
 
 function testCiWorkflow() {
   const text = read('.github/workflows/ci.yml')
   assert(text.includes('npm run build'), 'ci.yml: must compile frontend')
   assert(text.includes('cargo build --manifest-path src-tauri/Cargo.toml'), 'ci.yml: must compile Tauri backend on Linux')
-  assert(!text.includes('locale-and-scripts:'), 'ci.yml: validation job removed (compile-only CI)')
+  assert(text.includes('locale-check:'), 'ci.yml: must run locale-check job')
+  assert(text.includes('plan_release.mjs'), 'ci.yml: must use shared plan_release script')
+  assert(text.includes('release-build.yml'), 'ci.yml: must auto-publish release after compile')
 }
 
 function testRootTsconfig() {

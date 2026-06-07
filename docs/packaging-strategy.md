@@ -1,6 +1,6 @@
-# Release packaging & signing
+# Release packaging
 
-How [`.github/workflows/release.yml`](../.github/workflows/release.yml) builds installers and which **GitHub Actions secrets** are optional.
+How [`.github/workflows/release.yml`](../.github/workflows/release.yml) builds installers. All platforms ship **unsigned** (no Authenticode, GPG, or Apple Developer ID).
 
 ## Triggers
 
@@ -16,15 +16,17 @@ npm run version:sync
 npm run version:check
 ```
 
-## Artifacts
+## Supported release platforms
 
-| Job | Runner | Output |
-|-----|--------|--------|
-| `build-dmg` | `macos-14` | `.dmg` (Apple Silicon, ad-hoc signed) |
-| `build-msi` | `windows-2022` / `windows-11-arm` | `.msi` x64 / arm64 |
-| `build-deb` | `ubuntu-22.04` | `.deb` (+ optional `.deb.asc`) |
+| Platform | Runner | Artifact |
+|----------|--------|----------|
+| macOS (Apple Silicon) | `macos-14` | `.dmg` (arm64) |
+| Windows x86_64 | `windows-2022` | `.msi` |
+| Windows ARM64 | `windows-11-arm` | `.msi` |
+| Linux (Debian/Ubuntu) | `ubuntu-22.04` | `.deb` |
 
-`verify-build` smoke-checks `cargo check` on additional OS images.  
+Linux ships **deb only** (no RPM). CI `build-matrix` smoke-checks compile on the same four runners.
+
 `publish` attaches artifacts from jobs that succeeded (`continue-on-error` on build jobs).
 
 ## Release notes (automatic)
@@ -47,35 +49,9 @@ Configuration: [`.github/release.yml`](../.github/release.yml).
 
 Create matching labels in the GitHub repo (**Settings → Labels**) if they do not exist yet (`bug`, `fix`, `enhancement`, `documentation`, `dependencies`, `chore`, …).
 
-## GitHub Secrets (optional)
-
-### Windows Authenticode
-
-| Secret | Purpose |
-|--------|---------|
-| `WINDOWS_CERTIFICATE` | Base64 `.pfx` (`scripts/release/import-windows-certificate.ps1`) |
-| `WINDOWS_CERTIFICATE_PASSWORD` | PFX password |
-| `WINDOWS_CERTIFICATE_THUMBPRINT` | Thumbprint for `prepare-signing.mjs` |
-
-If unset, MSI builds run **unsigned**.
-
-### Linux DEB (GPG detached signature)
-
-| Secret | Purpose |
-|--------|---------|
-| `GPG_PRIVATE_KEY` | ASCII-armored key (`scripts/release/sign-deb.mjs`) |
-| `GPG_KEY_ID` | Signing key id |
-| `GPG_PASSPHRASE` | Passphrase if required |
-
-If unset, `.deb` ships **without** `.deb.asc`.
-
-### macOS
-
-No secrets. Release uses ad-hoc signing (`APPLE_SIGNING_IDENTITY: '-'`).
-
 ## CI alignment
 
-Push/PR runs [`.github/workflows/ci.yml`](../.github/workflows/ci.yml): locale corpus is applied on every job that compiles the app. The `locale-and-scripts` job also runs:
+Push/PR runs [`.github/workflows/ci.yml`](../.github/workflows/ci.yml): Linux 上完整编译；`build-matrix` 在四个发布目标 runner 上做跨平台 `cargo check` 冒烟。Release 流水线在打包前运行 locale pipeline。
 
 - `npm run validate:git-publish-paths` — fail if local-only paths (e.g. `scripts/maintenance/`) are tracked
 - `npm run validate:mac-menu-assets` — fail if `public/mac-menu-icons/` PNGs are missing or out of sync
@@ -93,8 +69,6 @@ node scripts/build/generate_mac_menu_boot.mjs
 ```
 
 When changing menu icon mappings, also run `npm run export:mac-menu-icons` and commit `public/mac-menu-icons/`.
-
-Signing files (`*.pem`, `*.p12`, `signing/`) stay **gitignored**.
 
 ## First push (stage via `.gitignore`)
 

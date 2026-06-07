@@ -81,16 +81,16 @@
 ## Screenshot
 
 <p align="center">
-  <img src="docs/assets/screenshots/head-view.png" alt="Lunote — first launch" width="720" />
+  <img src="docs/assets/screenshots/language/en.png" alt="Lunote — first launch" width="720" />
 </p>
 
-| Code editor | Knowledge graph | Global search |
+| Code editor | Source view | Knowledge graph |
 | :---: | :---: | :---: |
-| <img src="docs/assets/screenshots/code-view.png" alt="Code editor" width="240" style="max-width: 100%; height: auto;" /> | <img src="docs/assets/screenshots/graph.png" alt="Knowledge graph" width="240" style="max-width: 100%; height: auto;" /> | <img src="docs/assets/screenshots/search.png" alt="Global search" width="240" style="max-width: 100%; height: auto;" /> |
+| <img src="docs/assets/screenshots/code-view.png" alt="Code editor" width="240" style="max-width: 100%; height: auto;" /> | <img src="docs/assets/screenshots/source-view.png" alt="Source view" width="240" style="max-width: 100%; height: auto;" /> | <img src="docs/assets/screenshots/graph.png" alt="Knowledge graph" width="240" style="max-width: 100%; height: auto;" /> |
 
-| History snapshots | Theme settings |
-| :---: | :---: |
-| <img src="docs/assets/screenshots/snipaste.png" alt="History snapshots" width="240" style="max-width: 100%; height: auto;" /> | <img src="docs/assets/screenshots/theme.png" alt="Theme settings" width="240" style="max-width: 100%; height: auto;" /> |
+| Global search | History snapshots | Theme settings |
+| :---: | :---: | :---: |
+| <img src="docs/assets/screenshots/search.png" alt="Global search" width="240" style="max-width: 100%; height: auto;" /> | <img src="docs/assets/screenshots/snipaste.png" alt="History snapshots" width="240" style="max-width: 100%; height: auto;" /> | <img src="docs/assets/screenshots/theme.png" alt="Theme settings" width="240" style="max-width: 100%; height: auto;" /> |
 
 ### More theme previews
 
@@ -152,14 +152,11 @@ Pick your workflow—everything below ships in the app:
 
 ### Organize
 
-*When the vault grows: tabs, daily notes, outline, and search across every note.*
+*When the vault grows: tabs, outline, and search across every note.*
 
 - Sidebar file tree, tabs, and **global search** (`Cmd+Shift+F`)
 - Per-note **outline** and external file change detection
 - Save, conflict handling, reveal in file manager
-- **Daily notes**: today, yesterday, or tomorrow—created from your template (`Cmd+Shift+D` / `Ctrl+Shift+D`)
-- **Note templates** with variables (`{{date:…}}`, `{{title}}`, …) via **File → Templates**
-- **Quick capture**: system tray + global shortcut open today's note even when Lunote is in the background
 
 ### Export & look
 

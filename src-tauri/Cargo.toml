@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.5.0"
+version = "0.5.1"
 description = "Lunote — local-first cross-platform Markdown notes and PKM desktop app (Tauri)"
 authors = ["you"]
 license = ""

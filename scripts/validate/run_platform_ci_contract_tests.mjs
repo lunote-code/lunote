@@ -32,9 +32,14 @@ function testPlaywrightScopeAndModKey() {
 function testCiBuildJob() {
   const ci = read('.github/workflows/ci.yml')
   assert(ci.includes('build:'), 'ci.yml must define a build job')
+  assert(ci.includes('locale-check:'), 'ci.yml must define locale-check job')
+  assert(ci.includes('run-validation: "true"'), 'ci.yml locale-check must run locale validation')
+  assert(ci.includes('check-git-clean: "true"'), 'ci.yml locale-check must require committed locale outputs')
+  assert(ci.includes('plan_release.mjs'), 'ci.yml must use scripts/release/plan_release.mjs')
   assert(ci.includes('npm run build'), 'ci.yml build job must compile frontend')
   assert(ci.includes('cargo build --manifest-path src-tauri/Cargo.toml'), 'ci.yml build job must compile Tauri backend')
-  assert(!ci.includes('validate:git-publish-paths'), 'ci.yml must not run publish-path validation (local only)')
+  assert(ci.includes('release-build.yml'), 'ci.yml must publish release after successful build')
+  assert(ci.includes('plan-release'), 'ci.yml must plan auto-release after compile')
 }
 
 function testMacMenuBootPipeline() {

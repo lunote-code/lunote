@@ -81,16 +81,16 @@
 ## スクリーンショット
 
 <p align="center">
-  <img src="assets/screenshots/head-view.png" alt="Lunote — 初回起動" width="720" />
+  <img src="assets/screenshots/language/jp.png" alt="Lunote — 初回起動" width="720" />
 </p>
 
-| コード編集 | ナレッジグラフ | 全体検索 |
+| コード編集 | ソース表示 | ナレッジグラフ |
 | :---: | :---: | :---: |
-| <img src="assets/screenshots/code-view.png" alt="コード編集" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="ナレッジグラフ" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/search.png" alt="全体検索" width="240" style="max-width: 100%; height: auto;" /> |
+| <img src="assets/screenshots/code-view.png" alt="コード編集" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/source-view.png" alt="ソース表示" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="ナレッジグラフ" width="240" style="max-width: 100%; height: auto;" /> |
 
-| 履歴スナップショット | テーマ設定 |
-| :---: | :---: |
-| <img src="assets/screenshots/snipaste.png" alt="履歴スナップショット" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="テーマ設定" width="240" style="max-width: 100%; height: auto;" /> |
+| 全体検索 | 履歴スナップショット | テーマ設定 |
+| :---: | :---: | :---: |
+| <img src="assets/screenshots/search.png" alt="全体検索" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/snipaste.png" alt="履歴スナップショット" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="テーマ設定" width="240" style="max-width: 100%; height: auto;" /> |
 
 ### その他のテーマプレビュー
 
@@ -152,14 +152,11 @@
 
 ### 整理
 
-*Vault が増えたら：タブ、デイリーノート、アウトライン、全文検索。*
+*Vault が増えたら：タブ、アウトライン、全文検索。*
 
 - ファイルツリー、タブ、**グローバル検索**
 - **アウトライン**と外部変更の検出
 - 保存、競合、ファイルマネージャで表示
-- **デイリーノート**：今日・昨日・明日をテンプレートから自動作成（`Cmd+Shift+D` / `Ctrl+Shift+D`）
-- **ノートテンプレート**：`{{date:…}}`、`{{title}}` などの変数—**ファイル → テンプレート**で編集
-- **クイックキャプチャ**：システムトレイ + グローバルショートカットでバックグラウンドから今日のノートを開く
 
 ### 出力と見た目
 

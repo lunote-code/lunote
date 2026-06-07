@@ -81,16 +81,16 @@
 ## Screenshot
 
 <p align="center">
-  <img src="assets/screenshots/head-view.png" alt="Lunote — Erster Start" width="720" />
+  <img src="assets/screenshots/language/de.png" alt="Lunote — Erster Start" width="720" />
 </p>
 
-| Code-Editor | Wissensgraph | Globale Suche |
+| Code-Editor | Quelltext-Ansicht | Wissensgraph |
 | :---: | :---: | :---: |
-| <img src="assets/screenshots/code-view.png" alt="Code-Editor" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="Wissensgraph" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/search.png" alt="Globale Suche" width="240" style="max-width: 100%; height: auto;" /> |
+| <img src="assets/screenshots/code-view.png" alt="Code-Editor" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/source-view.png" alt="Quelltext-Ansicht" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="Wissensgraph" width="240" style="max-width: 100%; height: auto;" /> |
 
-| Verlaufs-Snapshots | Theme-Einstellungen |
-| :---: | :---: |
-| <img src="assets/screenshots/snipaste.png" alt="Verlaufs-Snapshots" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="Theme-Einstellungen" width="240" style="max-width: 100%; height: auto;" /> |
+| Globale Suche | Verlaufs-Snapshots | Theme-Einstellungen |
+| :---: | :---: | :---: |
+| <img src="assets/screenshots/search.png" alt="Globale Suche" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/snipaste.png" alt="Verlaufs-Snapshots" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="Theme-Einstellungen" width="240" style="max-width: 100%; height: auto;" /> |
 
 ### Weitere Theme-Vorschauen
 
@@ -152,14 +152,11 @@ Wähle deinen Workflow—alles Folgende ist in der App:
 
 ### Organisieren
 
-*Wenn der Vault wächst: Tabs, Tagesnotizen, Gliederung und Suche in allen Notizen.*
+*Wenn der Vault wächst: Tabs, Gliederung und Suche in allen Notizen.*
 
 - Dateibaum, Tabs, **globale Suche** (`Cmd+Shift+F`)
 - **Gliederung** und Erkennung externer Änderungen
 - Speichern, Konflikte, im Dateimanager anzeigen
-- **Tagesnotizen**: heute, gestern oder morgen—aus Vorlage (`Cmd+Shift+D` / `Ctrl+Shift+D`)
-- **Notizvorlagen** mit Variablen (`{{date:…}}`, `{{title}}`, …) unter **Datei → Vorlagen**
-- **Schnellerfassung**: Taskleiste + globaler Shortcut öffnet die heutige Notiz im Hintergrund
 
 ### Export & Design
 

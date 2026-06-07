@@ -59,11 +59,13 @@ READMEs expect media under `docs/assets/`:
 assets/demo/lunote-demo.gif
 assets/screenshots/head-view.png
 assets/screenshots/code-view.png
+assets/screenshots/source-view.png
 assets/screenshots/graph.png
 assets/screenshots/search.png
 assets/screenshots/snipaste.png
 assets/screenshots/theme.png
-assets/screenshots/theme/*.png   ← preset previews (10 files, see screenshots/README.md)
+assets/screenshots/language/*.png   ← localized hero per README locale
+assets/screenshots/theme/*.png      ← preset previews (see screenshots/README.md)
 ```
 
 Root [README.md](../README.md) uses the `docs/assets/` prefix; files in `docs/README.*.md` use `assets/` (relative to `docs/`).

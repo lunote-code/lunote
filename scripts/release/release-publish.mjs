@@ -146,7 +146,7 @@ function main() {
 
   const actionsUrl = guessActionsUrl()
   console.log('')
-  console.log(`[release] Done — GitHub Actions will build DMG / MSI / DEB / RPM for ${tag}.`)
+  console.log(`[release] Done — GitHub Actions will build DMG / MSI / DEB for ${tag}.`)
   if (actionsUrl) {
     console.log(`[release] Track progress: ${actionsUrl}`)
   }

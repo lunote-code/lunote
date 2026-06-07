@@ -81,16 +81,16 @@
 ## Capture
 
 <p align="center">
-  <img src="assets/screenshots/head-view.png" alt="Lunote — premier lancement" width="720" />
+  <img src="assets/screenshots/language/fr.png" alt="Lunote — premier lancement" width="720" />
 </p>
 
-| Éditeur de code | Graphe de connaissances | Recherche globale |
+| Éditeur de code | Vue source | Graphe de connaissances |
 | :---: | :---: | :---: |
-| <img src="assets/screenshots/code-view.png" alt="Éditeur de code" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="Graphe de connaissances" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/search.png" alt="Recherche globale" width="240" style="max-width: 100%; height: auto;" /> |
+| <img src="assets/screenshots/code-view.png" alt="Éditeur de code" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/source-view.png" alt="Vue source" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="Graphe de connaissances" width="240" style="max-width: 100%; height: auto;" /> |
 
-| Instantanés d'historique | Réglages du thème |
-| :---: | :---: |
-| <img src="assets/screenshots/snipaste.png" alt="Instantanés d'historique" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="Réglages du thème" width="240" style="max-width: 100%; height: auto;" /> |
+| Recherche globale | Instantanés d'historique | Réglages du thème |
+| :---: | :---: | :---: |
+| <img src="assets/screenshots/search.png" alt="Recherche globale" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/snipaste.png" alt="Instantanés d'historique" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="Réglages du thème" width="240" style="max-width: 100%; height: auto;" /> |
 
 ### Autres aperçus de thèmes
 
@@ -152,14 +152,11 @@ Choisissez votre flux—tout ce qui suit est dans l'app :
 
 ### Organiser
 
-*Quand le coffre grossit : onglets, notes quotidiennes, plan et recherche dans toutes les notes.*
+*Quand le coffre grossit : onglets, plan et recherche dans toutes les notes.*
 
 - Arborescence, onglets, **recherche globale**
 - **Plan** et détection des changements externes
 - Sauvegarde, conflits, révéler dans le gestionnaire
-- **Notes quotidiennes** : aujourd'hui, hier ou demain—créées depuis votre modèle (`Cmd+Shift+D` / `Ctrl+Shift+D`)
-- **Modèles de notes** avec variables (`{{date:…}}`, `{{title}}`, …) via **Fichier → Modèles**
-- **Capture rapide** : barre système + raccourci global ouvrent la note du jour en arrière-plan
 
 ### Export & apparence
 

@@ -81,16 +81,16 @@
 ## Captura
 
 <p align="center">
-  <img src="assets/screenshots/head-view.png" alt="Lunote — primeira abertura" width="720" />
+  <img src="assets/screenshots/language/pr.png" alt="Lunote — primeira abertura" width="720" />
 </p>
 
-| Editor de código | Grafo de conhecimento | Pesquisa global |
+| Editor de código | Visualização de código-fonte | Grafo de conhecimento |
 | :---: | :---: | :---: |
-| <img src="assets/screenshots/code-view.png" alt="Editor de código" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="Grafo de conhecimento" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/search.png" alt="Pesquisa global" width="240" style="max-width: 100%; height: auto;" /> |
+| <img src="assets/screenshots/code-view.png" alt="Editor de código" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/source-view.png" alt="Visualização de código-fonte" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="Grafo de conhecimento" width="240" style="max-width: 100%; height: auto;" /> |
 
-| Instantâneos do histórico | Configurações de tema |
-| :---: | :---: |
-| <img src="assets/screenshots/snipaste.png" alt="Instantâneos do histórico" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="Configurações de tema" width="240" style="max-width: 100%; height: auto;" /> |
+| Pesquisa global | Instantâneos do histórico | Configurações de tema |
+| :---: | :---: | :---: |
+| <img src="assets/screenshots/search.png" alt="Pesquisa global" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/snipaste.png" alt="Instantâneos do histórico" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="Configurações de tema" width="240" style="max-width: 100%; height: auto;" /> |
 
 ### Mais pré-visualizações de tema
 
@@ -152,14 +152,11 @@ Escolha seu fluxo—tudo abaixo já vem no app:
 
 ### Organizar
 
-*Quando o cofre cresce: abas, notas diárias, outline e busca em todas as notas.*
+*Quando o cofre cresce: abas, outline e busca em todas as notas.*
 
 - Árvore de arquivos, abas, **busca global**
 - **Esboço** e mudanças externas
 - Salvar, conflitos, revelar no gerenciador
-- **Notas diárias**: hoje, ontem ou amanhã—a partir do modelo (`Cmd+Shift+D` / `Ctrl+Shift+D`)
-- **Modelos de nota** com variáveis (`{{date:…}}`, `{{title}}`, …) em **Arquivo → Modelos**
-- **Captura rápida**: bandeja do sistema + atalho global abrem a nota de hoje em segundo plano
 
 ### Exportar e tema
 

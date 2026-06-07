@@ -29,26 +29,29 @@ function testReleaseYml() {
 
 function testReleaseWorkflow() {
   const text = read('.github/workflows/release.yml')
-  assert(text.includes('generate_release_notes: true'), 'workflow: generate_release_notes must be true')
+  assert(text.includes('release-build.yml'), 'release.yml must call release-build reusable workflow')
 
-  const publishIdx = text.indexOf('  publish:')
-  assert(publishIdx >= 0, 'workflow: publish job missing')
-  const publishBlock = text.slice(publishIdx)
+  const build = read('.github/workflows/release-build.yml')
+  assert(build.includes('generate_release_notes: true'), 'release-build: generate_release_notes must be true')
+
+  const publishIdx = build.indexOf('  publish:')
+  assert(publishIdx >= 0, 'release-build: publish job missing')
+  const publishBlock = build.slice(publishIdx)
 
   assert(
     publishBlock.includes('ref: ${{ env.RELEASE_REF }}'),
-    'workflow: publish checkout must use RELEASE_REF',
+    'release-build: publish checkout must use RELEASE_REF',
   )
 
-  const ghStep = publishBlock.match(/uses: softprops\/action-gh-release@v2[\s\S]*?(?=\n      - |\n  [a-z]|$)/)
-  assert(ghStep, 'workflow: gh-release step missing')
+  const ghStep = publishBlock.match(/uses: softprops\/action-gh-release@v2[\s\S]*?(?=\n        env:|\n  [a-z]|$)/)
+  assert(ghStep, 'release-build: gh-release step missing')
   const body = ghStep[0]
-  assert(body.includes("## What's Changed"), "workflow: body must include What's Changed")
-  assert(body.includes('## Downloads'), 'workflow: body must include Downloads')
+  assert(body.includes("## What's Changed"), "release-build: body must include What's Changed")
+  assert(body.includes('## Downloads'), 'release-build: body must include Downloads')
 
   const downloadsAt = body.indexOf('## Downloads')
   const changedAt = body.indexOf("## What's Changed")
-  assert(changedAt > downloadsAt, "workflow: What's Changed must come after Downloads (auto-notes append after body)")
+  assert(changedAt > downloadsAt, "release-build: What's Changed must come after Downloads (auto-notes append after body)")
 }
 
 function testPrTemplate() {

@@ -81,16 +81,16 @@
 ## 스크린샷
 
 <p align="center">
-  <img src="assets/screenshots/head-view.png" alt="Lunote — 첫 실행" width="720" />
+  <img src="assets/screenshots/language/kr.png" alt="Lunote — 첫 실행" width="720" />
 </p>
 
-| 코드 편집 | 지식 그래프 | 전역 검색 |
+| 코드 편집 | 소스 보기 | 지식 그래프 |
 | :---: | :---: | :---: |
-| <img src="assets/screenshots/code-view.png" alt="코드 편집" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="지식 그래프" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/search.png" alt="전역 검색" width="240" style="max-width: 100%; height: auto;" /> |
+| <img src="assets/screenshots/code-view.png" alt="코드 편집" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/source-view.png" alt="소스 보기" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="지식 그래프" width="240" style="max-width: 100%; height: auto;" /> |
 
-| 기록 스냅샷 | 테마 설정 |
-| :---: | :---: |
-| <img src="assets/screenshots/snipaste.png" alt="기록 스냅샷" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="테마 설정" width="240" style="max-width: 100%; height: auto;" /> |
+| 전역 검색 | 기록 스냅샷 | 테마 설정 |
+| :---: | :---: | :---: |
+| <img src="assets/screenshots/search.png" alt="전역 검색" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/snipaste.png" alt="기록 스냅샷" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="테마 설정" width="240" style="max-width: 100%; height: auto;" /> |
 
 ### 추가 테마 미리보기
 
@@ -152,14 +152,11 @@
 
 ### 정리
 
-*보관함이 커질 때: 탭, 데일리 노트, 아웃라인, 전체 검색.*
+*보관함이 커질 때: 탭, 아웃라인, 전체 검색.*
 
 - 파일 트리, 탭, **전역 검색**
 - **아웃라인**·외부 변경 감지
 - 저장, 충돌, 파일 관리자에서 표시
-- **데일리 노트**: 오늘·어제·내일—템플릿에서 자동 생성 (`Cmd+Shift+D` / `Ctrl+Shift+D`)
-- **노트 템플릿**: `{{date:…}}`, `{{title}}` 등 변수—**파일 → 템플릿**에서 편집
-- **빠른 캡처**: 시스템 트레이 + 전역 단축키로 백그라운드에서 오늘 노트 열기
 
 ### 보내기·테마
 

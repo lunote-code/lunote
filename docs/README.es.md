@@ -81,16 +81,16 @@
 ## Captura
 
 <p align="center">
-  <img src="assets/screenshots/head-view.png" alt="Lunote — primer inicio" width="720" />
+  <img src="assets/screenshots/language/es.png" alt="Lunote — primer inicio" width="720" />
 </p>
 
-| Editor de código | Grafo de conocimiento | Búsqueda global |
+| Editor de código | Vista de código fuente | Grafo de conocimiento |
 | :---: | :---: | :---: |
-| <img src="assets/screenshots/code-view.png" alt="Editor de código" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="Grafo de conocimiento" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/search.png" alt="Búsqueda global" width="240" style="max-width: 100%; height: auto;" /> |
+| <img src="assets/screenshots/code-view.png" alt="Editor de código" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/source-view.png" alt="Vista de código fuente" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="Grafo de conocimiento" width="240" style="max-width: 100%; height: auto;" /> |
 
-| Instantáneas del historial | Ajustes de tema |
-| :---: | :---: |
-| <img src="assets/screenshots/snipaste.png" alt="Instantáneas del historial" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="Ajustes de tema" width="240" style="max-width: 100%; height: auto;" /> |
+| Búsqueda global | Instantáneas del historial | Ajustes de tema |
+| :---: | :---: | :---: |
+| <img src="assets/screenshots/search.png" alt="Búsqueda global" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/snipaste.png" alt="Instantáneas del historial" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="Ajustes de tema" width="240" style="max-width: 100%; height: auto;" /> |
 
 ### Más vistas de temas
 
@@ -152,14 +152,11 @@ Elige tu flujo—todo lo siguiente viene en la app:
 
 ### Organizar
 
-*Cuando crece la biblioteca: pestañas, notas diarias, esquema y búsqueda en todas las notas.*
+*Cuando crece la biblioteca: pestañas, esquema y búsqueda en todas las notas.*
 
 - Árbol de archivos, pestañas, **búsqueda global**
 - **Esquema** y cambios externos
 - Guardar, conflictos, mostrar en el gestor
-- **Notas diarias**: hoy, ayer o mañana—desde tu plantilla (`Cmd+Shift+D` / `Ctrl+Shift+D`)
-- **Plantillas** con variables (`{{date:…}}`, `{{title}}`, …) en **Archivo → Plantillas**
-- **Captura rápida**: bandeja del sistema + atajo global abren la nota de hoy en segundo plano
 
 ### Exportar y tema
 

@@ -4,11 +4,12 @@
  *
  * Usage:
  *   npm run verify:ci          # Linux build job (default, matches GitHub CI)
+ *   npm run verify:ci:locale   # locale-check job (matches GitHub CI)
  *   npm run verify:ci:checks   # optional local validation suite (not run on GitHub)
- *   npm run verify:ci:all      # build + optional checks
+ *   npm run verify:ci:all      # build + locale + optional checks
  *
  * Options:
- *   --job build | checks | all
+ *   --job build | locale | checks | all
  */
 import {
   npmRun,
@@ -35,6 +36,14 @@ function runBuildJob() {
   console.log('\nverify:ci — build job passed.')
 }
 
+function runLocaleCheckJob() {
+  console.log('\n=== CI job: locale-check (.github/workflows/ci.yml) ===')
+
+  runLocalePipelineFull()
+
+  console.log('\nverify:ci — locale-check job passed.')
+}
+
 function runChecksJob() {
   console.log('\n=== Optional local checks (not run on GitHub CI) ===')
 
@@ -54,15 +63,19 @@ switch (job) {
   case 'build':
     runBuildJob()
     break
+  case 'locale':
+    runLocaleCheckJob()
+    break
   case 'checks':
     runChecksJob()
     break
   case 'all':
     runBuildJob()
+    runLocaleCheckJob()
     runChecksJob()
-    console.log('\nverify:ci — build + optional checks passed.')
+    console.log('\nverify:ci — build + locale + optional checks passed.')
     break
   default:
-    console.error(`Unknown --job "${job}". Use build, checks, or all.`)
+    console.error(`Unknown --job "${job}". Use build, locale, checks, or all.`)
     process.exit(2)
 }

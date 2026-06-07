@@ -81,16 +81,16 @@
 ## Screenshot
 
 <p align="center">
-  <img src="assets/screenshots/head-view.png" alt="Lunote — primo avvio" width="720" />
+  <img src="assets/screenshots/language/it.png" alt="Lunote — primo avvio" width="720" />
 </p>
 
-| Editor di codice | Grafo della conoscenza | Ricerca globale |
+| Editor di codice | Vista sorgente | Grafo della conoscenza |
 | :---: | :---: | :---: |
-| <img src="assets/screenshots/code-view.png" alt="Editor di codice" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="Grafo della conoscenza" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/search.png" alt="Ricerca globale" width="240" style="max-width: 100%; height: auto;" /> |
+| <img src="assets/screenshots/code-view.png" alt="Editor di codice" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/source-view.png" alt="Vista sorgente" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="Grafo della conoscenza" width="240" style="max-width: 100%; height: auto;" /> |
 
-| Snapshot cronologia | Impostazioni tema |
-| :---: | :---: |
-| <img src="assets/screenshots/snipaste.png" alt="Snapshot cronologia" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="Impostazioni tema" width="240" style="max-width: 100%; height: auto;" /> |
+| Ricerca globale | Snapshot cronologia | Impostazioni tema |
+| :---: | :---: | :---: |
+| <img src="assets/screenshots/search.png" alt="Ricerca globale" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/snipaste.png" alt="Snapshot cronologia" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="Impostazioni tema" width="240" style="max-width: 100%; height: auto;" /> |
 
 ### Altre anteprime tema
 
@@ -152,14 +152,11 @@ Scegli il tuo flusso—tutto quanto segue è nell'app:
 
 ### Organizzare
 
-*Quando il vault cresce: schede, note giornaliere, outline e ricerca in ogni nota.*
+*Quando il vault cresce: schede, outline e ricerca in ogni nota.*
 
 - Albero file, schede, **ricerca globale**
 - **Outline** e modifiche esterne
 - Salvataggio, conflitti, mostra nel file manager
-- **Note giornaliere**: oggi, ieri o domani—dal template (`Cmd+Shift+D` / `Ctrl+Shift+D`)
-- **Template di note** con variabili (`{{date:…}}`, `{{title}}`, …) in **File → Template**
-- **Cattura rapida**: tray di sistema + scorciatoia globale aprono la nota di oggi in background
 
 ### Export e aspetto
 

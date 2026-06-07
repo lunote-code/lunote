@@ -4,7 +4,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { spawnSync } from 'node:child_process'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
@@ -44,6 +43,10 @@ function testCiHasBlockingBuildSmoke() {
   const ci = read('.github/workflows/ci.yml')
   assert(ci.includes('build-smoke:'), 'ci.yml: must define build-smoke job')
   assert(ci.includes('cargo build --manifest-path src-tauri/Cargo.toml'), 'ci.yml: build-smoke must cargo build')
+  assert(
+    ci.includes('cargo test -p app workspace_watch::tests'),
+    'ci.yml: build-smoke must run workspace_watch Rust unit tests',
+  )
   assert(ci.includes('needs: [locale-and-scripts, build-smoke, build]'), 'ci-gate: must depend on build-smoke')
   assert(ci.includes('Require Linux build smoke'), 'ci-gate: must fail when build-smoke fails')
   assert(ci.includes('continue-on-error: true'), 'ci.yml: platform matrix may stay non-blocking')
@@ -68,18 +71,6 @@ function testWorkspaceWatchNormalizesSeparators() {
   const source = read('src-tauri/src/core/workspace_watch.rs')
   assert(source.includes("path.replace('\\\\', \"/\")"), 'workspace_watch: must normalize path separators')
   assert(source.includes('should_ignore_event_normalizes_windows_separators'), 'workspace_watch: must test Windows paths')
-}
-
-function testRustWorkspaceWatchUnitTests() {
-  const tauriDir = path.join(root, 'src-tauri')
-  const result = spawnSync('cargo', ['test', '-p', 'app', 'workspace_watch::tests', '--', '--nocapture'], {
-    cwd: tauriDir,
-    encoding: 'utf8',
-    env: { ...process.env, CARGO_TARGET_DIR: path.join(tauriDir, 'target') },
-  })
-  if (result.status !== 0) {
-    throw new Error(`workspace_watch tests failed:\n${result.stdout}\n${result.stderr}`)
-  }
 }
 
 function testDocumentedE2eNativeGaps() {
@@ -118,9 +109,40 @@ function testLocalePipelineChecksCommittedOutputs() {
   assert(action.includes('src-tauri/resources/mac-menu-boot.json'), 'locale-pipeline must track mac-menu-boot.json')
 }
 
+function testVerifyGithubCiMirrorsWorkflow() {
+  const ci = read('.github/workflows/ci.yml')
+  const pkg = read('package.json')
+  const verify = read('scripts/validate/verify_github_ci.mjs')
+
+  assert(pkg.includes('"verify:ci"'), 'package.json must define verify:ci')
+  assert(pkg.includes('"verify:ci:smoke"'), 'package.json must define verify:ci:smoke')
+  assert(pkg.includes('verify_github_ci.mjs'), 'verify:ci must run verify_github_ci.mjs')
+
+  const localeSteps = [
+    'npm run version:check',
+    'validate:platform-ci-contract',
+    'validate:git-publish-paths',
+    'validate:mac-menu-assets',
+    'validate:app-icons',
+    'validate:release-config',
+    'npm run lint -- --max-warnings 100',
+  ]
+  for (const step of localeSteps) {
+    assert(ci.includes(step), `ci.yml locale-and-scripts must run ${step}`)
+    assert(verify.includes(step.replace('npm run ', '').split(' ')[0]) || verify.includes(step), `verify_github_ci must cover ${step}`)
+  }
+
+  assert(ci.includes('cargo test -p app workspace_watch::tests'), 'ci.yml build-smoke must run workspace_watch tests')
+  assert(verify.includes('workspace_watch::tests'), 'verify_github_ci build-smoke must run workspace_watch tests')
+}
+
 function testMacMenuBootValidatorExists() {
   const validator = read('scripts/validate/validate_mac_menu_boot.mjs')
-  assert(validator.includes('assertMacMenuBootUsesMacAccelerators'), 'validate_mac_menu_boot must assert mac accelerators')
+  assert(
+    validator.includes('assertMacBootAcceleratorPatchesApplied') ||
+      validator.includes('assertMacMenuBootUsesMacAccelerators'),
+    'validate_mac_menu_boot must assert macOS accelerators',
+  )
 }
 
 function testMacMenuBootCommittedUsesMacAccelerators() {
@@ -159,11 +181,11 @@ const tests = [
   ['release full tauri build path', testReleaseWorkflowStillExists],
   ['app-hide/show cross-platform', testAppHideShowCrossPlatform],
   ['workspace watch path normalization', testWorkspaceWatchNormalizesSeparators],
-  ['rust workspace_watch unit tests', testRustWorkspaceWatchUnitTests],
   ['documented e2e native gaps', testDocumentedE2eNativeGaps],
   ['mac menu boot forces mac platform', testMacMenuBootForcesMacPlatform],
   ['mac menu boot generator validates accelerators', testMacMenuBootGeneratorUsesValidation],
   ['locale pipeline checks committed outputs', testLocalePipelineChecksCommittedOutputs],
+  ['verify:ci mirrors github workflow', testVerifyGithubCiMirrorsWorkflow],
   ['mac menu boot validator script', testMacMenuBootValidatorExists],
   ['mac menu boot committed mac accelerators', testMacMenuBootCommittedUsesMacAccelerators],
 ]

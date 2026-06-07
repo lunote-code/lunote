@@ -17,6 +17,11 @@ runs:
       with:
         python-version: "3.12"
 
+    # setup-python prepends Python pkgconfig and breaks Linux cargo/pkg-config (gdk-3.0).
+    - name: Reset PKG_CONFIG_PATH after Python setup
+      shell: bash
+      run: echo "PKG_CONFIG_PATH=" >> "$GITHUB_ENV"
+
     - name: Build UI locales from corpus
       shell: bash
       run: python3 scripts/locale/build_ui_locales.py

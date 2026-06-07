@@ -117,6 +117,10 @@ Required by [`.github/workflows/ci.yml`](../.github/workflows/ci.yml), [release]
 | `validate/validate_git_publish_paths.py` | Fail if git index tracks local-only paths |
 | `validate/validate_chrome_candidates.py` | Rust/JS Chrome path list parity |
 | `validate/validate_mac_menu_assets.mjs` | macOS menu PNG assets vs registry |
+| `validate/validate_mac_menu_boot.mjs` | mac-menu-boot.json macOS accelerators |
+| `validate/run_platform_ci_contract_tests.mjs` | Platform/CI contract tests |
+| `validate/verify_locale_pipeline.mjs` | Locale pipeline + git cleanliness |
+| `validate/verify_github_ci.mjs` | Full CI job mirror (`npm run verify:ci`) |
 
 ---
 
@@ -136,6 +140,8 @@ Required by [`.github/workflows/ci.yml`](../.github/workflows/ci.yml), [release]
 ```bash
 python3 scripts/locale/build_ui_locales.py
 python3 scripts/locale/validate_locale.py --strict
+npm run verify:ci
+npm run verify:ci:smoke
 python3 scripts/validate/validate_git_publish_paths.py
 npm run validate:mac-menu-assets
 npm run test:codeblock             # Playwright: code block

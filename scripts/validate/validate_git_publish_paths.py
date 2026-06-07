@@ -55,6 +55,9 @@ def tracked_files() -> list[str]:
     )
     if result.returncode != 0:
         stderr = result.stderr.decode("utf-8", errors="replace").strip()
+        if "not a git repository" in stderr:
+            print("No git repository; skipping publish-paths check.")
+            return []
         print(f"validate_git_publish_paths: git ls-files failed: {stderr}", file=sys.stderr)
         sys.exit(2)
     return [p.decode("utf-8") for p in result.stdout.split(b"\0") if p]

@@ -133,6 +133,9 @@ jobs:
       - name: cargo build (Tauri backend link smoke)
         run: cargo build --manifest-path src-tauri/Cargo.toml
 
+      - name: Rust workspace_watch unit tests
+        run: cargo test -p app workspace_watch::tests --manifest-path src-tauri/Cargo.toml -- --nocapture
+
   ci-gate:
     name: CI gate
     needs: [locale-and-scripts, build-smoke, build]

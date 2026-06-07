@@ -11,5 +11,5 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["test/**/*.ts"]
+  "include": ["lib/**/*.ts", "test/**/*.ts"]
 }

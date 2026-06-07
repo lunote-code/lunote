@@ -65,11 +65,15 @@ function testRootTsconfig() {
   const text = read('tsconfig.json')
   assert(
     !text.includes('scripts/test/tsconfig.json'),
-    'tsconfig.json: must not reference gitignored scripts/test/tsconfig.json (use scripts/tsconfig.playwright.json)',
+    'tsconfig.json: must not reference gitignored scripts/test/tsconfig.json',
   )
   assert(
-    text.includes('scripts/tsconfig.playwright.json'),
-    'tsconfig.json: must reference scripts/tsconfig.playwright.json for Playwright types',
+    !text.includes('scripts/tsconfig.playwright.json'),
+    'tsconfig.json: must not reference Playwright tsconfig in tsc -b (scripts/test/ is not on CI)',
+  )
+  assert(
+    text.includes('tsconfig.app.json'),
+    'tsconfig.json: must reference tsconfig.app.json',
   )
 }
 

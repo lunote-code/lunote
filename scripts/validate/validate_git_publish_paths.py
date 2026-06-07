@@ -2,10 +2,12 @@
 """Fail if git tracks paths that must stay local (guard against git add -f).
 
 Run from repo root:
-  python3 scripts/validate_git_publish_paths.py
+  python3 scripts/validate/validate_git_publish_paths.py
+  python3 scripts/validate/validate_git_publish_paths.py --fix
 """
 from __future__ import annotations
 
+import argparse
 import fnmatch
 import subprocess
 import sys
@@ -77,15 +79,43 @@ def is_forbidden(path: str) -> bool:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--fix",
+        action="store_true",
+        help="Remove forbidden paths from the git index (git rm --cached); keeps files on disk.",
+    )
+    args = parser.parse_args()
+
     violations = sorted(p for p in tracked_files() if is_forbidden(p))
     if not violations:
         print("No forbidden publish paths are tracked by git.")
         return 0
+
+    if args.fix:
+        for path in violations:
+            result = subprocess.run(
+                ["git", "rm", "--cached", "--", path],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                print(f"git rm --cached failed for {path}: {result.stderr.strip()}", file=sys.stderr)
+                return 2
+            print(f"removed from index: {path}")
+        print("\nCommit the index change, then re-run validate:git-publish-paths.")
+        return 0
+
     print("Forbidden paths are tracked (remove with git rm --cached):", file=sys.stderr)
     for path in violations:
         print(f"  {path}", file=sys.stderr)
     print(
         "\nSee .gitignore and scripts/README.md § Published on GitHub.",
+        file=sys.stderr,
+    )
+    print(
+        "\nAuto-fix: npm run fix:git-publish-paths  (or python3 scripts/validate/validate_git_publish_paths.py --fix)",
         file=sys.stderr,
     )
     return 1

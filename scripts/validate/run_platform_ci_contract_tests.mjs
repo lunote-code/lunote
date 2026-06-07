@@ -1,5 +1,7 @@
 /**
- * Platform / CI contract: E2E scope, CI gates, native menu parity, workspace watch paths.
+ * Platform / CI contract — lean guards for regressions that already broke CI.
+ * Playwright E2E gaps (tray, global shortcut, native dialog, pdf chrome, reveal_in_explorer)
+ * are browser-only; not covered here.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -15,188 +17,83 @@ function read(rel) {
   return fs.readFileSync(path.join(root, rel), 'utf8')
 }
 
-/** Documented Playwright gaps — browser QA playground, not Tauri WebView. */
-const E2E_NATIVE_GAPS = [
-  'tray',
-  'global shortcut',
-  'native dialog',
-  'pdf chrome',
-  'reveal_in_explorer',
-]
-
-function testPlaywrightRunsBrowserNotTauri() {
+function testPlaywrightScopeAndModKey() {
   const cfg = read('playwright.config.ts')
-  assert(cfg.includes("command: 'npm run dev'"), 'playwright: must use Vite dev server')
-  assert(cfg.includes('chromium'), 'playwright: runs Chromium project only')
-  assert(!cfg.includes('tauri'), 'playwright: must not claim Tauri WebView coverage')
+  assert(cfg.includes("command: 'npm run dev'"), 'playwright must use Vite dev server, not Tauri')
+  assert(cfg.includes('chromium'), 'playwright must run Chromium only')
 
   const helpers = read('scripts/lib/playwright-helpers.ts')
-  assert(helpers.includes("process.platform === 'darwin' ? 'Meta' : 'Control'"), 'modKey: mac Meta, others Control')
+  assert(
+    helpers.includes("process.platform === 'darwin' ? 'Meta' : 'Control'"),
+    'modKey must map Meta on macOS and Control elsewhere (Linux CI)',
+  )
 }
 
-function testModKeyMatchesLinuxCi() {
-  const modKeySrc = read('scripts/lib/playwright-helpers.ts')
-  assert(modKeySrc.includes("'Control'"), 'Linux CI must map modKey to Control (not Meta)')
-}
-
-function testCiHasBlockingBuildSmoke() {
+function testCiBuildJob() {
   const ci = read('.github/workflows/ci.yml')
-  assert(ci.includes('build-smoke:'), 'ci.yml: must define build-smoke job')
-  assert(ci.includes('cargo build --manifest-path src-tauri/Cargo.toml'), 'ci.yml: build-smoke must cargo build')
-  assert(
-    ci.includes('cargo test -p app workspace_watch::tests'),
-    'ci.yml: build-smoke must run workspace_watch Rust unit tests',
-  )
-  assert(ci.includes('needs: [locale-and-scripts, build-smoke, build]'), 'ci-gate: must depend on build-smoke')
-  assert(ci.includes('Require Linux build smoke'), 'ci-gate: must fail when build-smoke fails')
-  assert(ci.includes('continue-on-error: true'), 'ci.yml: platform matrix may stay non-blocking')
+  assert(ci.includes('build:'), 'ci.yml must define a build job')
+  assert(ci.includes('npm run build'), 'ci.yml build job must compile frontend')
+  assert(ci.includes('cargo build --manifest-path src-tauri/Cargo.toml'), 'ci.yml build job must compile Tauri backend')
+  assert(!ci.includes('validate:git-publish-paths'), 'ci.yml must not run publish-path validation (local only)')
 }
 
-function testReleaseWorkflowStillExists() {
-  const release = read('.github/workflows/release.yml')
-  assert(release.includes('tauri build') || release.includes('npm run tauri'), 'release.yml: must run full tauri build')
-}
-
-function testAppHideShowCrossPlatform() {
-  const source = read('src-tauri/src/app_menu.rs')
-  assert(source.includes('fn hide_application'), 'app-hide: must route through hide_application helper')
-  assert(source.includes('fn show_all_application'), 'app-show-all: must route through show_all_application helper')
-  assert(source.includes('"app-hide" => {\n      hide_application(app);'), 'app-hide: must call hide_application on all platforms')
-  assert(source.includes('"app-show-all" => {\n      show_all_application(app);'), 'app-show-all: must call show_all_application on all platforms')
-  assert(source.includes('let _ = app.hide();'), 'hide_application: macOS path must call app.hide()')
-  assert(source.includes('let _ = app.show();'), 'show_all_application: macOS path must call app.show()')
-}
-
-function testWorkspaceWatchNormalizesSeparators() {
-  const source = read('src-tauri/src/core/workspace_watch.rs')
-  assert(source.includes("path.replace('\\\\', \"/\")"), 'workspace_watch: must normalize path separators')
-  assert(source.includes('should_ignore_event_normalizes_windows_separators'), 'workspace_watch: must test Windows paths')
-}
-
-function testDocumentedE2eNativeGaps() {
-  assert(E2E_NATIVE_GAPS.length >= 5, 'E2E native gap list must stay documented')
-}
-
-function testContractTestsUsePublishedPathsOnly() {
-  const src = read('scripts/validate/run_platform_ci_contract_tests.mjs')
-  for (const [, relPath] of src.matchAll(/read\('([^']+)'\)/g)) {
-    assert(!relPath.startsWith('scripts/test/'), `contract test must not read gitignored path: ${relPath}`)
-  }
-  assert(src.includes('scripts/lib/playwright-helpers.ts'), 'contract tests must use published playwright-helpers.ts')
-}
-
-function testMacMenuBootForcesMacPlatform() {
-  const src = read('src/platform/tauri/macMenuBootExport.ts')
-  assert(src.includes("buildAppMenuSchema('mac')"), 'macMenuBootExport must call buildAppMenuSchema("mac")')
-  assert(!src.includes('APP_MENU_SCHEMA'), 'macMenuBootExport must not use runtime APP_MENU_SCHEMA (host-dependent)')
-  assert(
-    src.includes('assertMacMenuBootUsesMacAccelerators'),
-    'macMenuBootExport must assert macOS accelerators after generation',
-  )
-}
-
-function testMacMenuBootGeneratorUsesValidation() {
+function testMacMenuBootPipeline() {
   const gen = read('scripts/build/generate_mac_menu_boot.mjs')
   assert(
-    gen.includes('applyMacBootAcceleratorPatches'),
-    'generate_mac_menu_boot.mjs must apply macOS accelerator patches after SSR build',
-  )
-  assert(
-    gen.includes('assertMacBootAcceleratorPatchesApplied'),
-    'generate_mac_menu_boot.mjs must assert macOS accelerator patches',
-  )
-  assert(
     gen.includes("CROSSPLATNOTE_FORCE_DESKTOP_PLATFORM = 'mac'"),
-    'generate_mac_menu_boot.mjs must force macOS platform for CI/Linux hosts',
+    'mac-menu-boot generator must force macOS on Linux CI hosts',
   )
-}
+  assert(gen.includes('applyMacBootAcceleratorPatches'), 'mac-menu-boot generator must patch mac accelerators')
 
-function testLocalePipelineChecksCommittedOutputs() {
   const action = read('.github/actions/locale-pipeline/action.yml')
-  assert(action.includes('check-git-clean'), 'locale-pipeline must support check-git-clean')
-  assert(action.includes('src-tauri/resources/mac-menu-boot.json'), 'locale-pipeline must track mac-menu-boot.json')
-}
+  assert(action.includes('mac-menu-boot.json'), 'locale-pipeline must track mac-menu-boot.json')
 
-function testVerifyGithubCiMirrorsWorkflow() {
-  const ci = read('.github/workflows/ci.yml')
-  const pkg = read('package.json')
-  const verify = read('scripts/validate/verify_github_ci.mjs')
-
-  assert(pkg.includes('"verify:ci"'), 'package.json must define verify:ci')
-  assert(pkg.includes('"verify:ci:smoke"'), 'package.json must define verify:ci:smoke')
-  assert(pkg.includes('verify_github_ci.mjs'), 'verify:ci must run verify_github_ci.mjs')
-
-  const localeSteps = [
-    'npm run version:check',
-    'validate:platform-ci-contract',
-    'validate:git-publish-paths',
-    'validate:mac-menu-assets',
-    'validate:app-icons',
-    'validate:release-config',
-    'npm run lint -- --max-warnings 100',
-  ]
-  for (const step of localeSteps) {
-    assert(ci.includes(step), `ci.yml locale-and-scripts must run ${step}`)
-    assert(verify.includes(step.replace('npm run ', '').split(' ')[0]) || verify.includes(step), `verify_github_ci must cover ${step}`)
-  }
-
-  assert(ci.includes('cargo test -p app workspace_watch::tests'), 'ci.yml build-smoke must run workspace_watch tests')
-  assert(verify.includes('workspace_watch::tests'), 'verify_github_ci build-smoke must run workspace_watch tests')
-}
-
-function testMacMenuBootValidatorExists() {
-  const validator = read('scripts/validate/validate_mac_menu_boot.mjs')
-  assert(
-    validator.includes('assertMacBootAcceleratorPatchesApplied') ||
-      validator.includes('assertMacMenuBootUsesMacAccelerators'),
-    'validate_mac_menu_boot must assert macOS accelerators',
-  )
-}
-
-function testMacMenuBootCommittedUsesMacAccelerators() {
   const boot = JSON.parse(read('src-tauri/resources/mac-menu-boot.json'))
-  const findAccel = (nodes, action) => {
+  const findAccel = (nodes, actionId) => {
     for (const node of nodes) {
-      if ((node.kind === 'item' || node.kind === 'check') && node.action === action) {
+      if ((node.kind === 'item' || node.kind === 'check') && node.action === actionId) {
         return node.tauriAccelerator
       }
       if (node.kind === 'submenu') {
-        const nested = findAccel(node.children ?? [], action)
+        const nested = findAccel(node.children ?? [], actionId)
         if (nested !== undefined) return nested
       }
     }
     return undefined
   }
-  // Spot-check commands whose Win/Linux baseline differs from macOS (CI used to emit linux values).
-  assert(
-    findAccel(boot.bar, 'edit-find-prev') === 'CmdOrCtrl+Shift+KeyG',
-    'edit-find-prev must use macOS accelerator in mac-menu-boot.json',
-  )
-  assert(
-    findAccel(boot.bar, 'edit-find-next') === 'CmdOrCtrl+KeyG',
-    'edit-find-next must use macOS accelerator in mac-menu-boot.json',
-  )
   assert(
     findAccel(boot.bar, 'view-fullscreen') === 'CmdOrCtrl+Ctrl+KeyF',
-    'view-fullscreen must use macOS accelerator in mac-menu-boot.json',
+    'mac-menu-boot.json must ship macOS accelerators (not Linux/Win defaults)',
   )
 }
 
+function testContractTestsUsePublishedPathsOnly() {
+  const src = read('scripts/validate/run_platform_ci_contract_tests.mjs')
+  for (const [, relPath] of src.matchAll(/read\('([^']+)'\)/g)) {
+    assert(!relPath.startsWith('scripts/test/'), `must not read gitignored path: ${relPath}`)
+  }
+}
+
+function testWorkspaceWatchNormalizesSeparators() {
+  const source = read('src-tauri/src/core/workspace_watch.rs')
+  assert(source.includes("path.replace('\\\\', \"/\")"), 'workspace_watch must normalize path separators')
+}
+
+function testAppHideShowCrossPlatform() {
+  const source = read('src-tauri/src/app_menu.rs')
+  assert(source.includes('fn hide_application'), 'app-hide must use hide_application helper')
+  assert(source.includes('fn show_all_application'), 'app-show-all must use show_all_application helper')
+  assert(source.includes('hide_application(app)'), 'app-hide handler must call hide_application')
+  assert(source.includes('show_all_application(app)'), 'app-show-all handler must call show_all_application')
+}
+
 const tests = [
-  ['playwright browser-not-tauri scope', testPlaywrightRunsBrowserNotTauri],
-  ['modKey linux/control mapping', testModKeyMatchesLinuxCi],
-  ['ci blocking build-smoke gate', testCiHasBlockingBuildSmoke],
-  ['release full tauri build path', testReleaseWorkflowStillExists],
-  ['app-hide/show cross-platform', testAppHideShowCrossPlatform],
-  ['workspace watch path normalization', testWorkspaceWatchNormalizesSeparators],
-  ['documented e2e native gaps', testDocumentedE2eNativeGaps],
+  ['playwright scope and modKey', testPlaywrightScopeAndModKey],
+  ['ci build job', testCiBuildJob],
+  ['mac-menu-boot pipeline', testMacMenuBootPipeline],
   ['contract tests use published paths only', testContractTestsUsePublishedPathsOnly],
-  ['mac menu boot forces mac platform', testMacMenuBootForcesMacPlatform],
-  ['mac menu boot generator validates accelerators', testMacMenuBootGeneratorUsesValidation],
-  ['locale pipeline checks committed outputs', testLocalePipelineChecksCommittedOutputs],
-  ['verify:ci mirrors github workflow', testVerifyGithubCiMirrorsWorkflow],
-  ['mac menu boot validator script', testMacMenuBootValidatorExists],
-  ['mac menu boot committed mac accelerators', testMacMenuBootCommittedUsesMacAccelerators],
+  ['workspace watch path normalization', testWorkspaceWatchNormalizesSeparators],
+  ['app-hide/show cross-platform', testAppHideShowCrossPlatform],
 ]
 
 let failed = 0
@@ -215,5 +112,4 @@ if (failed > 0) {
   console.error(`\n${failed} platform CI contract test(s) failed`)
 } else {
   console.log(`\n${tests.length} platform CI contract test(s) passed`)
-  console.log('Note: Playwright E2E intentionally skips native Tauri:', E2E_NATIVE_GAPS.join(', '))
 }

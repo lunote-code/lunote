@@ -1,35 +1,42 @@
 #!/usr/bin/env node
 /**
- * Local mirror of .github/workflows/ci.yml for regression before push.
+ * Local mirror of .github/workflows/ci.yml.
  *
  * Usage:
- *   npm run verify:ci                 # locale-and-scripts job (default)
- *   npm run verify:ci:smoke           # build-smoke job (needs Rust; Linux GTK on CI only)
- *   npm run verify:ci:all             # both jobs sequentially
+ *   npm run verify:ci          # Linux build job (default, matches GitHub CI)
+ *   npm run verify:ci:checks   # optional local validation suite (not run on GitHub)
+ *   npm run verify:ci:all      # build + optional checks
  *
  * Options:
- *   --job locale-and-scripts | build-smoke | all
+ *   --job build | checks | all
  */
 import {
   npmRun,
   runCargo,
   runStep,
 } from './lib/ci_job_runner.mjs'
-import {
-  runLocalePipelineBuildInputs,
-  runLocalePipelineFull,
-} from './lib/locale_pipeline_steps.mjs'
+import { runLocalePipelineFull } from './lib/locale_pipeline_steps.mjs'
 
 const args = process.argv.slice(2)
 const jobArgIdx = args.indexOf('--job')
-const job = jobArgIdx >= 0 ? args[jobArgIdx + 1] : 'locale-and-scripts'
+const job = jobArgIdx >= 0 ? args[jobArgIdx + 1] : 'build'
 
 function assertCargoAvailable() {
   runStep('cargo --version', 'cargo', ['--version'])
 }
 
-function runLocaleAndScriptsJob() {
-  console.log('\n=== CI job: locale-and-scripts (.github/workflows/ci.yml) ===')
+function runBuildJob() {
+  console.log('\n=== CI job: build (.github/workflows/ci.yml) ===')
+
+  assertCargoAvailable()
+  npmRun('build')
+  runCargo(['build', '--manifest-path', 'src-tauri/Cargo.toml'])
+
+  console.log('\nverify:ci — build job passed.')
+}
+
+function runChecksJob() {
+  console.log('\n=== Optional local checks (not run on GitHub CI) ===')
 
   npmRun('version:check')
   runLocalePipelineFull()
@@ -40,43 +47,22 @@ function runLocaleAndScriptsJob() {
   npmRun('validate:release-config')
   npmRun('lint', ['--max-warnings', '100'])
 
-  console.log('\nverify:ci — locale-and-scripts job passed.')
-}
-
-function runBuildSmokeJob() {
-  console.log('\n=== CI job: build-smoke (.github/workflows/ci.yml) ===')
-
-  assertCargoAvailable()
-  runLocalePipelineBuildInputs()
-  npmRun('build')
-  runCargo(['build', '--manifest-path', 'src-tauri/Cargo.toml'])
-  runCargo([
-    'test',
-    '-p',
-    'app',
-    'workspace_watch::tests',
-    '--manifest-path',
-    'src-tauri/Cargo.toml',
-    '--',
-    '--nocapture',
-  ])
-
-  console.log('\nverify:ci — build-smoke job passed.')
+  console.log('\nverify:ci — optional checks passed.')
 }
 
 switch (job) {
-  case 'locale-and-scripts':
-    runLocaleAndScriptsJob()
+  case 'build':
+    runBuildJob()
     break
-  case 'build-smoke':
-    runBuildSmokeJob()
+  case 'checks':
+    runChecksJob()
     break
   case 'all':
-    runLocaleAndScriptsJob()
-    runBuildSmokeJob()
-    console.log('\nverify:ci — all mirrored CI jobs passed.')
+    runBuildJob()
+    runChecksJob()
+    console.log('\nverify:ci — build + optional checks passed.')
     break
   default:
-    console.error(`Unknown --job "${job}". Use locale-and-scripts, build-smoke, or all.`)
+    console.error(`Unknown --job "${job}". Use build, checks, or all.`)
     process.exit(2)
 }

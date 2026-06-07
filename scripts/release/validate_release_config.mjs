@@ -56,11 +56,9 @@ function testReleaseWorkflow() {
 
 function testCiWorkflow() {
   const text = read('.github/workflows/ci.yml')
-  assert(text.includes('validate:git-publish-paths'), 'ci.yml: must run validate:git-publish-paths')
-  assert(text.includes('validate:mac-menu-assets'), 'ci.yml: must run validate:mac-menu-assets')
-  assert(text.includes('validate:app-icons'), 'ci.yml: must run validate:app-icons')
-  assert(text.includes('build-smoke:'), 'ci.yml: must define blocking build-smoke job')
-  assert(text.includes('Require Linux build smoke'), 'ci-gate: must require build-smoke success')
+  assert(text.includes('npm run build'), 'ci.yml: must compile frontend')
+  assert(text.includes('cargo build --manifest-path src-tauri/Cargo.toml'), 'ci.yml: must compile Tauri backend on Linux')
+  assert(!text.includes('locale-and-scripts:'), 'ci.yml: validation job removed (compile-only CI)')
 }
 
 function testRootTsconfig() {

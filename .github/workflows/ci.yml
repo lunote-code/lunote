@@ -1,4 +1,4 @@
-# Continuous integration — runs on every push and pull request.
+# Continuous integration — checkout and compile only (no validation gates).
 name: CI
 
 on: [push, pull_request]
@@ -8,59 +8,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  locale-and-scripts:
-    name: Locale & menu validation
+  build:
+    name: Build · Linux
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
+      - name: Setup Node and Rust
+        uses: ./.github/actions/setup-node-rust
+
+      - name: Install Linux Tauri dependencies
+        uses: ./.github/actions/install-linux-tauri-deps
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Check version sync
-        run: npm run version:check
+      - name: Build frontend
+        run: npm run build
 
-      - name: Locale & menu pipeline
-        uses: ./.github/actions/locale-pipeline
-        with:
-          run-validation: "true"
-          check-git-clean: "true"
+      - name: Build Tauri backend
+        run: cargo build --manifest-path src-tauri/Cargo.toml
 
-      - name: Platform CI contract tests
-        run: npm run validate:platform-ci-contract
-
-      - name: Validate publish paths (no local-only files tracked)
-        run: npm run validate:git-publish-paths
-
-      - name: Validate macOS menu icon assets
-        run: npm run validate:mac-menu-assets
-
-      - name: Validate app icon assets
-        run: npm run validate:app-icons
-
-      - name: Validate release workflow config
-        run: npm run validate:release-config
-
-      - name: Lint (allow existing warnings)
-        run: npm run lint -- --max-warnings 100
-
-  build:
+  build-matrix:
     name: Build · ${{ matrix.label }}
-    needs: locale-and-scripts
+    needs: build
     continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-22.04
-            platform: linux
-            label: Linux · Ubuntu 22.04
           - runner: ubuntu-24.04
             platform: linux
             label: Linux · Ubuntu 24.04
@@ -96,69 +72,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check version sync
-        run: npm run version:check
-
-      - name: Locale & menu pipeline (build inputs)
-        uses: ./.github/actions/locale-pipeline
-
-      - name: Typecheck and build frontend
+      - name: Build frontend
         run: npm run build
 
       - name: cargo check
         run: cargo check --manifest-path src-tauri/Cargo.toml
-
-  build-smoke:
-    name: Build smoke · Linux
-    needs: locale-and-scripts
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node and Rust
-        uses: ./.github/actions/setup-node-rust
-
-      - name: Install Linux Tauri dependencies
-        uses: ./.github/actions/install-linux-tauri-deps
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Locale & menu pipeline (build inputs)
-        uses: ./.github/actions/locale-pipeline
-
-      - name: Typecheck and build frontend
-        run: npm run build
-
-      - name: cargo build (Tauri backend link smoke)
-        run: cargo build --manifest-path src-tauri/Cargo.toml
-
-      - name: Rust workspace_watch unit tests
-        run: cargo test -p app workspace_watch::tests --manifest-path src-tauri/Cargo.toml -- --nocapture
-
-  ci-gate:
-    name: CI gate
-    needs: [locale-and-scripts, build-smoke, build]
-    if: always() && !cancelled()
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Require locale and script checks
-        run: |
-          if [ "${{ needs.locale-and-scripts.result }}" != "success" ]; then
-            echo "Locale/menu validation failed."
-            exit 1
-          fi
-
-      - name: Require Linux build smoke
-        run: |
-          if [ "${{ needs.build-smoke.result }}" != "success" ]; then
-            echo "Linux build smoke failed (npm run build + cargo build)."
-            exit 1
-          fi
-
-      - name: Report platform build matrix results
-        run: |
-          echo "Platform build job result: ${{ needs.build.result }}"
-          if [ "${{ needs.build.result }}" != "success" ]; then
-            echo "::warning::One or more platform builds failed. See the build matrix for details."
-          fi

@@ -186,6 +186,7 @@ function main() {
       execIn(checkoutDir, 'node scripts/release/validate_release_config.mjs')
       execIn(checkoutDir, 'node scripts/validate/run_platform_ci_contract_tests.mjs')
       execIn(checkoutDir, 'python3 scripts/validate/validate_git_publish_paths.py')
+      execIn(checkoutDir, 'npm run test:release')
     })
 
     runStep('plan-release scenario tests', () => {

@@ -65,6 +65,7 @@ export function runCodeBlockCmCutKeymap(view: EditorView): boolean {
 }
 
 export function runCodeBlockCmPasteKeymap(view: EditorView): boolean {
+  if (!view.hasFocus) focusCodeBlockCmView(view)
   void codeBlockCmPaste(view)
   return true
 }

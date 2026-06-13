@@ -13,6 +13,7 @@ export {
 } from './localeAudit'
 export {
   getEnMessagesSnapshot,
+  getLocaleNativeName,
   getLocaleMessagesSnapshot,
   getLocaleRawSnapshot,
   isUiLocaleId,

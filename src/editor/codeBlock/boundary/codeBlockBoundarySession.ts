@@ -1,4 +1,5 @@
 import type { Editor } from '@tiptap/core'
+import { Selection } from '@tiptap/pm/state'
 
 import { codeBlockNodeAt } from '../behavior/selection'
 import {
@@ -268,13 +269,22 @@ export function createCodeBlockBoundarySession(editor: Editor) {
     if (blockPos == null) return editor.chain().focus().run()
     const block = codeBlockNodeAt(editor, blockPos)
     if (!block) return editor.chain().focus().run()
+    const doc = editor.state.doc
+    const { state, view } = editor
     if (nextFolded) {
-      const after = Math.min(blockPos + block.nodeSize, editor.state.doc.content.size)
-      return editor.chain().focus().setTextSelection(after).run()
+      const after = Math.min(blockPos + block.nodeSize, doc.content.size)
+      const $pos = doc.resolve(after)
+      const selection = Selection.near($pos, 1)
+      view.dispatch(state.tr.setSelection(selection).scrollIntoView())
+      view.focus()
+      return true
     }
-    const contentFrom = blockPos + 1
+    const contentFrom = Math.min(blockPos + 1, doc.content.size)
+    const $pos = doc.resolve(contentFrom)
+    const selection = Selection.near($pos, 1)
     // Sync PM selection only; CM takes focus after mount (avoid caret above gutter).
-    return editor.commands.setTextSelection(contentFrom)
+    view.dispatch(state.tr.setSelection(selection))
+    return true
   }
 
   const dispose = () => {

@@ -1,6 +1,6 @@
 /**
  * Knowledge OS is plugged into Luna's runtime boundaries.
- * Directories such as collaboration / distributed are reserved modules and are not initialized in the boot path.
+ * Collaboration / distributed modules live under src/experimental/ and are not initialized in boot.
  */
 export const ACTIVE_KNOWLEDGE_OS_MODULES = [
   'vaultRuntime',

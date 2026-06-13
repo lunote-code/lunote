@@ -32,20 +32,6 @@ README hero image per UI language (Preferences screenshot). Mapped in `scripts/m
 | `pr.png` | Português (Brasil) |
 | `ru.png` | Русский |
 
-## Theme gallery (`screenshots/theme/`)
-
-README **More theme previews** grid (order in `scripts/maintenance/data/readme_preview_i18n.json`):
-
-| File | Preset |
-|------|--------|
-| `github-light.png` / `github-dark.png` | GitHub |
-| `idea-light.png` / `idea-dark.png` | IDEA |
-| `dim-light.png` / `dim-dark.png` | Dim |
-| `forest-dawn.png` | Forest Dawn |
-| `ember-glow.png` | Ember Glow |
-| `graphite-noir.png` | Graphite Noir |
-| `lavender-haze.png` | Lavender Haze |
-
 Copyable theme **files** (CSS / JSON / snippets) live in [docs/theme-example/](../../theme-example/README.md).
 
 Regenerate README preview blocks after changing screenshots:

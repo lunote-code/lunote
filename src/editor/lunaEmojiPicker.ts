@@ -5,6 +5,7 @@ import { gemoji } from 'gemoji'
 
 import { isCodeEditGuardActive } from './lunaCodeContext'
 import { readEmojiPanelHint } from '../platform/emojiPanelHint'
+import { readEmojiPickerCopy } from '../platform/emojiPickerI18n'
 
 const PICKER_CLASS = 'luna-emoji-picker'
 
@@ -49,28 +50,29 @@ function emojiEntriesFor(category: string, query: string): EmojiPick[] {
 }
 
 function mountEmojiPicker(opts: {
-  title: string
   getAnchor: () => Anchor | null
   onPick: (pick: EmojiPick) => void
 }): void {
   removePicker()
 
+  const copy = readEmojiPickerCopy()
+
   const shell = document.createElement('div')
   shell.className = PICKER_CLASS
   shell.setAttribute('role', 'dialog')
-  shell.setAttribute('aria-label', opts.title)
+  shell.setAttribute('aria-label', copy.title)
 
   const panel = document.createElement('div')
   panel.className = `${PICKER_CLASS}__panel`
 
   const titleEl = document.createElement('div')
   titleEl.className = `${PICKER_CLASS}__title`
-  titleEl.textContent = opts.title
+  titleEl.textContent = copy.title
 
   const search = document.createElement('input')
   search.type = 'search'
   search.className = `${PICKER_CLASS}__search`
-  search.placeholder = 'Search emoji or symbols…'
+  search.placeholder = copy.searchPlaceholder
   search.autocomplete = 'off'
   search.spellcheck = false
 
@@ -111,7 +113,7 @@ function mountEmojiPicker(opts: {
     if (!items.length) {
       const empty = document.createElement('div')
       empty.className = `${PICKER_CLASS}__empty`
-      empty.textContent = 'No matches'
+      empty.textContent = copy.noMatches
       grid.appendChild(empty)
       return
     }
@@ -257,7 +259,6 @@ function insertEmojiInSourceView(view: EditorView, pick: EmojiPick) {
 export function openLunaEmojiPicker(editor: Editor): void {
   if (isCodeEditGuardActive(editor.state)) return
   mountEmojiPicker({
-    title: 'Emoji & symbols',
     getAnchor: () => anchorFromEditor(editor),
     onPick: (pick) => insertEmojiInEditor(editor, pick),
   })
@@ -265,7 +266,6 @@ export function openLunaEmojiPicker(editor: Editor): void {
 
 export function openLunaEmojiPickerFromSourceView(view: EditorView): void {
   mountEmojiPicker({
-    title: 'Emoji & symbols',
     getAnchor: () => anchorFromSourceView(view),
     onPick: (pick) => insertEmojiInSourceView(view, pick),
   })

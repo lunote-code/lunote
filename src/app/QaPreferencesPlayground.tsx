@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 
-import { I18nProvider } from '../i18n'
+import { I18nProvider, type I18nBootstrap } from '../i18n'
 import {
+  ensureLocaleRawLoaded,
   getEnMessagesSnapshot,
-  getLocaleMessagesSnapshot,
-  getLocaleRawSnapshot,
   isUiLocaleId,
   type UiLocaleId,
 } from '../i18n/localeRegistry'
+import '../App.css'
 import { PreferencesDialog } from '../preferences/PreferencesDialog'
 import { subscribeThemeRuntime } from '../theme-runtime/themeRuntime'
 import {
@@ -23,6 +23,12 @@ import {
   markAppSettingsHydratedForTests,
 } from '../settings/appSettingsStore'
 import { getSetting } from '../settings-runtime/settingsRuntime'
+import {
+  analyzeWindowThemeSyncHistory,
+  getLastTauriWindowThemeSync,
+  getTauriWindowThemeSyncHistory,
+  resetTauriWindowThemeSyncHistory,
+} from '../platform/tauri/windowThemeSync'
 
 const WEB_SETTINGS_KEY = 'Lunote:appSettings:v1'
 
@@ -36,6 +42,10 @@ declare global {
       readPersistedJson: () => string | null
       getThemeMode: () => 'light' | 'dark' | null
       getThemePreset: () => string | null
+      getWindowThemeSync: () => ReturnType<typeof getLastTauriWindowThemeSync>
+      getWindowThemeSyncHistory: () => ReturnType<typeof getTauriWindowThemeSyncHistory>
+      resetWindowThemeSyncHistory: () => void
+      analyzeWindowThemeSyncHistory: () => ReturnType<typeof analyzeWindowThemeSyncHistory>
     }
   }
 }
@@ -82,6 +92,10 @@ function QaPreferencesInner({ locale }: { locale: UiLocaleId }) {
           return mode === 'light' || mode === 'dark' ? mode : null
         },
         getThemePreset: () => document.documentElement.getAttribute('data-theme-preset'),
+        getWindowThemeSync: () => getLastTauriWindowThemeSync(),
+        getWindowThemeSyncHistory: () => getTauriWindowThemeSyncHistory(),
+        resetWindowThemeSyncHistory: () => resetTauriWindowThemeSyncHistory(),
+        analyzeWindowThemeSyncHistory: () => analyzeWindowThemeSyncHistory(),
       }
 
       setStatus('ready')
@@ -106,7 +120,7 @@ function QaPreferencesInner({ locale }: { locale: UiLocaleId }) {
     return () => window.removeEventListener('keydown', onKey, true)
   }, [])
 
-  const workspaceRoot = useMemo(() => '/qa-vault', [])
+  const workspaceRoot = '/qa-vault'
 
   return (
     <div style={{ padding: 24, background: '#0f1115', minHeight: '100vh' }}>
@@ -122,16 +136,35 @@ function QaPreferencesInner({ locale }: { locale: UiLocaleId }) {
 
 export function QaPreferencesPlayground() {
   const locale = resolveQaLocale()
-  const bootstrap = useMemo(
-    () => ({
-      mergedMessages: getLocaleMessagesSnapshot(locale),
-      enMessages: getEnMessagesSnapshot(),
-      rawLocale: getLocaleRawSnapshot(locale),
-      languageSetting: locale,
-      effectiveLocale: locale,
-    }),
-    [locale],
-  )
+  const [bootstrap, setBootstrap] = useState<I18nBootstrap | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const enMessages = getEnMessagesSnapshot()
+      const rawLocale = locale === 'en' ? enMessages : await ensureLocaleRawLoaded(locale)
+      if (cancelled) return
+      setBootstrap({
+        mergedMessages: locale === 'en' ? enMessages : { ...enMessages, ...rawLocale },
+        enMessages,
+        rawLocale,
+        languageSetting: locale,
+        effectiveLocale: locale,
+      })
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [locale])
+
+  if (!bootstrap) {
+    return (
+      <div style={{ padding: 24, background: '#0f1115', minHeight: '100vh' }}>
+        <h1 data-testid="qa-ready">Preferences QA</h1>
+        <p data-testid="qa-status">booting</p>
+      </div>
+    )
+  }
 
   return (
     <I18nProvider bootstrap={bootstrap}>

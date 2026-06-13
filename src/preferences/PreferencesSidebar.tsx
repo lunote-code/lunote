@@ -2,6 +2,7 @@ import type { RefObject } from 'react'
 import type { TranslateFn } from '../i18n'
 import { SettingsInput, SettingsSidebar, type SettingsSidebarGroup } from '../components/settings'
 import { Icon } from '../design-system/icons'
+import { PREFS_TAB_TITLE_KEY } from './prefsMeta'
 import type { PrefsTabId } from './types'
 
 type Props = {
@@ -12,17 +13,6 @@ type Props = {
   onSearchChange: (q: string) => void
   visibleTabs: readonly PrefsTabId[]
   searchInputRef?: RefObject<HTMLInputElement | null>
-}
-
-const TAB_I18N: Record<PrefsTabId, string> = {
-  general: 'settings.sidebar.general',
-  appearance: 'settings.sidebar.appearance',
-  export: 'settings.sidebar.export',
-  import: 'settings.sidebar.import',
-  templates: 'settings.sidebar.templates',
-  editor: 'settings.sidebar.editor',
-  language: 'settings.sidebar.language',
-  shortcuts: 'settings.sidebar.shortcuts',
 }
 
 const SIDEBAR_GROUPS: readonly SettingsSidebarGroup<PrefsTabId>[] = [
@@ -41,6 +31,7 @@ const SIDEBAR_GROUPS: readonly SettingsSidebarGroup<PrefsTabId>[] = [
     label: 'settings.sidebar.group.advanced',
     items: [
       { id: 'shortcuts', label: '', icon: 'shortcuts' },
+      { id: 'plugins', label: '', icon: 'plugins' },
       { id: 'language', label: '', icon: 'language' },
     ],
   },
@@ -62,7 +53,7 @@ export function PreferencesSidebar({
       .filter((item) => visibleTabs.includes(item.id))
       .map((item) => ({
         ...item,
-        label: t(TAB_I18N[item.id]),
+        label: t(PREFS_TAB_TITLE_KEY[item.id]),
       })),
   })).filter((group) => group.items.length > 0)
 

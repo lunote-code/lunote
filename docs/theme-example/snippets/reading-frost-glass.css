@@ -1,0 +1,29 @@
+/**
+ * Reading frost glass — UI snippet
+ *
+ * Frosted-glass blur on the editor reading surface (backdrop-filter on chrome, not on text).
+ * Pairs well with gradient workspace backgrounds — see midnight-aurora / tokyo-night style themes.
+ *
+ * Copy to ~/.luna/theme/snippets/reading-frost-glass.css → Rescan → enable in UI snippets.
+ * Can stack with ONE reading-fade snippet if desired.
+ */
+
+.editor-body-surface.view-content {
+  --reading-frost-blur: 10px;
+  --reading-frost-saturate: 140%;
+  --reading-frost-bg: color-mix(in srgb, var(--surface-editor, var(--surface-panel)) 82%, transparent);
+}
+
+.main .editor-body-surface.view-content {
+  background: var(--reading-frost-bg);
+  backdrop-filter: saturate(var(--reading-frost-saturate)) blur(var(--reading-frost-blur));
+  -webkit-backdrop-filter: saturate(var(--reading-frost-saturate)) blur(var(--reading-frost-blur));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror {
+  background: color-mix(in srgb, var(--surface-editor, var(--surface-panel)) 88%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .tiptap-editor-shell {
+  background: transparent;
+}

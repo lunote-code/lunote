@@ -1,6 +1,7 @@
 import type { EditorState } from '@codemirror/state'
 import type { EditorView } from '@codemirror/view'
 
+import { isAtLastNonEmptyCodeLineEnd } from '../behavior/trailingEmptyLines'
 import { removeOneIndentLevel } from '../behavior/indent'
 import { insertNewlineWithIndent } from './codeBlockCmSync'
 
@@ -137,8 +138,7 @@ export function runCodeBlockCmBackspaceOnEmpty(view: EditorView, onDeleteEmptyBl
 /** CM caret is on the last document line (↓ should focus language chip). */
 export function shouldCodeBlockCmBoundaryDown(state: EditorState): boolean {
   const head = state.selection.main.head
-  const line = state.doc.lineAt(head)
-  return line.number === state.doc.lines
+  return isAtLastNonEmptyCodeLineEnd(state.doc.toString(), head)
 }
 
 /** CM caret is on the first document line (↑ should focus language chip). */

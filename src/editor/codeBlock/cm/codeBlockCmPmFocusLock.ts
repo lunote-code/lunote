@@ -76,10 +76,12 @@ export function lockPmForCodeBlockCm(editor: Editor, wrap?: HTMLElement | null):
 }
 
 export function unlockPmForCodeBlockCm(editor: Editor): void {
-  if (!pmSoftLock.has(editor)) return
+  const hadSoftLock = pmSoftLock.has(editor)
   pmSoftLock.delete(editor)
   restorePmDomContentEditable(editor.view?.dom)
-  logPmLock('pm-soft-unlock-applied', editor, { generation: pmLockGeneration })
+  if (hadSoftLock) {
+    logPmLock('pm-soft-unlock-applied', editor, { generation: pmLockGeneration })
+  }
 }
 
 /** Fold / toolbar exit: drop soft lock and heal any legacy hard-lock editable state. */

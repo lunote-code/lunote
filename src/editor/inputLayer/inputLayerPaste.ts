@@ -1,5 +1,6 @@
 import { Fragment, Slice, type Node as ProseMirrorNode } from 'prosemirror-model'
 import type { EditorState, Transaction } from 'prosemirror-state'
+import { TextSelection } from '@tiptap/pm/state'
 import { splitBlock } from 'prosemirror-commands'
 
 import { isPosInsideCodeSpecBlock } from '../lunaCodeContext'
@@ -7,10 +8,10 @@ import { isPosInsideCodeSpecBlock } from '../lunaCodeContext'
 /** Transaction meta: mark input source (paste/menu paste/typing)*/
 export const INPUT_LAYER_SOURCE_META = 'inputLayerSource'
 
-export type InputLayerSource = 'paste' | 'paste-rich' | 'typing' | 'command'
+export type InputLayerSource = 'paste' | 'paste-rich' | 'paste-list' | 'typing' | 'command'
 
 export function isPasteLayerSource(source: InputLayerSource | undefined): boolean {
-  return source === 'paste' || source === 'paste-rich'
+  return source === 'paste' || source === 'paste-rich' || source === 'paste-list'
 }
 
 export function setInputLayerSource(tr: Transaction, source: InputLayerSource): Transaction {
@@ -58,11 +59,82 @@ function buildPlainTextSlice(
   return new Slice(Fragment.from(nodes), 0, 0)
 }
 
+function findListItemDepth($from: EditorState['selection']['$from']): number | null {
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    const name = $from.node(depth).type.name
+    if (name === 'listItem') return depth
+  }
+  return null
+}
+
+function normalizeMultilinePasteLines(text: string): string[] {
+  const normalized = text.replace(/\r\n/g, '\n')
+  const lines = normalized.split('\n')
+  while (lines.length > 1 && lines[lines.length - 1] === '') lines.pop()
+  return lines
+}
+
+/** Multi-line plain text in bullet/ordered lists → one list item per line. */
+function applyListMultilinePlainTextPaste(state: EditorState, text: string): Transaction | null {
+  const listItemDepth = findListItemDepth(state.selection.$from)
+  if (listItemDepth == null) return null
+
+  const itemType = state.selection.$from.node(listItemDepth).type
+  if (itemType.name !== 'listItem') return null
+
+  const paragraph = state.schema.nodes.paragraph
+  if (!paragraph) return null
+
+  const lines = normalizeMultilinePasteLines(text)
+  if (lines.length <= 1) return null
+
+  let tr = state.tr
+  const { from, to } = state.selection
+  if (from !== to) tr = tr.delete(from, to)
+
+  const firstLine = lines[0] ?? ''
+  const insertAt = tr.selection.from
+  if (firstLine) tr = tr.insertText(firstLine, insertAt, insertAt)
+
+  const $cursor = tr.doc.resolve(tr.selection.from)
+  const depth = findListItemDepth($cursor)
+  if (depth == null) return null
+
+  let insertPos = $cursor.after(depth)
+  for (let i = 1; i < lines.length; i += 1) {
+    const line = lines[i] ?? ''
+    const para = paragraph.create(null, line ? state.schema.text(line) : undefined)
+    const item = itemType.create(null, para)
+    tr = tr.insert(insertPos, item)
+    insertPos += item.nodeSize
+  }
+
+  const lastLine = lines[lines.length - 1] ?? ''
+  if (lines.length > 1 && lastLine) {
+    let caretPos: number | null = null
+    tr.doc.descendants((node, pos) => {
+      if (node.type.name !== 'listItem') return
+      const para = node.firstChild
+      if (para?.type.name === 'paragraph' && para.textContent === lastLine) {
+        caretPos = pos + 2 + lastLine.length
+      }
+    })
+    if (caretPos != null) {
+      tr = tr.setSelection(TextSelection.create(tr.doc, Math.min(caretPos, tr.doc.content.size - 1)))
+    }
+  } else {
+    tr = tr.setSelection(TextSelection.create(tr.doc, Math.max(1, tr.selection.from)))
+  }
+  return setInputLayerSource(tr.scrollIntoView(), 'paste-list')
+}
+
 /** Consistent with the menu "Paste as plain text": literal `insertText`, without `insertContent`*/
 export function applyPlainTextInsertion(state: EditorState, text: string, source: InputLayerSource): Transaction {
   if (selectionTouchesCodeSpecBlock(state)) {
     return applyCodeSpecPlainTextInsertion(state, text, source)
   }
+  const listPaste = source === 'paste' ? applyListMultilinePlainTextPaste(state, text) : null
+  if (listPaste) return listPaste
   const { from, to } = state.selection
   const normalized = text.replace(/\r\n/g, '\n')
   const slice = buildPlainTextSlice(state.schema, normalized)
@@ -82,6 +154,8 @@ export function applyPlainTextPasteInsertion(state: EditorState, text: string): 
   }
   const { from, to } = state.selection
   const normalized = text.replace(/\r\n/g, '\n')
+  const listPaste = applyListMultilinePlainTextPaste(state, normalized)
+  if (listPaste) return listPaste
   if (normalized.includes('\n') && state.schema.nodes.hardBreak) {
     return applyPlainTextInsertion(state, normalized, 'paste')
   }

@@ -5,7 +5,7 @@
 <h1 align="center">Lunote</h1>
 
 <p align="center">
-  <strong>Откройте папку Markdown—пишите, связывайте, исследуйте граф знаний. Без плагинов.</strong><br />
+  <strong>Откройте папку Markdown—пишите, связывайте, исследуйте граф знаний. Встроенные инструменты и опциональные тематические плагины.</strong><br />
   <em>Бесплатно, open source, офлайн. Каждая заметка — файл <code>.md</code> на диске.</em><br />
   <em>Заметки остаются на вашем компьютере. Без аккаунта и загрузки—синхронизируйте папку сами (Git, Syncthing, iCloud и т. п.).</em>
 </p>
@@ -53,7 +53,7 @@
 </p>
 
 <p align="center">
-  <strong>Письмо в духе Typora + связи в духе Obsidian — встроено.</strong>
+  <strong>Письмо в духе Typora + связи в духе Obsidian — встроено, с каталогом тематических плагинов.</strong>
 </p>
 
 <p align="center">
@@ -69,10 +69,10 @@
 <!-- readme-demo-gif -->
 <p align="center">
   <a href="#preview">
-    <img src="assets/demo/lunote-demo.gif" alt="Lunote — демо: письмо, wiki‑ссылки, граф, темы" width="720" />
+    <img src="assets/demo/lunote-demo.gif" alt="Lunote — демо: письмо, wiki‑ссылки, граф, темы, плагины" width="720" />
   </a>
 </p>
-<p align="center"><sub>Письмо · `[[wiki‑ссылки]]` · обратные ссылки · граф · экспорт · темы</sub></p>
+<p align="center"><sub>Письмо · `[[wiki‑ссылки]]` · обратные ссылки · граф · экспорт · темы · плагины</sub></p>
 
 ---
 
@@ -92,18 +92,6 @@
 | :---: | :---: | :---: |
 | <img src="assets/screenshots/search.png" alt="Глобальный поиск" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/snipaste.png" alt="Снимки истории" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="Настройки темы" width="240" style="max-width: 100%; height: auto;" /> |
 
-### Другие превью тем
-
-Доп. скриншоты: `assets/screenshots/theme/`. Готовые CSS, JSON-токены и сниппеты: **[Примеры тем](theme-example/README.md)**.
-
-| GitHub Light | GitHub Dark | IDEA Light | IDEA Dark | Dim Light |
-| :---: | :---: | :---: | :---: | :---: |
-| <img src="assets/screenshots/theme/github-light.png" alt="GitHub Light" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/github-dark.png" alt="GitHub Dark" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/idea-light.png" alt="IDEA Light" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/idea-dark.png" alt="IDEA Dark" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/dim-light.png" alt="Dim Light" width="200" style="max-width: 100%; height: auto;" /> |
-
-| Dim Dark | Forest Dawn | Ember Glow | Graphite Noir | Lavender Haze |
-| :---: | :---: | :---: | :---: | :---: |
-| <img src="assets/screenshots/theme/dim-dark.png" alt="Dim Dark" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/forest-dawn.png" alt="Forest Dawn" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/ember-glow.png" alt="Ember Glow" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/graphite-noir.png" alt="Graphite Noir" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/lavender-haze.png" alt="Lavender Haze" width="200" style="max-width: 100%; height: auto;" /> |
-
 ---
 
 <!-- readme-body-start -->
@@ -111,11 +99,12 @@
 
 ## Обзор
 
-Откройте папку с **файлами `.md`** и пишите. Lunote добавляет `[[wiki‑ссылки]]`, обратные ссылки и граф—**без аккаунта и магазина плагинов**.
+Откройте папку с **файлами `.md`** и пишите. Lunote добавляет `[[wiki‑ссылки]]`, обратные ссылки и граф—**без аккаунта; тематические пакеты в Настройки → Плагины**.
 
 - Откройте **папку `.md`** как workspace
 - **Визуальный и исходный** режим по горячей клавише
 - Встроенные **wiki‑ссылки**, обратные ссылки, граф, структура и поиск
+- **Настройки → Плагины**: каталог [lunote-theme](https://github.com/lunote-code/lunote-theme) — темы (CSS, сниппеты, токены)
 
 | | |
 |---|---|
@@ -144,7 +133,7 @@
 
 ### Связи
 
-*Второй мозг: `[[ссылки]]`, обратные ссылки и граф без плагинов.*
+*Второй мозг: `[[ссылки]]`, обратные ссылки и граф—встроено.*
 
 - `[[wiki‑ссылки]]` с автодополнением
 - **Панель знаний**: обратные ссылки, локальный граф, встраивания, теги и **YAML frontmatter**
@@ -160,11 +149,12 @@
 
 ### Экспорт и темы
 
-*Поделиться или печать: PDF, Word, HTML—и темы под вашим контролем.*
+*Поделиться или печать: PDF, Word, HTML—и темы, и опциональные плагины.*
 
 - **PDF, HTML, DOCX, PNG**, **печать**
 - Темы, папка **Theme**, внешний CSS
 - Пресеты **ширины колонки** (Узкая / Стандарт / Широкая) для визуального режима и предпросмотра
+- **Настройки → Плагины**: установка пакетов из каталога [lunote-theme](https://github.com/lunote-code/lunote-theme)
 
 ### История
 
@@ -219,7 +209,7 @@
 ## Почему Lunote
 
 - **Ваши файлы**: обычные `.md` в ваших папках.
-- **Одно приложение**: удобное письмо, wiki‑ссылки и граф встроены—без плагинов.
+- **Одно приложение**: удобное письмо, wiki‑ссылки и граф встроены—опциональные пакеты тем.
 
 ---
 
@@ -227,17 +217,13 @@
 
 ## Сравнение
 
-Уже пользуетесь Typora или Obsidian? Lunote для тех, кому нужны **удобное письмо и wiki‑ссылки в одном десктоп‑приложении** без настройки плагинов.
+Уже пользуетесь Typora или Obsidian? Lunote для тех, кому нужны **удобное письмо и wiki‑ссылки в одном десктоп‑приложении**, с опциональным каталогом тем.
 
 | | Typora | Obsidian | Lunote |
 |---|---|---|---|
 | **Письмо** | Отлично | Хорошо | Отлично, встроено |
 | **Wiki‑ссылки и граф** | Слабо | Сильно (часто плагины) | Сильно, встроено |
-| **Плагины для старта** | Мало | Много | Не нужны |
-
-
----
-
+| **Плагины для старта** | Мало | Много | **Опционально** (каталог) |
 
 <a id="user-guide"></a>
 
@@ -245,14 +231,12 @@
 
 Пошаговые инструкции на английском (темы, сочетания клавиш и полный список команд **`/`**):
 
-- [Темы](guide/themes.md) — built-in themes, Theme folder, external CSS, snippets, export styles
+- [Темы](guide/themes.md) — встроенные темы, папка Theme, внешний CSS, сниппеты, стили экспорта, каталог **Настройки → Плагины**
 - [Горячие клавиши и меню](guide/shortcuts-and-menus.md) — Command Palette, keyboard shortcuts, full **`/`** slash command list
-- [Templates](Templates/README.md) — default and daily note templates, variables
-- [Различия платформ](guide/platform-differences.md) — PDF, печать, показать в файловом менеджере, заметки по ОС
+- [Различия платформ](guide/platform-differences.md) — PDF, печать, показ в проводнике и устранение неполадок по ОС
 - [Оглавление](guide/README.md) — all guide pages
 
 ---
-
 
 <a id="development"></a>
 
@@ -281,7 +265,59 @@
 
 Идеи: [Discussions](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
 
+<a id="development"></a>
+
+## Разработка
+
+Собрать Lunote самостоятельно:
+
+- **Требования:** Node.js, Rust и инструменты [Tauri](https://tauri.app/)
+- **Разработка:** `npm install`, затем `npm run tauri:dev`
+- **Сборка:** `npm run tauri:bundle` (или `tauri:bundle:dmg` / `msi` / `deb`)
+- **Документация:** [Указатель документации](README.md) · [Packaging](packaging-strategy.md) · [Скрипты](../scripts/README.md)
+
+Вопросы: [Issue](https://github.com/lunote-code/lunote/issues). PR приветствуются.
+
 ---
+
+<a id="contribution"></a>
+
+## Участие
+
+Перед pull request:
+
+- Прочитать [Скрипты и сопровождение](../scripts/README.md) (локали и релизы)
+- При изменениях редактора или экспорта — `npm run lint` и нужные тесты
+- Согласовывать тексты в [локализованных README](README.md)
+
+Идеи: [Discussions](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
+
+<a id="development"></a>
+
+## Разработка
+
+Собрать Lunote самостоятельно:
+
+- **Требования:** Node.js, Rust и инструменты [Tauri](https://tauri.app/)
+- **Разработка:** `npm install`, затем `npm run tauri:dev`
+- **Сборка:** `npm run tauri:bundle` (или `tauri:bundle:dmg` / `msi` / `deb`)
+- **Документация:** [Указатель документации](README.md) · [Packaging](packaging-strategy.md) · [Скрипты](../scripts/README.md)
+
+Вопросы: [Issue](https://github.com/lunote-code/lunote/issues). PR приветствуются.
+
+---
+
+<a id="contribution"></a>
+
+## Участие
+
+Перед pull request:
+
+- Прочитать [Скрипты и сопровождение](../scripts/README.md) (локали и релизы)
+- При изменениях редактора или экспорта — `npm run lint` и нужные тесты
+- Согласовывать тексты в [локализованных README](README.md)
+
+Идеи: [Discussions](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
 
 <a id="faq"></a>
 
@@ -309,18 +345,5 @@
 ## Лицензия
 
 ПО с открытым исходным кодом. Условия — в файле лицензии репозитория.
-
-<a id="sponsor"></a>
-
-## Поддержать проект
-
-Если Lunote вам помогает, вы можете добровольно поддержать разработку через **USDT TRC20** в сети Tron.
-
-| | |
-|---|---|
-| **Сеть** | Tron (TRC20) · USDT |
-| **Адрес** | USDT · `TEDgPJzSmv7YTjrs2EZrFF5kCNbuZY15iY` |
-
-<sub>Проверьте адрес перед отправкой. On-chain переводы необратимы. Поддержка добровольна и не является покупкой услуги.</sub>
 
 ---

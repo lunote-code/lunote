@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 
+import { SettingsButton } from './settings'
 import type { TranslateFn } from '../i18n'
 import { APP_DISPLAY_NAME, APP_SHORT_NAME, APP_VERSION } from '../app/workspace/constants'
 import {
@@ -121,19 +122,15 @@ function AboutDialogActions({
   closeButtonRef: RefObject<HTMLButtonElement | null>
 }) {
   return (
-    <div className="about-modal-actions">
+    <div className="about-modal-actions settings-stack">
       {releaseUrl ? (
-        <button
-          type="button"
-          className="about-modal-close about-modal-download"
-          onClick={() => void openAppReleasePage(releaseUrl)}
-        >
+        <SettingsButton variant="primary" onClick={() => void openAppReleasePage(releaseUrl)}>
           {t('app.about.update.download')}
-        </button>
+        </SettingsButton>
       ) : null}
-      <button ref={closeButtonRef} type="button" className="about-modal-close" onClick={onClose}>
+      <SettingsButton ref={closeButtonRef} variant="secondary" onClick={onClose}>
         {t('app.about.close')}
-      </button>
+      </SettingsButton>
     </div>
   )
 }

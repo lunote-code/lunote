@@ -12,13 +12,24 @@ function transactionsIncludePaste(transactions: readonly Transaction[]): boolean
   return transactions.some((tr) => isPasteLayerSource(getInputLayerSource(tr)))
 }
 
+function transactionsAllowRichPasteStructure(transactions: readonly Transaction[]): boolean {
+  return transactions.some((tr) => getInputLayerSource(tr) === 'paste-rich')
+}
+
+function transactionsAllowListMultilinePaste(transactions: readonly Transaction[]): boolean {
+  return transactions.some((tr) => getInputLayerSource(tr) === 'paste-list')
+}
+
 /**
  * Runtime guard: Paste transactions must not inject codeBlock/mermaidBlock and must not increase the number of paragraph blocks.
  */
 export function assertPasteDidNotCreateCodeBlock(oldState: EditorState, newState: EditorState, transactions: readonly Transaction[]): void {
   if (!transactionsIncludePaste(transactions)) return
   try {
-    assertNoPasteStructuralInjection(oldState.doc, newState.doc)
+    assertNoPasteStructuralInjection(oldState.doc, newState.doc, {
+      allowRichStructure: transactionsAllowRichPasteStructure(transactions),
+      allowListMultiline: transactionsAllowListMultilinePaste(transactions),
+    })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     if (msg.includes('codeBlock')) {
@@ -43,6 +54,7 @@ export function createInputLayerPasteGuardPlugin(): Plugin {
       try {
         assertNoPasteStructuralInjection(before, tr.doc, {
           allowRichStructure: source === 'paste-rich',
+          allowListMultiline: source === 'paste-list',
         })
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)

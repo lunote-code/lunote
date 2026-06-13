@@ -2,8 +2,7 @@ import type { RefObject } from 'react'
 
 import type { TranslateFn } from '../../i18n'
 import { clampPointToViewport } from '../../lib/contextMenuPosition'
-import type { SemanticIconName } from '../../design-system/icons/iconRegistry'
-import { Icon } from '../../design-system/icons/Icon'
+import { FileContextMenuItem } from './FileContextMenuItem'
 
 export type DocumentHistoryContextMenuState = {
   x: number
@@ -23,35 +22,6 @@ type Props = {
   onRestore: (snapshotId: string) => void
   onDelete: (snapshotId: string) => void
   onCloseDialog: () => void
-}
-
-function ContextMenuItem({
-  icon,
-  label,
-  disabled,
-  danger,
-  onClick,
-}: {
-  icon: SemanticIconName
-  label: string
-  disabled?: boolean
-  danger?: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      className={['file-ctx-item', danger ? 'file-ctx-item-danger' : ''].filter(Boolean).join(' ')}
-      disabled={disabled}
-      onClick={onClick}
-    >
-      <span className="file-ctx-item-leading" aria-hidden>
-        <Icon name={icon} size="sm" tone={danger ? 'default' : 'muted'} stroke="regular" />
-      </span>
-      <span className="file-ctx-item-label">{label}</span>
-    </button>
-  )
 }
 
 export function DocumentHistoryContextMenu({
@@ -79,13 +49,13 @@ export function DocumentHistoryContextMenu({
       onContextMenu={(e) => e.preventDefault()}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      <ContextMenuItem
+      <FileContextMenuItem
         icon="snapshot"
         label={creatingSnapshot ? t('app.history.dialog.creating') : t('menu.file.history.createSnapshot')}
         disabled={creatingSnapshot}
         onClick={onCreateSnapshot}
       />
-      <ContextMenuItem
+      <FileContextMenuItem
         icon="undo"
         label={t('app.history.dialog.restoreSnapshot')}
         disabled={restoreDisabled || !restoreId}
@@ -97,7 +67,7 @@ export function DocumentHistoryContextMenu({
       {canDelete ? (
         <>
           <div className="file-ctx-sep" role="separator" />
-          <ContextMenuItem
+          <FileContextMenuItem
             icon="delete"
             label={t('app.history.dialog.delete')}
             danger
@@ -109,7 +79,7 @@ export function DocumentHistoryContextMenu({
         </>
       ) : null}
       <div className="file-ctx-sep" role="separator" />
-      <ContextMenuItem
+      <FileContextMenuItem
         icon="close"
         label={t('app.history.dialog.close')}
         onClick={onCloseDialog}

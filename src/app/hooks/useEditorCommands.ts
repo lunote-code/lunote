@@ -11,6 +11,7 @@ import {
   snapshotDocumentBodyMeta,
 } from '../../lib/tabNavigationDebug'
 import { pathsEqual } from '../../lib/workspacePathUtils'
+import { setTabBody } from '../document/tabBodiesStore'
 import {
   bridgeDeleteSelection,
   bridgeOpenSearchPanel,
@@ -27,7 +28,11 @@ import {
   getFocusedCodeBlockCmView,
   isCodeBlockCmFocused,
 } from '../../editor/codeBlock/cm/codeBlockCmFocus'
-import { readBlockNativeTextareaSelection } from '../../editor/webviewPasteFocus'
+import {
+  cutNativeTextInputSelection,
+  readBlockNativeTextareaSelection,
+  readNativeTextInputSelection,
+} from '../../editor/webviewPasteFocus'
 import type { TiptapMarkdownEditorHandle } from '../../editor/TiptapMarkdownEditor'
 import type { EditorView } from '@codemirror/view'
 import type { TranslateFn } from '../../i18n'
@@ -107,6 +112,20 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
 
   const copySelectionAs = useCallback(
     async (kind: 'plain' | 'markdown' | 'html') => {
+      const dialogSelection = readNativeTextInputSelection()
+      if (dialogSelection) {
+        const text =
+          kind === 'markdown' || kind === 'html'
+            ? dialogSelection.element.value
+            : dialogSelection.text
+        if (kind === 'html') {
+          const frag = await markdownToPlainHtmlFragment(text)
+          await navigator.clipboard.writeText(frag)
+        } else {
+          await navigator.clipboard.writeText(text)
+        }
+        return
+      }
       const nativeSelection = readBlockNativeTextareaSelection()
       if (nativeSelection) {
         const text = kind === 'markdown' ? nativeSelection.textarea.value : nativeSelection.text
@@ -163,6 +182,10 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
   )
 
   const cutSelectionToClipboard = useCallback(async () => {
+    if (await cutNativeTextInputSelection()) {
+      setStatus(t('app.status.cutDone'))
+      return
+    }
     const nativeSelection = readBlockNativeTextareaSelection()
     if (nativeSelection) {
       if (!nativeSelection.text) return
@@ -322,6 +345,7 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
       })
       contentRef.current = value
       if (pathAtChange !== 'scratch') {
+        setTabBody(pathAtChange, value)
         if (mainPaneMode === 'source') {
           syncDocumentFrontmatterFromMarkdown(pathAtChange, value)
           setSourceModeIdentity(pathAtChange, value)

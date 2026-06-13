@@ -5,7 +5,7 @@
 <h1 align="center">Lunote</h1>
 
 <p align="center">
-  <strong>Ouvrez votre dossier Markdown—écrivez, reliez, explorez un graphe. Sans plugins.</strong><br />
+  <strong>Ouvrez votre dossier Markdown—écrivez, reliez, explorez un graphe. Outils intégrés et plugins de thème optionnels.</strong><br />
   <em>Gratuit, open source, hors ligne. Chaque note reste un fichier <code>.md</code> sur votre disque.</em><br />
   <em>Les notes restent sur votre ordinateur. Pas de compte, pas d'envoi—synchronisez le dossier vous-même (Git, Syncthing, iCloud, etc.).</em>
 </p>
@@ -53,7 +53,7 @@
 </p>
 
 <p align="center">
-  <strong>Écriture façon Typora + liens façon Obsidian — intégré.</strong>
+  <strong>Écriture façon Typora + liens façon Obsidian — intégré, avec catalogue de plugins de thème.</strong>
 </p>
 
 <p align="center">
@@ -69,10 +69,10 @@
 <!-- readme-demo-gif -->
 <p align="center">
   <a href="#preview">
-    <img src="assets/demo/lunote-demo.gif" alt="Lunote — démo : écriture, liens wiki, graphe, thèmes" width="720" />
+    <img src="assets/demo/lunote-demo.gif" alt="Lunote — démo : écriture, liens wiki, graphe, thèmes, plugins" width="720" />
   </a>
 </p>
-<p align="center"><sub>Écriture · `[[liens wiki]]` · backlinks · graphe · export · thèmes</sub></p>
+<p align="center"><sub>Écriture · `[[liens wiki]]` · backlinks · graphe · export · thèmes · plugins</sub></p>
 
 ---
 
@@ -92,18 +92,6 @@
 | :---: | :---: | :---: |
 | <img src="assets/screenshots/search.png" alt="Recherche globale" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/snipaste.png" alt="Instantanés d'historique" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="Réglages du thème" width="240" style="max-width: 100%; height: auto;" /> |
 
-### Autres aperçus de thèmes
-
-Captures supplémentaires : `assets/screenshots/theme/`. Fichiers CSS, jetons JSON et snippets prêts à l'emploi : **[Exemples de thèmes](theme-example/README.md)**.
-
-| GitHub Light | GitHub Dark | IDEA Light | IDEA Dark | Dim Light |
-| :---: | :---: | :---: | :---: | :---: |
-| <img src="assets/screenshots/theme/github-light.png" alt="GitHub Light" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/github-dark.png" alt="GitHub Dark" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/idea-light.png" alt="IDEA Light" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/idea-dark.png" alt="IDEA Dark" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/dim-light.png" alt="Dim Light" width="200" style="max-width: 100%; height: auto;" /> |
-
-| Dim Dark | Forest Dawn | Ember Glow | Graphite Noir | Lavender Haze |
-| :---: | :---: | :---: | :---: | :---: |
-| <img src="assets/screenshots/theme/dim-dark.png" alt="Dim Dark" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/forest-dawn.png" alt="Forest Dawn" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/ember-glow.png" alt="Ember Glow" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/graphite-noir.png" alt="Graphite Noir" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/lavender-haze.png" alt="Lavender Haze" width="200" style="max-width: 100%; height: auto;" /> |
-
 ---
 
 <!-- readme-body-start -->
@@ -111,11 +99,12 @@ Captures supplémentaires : `assets/screenshots/theme/`. Fichiers CSS, jetons JS
 
 ## Présentation
 
-Ouvrez un dossier de **fichiers `.md`** et écrivez. Lunote ajoute `[[liens wiki]]`, backlinks et graphe—**sans compte ni boutique de plugins**.
+Ouvrez un dossier de **fichiers `.md`** et écrivez. Lunote ajoute `[[liens wiki]]`, backlinks et graphe—**sans compte ; packs de thèmes optionnels dans Préférences → Plugins**.
 
 - Ouvrir un **dossier `.md`** comme espace de travail
 - **Visuel et source** en un raccourci
 - **Liens wiki**, backlinks, graphe, plan et recherche intégrés
+- **Préférences → Plugins** : parcourir les packs de thèmes (CSS, snippets, jetons) du catalogue [lunote-theme](https://github.com/lunote-code/lunote-theme)
 
 | | |
 |---|---|
@@ -144,7 +133,7 @@ Choisissez votre flux—tout ce qui suit est dans l'app :
 
 ### Relier
 
-*Second cerveau : `[[liens]]`, backlinks et graphe sans plugins.*
+*Second cerveau : `[[liens]]`, backlinks et graphe—intégrés.*
 
 - `[[liens wiki]]` avec autocomplétion
 - **Panneau connaissance** : backlinks, graphe local, intégrations, tags et **frontmatter YAML**
@@ -160,11 +149,12 @@ Choisissez votre flux—tout ce qui suit est dans l'app :
 
 ### Export & apparence
 
-*Partager ou imprimer : PDF, Word, HTML—et des thèmes que vous contrôlez.*
+*Partager ou imprimer : PDF, Word, HTML—plus thèmes et packs optionnels.*
 
 - **PDF, HTML, DOCX, PNG** ; **impression** système
 - Thèmes, dossier **Theme**, CSS externe
 - Préréglages de **largeur de colonne** (Étroit / Standard / Large) en mode visuel et aperçu
+- **Préférences → Plugins** : installer des packs depuis le catalogue [lunote-theme](https://github.com/lunote-code/lunote-theme)
 
 ### Historique
 
@@ -219,7 +209,7 @@ Sans inscription · fichiers `.md` locaux · hors ligne
 ## Pourquoi Lunote
 
 - **Vos fichiers** : des `.md` normaux dans vos dossiers.
-- **Une seule app** : écriture fluide, liens wiki et graphe intégrés—sans plugins.
+- **Une seule app** : écriture fluide, liens wiki et graphe intégrés—packs de thèmes optionnels.
 
 ---
 
@@ -227,17 +217,13 @@ Sans inscription · fichiers `.md` locaux · hors ligne
 
 ## Comparatif
 
-Sur Typora ou Obsidian ? Lunote est pour ceux qui veulent **écriture confortable et liens wiki dans une app bureau**, sans réglages de plugins.
+Sur Typora ou Obsidian ? Lunote est pour ceux qui veulent **écriture confortable et liens wiki dans une app bureau**, avec un catalogue de thèmes optionnel.
 
 | | Typora | Obsidian | Lunote |
 |---|---|---|---|
 | **Écriture** | Excellente | Bonne | Excellente, intégrée |
 | **Liens wiki & graphe** | Limité | Fort (souvent plugins) | Fort, intégré |
-| **Plugins au départ** | Peu | Beaucoup | Aucun |
-
-
----
-
+| **Plugins au départ** | Peu | Beaucoup | **Optionnels** (catalogue) |
 
 <a id="user-guide"></a>
 
@@ -245,14 +231,12 @@ Sur Typora ou Obsidian ? Lunote est pour ceux qui veulent **écriture confortabl
 
 Guides pratiques en anglais (thèmes, raccourcis et liste complète des commandes **`/`**) :
 
-- [Thèmes](guide/themes.md) — built-in themes, Theme folder, external CSS, snippets, export styles
+- [Thèmes](guide/themes.md) — thèmes intégrés, dossier Theme, CSS externe, snippets, styles d'export, catalogue **Préférences → Plugins**
 - [Raccourcis & menus rapides](guide/shortcuts-and-menus.md) — Command Palette, keyboard shortcuts, full **`/`** slash command list
-- [Templates](Templates/README.md) — default and daily note templates, variables
-- [Différences par plateforme](guide/platform-differences.md) — PDF, impression, révéler dans le gestionnaire de fichiers et dépannage par OS
+- [Différences par plateforme](guide/platform-differences.md) — PDF, impression, révéler dans l'explorateur et dépannage selon l'OS
 - [Index du guide](guide/README.md) — all guide pages
 
 ---
-
 
 <a id="development"></a>
 
@@ -281,7 +265,59 @@ Avant une pull request :
 
 Idées : [Discussions](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
 
+<a id="development"></a>
+
+## Développement
+
+Construire Lunote vous-même :
+
+- **Prérequis:** Node.js, Rust et outils [Tauri](https://tauri.app/)
+- **Dev:** `npm install` puis `npm run tauri:dev`
+- **Build:** `npm run tauri:bundle` (ou `tauri:bundle:dmg` / `msi` / `deb`)
+- **Docs:** [Index documentation](README.md) · [Packaging](packaging-strategy.md) · [Scripts](../scripts/README.md)
+
+Questions ? [Ouvrir une issue](https://github.com/lunote-code/lunote/issues). PR bienvenues.
+
 ---
+
+<a id="contribution"></a>
+
+## Contribution
+
+Avant une pull request :
+
+- Lire [Scripts & maintenance](../scripts/README.md) (locales et releases)
+- Exécuter `npm run lint` et les tests pertinents pour l’éditeur ou l’export
+- Harmoniser les textes via les [README localisés](README.md)
+
+Idées : [Discussions](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
+
+<a id="development"></a>
+
+## Développement
+
+Construire Lunote vous-même :
+
+- **Prérequis:** Node.js, Rust et outils [Tauri](https://tauri.app/)
+- **Dev:** `npm install` puis `npm run tauri:dev`
+- **Build:** `npm run tauri:bundle` (ou `tauri:bundle:dmg` / `msi` / `deb`)
+- **Docs:** [Index documentation](README.md) · [Packaging](packaging-strategy.md) · [Scripts](../scripts/README.md)
+
+Questions ? [Ouvrir une issue](https://github.com/lunote-code/lunote/issues). PR bienvenues.
+
+---
+
+<a id="contribution"></a>
+
+## Contribution
+
+Avant une pull request :
+
+- Lire [Scripts & maintenance](../scripts/README.md) (locales et releases)
+- Exécuter `npm run lint` et les tests pertinents pour l’éditeur ou l’export
+- Harmoniser les textes via les [README localisés](README.md)
+
+Idées : [Discussions](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
 
 <a id="faq"></a>
 
@@ -309,18 +345,5 @@ Pas toujours. Lunote vise l'écriture bureau + liens intégrés. Mobile ou grand
 ## Licence
 
 Logiciel open source. Voir le fichier de licence du dépôt.
-
-<a id="sponsor"></a>
-
-## Soutenir le projet
-
-Si Lunote vous aide, vous pouvez soutenir volontairement le développement via **USDT TRC20** sur le réseau Tron.
-
-| | |
-|---|---|
-| **Réseau** | Tron (TRC20) · USDT |
-| **Adresse** | USDT · `TEDgPJzSmv7YTjrs2EZrFF5kCNbuZY15iY` |
-
-<sub>Vérifiez l'adresse avant d'envoyer. Les transferts on-chain sont irréversibles. Le soutien est volontaire et ne constitue pas l'achat d'un service.</sub>
 
 ---

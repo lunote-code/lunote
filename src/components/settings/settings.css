@@ -3,7 +3,7 @@
 :root {
   --settings-bg: color-mix(in srgb, var(--surface-app) 88%, var(--surface-editor));
   --settings-card: var(--surface-panel);
-  --settings-control-bg: var(--luna-field-bg);
+  --settings-control-bg: var(--luna-field-bg, var(--surface-editor));
   --settings-border: color-mix(in srgb, var(--border-subtle) 92%, var(--text-primary));
   --settings-row-border: color-mix(in srgb, var(--border-subtle) 76%, transparent);
   --settings-hover: color-mix(in srgb, var(--surface-hover) 92%, var(--surface-panel));
@@ -23,7 +23,7 @@
 
 .settings-page {
   width: 100%;
-  max-width: 860px;
+  max-width: 880px;
   margin: 0 auto;
   padding: 0;
   border-radius: calc(var(--settings-radius) + 4px);
@@ -64,8 +64,8 @@
 .settings-section {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 26px;
+  gap: 18px;
+  padding: 24px;
   border: 1px solid var(--settings-border);
   border-radius: var(--settings-radius);
   background: var(--settings-card);
@@ -105,9 +105,9 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(240px, var(--settings-control-width));
   align-items: center;
-  gap: 24px;
-  margin: 0 -12px;
-  padding: 16px 12px;
+  gap: 22px;
+  margin: 0 -10px;
+  padding: 16px 10px;
   border-top: 1px solid var(--settings-row-border);
   border-radius: 12px;
   transition:
@@ -319,6 +319,28 @@
 
 .settings-button-primary:hover {
   filter: brightness(1.06);
+}
+
+.settings-button-danger {
+  border-color: var(--luna-color-warning);
+  background: var(--luna-color-warning);
+  color: var(--luna-on-warning);
+}
+
+.settings-button-danger:hover {
+  background: color-mix(in srgb, var(--luna-color-warning) 88%, #000);
+}
+
+.settings-button-destructive {
+  border-color: color-mix(in srgb, var(--luna-color-danger) 72%, #000);
+  background: var(--luna-color-danger);
+  color: var(--luna-on-danger);
+}
+
+.settings-button-destructive:hover {
+  background: color-mix(in srgb, var(--luna-color-danger-soft) 55%, var(--luna-color-danger));
+  border-color: color-mix(in srgb, var(--luna-color-danger) 80%, #000);
+  color: var(--luna-on-danger);
 }
 
 .settings-button-secondary:hover,
@@ -756,8 +778,43 @@
   gap: 6px;
 }
 
+.settings-page--prefs {
+  max-width: 920px;
+  border-radius: 0;
+  background: transparent;
+}
+
 .settings-page--prefs .settings-page-header {
-  display: none;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.settings-page--prefs .settings-page-title {
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+
+.settings-page--prefs .settings-page-description {
+  max-width: 72ch;
+}
+
+.settings-page--prefs .settings-page-body {
+  gap: 20px;
+}
+
+.settings-page--prefs .settings-section,
+.settings-page--prefs .settings-section-bare {
+  gap: 18px;
+  padding: 24px;
+  border: 1px solid var(--settings-border);
+  border-radius: var(--settings-radius);
+  background: color-mix(in srgb, var(--settings-card) 96%, var(--surface-app));
+  box-shadow: none;
+}
+
+.settings-page--prefs .settings-section-title {
+  font-size: 16px;
 }
 
 .settings-page--prefs .settings-row:hover {

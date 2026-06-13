@@ -72,6 +72,18 @@ function isTypingLikeUpdate(update: Parameters<Parameters<typeof EditorView.upda
   )
 }
 
+function insertsLineBreak(
+  update: Parameters<Parameters<typeof EditorView.updateListener.of>[0]>[0],
+): boolean {
+  let hasLineBreak = false
+  update.changes.iterChanges((_fromA, _toA, _fromB, _toB, inserted) => {
+    if (inserted.lines > 1 || inserted.toString().includes('\n')) {
+      hasLineBreak = true
+    }
+  })
+  return hasLineBreak
+}
+
 export function createVmCmRecorder(): Extension {
   return EditorView.updateListener.of((update) => {
     if (!update.docChanged || !activeDocId) return
@@ -109,7 +121,10 @@ export function createVmCmRecorder(): Extension {
       return
     }
 
-    if (viewComposing || isTypingLikeUpdate(update)) {
+    const typingLike = isTypingLikeUpdate(update)
+    const lineBreakBoundary = insertsLineBreak(update)
+
+    if (!lineBreakBoundary && (viewComposing || typingLike)) {
       mergeIntoPending(activeDocId, entry)
       if (!viewComposing) schedulePendingFlush(activeDocId)
       return

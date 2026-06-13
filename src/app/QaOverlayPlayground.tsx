@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import '../App.css'
 import { DocumentHistoryDialog } from './components/DocumentHistoryDialog'
 import { SaveConflictDialog } from './components/SaveConflictDialog'
 import type { DocumentHistoryEntry, DocumentHistorySnapshot } from '../documentHistory/types'

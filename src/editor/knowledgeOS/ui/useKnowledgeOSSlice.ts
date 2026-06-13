@@ -4,6 +4,7 @@ import {
   getKnowledgeOSSnapshot,
   subscribeKnowledgeOSSnapshot,
 } from '../knowledgeUIBridge'
+import { getKnowledgeSearchSnapshot, subscribeKnowledgeSearch } from '../knowledgeSearchRuntime'
 import type {
   BacklinkPanelSnapshot,
   GraphViewportSnapshot,
@@ -41,9 +42,17 @@ export function useGraphSlice(): NoteGraphSnapshot {
 }
 
 export function useSearchSlice(): KnowledgeSearchSnapshot {
-  const revision = useOsRevision()
-  void revision
-  return getKnowledgeOSSnapshot().search
+  const osRevision = useOsRevision()
+  const [search, setSearch] = useState(() => getKnowledgeSearchSnapshot())
+
+  useEffect(() => {
+    return subscribeKnowledgeSearch(() => {
+      setSearch(getKnowledgeSearchSnapshot())
+    })
+  }, [])
+
+  void osRevision
+  return search
 }
 
 /** OKFL: UI only reads unified clock projection from OS snapshot.kernelTickState.*/

@@ -6,8 +6,13 @@ import { applyCodeBlockTextFromCm, replaceEmptyCodeBlockWithParagraph } from '..
  * Transitional PM adapter for code-block editing sessions.
  * The controller talks to this adapter instead of dispatching PM transactions directly.
  */
-export function commitCodeBlockSessionText(editor: Editor, blockPos: number, text: string): boolean {
-  return applyCodeBlockTextFromCm(editor, blockPos, text)
+export function commitCodeBlockSessionText(
+  editor: Editor,
+  blockPos: number,
+  text: string,
+  options?: { addToHistory?: boolean },
+): boolean {
+  return applyCodeBlockTextFromCm(editor, blockPos, text, options)
 }
 
 export function deleteEmptyCodeBlock(editor: Editor, blockPos: number): boolean {

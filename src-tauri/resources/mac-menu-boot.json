@@ -368,24 +368,21 @@
           "id": "edit-cut",
           "action": "edit-cut",
           "labelKey": "menu.edit.cut",
-          "menuIcon": "✂",
-          "tauriAccelerator": "CmdOrCtrl+KeyX"
+          "menuIcon": "✂"
         },
         {
           "kind": "item",
           "id": "edit-copy",
           "action": "edit-copy",
           "labelKey": "menu.edit.copy",
-          "menuIcon": "⧉",
-          "tauriAccelerator": "CmdOrCtrl+KeyC"
+          "menuIcon": "⧉"
         },
         {
           "kind": "item",
           "id": "edit-paste",
           "action": "edit-paste",
           "labelKey": "menu.edit.paste",
-          "menuIcon": "📋",
-          "tauriAccelerator": "CmdOrCtrl+KeyV"
+          "menuIcon": "📋"
         },
         {
           "kind": "separator"
@@ -1379,7 +1376,8 @@
           "id": "toggle-sidebar",
           "action": "toggle-sidebar",
           "labelKey": "menu.view.sidebar",
-          "semanticIcon": "sidebar-open"
+          "semanticIcon": "sidebar-open",
+          "tauriAccelerator": "CmdOrCtrl+Shift+KeyB"
         },
         {
           "kind": "item",
@@ -1393,7 +1391,7 @@
           "id": "view-sidebar-files",
           "action": "toggle-sidebar-files",
           "labelKey": "menu.view.docList",
-          "semanticIcon": "list"
+          "semanticIcon": "files"
         },
         {
           "kind": "item",

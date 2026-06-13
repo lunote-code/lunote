@@ -8,6 +8,7 @@ import {
   normalizeLanguageForLowlight,
   resolveCanonicalLanguageId,
 } from '../../lunaCodeLanguages'
+import { createCodeBlockClickBelowPlugin } from '../behavior/codeBlockClickBelowPlugin'
 import { createCodeBlockTrailingEmptyLinesPlugin } from '../behavior/trailingEmptyLinesPlugin'
 import { isCodeBlockCmEnabled } from '../cm/codeBlockCmFeature'
 import { debugCodeBlockCmFocus, describeDomTarget } from '../cm/codeBlockCmFocusDebug'
@@ -76,6 +77,7 @@ export const LunaCodeBlock = CodeBlockLowlight.extend({
       ...patched,
       autoDetectLanguageOnPaste,
       createCodeBlockTrailingEmptyLinesPlugin(),
+      createCodeBlockClickBelowPlugin(this.editor),
     ]
     if (isCodeBlockCmEnabled()) {
       plugins.push(createCodeBlockCmInputPlugin(this.editor))

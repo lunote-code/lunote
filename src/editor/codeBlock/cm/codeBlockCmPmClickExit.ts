@@ -25,11 +25,13 @@ export function installCodeBlockCmPmClickExit(
 
   const onMouseDownCapture = (event: MouseEvent) => {
     if (event.button !== 0) return
-    if (!needsCodeBlockCmOutsideClickRelease(pmDom, editor)) return
-    if (!shouldReleasePmForPointerTarget(event.target, event)) return
-
-    prepareCodeBlockCmExitForOutsideClick(view)
-    releaseCodeBlockCmForOutsidePointer(editor, pmDom)
+    if (
+      needsCodeBlockCmOutsideClickRelease(pmDom, editor) &&
+      shouldReleasePmForPointerTarget(event.target, event)
+    ) {
+      prepareCodeBlockCmExitForOutsideClick(view)
+      releaseCodeBlockCmForOutsidePointer(editor, pmDom)
+    }
   }
 
   pmDom.addEventListener('mousedown', onMouseDownCapture, true)

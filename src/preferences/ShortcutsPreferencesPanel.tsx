@@ -3,6 +3,7 @@ import type { TranslateFn } from '../i18n'
 import {
   SettingsButton,
   SettingsHelpPopover,
+  SettingsInlineHelp,
   SettingsPage,
   SettingsRow,
   SettingsSection,
@@ -147,12 +148,23 @@ export function ShortcutsPreferencesPanel({ t, highlightQuery = '' }: Props) {
   }, [highlightQuery, sections])
 
   return (
-    <SettingsPage className="settings-page--prefs">
-      <div className="prefs-shortcuts-toolbar">
-        <SettingsHelpPopover
-          title={t('settings.sidebar.shortcuts')}
-          body={t('prefs.section.shortcuts.lead')}
+    <SettingsPage
+      title={
+        <SettingsInlineHelp
+          label={t('settings.sidebar.shortcuts')}
+          help={
+            <SettingsHelpPopover
+              title={t('settings.sidebar.shortcuts')}
+              body={t('prefs.section.shortcuts.lead')}
+            />
+          }
+          className="settings-section-title-with-help"
         />
+      }
+      description={t('prefs.section.shortcuts.lead')}
+      className="settings-page--prefs settings-page--prefs-shortcuts"
+    >
+      <div className="prefs-shortcuts-actions">
         <SettingsButton
           type="button"
           variant="secondary"

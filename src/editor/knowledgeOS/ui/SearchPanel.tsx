@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useId, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useId, useState, type RefObject } from 'react'
 
 import { EmptyState } from '../../../design-system/EmptyState'
 import { Icon } from '../../../design-system/icons'
@@ -13,18 +13,17 @@ type Props = {
   onQueryChange: (q: string) => void
   autoFocus?: boolean
   onHitOpened?: () => void
-  /** Modal only: scope hint id for aria-describedby */
-  scopeHintId?: string
-  /** When true, render command-palette-style shell (knowledge search modal). */
-  variant?: 'inline' | 'modal'
+  /** When false, input is rendered in the rail/sidebar header; bind keyboard via externalInputRef. */
+  showInput?: boolean
+  externalInputRef?: RefObject<HTMLInputElement | null>
 }
 
-function isComposingKeyEvent(e: React.KeyboardEvent<HTMLInputElement>): boolean {
-  return e.nativeEvent.isComposing || e.key === 'Process'
+function isComposingKeyEvent(e: KeyboardEvent | React.KeyboardEvent<HTMLInputElement>): boolean {
+  return ('nativeEvent' in e && e.nativeEvent.isComposing) || e.key === 'Process'
 }
 
 export const SearchPanel = forwardRef<HTMLInputElement, Props>(function SearchPanel(
-  { query, onQueryChange, autoFocus, onHitOpened, scopeHintId, variant = 'inline' },
+  { query, onQueryChange, autoFocus, onHitOpened, showInput = true, externalInputRef },
   inputRef,
 ) {
   const { t } = useI18n()
@@ -34,13 +33,13 @@ export const SearchPanel = forwardRef<HTMLInputElement, Props>(function SearchPa
   const [activeIndex, setActiveIndex] = useState(0)
   const [hoverIndex, setHoverIndex] = useState(-1)
 
-  const isModal = variant === 'modal'
+  const boundInputRef = showInput ? inputRef : externalInputRef
 
   useEffect(() => {
-    if (!autoFocus || isModal) return
-    const el = typeof inputRef === 'function' ? null : inputRef?.current
+    if (!autoFocus || !showInput) return
+    const el = typeof boundInputRef === 'function' ? null : boundInputRef?.current
     el?.focus()
-  }, [autoFocus, inputRef, isModal])
+  }, [autoFocus, boundInputRef, showInput])
 
   useEffect(() => {
     if (!query.trim()) {
@@ -57,13 +56,15 @@ export const SearchPanel = forwardRef<HTMLInputElement, Props>(function SearchPa
   }, [debounced])
 
   const queryPending = query.trim() !== debounced.trim()
+  const searchPendingForDebounced = Boolean(debounced.trim()) && snap.query !== debounced.trim()
   const hits =
     !queryPending && debounced.trim() && query.trim() && snap.query === debounced.trim()
       ? snap.hits
       : []
   const highlightedIndex = hoverIndex >= 0 ? hoverIndex : activeIndex
   const activeOptionId = hits.length > 0 ? `${listboxId}-option-${highlightedIndex}` : undefined
-  const showLoading = snap.loading || (queryPending && !!query.trim())
+  const showLoading =
+    snap.loading || queryPending || (searchPendingForDebounced && !!debounced.trim())
   const showEmpty = debounced.trim() && !showLoading && hits.length === 0
 
   useEffect(() => {
@@ -90,40 +91,71 @@ export const SearchPanel = forwardRef<HTMLInputElement, Props>(function SearchPa
     [onHitOpened],
   )
 
-  const onInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (isComposingKeyEvent(e)) return
-    if (hits.length === 0) return
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setHoverIndex(-1)
-      setActiveIndex((i) => Math.min(i + 1, hits.length - 1))
-      return
-    }
-    if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setHoverIndex(-1)
-      setActiveIndex((i) => Math.max(i - 1, 0))
-      return
-    }
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      const hit = hits[highlightedIndex]
-      if (hit) openHit(hit)
-    }
-  }
+  const onInputKeyDown = useCallback(
+    (e: KeyboardEvent | React.KeyboardEvent<HTMLInputElement>) => {
+      if (isComposingKeyEvent(e)) return
+      if (hits.length === 0) return
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setHoverIndex(-1)
+        setActiveIndex((i) => Math.min(i + 1, hits.length - 1))
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setHoverIndex(-1)
+        setActiveIndex((i) => Math.max(i - 1, 0))
+        return
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        const hit = hits[highlightedIndex]
+        if (hit) openHit(hit)
+      }
+    },
+    [highlightedIndex, hits, openHit],
+  )
 
-  const inputClassName = isModal ? 'command-palette-input global-search-input' : 'kos-search-input'
+  useEffect(() => {
+    if (showInput) return
+    const el = externalInputRef?.current
+    if (!el) return
+    const handler = (e: KeyboardEvent) => onInputKeyDown(e)
+    el.addEventListener('keydown', handler)
+    return () => el.removeEventListener('keydown', handler)
+  }, [externalInputRef, onInputKeyDown, showInput])
 
-  const input = (
+  useEffect(() => {
+    if (showInput) return
+    const el = externalInputRef?.current
+    if (!el) return
+    el.setAttribute('role', 'combobox')
+    el.setAttribute('aria-expanded', hits.length > 0 && !showLoading ? 'true' : 'false')
+    el.setAttribute('aria-controls', listboxId)
+    el.setAttribute('aria-autocomplete', 'list')
+    if (hits.length > 0 && activeOptionId) {
+      el.setAttribute('aria-activedescendant', activeOptionId)
+    } else {
+      el.removeAttribute('aria-activedescendant')
+    }
+    return () => {
+      el.removeAttribute('role')
+      el.removeAttribute('aria-expanded')
+      el.removeAttribute('aria-controls')
+      el.removeAttribute('aria-autocomplete')
+      el.removeAttribute('aria-activedescendant')
+    }
+  }, [activeOptionId, externalInputRef, hits.length, listboxId, showInput, showLoading])
+
+  const input = showInput ? (
     <input
       ref={inputRef}
-      className={inputClassName}
+      className="kos-search-input"
       role="combobox"
       aria-expanded={hits.length > 0 && !showLoading}
       aria-controls={listboxId}
       aria-activedescendant={hits.length > 0 ? activeOptionId : undefined}
       aria-autocomplete="list"
-      aria-describedby={isModal ? scopeHintId : undefined}
       value={query}
       onChange={(e) => {
         const next = e.target.value
@@ -136,7 +168,7 @@ export const SearchPanel = forwardRef<HTMLInputElement, Props>(function SearchPa
       placeholder={t('knowledge.search.placeholder')}
       aria-label={t('knowledge.search.aria')}
     />
-  )
+  ) : null
 
   const hitList = hits.map((hit, idx) => {
     const shared = {
@@ -147,20 +179,6 @@ export const SearchPanel = forwardRef<HTMLInputElement, Props>(function SearchPa
       'data-active': idx === highlightedIndex ? ('true' as const) : undefined,
       onMouseEnter: () => setHoverIndex(idx),
       onClick: () => openHit(hit),
-    }
-
-    if (isModal) {
-      return (
-        <li key={hit.docKey} role="presentation">
-          <button {...shared} className="command-palette-item">
-            <span className="command-palette-item-row">
-              <span className="command-palette-item-label">{hit.title}</span>
-              <span className="command-palette-item-shortcut">{Math.round(hit.score)}</span>
-            </span>
-            {hit.snippet ? <span className="command-palette-item-hint kos-search-snippet">{hit.snippet}</span> : null}
-          </button>
-        </li>
-      )
     }
 
     return (
@@ -174,42 +192,11 @@ export const SearchPanel = forwardRef<HTMLInputElement, Props>(function SearchPa
     )
   })
 
-  if (isModal) {
-    return (
-      <>
-        <div className="global-search-header">
-          {scopeHintId ? (
-            <p id={scopeHintId} className="global-search-scope-hint">
-              {t('knowledge.search.scopeHint')}
-            </p>
-          ) : null}
-          {input}
-        </div>
-        <ul
-          id={listboxId}
-          className="command-palette-list luna-overlay-scroll"
-          role="listbox"
-          onMouseLeave={() => setHoverIndex(-1)}
-        >
-          {showLoading ? (
-            <li className="command-palette-empty command-palette-loading" role="status" aria-live="polite">
-              <Icon name="refresh" size="sm" className="command-palette-loading-icon" tone="muted" />
-              <span>{t('knowledge.search.loading')}</span>
-            </li>
-          ) : showEmpty ? (
-            <li className="command-palette-empty-item">
-              <EmptyState variant="compact" icon="search" title={t('knowledge.search.empty')} />
-            </li>
-          ) : (
-            hitList
-          )}
-        </ul>
-      </>
-    )
-  }
-
   return (
     <div className="kos-search-panel">
+      {!showInput ? (
+        <p className="kos-search-scope-hint">{t('knowledge.search.scopeHint')}</p>
+      ) : null}
       {input}
       {showLoading ? (
         <div className="kos-panel-loading" role="status" aria-live="polite">

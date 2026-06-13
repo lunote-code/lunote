@@ -6,6 +6,7 @@ import {
   extractValidImageFiles,
   htmlFromClipboardData,
   plainTextFromClipboardData,
+  allowNavigatorClipboardReadForPasteEvent,
   type WebviewPasteImageHandler,
 } from './webviewPasteBridge'
 
@@ -25,8 +26,9 @@ export function createCmWebviewPasteExtension(onPasteImage?: WebviewPasteImageHa
           cmView: view,
           domImages,
           onPasteImage,
-          prefetchedText: prefetched || undefined,
+          prefetchedText: prefetched,
           prefetchedHtml: prefetchedHtml || undefined,
+          allowNavigatorClipboardRead: allowNavigatorClipboardReadForPasteEvent(event),
         })
         if (ok && fingerprint) recordSuccessfulPaste(fingerprint)
       })()

@@ -136,7 +136,6 @@ export const LunaCallout = Node.create({
         'data-luna-callout': kind,
         ...(collapsed ? { 'data-collapsed': 'true' } : {}),
         class: `pm-callout pm-callout--${kind} luna-callout-card`,
-        spellcheck: 'false',
       }),
       0,
     ]

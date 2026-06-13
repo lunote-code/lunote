@@ -7,6 +7,7 @@ export type PrefsTabId =
   | 'editor'
   | 'language'
   | 'shortcuts'
+  | 'plugins'
 
 export const PREFS_TAB_IDS: readonly PrefsTabId[] = [
   'general',
@@ -17,6 +18,7 @@ export const PREFS_TAB_IDS: readonly PrefsTabId[] = [
   'editor',
   'language',
   'shortcuts',
+  'plugins',
 ]
 
 export const PREFS_ACTIVE_TAB_STORAGE_KEY = 'prefs.dialog.activeTab'

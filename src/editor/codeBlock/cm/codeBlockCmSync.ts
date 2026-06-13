@@ -1,6 +1,7 @@
 import type { Editor } from '@tiptap/core'
 import type { Node as PmNode } from '@tiptap/pm/model'
 import { TextSelection, type Transaction } from '@tiptap/pm/state'
+import { preserveProseMirrorScrollDuring } from '../../preserveProseMirrorScroll'
 import { codeBlockNodeAt } from '../behavior/selection'
 import { normalizeCodeBlockText } from '../model/lineModel'
 
@@ -143,13 +144,22 @@ export function buildEmptyCodeBlockToParagraphTransaction(
   const index = $at.index($at.depth)
   if (!parent.canReplaceWith(index, index + 1, para)) return null
   const tr = state.tr.replaceWith(blockPos, blockPos + block.nodeSize, para.create())
-  return tr.setSelection(TextSelection.create(tr.doc, blockPos + 1)).scrollIntoView()
+  return tr.setSelection(TextSelection.create(tr.doc, blockPos + 1))
 }
 
 export function replaceEmptyCodeBlockWithParagraph(editor: Editor, blockPos: number): boolean {
   const tr = buildEmptyCodeBlockToParagraphTransaction(editor, blockPos)
   if (!tr) return false
-  editor.view.dispatch(tr)
+  if (editor.isDestroyed) return false
+  const caret = blockPos + 1
+  preserveProseMirrorScrollDuring(editor, () => {
+    editor.view.dispatch(tr)
+  })
+  try {
+    editor.chain().focus(undefined, { scrollIntoView: false }).setTextSelection(caret).run()
+  } catch {
+    /* ignore */
+  }
   return true
 }
 

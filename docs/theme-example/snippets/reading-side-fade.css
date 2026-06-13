@@ -1,0 +1,34 @@
+/**
+ * Reading side fade — UI snippet (left / right)
+ *
+ * Horizontal edge fade for ultrawide layouts — keeps the column centered while
+ * softening content near the pane gutters.
+ *
+ * Copy to ~/.luna/theme/snippets/reading-side-fade.css → Rescan → enable in UI snippets.
+ * Enable only ONE reading-fade snippet at a time.
+ */
+
+.preview-pane.markdown-visual-editor .tiptap-editor-shell {
+  --reading-side-fade-size: 64px;
+  --reading-side-fade-color: var(--surface-editor, var(--surface-panel));
+}
+
+.preview-pane.markdown-visual-editor .tiptap-editor-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  background:
+    linear-gradient(
+      to right,
+      var(--reading-side-fade-color) 0%,
+      transparent var(--reading-side-fade-size),
+      transparent calc(100% - var(--reading-side-fade-size)),
+      var(--reading-side-fade-color) 100%
+    );
+}
+
+.preview-pane.markdown-visual-editor .tiptap-editor-shell::after {
+  content: none;
+}

@@ -1,17 +1,18 @@
-import { type CSSProperties, type Dispatch, type MouseEvent, type SetStateAction } from 'react'
-import { isTauri } from '@tauri-apps/api/core'
+import { type CSSProperties, type Dispatch, type MouseEvent, type SetStateAction, useEffect, useState } from 'react'
 import { Icon } from '../../design-system/icons'
-import { executeManifestCommand } from '../../menu'
-import type { AppMenuContext, AppMenuUiDeps, ToolbarCommandDef } from '../../menu'
 import { DocumentOutlineBlock } from './DocumentOutlineBlock'
 import { SidebarRecentFiles } from './SidebarRecentFiles'
-import { SidebarSearchChrome } from './SidebarSearchChrome'
+import {
+  SidebarFileViewToggleButton,
+  SidebarListModeSegmented,
+} from './SidebarHeaderChrome'
+import { SidebarHeaderSearchBar, SidebarSearchToggleButton } from './SidebarSearchChrome'
 import { SidebarWorkspaceEmpty } from './SidebarWorkspaceEmpty'
 import { SidebarWorkspaceOnboarding } from './SidebarWorkspaceOnboarding'
+import { SidebarWorkspaceMenu } from './SidebarWorkspaceMenu'
 import { WorkspaceFlatList, WorkspaceTree } from './WorkspaceTree'
 import { WorkspaceFolderDropTarget, isWorkspacePathDragging } from '../workspace/workspaceDrag'
-import { revealInExplorer } from '../../platform/tauri/platformShellService'
-import { refreshWorkspaceIndex } from '../workspace/workspaceIndexCoordinator'
+import { resolveWorkspaceFolderChrome } from '../workspace/workspaceTree'
 import type { FileSortMode, FlatWorkspaceFile, FsTreeNode } from '../workspace/types'
 import type { WorkspaceDragTarget } from '../workspace/workspaceDrag'
 import type { TocHeading } from './DocumentOutlineBlock'
@@ -19,7 +20,6 @@ import type { TocHeading } from './DocumentOutlineBlock'
 import type { TranslateFn } from '../../i18n'
 
 export type AppSidebarPanelProps = {
-  toolbarSidebar: ToolbarCommandDef[]
   t: TranslateFn
   rootDir: string
   activePath: string
@@ -39,7 +39,8 @@ export type AppSidebarPanelProps = {
   scrollPreviewToHeading: (id: string) => void
   fileTree: FsTreeNode[]
   sidebarFileView: 'tree' | 'list'
-  workspaceFolderNodes: { path: string; name: string }[]
+  setSidebarFileView: Dispatch<SetStateAction<'tree' | 'list'>>
+  workspaceFolderNodes: FsTreeNode[]
   sortedFlatWorkspaceFiles: FlatWorkspaceFile[]
   sortedFileTree: FsTreeNode[]
   expandedDirs: Set<string>
@@ -58,24 +59,21 @@ export type AppSidebarPanelProps = {
   workspaceMenuPopStyle: CSSProperties | null
   fileSortMode: FileSortMode
   setFileSortMode: Dispatch<SetStateAction<FileSortMode>>
-  setSidebarVisible: Dispatch<SetStateAction<boolean>>
+  setSidebarListMode: Dispatch<SetStateAction<'files' | 'outline'>>
   setStatus: (msg: string) => void
   chooseFolder: () => void | Promise<void>
-  toggleSidebarListOutline: () => void
   refreshFileTree: () => void | Promise<void>
-  appMenuCtxRef: React.MutableRefObject<AppMenuContext>
-  paletteUiDepsRef: React.MutableRefObject<AppMenuUiDeps>
-  setSidebarFileView: Dispatch<SetStateAction<'tree' | 'list'>>
   recentFiles: readonly string[]
   onOpenRecent: (path: string) => void
   onClearRecent: () => void | Promise<void>
   /** Sidebar accessibility status line (sr-only alongside search box)*/
   sidebarStatusLine: string
+  /** Path highlighted while its file context menu is open. */
+  contextMenuFilePath?: string | null
 }
 
 export function AppSidebarPanel(props: AppSidebarPanelProps) {
   const {
-    toolbarSidebar,
     t,
     rootDir,
     activePath,
@@ -94,6 +92,7 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
     scrollPreviewToHeading,
     fileTree,
     sidebarFileView,
+    setSidebarFileView,
     workspaceFolderNodes,
     sortedFlatWorkspaceFiles,
     sortedFileTree,
@@ -113,87 +112,103 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
     workspaceMenuPopStyle,
     fileSortMode,
     setFileSortMode,
-    setSidebarVisible,
+    setSidebarListMode,
     setStatus,
     chooseFolder,
-    toggleSidebarListOutline,
     refreshFileTree,
-    appMenuCtxRef,
-    paletteUiDepsRef,
-    setSidebarFileView,
     recentFiles,
     onOpenRecent,
     onClearRecent,
     sidebarStatusLine,
+    contextMenuFilePath = null,
   } = props
 
-  const newNoteLabel = rootDir ? t('app.sidebar.newNoteWithRoot') : t('app.sidebar.newNoteNoRoot')
-  const viewToggleLabel =
-    sidebarListMode === 'outline'
-      ? t('app.sidebar.switchToFilesFirst')
-      : sidebarFileView === 'tree'
-        ? t('app.sidebar.viewList')
-        : t('app.sidebar.viewTree')
   const showOutlinePanel = sidebarListMode === 'outline' && !isSidebarFiltering && activePath
   const filterHasNoMatches =
     isSidebarFiltering &&
     sortedFileTree.length === 0 &&
     sortedFlatWorkspaceFiles.length === 0
+  const fileViewToggleDisabled = !rootDir || fileTree.length === 0 || sidebarListMode === 'outline'
+  const [sidebarSearchOpen, setSidebarSearchOpen] = useState(false)
+
+  useEffect(() => {
+    if (searchText.trim()) setSidebarSearchOpen(true)
+  }, [searchText])
+
+  const closeSidebarSearch = () => {
+    setSearchText('')
+    setSidebarSearchOpen(false)
+  }
+
+  const toggleSidebarSearch = () => {
+    if (!rootDir.trim()) {
+      setStatus(t('app.menu.openWorkspaceFirst'))
+      return
+    }
+    if (sidebarSearchOpen) {
+      closeSidebarSearch()
+      return
+    }
+    setSidebarSearchOpen(true)
+  }
 
   return (
         <aside className="sidebar workspace-split mod-left-split" data-workspace-sidebar>
           <div className="sidebar-pane-top">
-            <div className="sidebar-header">
-              {toolbarSidebar.map((cmd) => {
-                const run = () => {
-                  if (cmd.id === 'open-folder') void chooseFolder()
-                  else if (cmd.id === 'view-sidebar-outline') toggleSidebarListOutline()
-                  else void executeManifestCommand(cmd.id, appMenuCtxRef.current, paletteUiDepsRef.current)
-                }
-                const isOutline = cmd.id === 'view-sidebar-outline'
-                const isOpenFolder = cmd.id === 'open-folder'
-                return (
-                  <button
-                    key={cmd.id}
-                    type="button"
-                    className={`icon-btn ghost-btn${isOutline && sidebarListMode === 'outline' ? ' icon-btn-active' : ''}`}
-                    onClick={run}
-                    title={
-                      isOutline
-                        ? sidebarListMode === 'outline'
-                          ? t('app.sidebar.toggleOutlineFiles')
-                          : t('app.sidebar.toggleOutline')
-                        : cmd.shortcut
-                          ? `${cmd.title} (${cmd.shortcut})`
-                          : cmd.title
-                    }
-                    aria-pressed={isOutline ? sidebarListMode === 'outline' : undefined}
-                    aria-label={isOutline ? t('app.sidebar.toggleOutlineAria') : cmd.title}
-                  >
-                    {isOpenFolder ? (
-                      <Icon name="workspace-open" size="md" />
-                    ) : isOutline ? (
-                      <Icon name="outline" size="md" stroke="strong" />
-                    ) : null}
-                  </button>
-                )
-              })}
-              <button
-                type="button"
-                className="icon-btn ghost-btn"
-                onClick={() => setSidebarVisible(false)}
-                title={t('app.sidebar.hide')}
-                aria-label={t('app.sidebar.hide')}
-              >
-                <Icon name="sidebar-close" size="md" />
-              </button>
+            <div className={`sidebar-header${sidebarSearchOpen ? ' sidebar-header--search' : ''}`}>
+              {sidebarSearchOpen ? (
+                <SidebarHeaderSearchBar
+                  t={t}
+                  rootDir={rootDir}
+                  searchText={searchText}
+                  onSearchTextChange={setSearchText}
+                  onRequestClose={() => setSidebarSearchOpen(false)}
+                />
+              ) : (
+                <>
+                  <div className="sidebar-header-primary">
+                    <SidebarListModeSegmented
+                      t={t}
+                      mode={sidebarListMode}
+                      onSelectFiles={() => setSidebarListMode('files')}
+                      onSelectOutline={() => setSidebarListMode('outline')}
+                    />
+                    <SidebarFileViewToggleButton
+                      t={t}
+                      sidebarFileView={sidebarFileView}
+                      disabled={fileViewToggleDisabled}
+                      onToggle={() => setSidebarFileView((v) => (v === 'tree' ? 'list' : 'tree'))}
+                    />
+                  </div>
+                  <div className="sidebar-header-actions">
+                    <SidebarSearchToggleButton
+                      t={t}
+                      rootDir={rootDir}
+                      open={sidebarSearchOpen}
+                      isFiltering={isSidebarFiltering}
+                      onToggle={toggleSidebarSearch}
+                    />
+                    <SidebarWorkspaceMenu
+                      t={t}
+                      rootDir={rootDir}
+                      workspaceFolderName={workspaceFolderName}
+                      workspaceMenuRef={workspaceMenuRef}
+                      workspaceMenuPopRef={workspaceMenuPopRef}
+                      workspaceMenuOpen={workspaceMenuOpen}
+                      setWorkspaceMenuOpen={setWorkspaceMenuOpen}
+                      workspaceMenuPopStyle={workspaceMenuPopStyle}
+                      fileSortMode={fileSortMode}
+                      setFileSortMode={setFileSortMode}
+                      createNewNote={createNewNote}
+                      createNewNoteFromTemplate={createNewNoteFromTemplate}
+                      chooseFolder={chooseFolder}
+                      refreshFileTree={refreshFileTree}
+                      setStatus={setStatus}
+                    />
+                  </div>
+                </>
+              )}
             </div>
-            <SidebarSearchChrome
-              t={t}
-              rootDir={rootDir}
-              searchText={searchText}
-              onSearchTextChange={setSearchText}
-            />
             <span className="sr-only" aria-live="polite">
               {sidebarStatusLine}
             </span>
@@ -257,7 +272,9 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
                 <>
                   {draggingWorkspaceFile && sidebarFileView === 'list' && workspaceFolderNodes.length > 0 ? (
                     <div className="workspace-drag-folder-panel" role="listbox" aria-label={t('app.sidebar.dragFolderTargets')}>
-                      {workspaceFolderNodes.map((folder) => (
+                      {workspaceFolderNodes.map((folder) => {
+                        const folderChrome = resolveWorkspaceFolderChrome(folder.children, false)
+                        return (
                         <WorkspaceFolderDropTarget
                           key={folder.path}
                           folderPath={folder.path}
@@ -268,20 +285,23 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
                           onMoveFileToFolder={(sourcePath, destDir, isDirectory) =>
                             void handleMoveFileToFolder(sourcePath, destDir, isDirectory)
                           }
-                          className={`workspace-drag-folder-row tree-folder${isWorkspacePathDragging(draggingWorkspaceFile, folder.path) ? ' tree-folder-dragging' : ''}`}
+                          className={`workspace-drag-folder-row tree-folder ${folderChrome.folderClass}${isWorkspacePathDragging(draggingWorkspaceFile, folder.path) ? ' tree-folder-dragging' : ''}`}
                         >
                           <span
                             className="workspace-drag-folder-row-inner"
+                            data-folder-content={folderChrome.contentState}
+                            data-folder-icon={folderChrome.iconName}
                             onPointerDown={(e) => {
                               if (e.button !== 0) return
                               onWorkspaceFilePointerDown(e, folder.path, true)
                             }}
                           >
-                            <Icon name="workspace" size="md" className="tree-icon" tone="muted" />
+                            <Icon name={folderChrome.iconName} size="md" className="tree-icon" tone="muted" />
                             <span className="tree-label">{folder.name}</span>
                           </span>
                         </WorkspaceFolderDropTarget>
-                      ))}
+                        )
+                      })}
                     </div>
                   ) : null}
                   {sidebarFileView === 'list' ? (
@@ -295,6 +315,7 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
                       onFilePointerDown={onWorkspaceFilePointerDown}
                       draggingFilePath={draggingWorkspaceFile}
                       dragOverTarget={dragOverTarget}
+                      contextMenuFilePath={contextMenuFilePath}
                     />
                   ) : (
                     <WorkspaceTree
@@ -314,6 +335,7 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
                         void handleMoveFileToFolder(sourcePath, destDir, isDirectory)
                       }
                       onFilePointerDown={onWorkspaceFilePointerDown}
+                      contextMenuFilePath={contextMenuFilePath}
                     />
                   )}
                   {!isSidebarFiltering && sidebarListMode === 'files' ? (
@@ -322,182 +344,6 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
                 </>
               )}
             </div>
-          </div>
-          <div className="sidebar-footer" role="toolbar" aria-label={t('app.sidebar.footer')}>
-            <button
-              type="button"
-              className="icon-btn ghost-btn sidebar-footer-btn"
-              onClick={() => void createNewNote()}
-              title={newNoteLabel}
-              aria-label={newNoteLabel}
-            >
-              <Icon name="note-new" size="lg" stroke="strong" />
-            </button>
-            <div className="sidebar-footer-workspace" ref={workspaceMenuRef}>
-              <span className="sidebar-footer-name" title={rootDir || undefined}>
-                <button
-                  type="button"
-                  className="sidebar-footer-name-btn"
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    if (!rootDir) return
-                    setWorkspaceMenuOpen((v) => !v)
-                  }}
-                  title={rootDir || undefined}
-                  aria-label={t('app.sidebar.workspaceMenu')}
-                  aria-haspopup="menu"
-                  aria-expanded={workspaceMenuOpen}
-                  disabled={!rootDir}
-                >
-                  {workspaceFolderName}
-                </button>
-              </span>
-              {workspaceMenuOpen && rootDir && (
-              <div
-                ref={workspaceMenuPopRef}
-                className="workspace-menu-pop"
-                role="menu"
-                style={
-                  workspaceMenuPopStyle ?? {
-                    position: 'fixed',
-                    visibility: 'hidden',
-                    left: 0,
-                    top: 0,
-                    pointerEvents: 'none',
-                  }
-                }
-                onContextMenu={(e) => e.preventDefault()}
-              >
-                <button
-                  type="button"
-                  className="file-ctx-item"
-                  onClick={() => {
-                    setWorkspaceMenuOpen(false)
-                    void createNewNote()
-                  }}
-                >
-                  {t('ctx.file.newFile')}
-                </button>
-                <button
-                  type="button"
-                  className="file-ctx-item"
-                  onClick={() => {
-                    setWorkspaceMenuOpen(false)
-                    void createNewNoteFromTemplate()
-                  }}
-                >
-                  {t('ctx.file.newFileFromTemplate')}
-                </button>
-                <button
-                  type="button"
-                  className="file-ctx-item"
-                  onClick={() => {
-                    setWorkspaceMenuOpen(false)
-                    if (!isTauri()) {
-                      setStatus(t('app.status.revealFolderDesktopOnly'))
-                      return
-                    }
-                    void revealInExplorer(rootDir, rootDir)
-                  }}
-                >
-                  {t('app.sidebar.revealInFolder')}
-                </button>
-                <button
-                  type="button"
-                  className="file-ctx-item"
-                  onClick={() => {
-                    setWorkspaceMenuOpen(false)
-                    void chooseFolder()
-                  }}
-                >
-                  {t('app.sidebar.openFolderBtn')}
-                </button>
-                <button
-                  type="button"
-                  className="file-ctx-item"
-                  onClick={() => {
-                    setWorkspaceMenuOpen(false)
-                    void (async () => {
-                      await refreshFileTree()
-                      await refreshWorkspaceIndex(rootDir)
-                      setStatus(t('app.status.refreshed'))
-                    })()
-                  }}
-                >
-                  <Icon name="refresh" size="sm" />
-                  {t('app.sidebar.refreshBtn')}
-                </button>
-                <div className="file-ctx-sep" role="separator" />
-                <div className="workspace-sort-row" aria-label={t('app.sidebar.sortRow')}>
-                  <button
-                    type="button"
-                    className={`workspace-sort-btn${fileSortMode === 'group' ? ' active' : ''}`}
-                    title={t('app.sort.groupByFolder')}
-                    aria-label={t('app.sort.groupByFolder')}
-                    onClick={() => setFileSortMode('group')}
-                  >
-                    <Icon name="workspace-tree" size="md" />
-                    <span className="workspace-sort-btn-label">{t('app.sort.groupShort')}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`workspace-sort-btn${fileSortMode === 'naturalAsc' ? ' active' : ''}`}
-                    title={t('app.sort.naturalAsc')}
-                    aria-label={t('app.sort.naturalAsc')}
-                    onClick={() => setFileSortMode('naturalAsc')}
-                  >
-                    <Icon name="sort-az" size="md" />
-                    <span className="workspace-sort-btn-label">{t('app.sort.naturalAscShort')}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`workspace-sort-btn${fileSortMode === 'nameAsc' ? ' active' : ''}`}
-                    title={t('app.sort.nameAsc')}
-                    aria-label={t('app.sort.nameAsc')}
-                    onClick={() => setFileSortMode('nameAsc')}
-                  >
-                    <Icon name="sort-za" size="md" />
-                    <span className="workspace-sort-btn-label">{t('app.sort.nameAscShort')}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`workspace-sort-btn${fileSortMode === 'modifiedAsc' ? ' active' : ''}`}
-                    title={t('app.sort.modifiedAsc')}
-                    aria-label={t('app.sort.modifiedAsc')}
-                    onClick={() => setFileSortMode('modifiedAsc')}
-                  >
-                    <Icon name="sort-time" size="md" />
-                    <span className="workspace-sort-btn-label">{t('app.sort.modifiedAscShort')}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`workspace-sort-btn${fileSortMode === 'createdAsc' ? ' active' : ''}`}
-                    title={t('app.sort.createdAsc')}
-                    aria-label={t('app.sort.createdAsc')}
-                    onClick={() => setFileSortMode('createdAsc')}
-                  >
-                    <Icon name="sort-created" size="md" />
-                    <span className="workspace-sort-btn-label">{t('app.sort.createdAscShort')}</span>
-                  </button>
-                </div>
-              </div>
-              )}
-            </div>
-            <button
-              type="button"
-              className="icon-btn ghost-btn sidebar-footer-btn"
-              onClick={() => setSidebarFileView((v) => (v === 'tree' ? 'list' : 'tree'))}
-              disabled={!rootDir || fileTree.length === 0 || sidebarListMode === 'outline'}
-              title={viewToggleLabel}
-              aria-label={viewToggleLabel}
-            >
-              {sidebarFileView === 'tree' ? (
-                <Icon name="list" size="lg" stroke="strong" />
-              ) : (
-                <Icon name="workspace-tree" size="lg" stroke="strong" />
-              )}
-            </button>
           </div>
         </aside>
   )

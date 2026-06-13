@@ -1,0 +1,22 @@
+{
+  "id": "honey-paper",
+  "name": "Honey Paper",
+  "label": "Honey Paper",
+  "family": "honey-paper",
+  "variant": "light",
+  "colors": {
+    "background": "#f7f1e3",
+    "foreground": "#2f261c",
+    "primary": "#b45309",
+    "border": "rgba(47, 38, 28, 0.14)",
+    "muted": "#8b735c"
+  },
+  "radius": {
+    "card": 14,
+    "control": 9
+  },
+  "spacing": {
+    "row": 16,
+    "section": 28
+  }
+}

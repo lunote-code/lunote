@@ -19,7 +19,7 @@ docs/
 |------|-------------|
 | [guide/](guide/README.md) | How to use the desktop app |
 | [theme/](theme/README.md) | `~/.luna/theme/` layout, starters, [external CSS](theme/external-css.md) |
-| **[theme-example/](theme-example/README.md)** | **23 sample files** (5 CSS themes, 12 JSON tokens, 6 snippets) |
+| **[theme-example/](theme-example/README.md)** | **38 sample files** (7 CSS themes, 15 JSON tokens, 16 snippets) |
 | [README.en.md](README.en.md) etc. | Localized product pages |
 
 ## User guide (English)
@@ -65,7 +65,6 @@ assets/screenshots/search.png
 assets/screenshots/snipaste.png
 assets/screenshots/theme.png
 assets/screenshots/language/*.png   ← localized hero per README locale
-assets/screenshots/theme/*.png      ← preset previews (see screenshots/README.md)
 ```
 
 Root [README.md](../README.md) uses the `docs/assets/` prefix; files in `docs/README.*.md` use `assets/` (relative to `docs/`).

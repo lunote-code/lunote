@@ -170,12 +170,34 @@ body.is-workspace-file-dragging .sidebar-scroll {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
+  width: 16px;
+  height: 16px;
   color: color-mix(in srgb, var(--text-muted) 88%, var(--accent) 12%);
   opacity: 0.92;
 }
 
+.tree-icon svg {
+  display: block;
+  flex-shrink: 0;
+}
+
 .tree-folder-assets .tree-icon {
   color: color-mix(in srgb, var(--accent) 72%, var(--text-muted));
+}
+
+.tree-folder-empty .tree-icon {
+  opacity: 0.58;
+  color: color-mix(in srgb, var(--text-muted) 82%, transparent);
+}
+
+.tree-folder-filled:not(.tree-folder-expanded) .tree-icon {
+  opacity: 0.92;
+  color: color-mix(in srgb, var(--text-muted) 84%, var(--accent) 16%);
+}
+
+.tree-folder-filled.tree-folder-expanded .tree-icon {
+  opacity: 1;
+  color: color-mix(in srgb, var(--accent) 46%, var(--text-muted));
 }
 
 /*Sidebar document row: icon aligned with file name (tree view single-line rows only)*/

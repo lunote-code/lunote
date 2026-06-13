@@ -22,6 +22,7 @@ import {
   resolveEffectiveEditorColumnWidth,
 } from './editorColumnWidth'
 import { resolveEditorFormatToolbarEnabled } from './editorFormatToolbarEnabled'
+import { resolveEditorSpellcheckEnabled } from './editorSpellcheck'
 import type { SettingsValue } from './settingsTypes'
 
 type SettingsRuntimeSubscriber = () => void
@@ -44,8 +45,24 @@ function readValue(path: string): SettingsValue {
       return normalizeThemeVariant(snapshot.appearance?.theme?.active)
     case 'theme.cssFile':
       return snapshot.appearance?.theme?.cssFile ?? ''
+    case 'theme.cssContent':
+      return snapshot.appearance?.theme?.cssContent ?? ''
+    case 'theme.cssImportFile':
+      return snapshot.appearance?.theme?.cssImportFile ?? ''
+    case 'theme.cssSnippetImport':
+      return snapshot.appearance?.theme?.cssSnippetImport ?? ''
+    case 'theme.cssSnippetsInline':
+      return snapshot.appearance?.theme?.cssSnippetsInline ?? ''
     case 'theme.cssSnippets':
       return snapshot.appearance?.theme?.cssSnippets ?? ''
+    case 'theme.exportCssFile':
+      return snapshot.appearance?.theme?.exportCssFile ?? ''
+    case 'theme.exportCssContent':
+      return snapshot.appearance?.theme?.exportCssContent ?? ''
+    case 'theme.exportCssImport':
+      return snapshot.appearance?.theme?.exportCssImport ?? ''
+    case 'theme.exportCssSnippetsInline':
+      return snapshot.appearance?.theme?.exportCssSnippetsInline ?? ''
     case 'theme.exportCssSnippets':
       return snapshot.appearance?.theme?.exportCssSnippets ?? ''
     case 'theme.customThemeFile':
@@ -66,6 +83,8 @@ function readValue(path: string): SettingsValue {
       return String(resolveEffectiveEditorColumnWidth(snapshot.appearance?.editor?.columnWidth))
     case 'editor.formatToolbarEnabled':
       return resolveEditorFormatToolbarEnabled(snapshot.appearance?.editor)
+    case 'editor.spellcheckEnabled':
+      return resolveEditorSpellcheckEnabled(snapshot.appearance?.editor)
     case 'editor.autosaveEnabled':
       return snapshot.appearance?.editor?.autosaveEnabled !== false
     case 'editor.autosaveIntervalSec':
@@ -116,8 +135,35 @@ async function writeValue(path: string, value: SettingsValue): Promise<void> {
     case 'theme.cssFile':
       await setAppearanceSetting('theme.cssFile', typeof value === 'string' ? value.trim() : '')
       return
+    case 'theme.cssContent':
+      await setAppearanceSetting('theme.cssContent', typeof value === 'string' ? value : '')
+      return
+    case 'theme.cssImportFile':
+      await setAppearanceSetting('theme.cssImportFile', typeof value === 'string' ? value : '')
+      return
+    case 'theme.cssSnippetImport':
+      await setAppearanceSetting('theme.cssSnippetImport', typeof value === 'string' ? value : '')
+      return
+    case 'theme.cssSnippetsInline':
+      await setAppearanceSetting('theme.cssSnippetsInline', typeof value === 'string' ? value : '')
+      return
     case 'theme.cssSnippets':
       await setAppearanceSetting('theme.cssSnippets', typeof value === 'string' ? value : '')
+      return
+    case 'theme.exportCssFile':
+      await setAppearanceSetting('theme.exportCssFile', typeof value === 'string' ? value.trim() : '')
+      return
+    case 'theme.exportCssContent':
+      await setAppearanceSetting('theme.exportCssContent', typeof value === 'string' ? value : '')
+      return
+    case 'theme.exportCssImport':
+      await setAppearanceSetting('theme.exportCssImport', typeof value === 'string' ? value : '')
+      return
+    case 'theme.exportCssSnippetsInline':
+      await setAppearanceSetting(
+        'theme.exportCssSnippetsInline',
+        typeof value === 'string' ? value : '',
+      )
       return
     case 'theme.exportCssSnippets':
       await setAppearanceSetting('theme.exportCssSnippets', typeof value === 'string' ? value : '')
@@ -155,6 +201,9 @@ async function writeValue(path: string, value: SettingsValue): Promise<void> {
     }
     case 'editor.formatToolbarEnabled':
       await setAppearanceSetting('editor.formatToolbarEnabled', Boolean(value))
+      return
+    case 'editor.spellcheckEnabled':
+      await setAppearanceSetting('editor.spellcheckEnabled', Boolean(value))
       return
     case 'editor.autosaveEnabled':
       await setAppearanceSetting('editor.autosaveEnabled', Boolean(value))

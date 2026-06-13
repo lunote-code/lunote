@@ -8,20 +8,8 @@ import './editor/hljsEditorTheme.css'
 import './editor/lunaMarkdownTable.css'
 import { mountApp } from './app/BootRoot'
 import { installGlobalErrorHandlers } from './lib/lunaLogger'
-import { QaCodeBlockCmPlayground } from './app/QaCodeBlockCmPlayground'
-import { QaDocumentEditorPlayground } from './app/QaDocumentEditorPlayground'
-import { QaExportPlayground } from './app/QaExportPlayground'
-import { QaKnowledgePlayground } from './app/QaKnowledgePlayground'
-import { QaMermaidPlayground } from './app/QaMermaidPlayground'
-import { QaModeSwitchPlayground } from './app/QaModeSwitchPlayground'
-import { QaOverlayPlayground } from './app/QaOverlayPlayground'
-import { QaSnapshotPlayground } from './app/QaSnapshotPlayground'
-import { QaPreferencesPlayground } from './app/QaPreferencesPlayground'
-import { QaStartupPlayground } from './app/QaStartupPlayground'
-import { QaUiPlayground } from './app/QaUiPlayground'
-import { QaMenuPlayground } from './app/QaMenuPlayground'
-import { QaMultiTabPlayground } from './app/QaMultiTabPlayground'
 import { createRoot } from 'react-dom/client'
+import type { ComponentType } from 'react'
 
 function isTauriRuntime(): boolean {
   const g = globalThis as {
@@ -31,57 +19,8 @@ function isTauriRuntime(): boolean {
   return Boolean(g.__TAURI__ || g.__TAURI_INTERNALS__)
 }
 
-function isQaOverlayRoute(): boolean {
-  return new URLSearchParams(window.location.search).get('qa') === 'overlays'
-}
-
-function isQaCodeBlockCmRoute(): boolean {
-  const qa = new URLSearchParams(window.location.search).get('qa')
-  return qa === 'codeblock-cm' || qa === 'codeblock-gutter'
-}
-
-function isQaSnapshotRoute(): boolean {
-  return new URLSearchParams(window.location.search).get('qa') === 'snapshot'
-}
-
-function isQaExportRoute(): boolean {
-  return new URLSearchParams(window.location.search).get('qa') === 'export'
-}
-
-function isQaKnowledgeRoute(): boolean {
-  return new URLSearchParams(window.location.search).get('qa') === 'knowledge'
-}
-
-function isQaPreferencesRoute(): boolean {
-  return new URLSearchParams(window.location.search).get('qa') === 'preferences'
-}
-
-function isQaDocumentEditorRoute(): boolean {
-  return new URLSearchParams(window.location.search).get('qa') === 'document-editor'
-}
-
-function isQaMermaidRoute(): boolean {
-  return new URLSearchParams(window.location.search).get('qa') === 'mermaid'
-}
-
-function isQaModeSwitchRoute(): boolean {
-  return new URLSearchParams(window.location.search).get('qa') === 'mode-switch'
-}
-
-function isQaStartupRoute(): boolean {
-  return new URLSearchParams(window.location.search).get('qa') === 'startup'
-}
-
-function isQaUiRoute(): boolean {
-  return new URLSearchParams(window.location.search).get('qa') === 'ui'
-}
-
-function isQaMenuRoute(): boolean {
-  return new URLSearchParams(window.location.search).get('qa') === 'menu'
-}
-
-function isQaMultiTabRoute(): boolean {
-  return new URLSearchParams(window.location.search).get('qa') === 'multi-tab'
+function qaRouteParam(): string | null {
+  return new URLSearchParams(window.location.search).get('qa')
 }
 
 function renderRuntimeBlockedMessage(message: string): void {
@@ -136,6 +75,84 @@ function installProductionInteractionGuard(): void {
   )
 }
 
+type QaPlaygroundLoader = () => Promise<{ default: ComponentType } | Record<string, unknown>>
+
+async function loadDevQaPlayground(qa: string): Promise<ComponentType | null> {
+  const exportNameByRoute: Record<string, string> = {
+    overlays: 'QaOverlayPlayground',
+    'codeblock-cm': 'QaCodeBlockCmPlayground',
+    'codeblock-gutter': 'QaCodeBlockCmPlayground',
+    'document-editor': 'QaDocumentEditorPlayground',
+    mermaid: 'QaMermaidPlayground',
+    knowledge: 'QaKnowledgePlayground',
+    export: 'QaExportPlayground',
+    snapshot: 'QaSnapshotPlayground',
+    preferences: 'QaPreferencesPlayground',
+    'mode-switch': 'QaModeSwitchPlayground',
+    startup: 'QaStartupPlayground',
+    ui: 'QaUiPlayground',
+    menu: 'QaMenuPlayground',
+    'multi-tab': 'QaMultiTabPlayground',
+    'sidebar-search': 'QaSidebarSearchPlayground',
+    'workspace-tree': 'QaWorkspaceTreePlayground',
+    'window-title': 'QaWindowTitlePlayground',
+    'context-menu': 'QaContextMenuPlayground',
+    'chrome-visual': 'QaChromeVisualPlayground',
+    'first-run': 'QaFirstRunPlayground',
+    'workspace-sidebar-selection': 'QaWorkspaceSidebarSelectionPlayground',
+    'workspace-bulk': 'QaBulkWorkspacePlayground',
+    'native-input-clipboard': 'QaNativeInputClipboardPlayground',
+    'plugin-catalog-media': 'QaPluginCatalogMediaPlayground',
+  }
+
+  const routes: Record<string, QaPlaygroundLoader> = {
+    overlays: () => import('./app/QaOverlayPlayground'),
+    'codeblock-cm': () => import('./app/QaCodeBlockCmPlayground'),
+    'codeblock-gutter': () => import('./app/QaCodeBlockCmPlayground'),
+    'document-editor': () => import('./app/QaDocumentEditorPlayground'),
+    mermaid: () => import('./app/QaMermaidPlayground'),
+    knowledge: () => import('./app/QaKnowledgePlayground'),
+    export: () => import('./app/QaExportPlayground'),
+    snapshot: () => import('./app/QaSnapshotPlayground'),
+    preferences: () => import('./app/QaPreferencesPlayground'),
+    'mode-switch': () => import('./app/QaModeSwitchPlayground'),
+    startup: () => import('./app/QaStartupPlayground'),
+    ui: () => import('./app/QaUiPlayground'),
+    menu: () => import('./app/QaMenuPlayground'),
+    'multi-tab': () => import('./app/QaMultiTabPlayground'),
+    'sidebar-search': () => import('./app/QaSidebarSearchPlayground'),
+    'workspace-tree': () => import('./app/QaWorkspaceTreePlayground'),
+    'window-title': () => import('./app/QaWindowTitlePlayground'),
+    'context-menu': () => import('./app/QaContextMenuPlayground'),
+    'chrome-visual': () => import('./app/QaChromeVisualPlayground'),
+    'first-run': () => import('./app/QaFirstRunPlayground'),
+    'workspace-sidebar-selection': () => import('./app/QaWorkspaceSidebarSelectionPlayground'),
+    'workspace-bulk': () => import('./app/QaBulkWorkspacePlayground'),
+    'native-input-clipboard': () => import('./app/QaNativeInputClipboardPlayground'),
+    'plugin-catalog-media': () => import('./app/QaPluginCatalogMediaPlayground'),
+  }
+
+  const loader = routes[qa]
+  if (!loader) return null
+  const mod = await loader()
+  if (mod.default) return mod.default as ComponentType
+  const exportName = exportNameByRoute[qa]
+  const component = exportName ? (mod as Record<string, unknown>)[exportName] : null
+  return typeof component === 'function' ? (component as ComponentType) : null
+}
+
+async function bootDevApp(rootEl: HTMLElement): Promise<void> {
+  const qa = qaRouteParam()
+  if (qa) {
+    const Playground = await loadDevQaPlayground(qa)
+    if (Playground) {
+      createRoot(rootEl).render(<Playground />)
+      return
+    }
+  }
+  mountApp(rootEl, { strict: true })
+}
+
 const rootEl = document.getElementById('root')
 if (!rootEl) {
   document.body.innerHTML =
@@ -145,35 +162,7 @@ if (!rootEl) {
     installAppViewportHeightSync()
     installGlobalErrorHandlers()
   }
-  if (isQaOverlayRoute()) {
-    createRoot(rootEl).render(<QaOverlayPlayground />)
-  } else if (isQaCodeBlockCmRoute()) {
-    createRoot(rootEl).render(<QaCodeBlockCmPlayground />)
-  } else if (isQaDocumentEditorRoute()) {
-    createRoot(rootEl).render(<QaDocumentEditorPlayground />)
-  } else if (isQaMermaidRoute()) {
-    createRoot(rootEl).render(<QaMermaidPlayground />)
-  } else if (isQaKnowledgeRoute()) {
-    createRoot(rootEl).render(<QaKnowledgePlayground />)
-  } else if (isQaExportRoute()) {
-    createRoot(rootEl).render(<QaExportPlayground />)
-  } else if (isQaSnapshotRoute()) {
-    createRoot(rootEl).render(<QaSnapshotPlayground />)
-  } else if (isQaPreferencesRoute()) {
-    createRoot(rootEl).render(<QaPreferencesPlayground />)
-  } else if (isQaModeSwitchRoute()) {
-    createRoot(rootEl).render(<QaModeSwitchPlayground />)
-  } else if (isQaStartupRoute()) {
-    createRoot(rootEl).render(<QaStartupPlayground />)
-  } else if (isQaUiRoute()) {
-    createRoot(rootEl).render(<QaUiPlayground />)
-  } else if (isQaMenuRoute()) {
-    createRoot(rootEl).render(<QaMenuPlayground />)
-  } else if (isQaMultiTabRoute()) {
-    createRoot(rootEl).render(<QaMultiTabPlayground />)
-  } else {
-    mountApp(rootEl, { strict: true })
-  }
+  void bootDevApp(rootEl)
 } else {
   if (!isTauriRuntime()) {
     renderRuntimeBlockedMessage(

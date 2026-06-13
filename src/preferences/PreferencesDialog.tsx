@@ -30,16 +30,24 @@ import { INVALID_CUSTOM_THEME_ID, loadThemeFromJSON } from '../theme-runtime/the
 import { registerImportedCustomTheme, reloadCustomThemesFromDisk } from '../theme-runtime/themeRuntime'
 import {
   reloadThemeExportStylesFromDisk,
-  toggleThemeExportStyle,
+  upsertExportStyleInline,
 } from '../theme-runtime/themeExportStyleRuntime'
 import { reloadThemeStylesheetsFromDisk } from '../theme-runtime/themeStylesheetRuntime'
-import { reloadThemeSnippetsFromDisk, toggleThemeSnippet } from '../theme-runtime/themeSnippetRuntime'
+import {
+  enableThemeSnippet,
+  reloadThemeSnippetsFromDisk,
+  toggleThemeSnippet,
+  upsertSnippetInline,
+} from '../theme-runtime/themeSnippetRuntime'
 import {
   revealCustomThemeDirectory,
   revealThemeExportDirectory,
   revealThemeDirectory,
   revealThemeSnippetsDirectory,
   saveCustomThemeJson,
+  saveThemeExportStyle,
+  saveThemeSnippet,
+  saveThemeStylesheet,
 } from '../platform/tauri/themeService'
 import '../components/settings/settings.css'
 import './preferencesDialog.css'
@@ -68,6 +76,20 @@ function writeStoredTab(tab: PrefsTabId): void {
   } catch {
     /* ignore */
   }
+}
+
+function buildCssThemeFileName(fileName: string): string {
+  const trimmed = fileName.trim()
+  const source = trimmed || 'imported-theme.css'
+  const safeBase = source
+    .replace(/[/\\]+/g, '-')
+    .replace(/\.\.+/g, '.')
+    .replace(/[^a-zA-Z0-9._-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^\.+/, '')
+    .replace(/^-+/, '')
+  const normalized = safeBase || 'imported-theme.css'
+  return normalized.toLowerCase().endsWith('.css') ? normalized : `${normalized}.css`
 }
 
 function buildCustomThemeFileName(fileName: string, themeId: string): string {
@@ -268,6 +290,26 @@ export function PreferencesDialog({
       }
       return
     }
+    if (actionId === 'theme.setCssFile') {
+      try {
+        await setSetting('theme.cssFile', typeof path === 'string' ? path : '')
+        await reloadThemeStylesheetsFromDisk()
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        setThemeActionError(t('app.status.operationFailed', { message }))
+      }
+      return
+    }
+    if (actionId === 'theme.setExportCssFile') {
+      try {
+        await setSetting('theme.exportCssFile', typeof path === 'string' ? path : '')
+        await reloadThemeExportStylesFromDisk()
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        setThemeActionError(t('app.status.operationFailed', { message }))
+      }
+      return
+    }
     if (actionId === 'theme.openThemeExportFolder') {
       if (!isTauri()) {
         setThemeActionError(t('app.status.revealDesktopOnly'))
@@ -290,35 +332,88 @@ export function PreferencesDialog({
       }
       return
     }
-    if (actionId === 'theme.toggleExportStyle') {
-      try {
-        if (path) await toggleThemeExportStyle(path)
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        setThemeActionError(t('app.status.operationFailed', { message }))
-      }
-    }
   }, [t])
 
   const onSettingFile = useCallback(async (actionId: string, _path: string, file: File) => {
-    if (actionId !== 'theme.importCustomFile') return
+    if (actionId === 'theme.importCustomFile') {
+      try {
+        const json = await file.text()
+        const theme = loadThemeFromJSON(json, file.name)
+        if (theme.id === INVALID_CUSTOM_THEME_ID) {
+          setThemeActionError(t('settings.theme.customThemeFile.invalid'))
+          return
+        }
+        registerImportedCustomTheme(theme)
+        const persistedFile = isTauri()
+          ? await saveCustomThemeJson({
+              fileName: buildCustomThemeFileName(file.name, theme.id),
+              content: json,
+            })
+          : file.name
+        await setSetting('theme.customThemeJSON', json)
+        await setSetting('theme.customThemeFile', persistedFile)
+        await setSetting('theme.active', theme.id)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        setThemeActionError(t('app.status.themeLoadFailed', { message }))
+      }
+      return
+    }
+
+    const isCssThemeImport = actionId === 'theme.importCssFile'
+    const isCssSnippetImport = actionId === 'theme.importCssSnippet'
+    const isExportCssImport = actionId === 'theme.importExportCss'
+    if (!isCssThemeImport && !isCssSnippetImport && !isExportCssImport) return
+
+    if (!file.name.toLowerCase().endsWith('.css')) {
+      setThemeActionError(t('settings.theme.cssFile.invalid'))
+      return
+    }
+
     try {
-      const json = await file.text()
-      const theme = loadThemeFromJSON(json, file.name)
-      if (theme.id === INVALID_CUSTOM_THEME_ID) {
-        setThemeActionError(t('settings.theme.customThemeFile.invalid'))
+      const css = await file.text()
+      const fileName = buildCssThemeFileName(file.name)
+
+      if (isCssThemeImport) {
+        if (isTauri()) {
+          const savedPath = await saveThemeStylesheet({ fileName, content: css })
+          await setSetting('theme.cssContent', '')
+          await setSetting('theme.cssImportFile', savedPath)
+          await setSetting('theme.cssFile', fileName)
+          await reloadThemeStylesheetsFromDisk()
+        } else {
+          await setSetting('theme.cssContent', css)
+          await setSetting('theme.cssImportFile', file.name)
+          await setSetting('theme.cssFile', fileName)
+        }
         return
       }
-      registerImportedCustomTheme(theme)
-      const persistedFile = isTauri()
-        ? await saveCustomThemeJson({
-            fileName: buildCustomThemeFileName(file.name, theme.id),
-            content: json,
-          })
-        : file.name
-      await setSetting('theme.customThemeJSON', json)
-      await setSetting('theme.customThemeFile', persistedFile)
-      await setSetting('theme.active', theme.id)
+
+      if (isCssSnippetImport) {
+        if (isTauri()) {
+          const savedPath = await saveThemeSnippet({ fileName, content: css })
+          await setSetting('theme.cssSnippetImport', savedPath)
+        } else {
+          await upsertSnippetInline(fileName, css)
+          await setSetting('theme.cssSnippetImport', file.name)
+        }
+        await enableThemeSnippet(fileName)
+        await reloadThemeSnippetsFromDisk()
+        return
+      }
+
+      if (isTauri()) {
+        const savedPath = await saveThemeExportStyle({ fileName, content: css })
+        await setSetting('theme.exportCssContent', '')
+        await setSetting('theme.exportCssImport', savedPath)
+        await setSetting('theme.exportCssFile', fileName)
+        await reloadThemeExportStylesFromDisk()
+      } else {
+        await upsertExportStyleInline(fileName, css)
+        await setSetting('theme.exportCssContent', css)
+        await setSetting('theme.exportCssImport', file.name)
+        await setSetting('theme.exportCssFile', fileName)
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setThemeActionError(t('app.status.themeLoadFailed', { message }))

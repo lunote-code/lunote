@@ -67,6 +67,10 @@ pub fn get_theme_tokens_path() -> Result<PathBuf, String> {
   Ok(get_theme_path()?.join("tokens"))
 }
 
+pub fn get_plugins_path() -> Result<PathBuf, String> {
+  Ok(get_luna_root()?.join("plugins"))
+}
+
 pub fn get_legacy_config_theme_path() -> Result<PathBuf, String> {
   Ok(get_config_path()?.join("Theme"))
 }
@@ -91,6 +95,7 @@ pub fn ensure_luna_dirs() -> Result<LunaPaths, String> {
   let theme_snippets = get_theme_snippets_path()?;
   let theme_export = get_theme_export_path()?;
   let theme_tokens = get_theme_tokens_path()?;
+  let plugins = get_plugins_path()?;
   let workspace = get_workspace_path()?;
   let history = get_history_path()?;
   let cache = get_cache_path()?;
@@ -105,6 +110,7 @@ pub fn ensure_luna_dirs() -> Result<LunaPaths, String> {
     &theme_snippets,
     &theme_export,
     &theme_tokens,
+    &plugins,
     &workspace,
     &history,
     &cache,

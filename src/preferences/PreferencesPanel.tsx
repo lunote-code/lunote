@@ -1,13 +1,12 @@
-import { useSyncExternalStore, type ReactNode } from 'react'
+import { useSyncExternalStore } from 'react'
 import type { TranslateFn } from '../i18n'
 import type { UiLocaleId } from '../i18n/localeRegistry'
-import { SettingsButton, SettingsCard } from '../components/settings'
 import {
   resolveSettingOptions,
   type SettingsActionHandler,
 } from '../settings-runtime/settingsBindings'
 import { SettingsRenderer } from '../settings-runtime/settingsRenderer'
-import type { GroupSetting, LeafSetting } from '../settings-runtime/settingsTypes'
+import type { LeafSetting } from '../settings-runtime/settingsTypes'
 import { ShortcutsPreferencesPanel } from './ShortcutsPreferencesPanel'
 import type { PrefsTabId } from './types'
 import {
@@ -21,9 +20,18 @@ import {
   subscribeThemeStylesheetCatalog,
 } from '../theme-runtime/themeStylesheetRuntime'
 import { getActiveThemeSnippetNames, listAvailableThemeSnippets, subscribeThemeSnippetCatalog } from '../theme-runtime/themeSnippetRuntime'
-import { renderAppearanceAfterSection } from './appearance/renderAppearanceSections'
-import { EditorPerformanceCallout } from './editor/EditorPerformanceCallout'
-import { WorkspaceNotesSettings } from './workspace/WorkspaceNotesSettings'
+import { PREFS_TAB_DESCRIPTION_KEY, PREFS_TAB_TITLE_KEY } from './prefsMeta'
+import {
+  APPEARANCE_SECTION_TABS,
+  EDITOR_SECTION_TABS,
+  EXPORT_SECTION_TABS,
+  IMPORT_SECTION_TABS,
+} from './prefsSectionTabsMeta'
+import { createPreferencesSectionDecorators } from './preferencesSectionDecorators'
+import { PreferencesTabPanel } from './PreferencesTabPanel'
+import { TabbedSchemaPreferencesPanel } from './TabbedSchemaPreferencesPanel'
+import { PluginsPreferencesPanel } from './PluginsPreferencesPanel'
+import { TemplatesPreferencesPanel } from './TemplatesPreferencesPanel'
 
 type Props = {
   t: TranslateFn
@@ -37,6 +45,8 @@ type Props = {
   onRestartNow: () => void
   onLater: () => void
 }
+
+const TABBED_SCHEMA_TABS = new Set<PrefsTabId>(['appearance', 'export', 'editor', 'import'])
 
 export function PreferencesPanel({
   t,
@@ -77,87 +87,111 @@ export function PreferencesPanel({
   )
 
   const activeCssTheme = getActiveThemeStylesheetName()
+  const availableStylesheets = listAvailableThemeStylesheets()
   const activeSnippetNames = new Set(getActiveThemeSnippetNames())
   const availableSnippets = listAvailableThemeSnippets()
   const activeExportStyleNames = new Set(getActiveThemeExportStyleNames())
   const availableExportStyles = listAvailableThemeExportStyles()
 
-  const renderBeforeSection = (group: GroupSetting): ReactNode => {
-    if (activeTab === 'templates' && group.id === 'templates.workspace') {
-      return <WorkspaceNotesSettings t={t} rootDir={workspaceRoot} highlightQuery={searchQuery} />
-    }
-    return null
+  const tabbedSchemaProps = {
+    t,
+    effectiveLocale,
+    workspaceRoot,
+    searchQuery,
+    pendingRestart,
+    activeCssTheme,
+    availableStylesheets,
+    activeSnippetNames,
+    availableSnippets,
+    activeExportStyleNames,
+    availableExportStyles,
+    onSettingAction,
+    onSettingFile,
+    onRestartNow,
+    onLater,
   }
-
-  const renderAfterSection = (group: GroupSetting): ReactNode => {
-    if (group.id === 'language.general' && pendingRestart === 'language') {
-      return (
-        <SettingsCard tone="accent" role="status">
-          <p className="prefs-restart-text">{t('prefs.language.restartRequired')}</p>
-          <div className="settings-inline-controls">
-            <SettingsButton type="button" variant="primary" onClick={() => void onRestartNow()}>
-              {t('prefs.restart.now')}
-            </SettingsButton>
-            <SettingsButton type="button" variant="secondary" onClick={onLater}>
-              {t('prefs.restart.later')}
-            </SettingsButton>
-          </div>
-        </SettingsCard>
-      )
-    }
-    if (activeTab === 'editor' && group.id === 'editor.autosave') {
-      return <EditorPerformanceCallout t={t} />
-    }
-    if (group.section === 'appearance' || group.section === 'export') {
-      return renderAppearanceAfterSection({
-        t,
-        group,
-        activeCssTheme,
-        activeSnippetNames,
-        availableSnippets,
-        activeExportStyleNames,
-        availableExportStyles,
-        onSettingAction,
-      })
-    }
-    return null
-  }
-
-  const resolveOptions = (item: LeafSetting) => resolveSettingOptions(item, t, effectiveLocale)
 
   if (activeTab === 'shortcuts') {
     return (
-      <div
-        className="prefs-content"
-        role="tabpanel"
-        id={`prefs-panel-${activeTab}`}
-        aria-labelledby={`prefs-tab-${activeTab}`}
-      >
-        <div key={activeTab} className="prefs-content-body prefs-panel-animate">
-          <ShortcutsPreferencesPanel t={t} highlightQuery={searchQuery} />
-        </div>
-      </div>
+      <PreferencesTabPanel tabId={activeTab}>
+        <ShortcutsPreferencesPanel t={t} highlightQuery={searchQuery} />
+      </PreferencesTabPanel>
     )
   }
 
-  return (
-    <div
-      className="prefs-content"
-      role="tabpanel"
-      id={`prefs-panel-${activeTab}`}
-      aria-labelledby={`prefs-tab-${activeTab}`}
-    >
-      <div key={activeTab} className="prefs-content-body prefs-panel-animate">
-        <SettingsRenderer
+  if (activeTab === 'plugins') {
+    return (
+      <PreferencesTabPanel tabId={activeTab}>
+        <PluginsPreferencesPanel t={t} effectiveLocale={effectiveLocale} searchQuery={searchQuery} />
+      </PreferencesTabPanel>
+    )
+  }
+
+  if (activeTab === 'templates') {
+    return (
+      <PreferencesTabPanel tabId={activeTab}>
+        <TemplatesPreferencesPanel t={t} workspaceRoot={workspaceRoot} searchQuery={searchQuery} />
+      </PreferencesTabPanel>
+    )
+  }
+
+  if (TABBED_SCHEMA_TABS.has(activeTab)) {
+    const tabsDefinition =
+      activeTab === 'appearance'
+        ? APPEARANCE_SECTION_TABS
+        : activeTab === 'export'
+          ? EXPORT_SECTION_TABS
+          : activeTab === 'editor'
+            ? EDITOR_SECTION_TABS
+            : IMPORT_SECTION_TABS
+
+    return (
+      <PreferencesTabPanel tabId={activeTab}>
+        <TabbedSchemaPreferencesPanel
+          prefsTab={activeTab}
           section={activeTab}
-          highlightQuery={searchQuery}
-          resolveOptions={resolveOptions}
-          renderBeforeSection={renderBeforeSection}
-          renderAfterSection={renderAfterSection}
-          onAction={onSettingAction}
-          onFile={onSettingFile}
+          tabsDefinition={tabsDefinition}
+          {...tabbedSchemaProps}
         />
-      </div>
-    </div>
+      </PreferencesTabPanel>
+    )
+  }
+
+  const panelTitle = t(PREFS_TAB_TITLE_KEY[activeTab])
+  const panelDescription = t(PREFS_TAB_DESCRIPTION_KEY[activeTab])
+  const { renderBeforeSection, renderAfterSection } = createPreferencesSectionDecorators({
+    t,
+    activeTab,
+    workspaceRoot,
+    searchQuery,
+    pendingRestart,
+    activeCssTheme,
+    availableStylesheets,
+    activeSnippetNames,
+    availableSnippets,
+    activeExportStyleNames,
+    availableExportStyles,
+    onSettingAction,
+    onRestartNow,
+    onLater,
+  })
+
+  const resolveOptions = (item: LeafSetting) => resolveSettingOptions(item, t, effectiveLocale)
+
+  return (
+    <PreferencesTabPanel tabId={activeTab}>
+      <SettingsRenderer
+        section={activeTab}
+        title={panelTitle}
+        description={panelDescription}
+        highlightQuery={searchQuery}
+        resolveOptions={resolveOptions}
+        renderBeforeSection={renderBeforeSection}
+        renderAfterSection={renderAfterSection}
+        onAction={onSettingAction}
+        onFile={onSettingFile}
+        className={`settings-page--prefs-${activeTab}`}
+      />
+    </PreferencesTabPanel>
   )
 }

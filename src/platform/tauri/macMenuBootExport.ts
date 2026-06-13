@@ -5,6 +5,7 @@ import { APP_DISPLAY_NAME } from '../../app/workspace/constants'
 import { buildAppMenuSchema } from '../../menu/commandManifest.build'
 import { formatTyporaMenuTitle } from '../../menu/menu.display'
 import { isLeaf, isSeparator, isSubmenu } from '../../menu/menu.builder'
+import { NATIVE_WEBVIEW_CLIPBOARD_MENU_ACTIONS } from '../../menu/nativeClipboardCommands'
 import { toTauriAccelerator } from '../../menu/menu.shortcuts'
 import type { MenuBarGroup, MenuLeaf, MenuNode } from '../../menu/menu.types'
 
@@ -58,14 +59,16 @@ function leafToBootNode(leaf: MenuLeaf): MacMenuBootNode {
   if (leaf.id === 'file-recent-placeholder') {
     return { kind: 'recent-placeholder' }
   }
+  const action = leaf.action ?? leaf.id
+  const nativeClipboard = NATIVE_WEBVIEW_CLIPBOARD_MENU_ACTIONS.has(action)
   return {
     kind: 'item',
     id: leaf.id,
-    action: leaf.action ?? leaf.id,
+    action,
     labelKey: leaf.labelKey,
     menuIcon: leaf.menuIcon,
     semanticIcon: leaf.semanticIcon,
-    tauriAccelerator: toTauriAccelerator(leaf.accelerator),
+    tauriAccelerator: nativeClipboard ? undefined : toTauriAccelerator(leaf.accelerator),
   }
 }
 
@@ -135,6 +138,13 @@ export function assertMacMenuBootUsesMacAccelerators(manifest: Pick<MacMenuBootM
   for (const group of macSchema.bar) {
     walkMenuLeaves(group.children, (leaf) => {
       const action = leaf.action ?? leaf.id
+      if (NATIVE_WEBVIEW_CLIPBOARD_MENU_ACTIONS.has(action)) {
+        const actual = bootAccels.get(action)
+        if (actual !== undefined) {
+          mismatches.push(`${leaf.id}: native clipboard action must not register tauriAccelerator, got ${actual}`)
+        }
+        return
+      }
       const expected = toTauriAccelerator(leaf.accelerator)
       const actual = bootAccels.get(action)
       if (expected !== actual) {

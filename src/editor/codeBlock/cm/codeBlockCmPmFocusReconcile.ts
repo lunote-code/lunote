@@ -1,7 +1,9 @@
 import type { Editor } from '@tiptap/core'
+import type { EditorView } from '@tiptap/pm/view'
 
 import {
   exitAllCodeBlockEditingForView,
+  exitOtherCodeBlockEditingForView,
   flushAllCodeBlockSessionsForView,
 } from '../boundary/codeBlockSessionRegistry'
 import { getCodeBlockCmViewInWrap, isCodeBlockCmFocused } from './codeBlockCmFocus'
@@ -21,7 +23,7 @@ function resolveCodeBlockCmViewFromEditorEl(cmEditorEl: HTMLElement) {
   return cmRoot?.__lunaCmView ?? null
 }
 
-/** Drop stale `.cm-focused` when browser focus already left (scroll / outside-click races). */
+/** Drop stale `.cm-focused` when browser focus already left (scroll / save races). */
 function releaseStaleCodeBlockCmEditorEl(cmEditorEl: HTMLElement): void {
   if (cmEditorEl.matches(':focus-within')) return
 
@@ -48,10 +50,97 @@ function releaseStaleCodeBlockCmEditorEl(cmEditorEl: HTMLElement): void {
   }
 }
 
+/** Outside-click release: CM may still show `:focus-within` after off-screen paste/scroll. */
+function forceReleaseCodeBlockCmEditorEl(cmEditorEl: HTMLElement): void {
+  const cmView = resolveCodeBlockCmViewFromEditorEl(cmEditorEl)
+  if (cmView) {
+    if (cmView.hasFocus || cmView.root.activeElement === cmView.contentDOM) {
+      cmView.contentDOM.blur()
+    }
+    const staleChrome =
+      cmEditorEl.classList.contains('cm-focused') && !cmEditorEl.matches(':focus-within')
+    if (staleChrome && !cmView.hasFocus) {
+      cmView.update([])
+    }
+  }
+
+  const active = document.activeElement
+  if (active instanceof HTMLElement && cmEditorEl.contains(active)) {
+    active.blur()
+  }
+
+  if (cmEditorEl.classList.contains('cm-focused')) {
+    cmEditorEl.classList.remove('cm-focused')
+  }
+}
+
 function blurStaleCodeBlockCmEditors(pmDom: HTMLElement): void {
   for (const el of pmDom.querySelectorAll('.pm-code-block-cm .cm-editor.cm-focused')) {
     if (el instanceof HTMLElement) releaseStaleCodeBlockCmEditorEl(el)
   }
+}
+
+function forceBlurCodeBlockCmEditors(pmDom: HTMLElement): void {
+  for (const el of pmDom.querySelectorAll('.pm-code-block-cm .cm-editor')) {
+    if (!(el instanceof HTMLElement)) continue
+    if (!el.classList.contains('cm-focused') && !el.matches(':focus-within')) continue
+    forceReleaseCodeBlockCmEditorEl(el)
+  }
+}
+
+function forceBlurCodeBlockCmEditorsExcept(pmDom: HTMLElement, activeWrap: HTMLElement | null | undefined): void {
+  for (const el of pmDom.querySelectorAll('.pm-code-block-cm .cm-editor')) {
+    if (!(el instanceof HTMLElement)) continue
+    if (activeWrap?.contains(el)) continue
+    if (!el.classList.contains('cm-focused') && !el.matches(':focus-within')) continue
+    forceReleaseCodeBlockCmEditorEl(el)
+  }
+}
+
+const recentOutsideReleaseByView = new WeakMap<EditorView, number>()
+
+export function markCodeBlockCmOutsidePointerRelease(view: EditorView): void {
+  recentOutsideReleaseByView.set(view, Date.now())
+}
+
+/** Blur from releaseCodeBlockCmForOutsidePointer already flushed — skip duplicate blur work. */
+export function consumeRecentCodeBlockCmOutsidePointerRelease(
+  view: EditorView,
+  withinMs = 120,
+): boolean {
+  const at = recentOutsideReleaseByView.get(view)
+  if (at == null) return false
+  if (Date.now() - at > withinMs) {
+    recentOutsideReleaseByView.delete(view)
+    return false
+  }
+  recentOutsideReleaseByView.delete(view)
+  return true
+}
+
+export function hasOtherCodeBlockCmActivity(
+  pmDom: HTMLElement,
+  activeWrap: HTMLElement,
+): boolean {
+  for (const el of pmDom.querySelectorAll('.pm-code-block-cm .cm-editor')) {
+    if (!(el instanceof HTMLElement)) continue
+    if (activeWrap.contains(el)) continue
+    if (el.classList.contains('cm-focused') || el.matches(':focus-within')) return true
+  }
+  return false
+}
+
+/**
+ * Switching between embedded code blocks: exit stale sessions and drop off-screen CM chrome
+ * before the newly clicked block enters editing.
+ */
+export function prepareCodeBlockCmFocusTransfer(editor: Editor, activeWrap: HTMLElement): void {
+  if (editor.isDestroyed) return
+  const view = editor.view
+  const pmDom = view?.dom
+  if (!(pmDom instanceof HTMLElement)) return
+  exitOtherCodeBlockEditingForView(view, activeWrap)
+  forceBlurCodeBlockCmEditorsExcept(pmDom, activeWrap)
 }
 
 /** CM still shows `.cm-focused` chrome without a real `:focus-within` (save / scroll / blur races). */
@@ -87,16 +176,16 @@ export function reconcileCodeBlockCmFocusAfterSerialize(editor: Editor): void {
   }
 }
 
-/** Shared outside-click release: flush CM, exit editing, blur CM, unlock PM. */
+/** Shared outside-click release: flush CM, blur CM, unlock PM — keep sessions mounted for fast re-focus. */
 export function releaseCodeBlockCmForOutsidePointer(editor: Editor, pmDom: HTMLElement): void {
   if (editor.isDestroyed) {
     pmDom.setAttribute('contenteditable', 'true')
     return
   }
   const view = editor.view
+  markCodeBlockCmOutsidePointerRelease(view)
   flushAllCodeBlockSessionsForView(view)
-  exitAllCodeBlockEditingForView(view)
-  blurStaleCodeBlockCmEditors(pmDom)
+  forceBlurCodeBlockCmEditors(pmDom)
   const active = document.activeElement
   if (active instanceof HTMLElement && active.closest('.pm-code-block-cm')) {
     active.blur()

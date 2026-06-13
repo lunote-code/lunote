@@ -20,7 +20,10 @@ import type { PaletteCommandDef, ToolbarCommandDef, ToolbarItemDef } from '../me
 import { isToolbarButton } from '../menu/menu.types'
 import { compileToolbarFromManifest } from '../menu/manifestCompile'
 import type { UiLocaleId } from './resolveLocale'
-import { getEnMessagesSnapshot, getLocaleMessagesSnapshot, getLocaleRawSnapshot } from './localeRegistry'
+import {
+  ensureLocaleRawLoaded,
+  getEnMessagesSnapshot,
+} from './localeRegistry'
 import { resolveEffectiveUiLocale } from './resolveLocale'
 import { getCachedTauriOsLocaleTag, readTauriOsLocaleTag } from './systemLocale'
 
@@ -76,11 +79,36 @@ export function I18nProvider({
     )
   }, [bootstrap.effectiveLocale, navLang, osLocaleReady, runtimeLanguageSetting])
   const enMessages = useMemo(() => getEnMessagesSnapshot(), [])
-  const rawLocale = useMemo(
-    () => (effectiveLocale === 'en' ? enMessages : getLocaleRawSnapshot(effectiveLocale)),
-    [effectiveLocale, enMessages],
-  )
-  const mergedMessages = useMemo(() => getLocaleMessagesSnapshot(effectiveLocale), [effectiveLocale])
+  const [localeBundle, setLocaleBundle] = useState(() => ({
+    rawLocale: bootstrap.effectiveLocale === 'en' ? bootstrap.enMessages : bootstrap.rawLocale,
+    mergedMessages: bootstrap.mergedMessages,
+  }))
+
+  useEffect(() => {
+    if (effectiveLocale === bootstrap.effectiveLocale) {
+      setLocaleBundle({
+        rawLocale: effectiveLocale === 'en' ? bootstrap.enMessages : bootstrap.rawLocale,
+        mergedMessages: bootstrap.mergedMessages,
+      })
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      const en = getEnMessagesSnapshot()
+      const raw = effectiveLocale === 'en' ? en : await ensureLocaleRawLoaded(effectiveLocale)
+      if (cancelled) return
+      setLocaleBundle({
+        rawLocale: raw,
+        mergedMessages: effectiveLocale === 'en' ? en : { ...en, ...raw },
+      })
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [bootstrap.effectiveLocale, bootstrap.enMessages, bootstrap.mergedMessages, bootstrap.rawLocale, effectiveLocale])
+
+  const rawLocale = localeBundle.rawLocale
+  const mergedMessages = localeBundle.mergedMessages
   const languageSetting = runtimeLanguageSetting
 
   const t = useCallback<TranslateFn>(

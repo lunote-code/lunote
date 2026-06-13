@@ -79,11 +79,23 @@
   box-shadow: var(--luna-field-focus-ring);
 }
 
-/*── Tier 3: sidebar chrome embedded search (no border ring) ──*/
-.sidebar-search-chrome .search-input:focus,
-.sidebar-search-chrome .search-input:focus-visible,
-.sidebar-search-chrome .sidebar-search-input:focus,
-.sidebar-search-chrome .sidebar-search-input:focus-visible {
+/*── Tier 3: sidebar / knowledge rail chrome embedded search (no border ring) ──*/
+.sidebar-header--search .search-input:hover,
+.sidebar-header--search .sidebar-search-input:hover,
+.kos-rail-header--search .search-input:hover,
+.kos-rail-header--search .sidebar-search-input:hover {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.sidebar-header--search .search-input:focus,
+.sidebar-header--search .search-input:focus-visible,
+.sidebar-header--search .sidebar-search-input:focus,
+.sidebar-header--search .sidebar-search-input:focus-visible,
+.kos-rail-header--search .search-input:focus,
+.kos-rail-header--search .search-input:focus-visible,
+.kos-rail-header--search .sidebar-search-input:focus,
+.kos-rail-header--search .sidebar-search-input:focus-visible {
   background: color-mix(in srgb, var(--surface-hover) 55%, transparent);
   border-color: transparent;
   box-shadow: none;

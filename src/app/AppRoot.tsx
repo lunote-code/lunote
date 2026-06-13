@@ -9,6 +9,7 @@ import {
   useSyncExternalStore,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
+  type SetStateAction,
 } from 'react'
 import { EditorView } from '@codemirror/view'
 import { EditorSelection } from '@codemirror/state'
@@ -25,6 +26,7 @@ import {
 import { isModeSwitchFreezeError } from '../editor/modeSwitchFreezeFailure'
 import { VIEWPORT_DOCUMENT_NODE_ID, viewportAnchorEngine } from '../editor/viewportAnchorEngine'
 import { useSidebarOutlineHeadings } from './hooks/useSidebarOutlineHeadings'
+import type { TocHeading } from './components/DocumentOutlineBlock'
 import { canonicalMarkdownOutline } from '../markdown/canonicalMarkdownOutline'
 import {
   createInitialLunaEditorSurface,
@@ -131,6 +133,7 @@ import {
   subscribeDocumentRuntime,
 } from '../documentRuntime/documentKernel'
 import { subscribeThemeRuntime } from '../theme-runtime/themeRuntime'
+import { useSyncWindowTitle } from './hooks/useSyncWindowTitle'
 import {
   APP_DISPLAY_NAME,
   LARGE_DOC_THRESHOLD,
@@ -152,7 +155,6 @@ function App() {
     t,
     effectiveLocale,
     paletteCommands: compiledPaletteCommands,
-    toolbarSidebar,
     toolbarEditorFormat,
   } = useI18n()
   const inAppMenuBar = useMemo(() => usesInAppMenuBar(), [])
@@ -208,20 +210,6 @@ function App() {
     const saved = localStorage.getItem('sidebarListMode')
     return saved === 'outline' ? 'outline' : 'files'
   })
-  const openGlobalSearchModal = useCallback(() => {
-    if (!rootDirRef.current.trim()) {
-      setStatus(tRef.current('app.menu.openWorkspaceFirst'))
-      return
-    }
-    setKnowledgeSearchOpen(false)
-    setGlobalSearchQuery('')
-    setGlobalSearchOpen(true)
-  }, [setStatus])
-  const openKnowledgeSearchModal = useCallback(() => {
-    setGlobalSearchOpen(false)
-    setKnowledgeSearchQuery('')
-    setKnowledgeSearchOpen(true)
-  }, [])
   const [fileContextMenu, setFileContextMenu] = useState<FileContextMenuState | null>(null)
   const fileContextMenuRef = useRef<HTMLDivElement | null>(null)
   const [dragOverTarget, setDragOverTarget] = useState<WorkspaceDragTarget | null>(null)
@@ -318,12 +306,41 @@ function App() {
   const [knowledgeSearchOpen, setKnowledgeSearchOpen] = useState(false)
   const [knowledgeSearchQuery, setKnowledgeSearchQuery] = useState('')
   const closeGlobalSearch = useCallback(() => setGlobalSearchOpen(false), [])
-  const closeKnowledgeSearch = useCallback(() => setKnowledgeSearchOpen(false), [])
+  const closeKnowledgeSearch = useCallback(() => {
+    setKnowledgeSearchOpen(false)
+    setKnowledgeSearchQuery('')
+  }, [])
   const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), [])
-  const [knowledgeRailVisible, setKnowledgeRailVisible] = useState(() => {
+  const [knowledgeRailVisible, setKnowledgeRailVisibleState] = useState(() => {
     const saved = localStorage.getItem('knowledgeRailVisible')
     return saved ? saved === '1' : true
   })
+  const setKnowledgeRailVisible = useCallback((value: SetStateAction<boolean>) => {
+    setKnowledgeRailVisibleState((prev) => {
+      const next = typeof value === 'function' ? value(prev) : value
+      if (!next) {
+        setKnowledgeSearchOpen(false)
+        setKnowledgeSearchQuery('')
+      }
+      return next
+    })
+  }, [])
+  const openGlobalSearchModal = useCallback(() => {
+    if (!rootDirRef.current.trim()) {
+      setStatus(tRef.current('app.menu.openWorkspaceFirst'))
+      return
+    }
+    setKnowledgeSearchOpen(false)
+    setGlobalSearchQuery('')
+    setGlobalSearchOpen(true)
+  }, [setStatus])
+  const openKnowledgeSearchModal = useCallback(() => {
+    setGlobalSearchOpen(false)
+    setKnowledgeSearchQuery('')
+    setFocusMode(false)
+    setKnowledgeRailVisible(true)
+    setKnowledgeSearchOpen(true)
+  }, [setFocusMode, setKnowledgeRailVisible])
   const [wikiHoverId, setWikiHoverId] = useState<string | null>(null)
   const wikiHoverIdRef = useRef<string | null>(null)
   const wikiHandlersRef = useRef<WikiLinkEditorHandlers | null>(null)
@@ -368,7 +385,21 @@ function App() {
   useLargeDocPerformanceHint({ isLargeDoc, activePath, setStatus, t })
 
   const markdownOutlineHeadings = useSidebarOutlineHeadings(activePath, content)
-  const outlineHeadings = markdownOutlineHeadings
+  const liveOutlineByPathRef = useRef(new Map<string, TocHeading[]>())
+  const [liveOutlineTick, setLiveOutlineTick] = useState(0)
+  const handleOutlineHeadingsChange = useCallback((headings: TocHeading[]) => {
+    const path = activePathRef.current
+    if (!path || path === 'scratch') return
+    liveOutlineByPathRef.current.set(path, headings)
+    setLiveOutlineTick((tick) => tick + 1)
+  }, [])
+  const outlineHeadings = useMemo(() => {
+    void liveOutlineTick
+    if (mainPaneMode === 'visual' && activePath && liveOutlineByPathRef.current.has(activePath)) {
+      return liveOutlineByPathRef.current.get(activePath)!
+    }
+    return markdownOutlineHeadings
+  }, [mainPaneMode, activePath, markdownOutlineHeadings, liveOutlineTick])
 
   useLayoutEffect(() => {
     setActiveOutlineId(outlineActiveByPathRef.current.get(activePath) ?? '')
@@ -680,8 +711,10 @@ function App() {
     const h = pop.offsetHeight || 1
     let left = br.left + br.width / 2 - w / 2
     left = Math.max(pad, Math.min(left, window.innerWidth - w - pad))
-    let top = br.top - h - 8
-    if (top < pad) top = br.bottom + 8
+    let top = br.bottom + 8
+    if (top + h > window.innerHeight - pad && br.top - h - 8 >= pad) {
+      top = br.top - h - 8
+    }
     const roomBelow = window.innerHeight - top - pad
     const maxHeight = h > roomBelow ? roomBelow : undefined
     setWorkspaceMenuPopStyle({
@@ -696,7 +729,7 @@ function App() {
   }, [])
 
   useLayoutEffect(() => {
-    if (!workspaceMenuOpen || !rootDir) {
+    if (!workspaceMenuOpen) {
       setWorkspaceMenuPopStyle(null)
       return
     }
@@ -712,11 +745,11 @@ function App() {
   }, [workspaceMenuOpen, rootDir, placeWorkspaceMenu, sidebarWidth, fileSortMode, sidebarVisible])
 
   useEffect(() => {
-    if (!workspaceMenuOpen || !rootDir) return
+    if (!workspaceMenuOpen) return
     const onResize = () => placeWorkspaceMenu()
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
-  }, [workspaceMenuOpen, rootDir, placeWorkspaceMenu])
+  }, [workspaceMenuOpen, placeWorkspaceMenu])
 
   useEffect(() => {
     if (!renameDialog) return
@@ -776,10 +809,9 @@ function App() {
     setStatus,
   })
 
-  const { editorExtensions, toggleSidebarListOutline } = useSourceEditorExtensions({
+  const { editorExtensions } = useSourceEditorExtensions({
     isLargeDoc,
     sidebarListMode,
-    setSidebarListMode,
     outlineSpyCtxRef,
     setActiveOutlineIdRef,
     setActiveOutlineId,
@@ -907,8 +939,8 @@ function App() {
 
   const {
     workspaceFolderName,
-    activeDocumentTitle,
-    activeDocumentSubtitle,
+    windowTitleDocument,
+    windowTitleWorkspace,
     sortedFlatWorkspaceFiles,
     sortedFileTree,
     workspaceFolderNodes,
@@ -1287,6 +1319,7 @@ function App() {
   ])
 
   useEffect(() => subscribeThemeRuntime(), [])
+  useSyncWindowTitle(windowTitleDocument, windowTitleWorkspace, APP_DISPLAY_NAME)
 
   // Initialize EditorMutationBridge — must run before any command executes.
   // The bridge holds React refs (not values), so it always sees the latest editor
@@ -1533,7 +1566,6 @@ function App() {
     >
       {sidebarVisible && !focusMode && (
         <AppSidebarPanel
-          toolbarSidebar={toolbarSidebar}
           t={t}
           rootDir={rootDir}
           activePath={activePath}
@@ -1553,6 +1585,7 @@ function App() {
           scrollPreviewToHeading={scrollPreviewToHeading}
           fileTree={fileTree}
           sidebarFileView={sidebarFileView}
+          setSidebarFileView={setSidebarFileView}
           workspaceFolderNodes={workspaceFolderNodes}
           sortedFlatWorkspaceFiles={sortedFlatWorkspaceFiles}
           sortedFileTree={sortedFileTree}
@@ -1572,17 +1605,13 @@ function App() {
           workspaceMenuPopStyle={workspaceMenuPopStyle}
           fileSortMode={fileSortMode}
           setFileSortMode={setFileSortMode}
-          setSidebarVisible={setSidebarVisible}
+          setSidebarListMode={setSidebarListMode}
           setStatus={setStatus}
           chooseFolder={chooseFolder}
-          toggleSidebarListOutline={toggleSidebarListOutline}
           refreshFileTree={refreshFileTree}
-          appMenuCtxRef={appMenuCtxRef}
           recentFiles={recentFiles}
           onOpenRecent={onAppMenuBarOpenRecent}
           onClearRecent={clearRecentFiles}
-          paletteUiDepsRef={paletteUiDepsRef}
-          setSidebarFileView={setSidebarFileView}
           sidebarStatusLine={
             (isSidebarFiltering
               ? sidebarFilterMatchCount > 0
@@ -1591,6 +1620,7 @@ function App() {
               : status || t('app.status.pickFolder', { app: APP_DISPLAY_NAME })) +
             (savedAt ? ' ' + t('app.search.savedAt', { time: savedAt }) : '')
           }
+          contextMenuFilePath={fileContextMenu?.path ?? null}
         />
       )}
       {sidebarVisible && !focusMode && (
@@ -1637,13 +1667,9 @@ function App() {
         editorBodyFocused={editorBodyFocused}
         setEditorBodyFocused={setEditorBodyFocused}
         focusMode={focusMode}
-        sidebarVisible={sidebarVisible}
-        setSidebarVisible={setSidebarVisible}
         activePath={activePath}
         workspaceFolderName={workspaceFolderName}
         tabLabel={tabLabel}
-        activeDocumentTitle={activeDocumentTitle}
-        activeDocumentSubtitle={activeDocumentSubtitle}
         setFocusMode={setFocusMode}
         sidebarListMode={sidebarListMode}
         rootDir={rootDir}
@@ -1695,6 +1721,7 @@ function App() {
         isFormatCommandActive={isFormatCommandActive}
         onEditorTextColorPick={applyEditorTextColor}
         onVisualSelectionActivity={bumpVisualSelection}
+        onOutlineHeadingsChange={handleOutlineHeadingsChange}
         editorDocumentLoading={editorDocumentLoading}
         knowledgeRailSlot={
           knowledgeRailOpen ? (
@@ -1706,8 +1733,14 @@ function App() {
               <KnowledgeRightRail
                 visible
                 activeDocKey={activeDocKey}
-                onOpenSearch={openKnowledgeSearchModal}
-                onClose={() => setKnowledgeRailVisible(false)}
+                searchOpen={knowledgeSearchOpen}
+                searchQuery={knowledgeSearchQuery}
+                onSearchOpenChange={setKnowledgeSearchOpen}
+                onSearchQueryChange={setKnowledgeSearchQuery}
+                onClose={() => {
+                  closeKnowledgeSearch()
+                  setKnowledgeRailVisible(false)
+                }}
               />
             </>
           ) : null
@@ -1720,10 +1753,6 @@ function App() {
         onGlobalSearchQueryChange={setGlobalSearchQuery}
         onGlobalSearchClose={closeGlobalSearch}
         globalSearchInputRef={globalSearchInputRef}
-        knowledgeSearchOpen={knowledgeSearchOpen}
-        knowledgeSearchQuery={knowledgeSearchQuery}
-        onKnowledgeSearchQueryChange={setKnowledgeSearchQuery}
-        onKnowledgeSearchClose={closeKnowledgeSearch}
         rootDir={rootDir}
         workspaceSearchIndex={sidebarSearchIndex}
         onGlobalSearchOpenDocument={dispatchOpenDocumentInTab}

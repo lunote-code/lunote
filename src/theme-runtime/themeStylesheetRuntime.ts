@@ -89,15 +89,28 @@ export async function reloadThemeStylesheetsFromDisk(): Promise<void> {
   await refreshThemeStylesheetFromSettings()
 }
 
+function readThemeCssContent(): string {
+  const value = getSetting('theme.cssContent')
+  return typeof value === 'string' ? value : ''
+}
+
 export async function refreshThemeStylesheetFromSettings(): Promise<void> {
   const fileName = readThemeCssFileName()
 
   activeStylesheetName = fileName
 
-  if (!isTauri() || !fileName) {
+  if (!fileName) {
     activeStylesheetCss = ''
     setStyleTagContent('')
     syncRuntimeMarkers('')
+    return
+  }
+
+  if (!isTauri()) {
+    const inlineCss = readThemeCssContent().trim()
+    activeStylesheetCss = inlineCss
+    setStyleTagContent(inlineCss)
+    syncRuntimeMarkers(fileName)
     return
   }
 

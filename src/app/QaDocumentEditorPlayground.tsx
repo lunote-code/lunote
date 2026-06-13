@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { _setEditorMutationBridgeForTest } from '../editor/editorMutationBridge'
 
+import '../App.css'
 import { I18nProvider, useI18n } from '../i18n'
 import { getEnMessagesSnapshot, getLocaleMessagesSnapshot, getLocaleRawSnapshot } from '../i18n/localeRegistry'
 import {
@@ -9,13 +11,21 @@ import {
 import { EditorOpenReason } from '../editor/editorOpenReason'
 import { markAppSettingsHydratedForTests, setAppearanceSetting } from '../settings/appSettingsStore'
 import { DEFAULT_APP_SETTINGS } from '../settings/appSettingsTypes'
+import { DocumentOutlineBlock, type TocHeading } from './components/DocumentOutlineBlock'
 import { EditorFormatToolbar } from './components/EditorFormatToolbar'
+import { useSidebarOutlineHeadings } from './hooks/useSidebarOutlineHeadings'
+import { setTabBody } from './document/tabBodiesStore'
+import { probeCaretStructuralContext } from '../editor/caretStructuralContext'
 import { useEditorFormatToolbarActive, useEditorHasTextSelection } from './hooks/useEditorTextColor'
 import { getEphemeralSession } from '../editor/ephemeralFormatting'
 import { resolveFormatToolbarCommandActive } from '../editor/editorFormatToolbarState'
 import { setWikiLinkSuggestPathProvider } from '../editor/lunaWikiLinkSuggest'
+import { resetPasteDedupeForTests } from '../editor/pasteDedupe'
+import { pasteFromNavigatorClipboard } from '../editor/pasteFromNavigatorClipboard'
 import type { TiptapEditorCommand } from '../editor/tiptapEditorTypes'
 import type { Editor } from '@tiptap/core'
+import { redoLastTransaction, setActiveTransactionDoc, undoLastTransaction } from '../menu/commandTransaction'
+import { setInputRouterDocId } from '../vm/inputRouter'
 
 const QA_WIKI_SUGGEST_FIXTURES = [
   { docKey: 'qa/note-a.md', title: 'Note A' },
@@ -48,6 +58,11 @@ declare global {
         charCount: number
         editorNodeCount: number
       }>
+      openManyDocuments: (count: number) => Promise<{
+        opened: number
+        lastIndex: number
+        lastPlainText: string
+      }>
       waitForMemorySettle: (intervalMs?: number) => Promise<void>
       probeBodyParagraphTypography: () => Array<{
         index: number
@@ -73,6 +88,8 @@ declare global {
       selectHighlightText: (needle: string) => boolean
       focusCodeBlockContents: () => boolean
       runVisualCommand: (command: TiptapEditorCommand) => boolean
+      runEditUndoCommand: () => boolean
+      runEditRedoCommand: () => boolean
       getLastStatus: () => string
       probeParagraphLayout: () => Array<{
         index: number
@@ -175,11 +192,44 @@ declare global {
       clickFormatToolbarButton: (commandId: string) => boolean
       setFormatToolbarEnabled: (enabled: boolean) => Promise<void>
       isFormatToolbarVisible: () => boolean
+      probeSpellcheckChrome: () => {
+        visualSpellcheck: string | null
+        codeBlockSpellcheck: string | null
+        calloutSpellcheck: string | null
+      }
+      setSpellcheckEnabled: (enabled: boolean) => Promise<void>
+      resetPasteDedupe: () => void
+      getOutlineTitles: () => string[]
+      pasteClipboardImage: () => Promise<boolean>
+      pasteImageFromNavigatorClipboard: () => Promise<boolean>
+      probePasteCaretContext: () => {
+        parentType: string
+        parentOffset: number
+        nodeBeforeType: string | null
+        prevBlockIsImageParagraph: boolean
+        caretInEmptyParagraphBelowImage: boolean
+      } | null
+      probeCaretStructuralContext: () => {
+        parentType: string
+        parentOffset: number
+        parentTextLength: number
+        inListItem: boolean
+        listItemDepth: number | null
+        enclosingListType: string | null
+        isEmptyTextblock: boolean
+        orphanEmptyParagraphAfterList: boolean
+        selectionNotInInlineContent: boolean
+        domCaretLeftPx: number | null
+        nearestListMarkerLeftPx: number | null
+        visualOrphanAfterList: boolean
+      } | null
+      clickBelowLastOrderedListItem: () => boolean
     }
   }
 }
 
 const QA_DOCUMENT_KEY = 'qa:document-editor'
+const QA_DOC_PATH = 'qa/document-editor.md'
 const QA_INITIAL_MARKDOWN = '# Document editor QA\n\nReady.\n'
 
 const QA_BOOTSTRAP = {
@@ -314,8 +364,26 @@ function QaDocumentEditorInner() {
   const visualSelectionTickRef = useRef(0)
   visualSelectionTickRef.current = visualSelectionTick
   const consoleErrorsRef = useRef<string[]>([])
+  const liveOutlineByPathRef = useRef(new Map<string, TocHeading[]>())
+  const outlineHeadingsRef = useRef<TocHeading[]>([])
+  const [liveOutlineTick, setLiveOutlineTick] = useState(0)
 
   visualEditorRef.current = editorRef.current
+
+  const markdownOutlineHeadings = useSidebarOutlineHeadings(QA_DOC_PATH, markdown)
+  const outlineHeadings = useMemo(() => {
+    void liveOutlineTick
+    if (liveOutlineByPathRef.current.has(QA_DOC_PATH)) {
+      return liveOutlineByPathRef.current.get(QA_DOC_PATH)!
+    }
+    return markdownOutlineHeadings
+  }, [markdownOutlineHeadings, liveOutlineTick])
+  outlineHeadingsRef.current = outlineHeadings
+
+  const handleOutlineHeadingsChange = useCallback((headings: TocHeading[]) => {
+    liveOutlineByPathRef.current.set(QA_DOC_PATH, headings)
+    setLiveOutlineTick((tick) => tick + 1)
+  }, [])
 
   const isFormatCommandActive = useEditorFormatToolbarActive({
     mainPaneMode: 'visual',
@@ -347,11 +415,45 @@ function QaDocumentEditorInner() {
     return () => setWikiLinkSuggestPathProvider(null)
   }, [])
 
+  useEffect(() => {
+    setActiveTransactionDoc(QA_DOC_PATH)
+    setInputRouterDocId(QA_DOC_PATH)
+    const syncBridge = () => {
+      _setEditorMutationBridgeForTest(editorRef.current?.getEditor() ?? null, null, 'visual')
+    }
+    syncBridge()
+    const timer = window.setTimeout(syncBridge, 0)
+    return () => {
+      window.clearTimeout(timer)
+      _setEditorMutationBridgeForTest(null, null, 'visual')
+    }
+  }, [docKey])
+
+  const qaPasteImage = useCallback(async (file: File, mimeHint: string) => {
+    const buf = await file.arrayBuffer()
+    const bytes = new Uint8Array(buf)
+    let binary = ''
+    const chunk = 0x8000
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + chunk, bytes.length)))
+    }
+    const mime = mimeHint || file.type || 'image/png'
+    return `data:${mime};base64,${btoa(binary)}`
+  }, [])
+
+  const onMarkdownChange = useCallback((next: string) => {
+    setMarkdown(next)
+    setTabBody(QA_DOC_PATH, next)
+  }, [])
+
   const loadMarkdown = useCallback((next: string) => {
     consoleErrorsRef.current = []
     setStatus('ready')
     setDocKey(`${QA_DOCUMENT_KEY}:${Date.now()}`)
     setMarkdown(next)
+    setTabBody(QA_DOC_PATH, next)
+    liveOutlineByPathRef.current.delete(QA_DOC_PATH)
+    setLiveOutlineTick((tick) => tick + 1)
   }, [])
 
   const readMemorySnapshot = useCallback(async () => {
@@ -384,6 +486,42 @@ function QaDocumentEditorInner() {
       previous = next
     }
   }, [readMemorySnapshot])
+
+  const openManyDocuments = useCallback(
+    async (count: number) => {
+      consoleErrorsRef.current = []
+      const safeCount = Math.max(0, Math.floor(count))
+      const yieldToRenderer = () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+        })
+      for (let index = 0; index < safeCount; index += 1) {
+        const nextMarkdown = `# Document ${index}\n\nSequential open probe ${index}.\n`
+        setStatus('ready')
+        setDocKey(`${QA_DOCUMENT_KEY}:${index}`)
+        setMarkdown(nextMarkdown)
+        setTabBody(QA_DOC_PATH, nextMarkdown)
+        liveOutlineByPathRef.current.delete(QA_DOC_PATH)
+        if ((index + 1) % 10 === 0) {
+          setLiveOutlineTick((tick) => tick + 1)
+        }
+        await yieldToRenderer()
+      }
+      setLiveOutlineTick((tick) => tick + 1)
+      await waitForMemorySettle(250)
+      const lastPlainText =
+        document
+          .querySelector('.qa-document-editor-shell .tiptap-editor-content')
+          ?.textContent?.replace(/\s+/g, ' ')
+          .trim() ?? ''
+      return {
+        opened: safeCount,
+        lastIndex: Math.max(0, safeCount - 1),
+        lastPlainText,
+      }
+    },
+    [waitForMemorySettle],
+  )
 
   useEffect(() => {
     const onError = (event: ErrorEvent) => {
@@ -418,11 +556,12 @@ function QaDocumentEditorInner() {
         Boolean(document.querySelector('.qa-document-editor-shell .tiptap-editor-content')),
       getLoadedCharCount: () => markdown.length,
       getMemorySnapshot: readMemorySnapshot,
+      openManyDocuments,
       waitForMemorySettle,
       probeBodyParagraphTypography: () => {
         const root = document.querySelector('.qa-document-editor-shell .ProseMirror')
         if (!root) return []
-        return [...root.querySelectorAll(':scope > p')].map((paragraph, index) => {
+        return Array.from(root.querySelectorAll(':scope > p')).map((paragraph, index) => {
           const style = getComputedStyle(paragraph)
           const lineHeightPx = Number.parseFloat(style.lineHeight)
           const fontSizePx = Number.parseFloat(style.fontSize)
@@ -530,11 +669,13 @@ function QaDocumentEditorInner() {
         return editor.chain().focus().setTextSelection(pos).run()
       },
       runVisualCommand: (command: TiptapEditorCommand) => editorRef.current?.runCommand(command) ?? false,
+      runEditUndoCommand: () => undoLastTransaction(QA_DOC_PATH),
+      runEditRedoCommand: () => redoLastTransaction(QA_DOC_PATH),
       getLastStatus: () => lastStatusRef.current,
       probeParagraphLayout: () => {
         const root = document.querySelector('.qa-document-editor-shell .ProseMirror')
         if (!root) return []
-        return [...root.querySelectorAll(':scope > p')].map((paragraph, index) => {
+        return Array.from(root.querySelectorAll(':scope > p')).map((paragraph, index) => {
           const rect = paragraph.getBoundingClientRect()
           const isBlank =
             paragraph.matches(':empty') ||
@@ -667,7 +808,7 @@ function QaDocumentEditorInner() {
         const view = editor?.view
         const root = document.querySelector('.qa-document-editor-shell .ProseMirror')
         if (!editor || !view || !root) return null
-        const paragraphs = [...root.querySelectorAll(':scope > p')]
+        const paragraphs = Array.from(root.querySelectorAll(':scope > p'))
         const paragraph = paragraphs[paragraphIndex] as HTMLElement | undefined
         if (!paragraph) return null
         const rect = paragraph.getBoundingClientRect()
@@ -742,7 +883,7 @@ function QaDocumentEditorInner() {
       probeSlashMenu: () => {
         const menu = document.querySelector('.qa-document-editor-shell .pm-slash-menu:not(.luna-wiki-suggest-menu)')
         if (!menu) return { open: false, query: '', itemLabels: [], activeIndex: -1 }
-        const items = [...menu.querySelectorAll('.pm-slash-item')]
+        const items = Array.from(menu.querySelectorAll('.pm-slash-item'))
         const activeIndex = items.findIndex((item) => item.classList.contains('active'))
         return {
           open: true,
@@ -754,7 +895,7 @@ function QaDocumentEditorInner() {
       probeWikiSuggestMenu: () => {
         const menu = document.querySelector('.qa-document-editor-shell .luna-wiki-suggest-menu')
         if (!menu) return { open: false, query: '', items: [], activeIndex: -1 }
-        const items = [...menu.querySelectorAll('.luna-wiki-suggest-item')]
+        const items = Array.from(menu.querySelectorAll('.luna-wiki-suggest-item'))
         const activeIndex = items.findIndex((item) => item.classList.contains('active'))
         return {
           open: true,
@@ -780,6 +921,92 @@ function QaDocumentEditorInner() {
       },
       isFormatToolbarVisible: () =>
         document.querySelectorAll('.qa-document-editor-shell .editor-format-toolbar-shell').length > 0,
+      probeSpellcheckChrome: () => {
+        const read = (el: Element | null) =>
+          el instanceof HTMLElement ? el.getAttribute('spellcheck') : null
+        return {
+          visualSpellcheck: read(
+            document.querySelector('.qa-document-editor-shell .tiptap-editor-content'),
+          ),
+          codeBlockSpellcheck: read(
+            document.querySelector('.qa-document-editor-shell .pm-code-block-cm .cm-content'),
+          ),
+          calloutSpellcheck: read(
+            document.querySelector('.qa-document-editor-shell [data-luna-callout]'),
+          ),
+        }
+      },
+      setSpellcheckEnabled: async (enabled: boolean) => {
+        await setAppearanceSetting('editor.spellcheckEnabled', enabled)
+      },
+      resetPasteDedupe: () => {
+        resetPasteDedupeForTests()
+      },
+      getOutlineTitles: () => outlineHeadingsRef.current.map((heading) => heading.title),
+      pasteClipboardImage: async () => {
+        const pm = document.querySelector('.qa-document-editor-shell .ProseMirror') as HTMLElement | null
+        if (!pm) return false
+        pm.focus()
+        return document.execCommand('paste')
+      },
+      /** Menu / trusted-empty-clipboardData paste path (headless Mod+V does not fire native paste). */
+      pasteImageFromNavigatorClipboard: async () =>
+        pasteFromNavigatorClipboard({
+          onPasteImage: qaPasteImage,
+          visualEditorRef: editorRef,
+          mainPaneMode: 'visual',
+        }),
+      probePasteCaretContext: () => {
+        const editor = editorRef.current?.getEditor()
+        if (!editor) return null
+        const $from = editor.state.selection.$from
+        const parent = $from.parent
+        const blockIndex = $from.index(0)
+        const prevBlock = blockIndex > 0 ? editor.state.doc.child(blockIndex - 1) : null
+        const prevBlockIsImageParagraph =
+          prevBlock?.type.name === 'paragraph' &&
+          prevBlock.content.content.some((node) => node.type.name === 'image')
+        const caretInEmptyParagraphBelowImage =
+          parent.type.name === 'paragraph' &&
+          $from.parentOffset === 0 &&
+          $from.nodeBefore == null &&
+          prevBlockIsImageParagraph
+        return {
+          parentType: parent.type.name,
+          parentOffset: $from.parentOffset,
+          nodeBeforeType: $from.nodeBefore?.type.name ?? null,
+          prevBlockIsImageParagraph,
+          caretInEmptyParagraphBelowImage,
+        }
+      },
+      probeCaretStructuralContext: () => {
+        const editor = editorRef.current?.getEditor()
+        const root = document.querySelector('.qa-document-editor-shell .ProseMirror')
+        if (!editor || !root) return null
+        return probeCaretStructuralContext(editor.state, root)
+      },
+      clickBelowLastOrderedListItem: () => {
+        const root = document.querySelector('.qa-document-editor-shell .ProseMirror') as HTMLElement | null
+        if (!root) return false
+        const items = root.querySelectorAll('ol.pm-editor-list li')
+        const last = items.item(items.length - 1) as HTMLElement | null
+        if (!last) return false
+        const rect = last.getBoundingClientRect()
+        const x = rect.left + 12
+        const y = rect.bottom + 8
+        const target = document.elementFromPoint(x, y) as HTMLElement | null
+        if (!target) return false
+        target.dispatchEvent(
+          new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: x, clientY: y }),
+        )
+        target.dispatchEvent(
+          new MouseEvent('mouseup', { bubbles: true, cancelable: true, clientX: x, clientY: y }),
+        )
+        target.dispatchEvent(
+          new MouseEvent('click', { bubbles: true, cancelable: true, clientX: x, clientY: y }),
+        )
+        return true
+      },
     }
 
     setStatus('ready')
@@ -787,7 +1014,7 @@ function QaDocumentEditorInner() {
     return () => {
       delete window.__QA_DOCUMENT_EDITOR__
     }
-  }, [loadMarkdown, markdown, readMemorySnapshot, waitForMemorySettle])
+  }, [loadMarkdown, markdown, openManyDocuments, qaPasteImage, readMemorySnapshot, waitForMemorySettle])
 
   return (
     <div style={{ padding: 24, background: '#0f1115', minHeight: '100vh' }}>
@@ -796,10 +1023,23 @@ function QaDocumentEditorInner() {
       <p data-testid="qa-editor-status">{editorStatus}</p>
       <div
         className={`main qa-document-editor-chrome${editorChromeFocused ? ' editor-body-focused' : ''}`}
-        style={{ maxWidth: 980, minHeight: 420, display: 'flex', flexDirection: 'column' }}
+        style={{ maxWidth: 1200, minHeight: 420, display: 'flex', flexDirection: 'row', gap: 16 }}
       >
+        <aside
+          data-testid="qa-outline-panel"
+          className="document-outline-sidebar"
+          style={{ width: 240, flexShrink: 0, paddingTop: 8 }}
+        >
+          <DocumentOutlineBlock
+            documentPath={QA_DOC_PATH}
+            headings={outlineHeadings}
+            activeId=""
+            onJump={() => {}}
+          />
+        </aside>
         <div
           className="editor-body-surface"
+          style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}
           onFocusCapture={() => setEditorChromeFocused(true)}
           onBlurCapture={(e) => {
             const next = e.relatedTarget as Node | null
@@ -819,18 +1059,18 @@ function QaDocumentEditorInner() {
               ref={editorRef}
               documentKey={docKey}
               markdown={markdown}
-              activePath="qa/document-editor.md"
+              activePath={QA_DOC_PATH}
               rootDir=""
               sidebarListMode="outline"
-              onMarkdownChange={() => {}}
+              onMarkdownChange={onMarkdownChange}
               onActiveHeadingChange={() => {}}
               onSelectionActivity={() => setVisualSelectionTick((tick) => tick + 1)}
+              onOutlineHeadingsChange={handleOutlineHeadingsChange}
               onStatus={(message) => {
                 lastStatusRef.current = message
                 setEditorStatus(message)
               }}
-              onOutlineHeadingsChange={() => {}}
-              onPasteImage={async () => null}
+              onPasteImage={qaPasteImage}
               openReason={EditorOpenReason.ColdOpen}
             />
           </div>

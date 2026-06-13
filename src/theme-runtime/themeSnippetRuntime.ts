@@ -51,6 +51,24 @@ function readSnippetSetting(): string[] {
   return typeof value === 'string' ? normalizeSnippetNames(value) : []
 }
 
+function readSnippetInlineMap(): Record<string, string> {
+  const raw = getSetting('theme.cssSnippetsInline')
+  if (typeof raw !== 'string' || !raw.trim()) return {}
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    return parsed as Record<string, string>
+  } catch {
+    return {}
+  }
+}
+
+export async function upsertSnippetInline(name: string, css: string): Promise<void> {
+  const map = readSnippetInlineMap()
+  map[name] = css
+  await setSetting('theme.cssSnippetsInline', JSON.stringify(map))
+}
+
 export function stringifySnippetNames(names: readonly string[]): string {
   return normalizeSnippetNames(names.join('\n')).join('\n')
 }
@@ -83,17 +101,38 @@ export async function toggleThemeSnippet(name: string): Promise<void> {
   await setSetting('theme.cssSnippets', stringifySnippetNames(Array.from(current)))
 }
 
+export async function enableThemeSnippet(name: string): Promise<void> {
+  const current = new Set(readSnippetSetting())
+  current.add(name)
+  await setSetting('theme.cssSnippets', stringifySnippetNames(Array.from(current)))
+}
+
+export async function disableThemeSnippet(name: string): Promise<void> {
+  const current = new Set(readSnippetSetting())
+  if (!current.has(name)) return
+  current.delete(name)
+  await setSetting('theme.cssSnippets', stringifySnippetNames(Array.from(current)))
+}
+
+export async function removeSnippetInline(name: string): Promise<void> {
+  const map = readSnippetInlineMap()
+  if (!(name in map)) return
+  delete map[name]
+  await setSetting('theme.cssSnippetsInline', JSON.stringify(map))
+}
+
 export async function ensureThemeSnippetsFolder(): Promise<string> {
   return ensureThemeSnippetsDirectory()
 }
 
 export async function reloadThemeSnippetsFromDisk(): Promise<void> {
   if (!isTauri()) {
-    availableSnippets = []
-    activeSnippetNames = []
-    activeSnippetCss = ''
-    setStyleTagContent('')
+    const inlineMap = readSnippetInlineMap()
+    availableSnippets = Object.keys(inlineMap)
+      .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+      .map((name) => ({ name }))
     notifySnippetSubscribers()
+    await refreshThemeSnippetsFromSettings()
     return
   }
   const nextEntries = await listThemeSnippets()
@@ -106,9 +145,22 @@ export async function refreshThemeSnippetsFromSettings(): Promise<void> {
   const names = readSnippetSetting()
   activeSnippetNames = names
 
-  if (!isTauri() || names.length === 0) {
+  if (names.length === 0) {
     activeSnippetCss = ''
     setStyleTagContent('')
+    notifySnippetSubscribers()
+    return
+  }
+
+  if (!isTauri()) {
+    const inlineMap = readSnippetInlineMap()
+    const chunks = names.map((name) => {
+      const css = inlineMap[name]
+      if (!css?.trim()) return ''
+      return `/* theme-snippet:${name} */\n${css}`
+    })
+    activeSnippetCss = chunks.filter(Boolean).join('\n\n')
+    setStyleTagContent(activeSnippetCss)
     notifySnippetSubscribers()
     return
   }

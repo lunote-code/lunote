@@ -149,6 +149,12 @@ function releaseProseMirrorFocus(pmDom?: HTMLElement | null): void {
 /** Focus CM after suspending PM dom (WebKit nested contenteditable). PM restore happens on unlock only. */
 export function focusCodeBlockCmView(view: EditorView, opts?: FocusCodeBlockCmOpts): boolean {
   const pmDom = opts?.pmDom ?? null
+  if (view.hasFocus) {
+    if (pmDom instanceof HTMLElement) {
+      suspendPmDomContentEditable(pmDom)
+    }
+    return true
+  }
   if (pmDom instanceof HTMLElement) {
     suspendPmDomContentEditable(pmDom)
     releaseProseMirrorFocus(pmDom)

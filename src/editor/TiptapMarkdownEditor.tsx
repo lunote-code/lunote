@@ -8,10 +8,12 @@ import {
   useReducer,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react'
 import { type Editor } from '@tiptap/core'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { runAfterReactCommitWhen } from './reactCommitScheduler'
+import { bindOverlayScrollbarReveal } from '../app/overlayScrollbarReveal'
 import { applyPlainTextInsertion } from './inputLayer/inputLayerPaste'
 import {
   shouldShowCodeChromeForBlockType,
@@ -59,6 +61,12 @@ import {
 } from './editorMutationBridge'
 import { type EditorOpenReason as EditorOpenReasonType } from './editorOpenReason'
 import { useI18n } from '../i18n'
+import { getAppSettingsSnapshot, subscribeAppSettings } from '../settings/appSettingsStore'
+import {
+  EDITOR_SPELLCHECK_ENABLED_DEFAULT,
+  editorSpellcheckDomAttribute,
+  resolveEditorSpellcheckEnabled,
+} from '../settings-runtime/editorSpellcheck'
 import { canonicalMarkdownSemantics } from '../markdown/canonicalMarkdownSemantics'
 import type { WikiLinkTarget } from './knowledgeRuntime/types'
 import { MermaidSourceSessionProvider } from './mermaid/MermaidSourceSession'
@@ -250,7 +258,7 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
     onAtomicVisualDocumentEnterConsumedRef.current = onAtomicVisualDocumentEnterConsumed
     const composingRef = useRef(false)
     const headingParseTimerRef = useRef<number | null>(null)
-    const HEADING_PARSE_THROTTLE_MS = 300
+    const HEADING_PARSE_THROTTLE_MS = 80
     const MARKDOWN_SYNC_DEBOUNCE_MS = 300
     const lastExternalMarkdownRef = useRef(markdown)
     const lastNormalizedExternalMarkdownRef = useRef(markdown)
@@ -740,13 +748,19 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
       ],
     )
 
+    const spellcheckEnabled = useSyncExternalStore(
+      subscribeAppSettings,
+      () => resolveEditorSpellcheckEnabled(getAppSettingsSnapshot().appearance?.editor),
+      () => EDITOR_SPELLCHECK_ENABLED_DEFAULT,
+    )
+
     const editor = useEditor({
       extensions: visualEditorExtensions,
       content: '',
       editorProps: {
         attributes: {
           class: 'tiptap-editor-content',
-          spellcheck: 'false',
+          spellcheck: editorSpellcheckDomAttribute(spellcheckEnabled),
         },
         ...editorInteractionProps,
       },
@@ -756,6 +770,11 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
       editorInteractionProps,
       editorLifecycleHandlers,
     ])
+
+    useEffect(() => {
+      if (!editor || editor.isDestroyed || !editor.view?.dom) return
+      editor.view.dom.setAttribute('spellcheck', editorSpellcheckDomAttribute(spellcheckEnabled))
+    }, [editor, spellcheckEnabled])
 
     useEffect(() => {
       if (!editor || !wikiLinkMenu) return
@@ -816,6 +835,12 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
       return () => {
         viewportAnchorEngine.unregisterEditorNode(VIEWPORT_DOCUMENT_NODE_ID)
       }
+    }, [editor])
+
+    useEffect(() => {
+      if (!editor || editor.isDestroyed) return
+      const root = editor.view.dom as HTMLElement
+      return bindOverlayScrollbarReveal(root)
     }, [editor])
 
     useEffect(() => {

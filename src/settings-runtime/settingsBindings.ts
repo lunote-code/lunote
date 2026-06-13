@@ -1,13 +1,13 @@
 import type { SettingsValue } from './settingsTypes'
 import type { TranslateFn } from '../i18n'
-import { readLocaleMeta } from '../i18n/localeAudit'
-import { isUiLocaleId, UI_LOCALE_IDS, type UiLocaleId } from '../i18n/localeRegistry'
+import { getLocaleNativeName, isUiLocaleId, UI_LOCALE_IDS, type UiLocaleId } from '../i18n/localeRegistry'
 import { getSetting, setSetting, subscribe } from './settingsRuntime'
 import type { LeafSetting } from './settingsTypes'
 import type { SettingsSelectOption } from '../components/settings'
 import { clearPreviewTheme, getCurrentThemeSelection, setPreviewTheme } from '../theme-runtime/themeRuntime'
 import { listThemes } from '../theme-runtime/themeRegistry'
 import { normalizeThemeVariant } from '../theme-runtime/themeResolver'
+import { listAvailableThemeExportStyles } from '../theme-runtime/themeExportStyleRuntime'
 import { listAvailableThemeStylesheets } from '../theme-runtime/themeStylesheetRuntime'
 
 export type SettingsActionHandler = (actionId: string, path: string) => void | Promise<void>
@@ -54,7 +54,7 @@ export function getCurrentThemeStatusText(): string {
 function labelForLocaleValue(value: string, t: TranslateFn): string {
   if (value === 'system') return t('settings.language.system')
   if (!isUiLocaleId(value)) return value
-  return readLocaleMeta(value as UiLocaleId).nativeName
+  return getLocaleNativeName(value)
 }
 
 export function resolveSettingOptions(
@@ -69,6 +69,33 @@ export function resolveSettingOptions(
       group: entry.group,
       description: entry.description ?? entry.id,
     }))
+  }
+
+  if (item.path === 'theme.exportCssFile') {
+    const currentRawValue = bindValue(item.path)
+    const currentValue = typeof currentRawValue === 'string' ? currentRawValue.trim() : ''
+    const options: SettingsSelectOption<string>[] = [
+      {
+        value: '',
+        label: t('settings.theme.cssFile.none'),
+        description: t('settings.theme.exportCssFile.noneDescription'),
+      },
+      ...listAvailableThemeExportStyles().map((entry) => ({
+        value: entry.name,
+        label: entry.name,
+        group: '.luna/theme/export/*.css',
+        description: entry.name,
+      })),
+    ]
+    if (currentValue && !options.some((option) => option.value === currentValue)) {
+      options.push({
+        value: currentValue,
+        label: currentValue,
+        group: t('settings.theme.exportCssFile.missingGroup'),
+        description: t('settings.theme.exportCssFile.missingDescription'),
+      })
+    }
+    return options
   }
 
   if (item.path === 'theme.cssFile') {
@@ -91,7 +118,7 @@ export function resolveSettingOptions(
       options.push({
         value: currentValue,
         label: currentValue,
-        group: 'Missing',
+        group: t('settings.theme.cssFile.missingGroup'),
         description: t('settings.theme.cssFile.missingDescription'),
       })
     }

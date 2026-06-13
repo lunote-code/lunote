@@ -33,7 +33,13 @@ import { getCurrentTheme, subscribeTheme } from '../theme-runtime/themeRuntime'
 type SettingsRendererProps = {
   section: SettingsSectionId
   title?: ReactNode
+  description?: ReactNode
+  toolbar?: ReactNode
+  className?: string
+  panelId?: string
   highlightQuery?: string
+  visibleGroupIds?: readonly string[]
+  hideGroupHeaders?: boolean
   resolveOptions?: (item: LeafSetting) => readonly SettingsSelectOption<string>[] | undefined
   renderBeforeSection?: (group: GroupSetting) => React.ReactNode
   renderAfterSection?: (group: GroupSetting) => React.ReactNode
@@ -76,6 +82,28 @@ function toFileDisplayValue(path: string): string {
   const normalized = trimmed.replace(/\\/g, '/')
   const segments = normalized.split('/').filter(Boolean)
   return segments.at(-1) ?? trimmed
+}
+
+const FILE_FIELD_MESSAGE_KEYS: Record<string, { empty: string; dropHint: string }> = {
+  'theme.cssImportFile': {
+    empty: 'settings.theme.cssImportFile.empty',
+    dropHint: 'settings.theme.cssImportFile.dropHint',
+  },
+  'theme.cssSnippetImport': {
+    empty: 'settings.theme.cssSnippetImport.empty',
+    dropHint: 'settings.theme.cssSnippetImport.dropHint',
+  },
+  'theme.exportCssImport': {
+    empty: 'settings.theme.exportCssImport.empty',
+    dropHint: 'settings.theme.exportCssImport.dropHint',
+  },
+}
+
+function fileFieldMessageKeys(path: string): { empty: string; dropHint: string } {
+  return FILE_FIELD_MESSAGE_KEYS[path] ?? {
+    empty: 'settings.file.empty',
+    dropHint: 'settings.file.dropHint',
+  }
 }
 
 function renderSettingLabel(
@@ -151,7 +179,7 @@ function renderSetting(
             ariaLabel={labelText}
             onPreviewValue={(next) => previewValueForSetting(item.path, next)}
             onClearPreview={() => clearPreviewForSetting(item.path)}
-            onValueChange={(next) => void onChange(item.path, next)}
+            onValueChange={(next) => onChange(item.path, next)}
           />
         </SettingsRow>
       )
@@ -242,9 +270,13 @@ function renderSetting(
       {
         const stringValue = toStringValue(value ?? item.default).trim()
         const fileDisplayValue =
-          item.path === 'theme.customThemeFile'
+          item.path === 'theme.customThemeFile' ||
+          item.path === 'theme.cssImportFile' ||
+          item.path === 'theme.cssSnippetImport' ||
+          item.path === 'theme.exportCssImport'
             ? toFileDisplayValue(stringValue)
             : stringValue
+        const fileMessages = fileFieldMessageKeys(item.path)
       return (
         <SettingsRow key={item.path} label={label} description={description} {...rowProps}>
           <div className="settings-stack">
@@ -252,8 +284,8 @@ function renderSetting(
               value={fileDisplayValue}
               accept={item.accept}
               buttonLabel={item.action ? t(item.action.labelKey) : t('settings.file.choose')}
-              emptyLabel={t('settings.file.empty')}
-              dropHint={t('settings.file.dropHint')}
+              emptyLabel={t(fileMessages.empty)}
+              dropHint={t(fileMessages.dropHint)}
               onFile={(file) => {
                 if (item.action) {
                   void onFile?.(item.action.id, item.path, file)
@@ -274,6 +306,17 @@ function renderSetting(
                   >
                     {t('settings.theme.customThemeFile.openFolder')}
                   </SettingsButton>
+                </div>
+              </div>
+            ) : null}
+            {(item.path === 'theme.cssImportFile' ||
+              item.path === 'theme.cssSnippetImport' ||
+              item.path === 'theme.exportCssImport') &&
+            stringValue ? (
+              <div className="settings-file-dropzone settings-file-dropzone-static">
+                <div className="settings-file-copy settings-file-copy-wrap">
+                  <strong>{fileDisplayValue}</strong>
+                  <span>{t('settings.theme.customThemeFile.savedPath')}</span>
                 </div>
               </div>
             ) : null}
@@ -309,6 +352,8 @@ function renderGroup(
   onAction: SettingsRendererProps['onAction'],
   onFile: SettingsRendererProps['onFile'],
   highlightQuery?: string,
+  hideGroupHeaders?: boolean,
+  panelId?: string,
 ) {
   const renderedItems = group.items
     .map((path) => {
@@ -318,9 +363,15 @@ function renderGroup(
     })
     .filter(Boolean)
 
-  if (group.hideHeader) {
+  if (group.hideHeader || hideGroupHeaders) {
     return (
-      <div key={group.id} className="settings-section settings-section-bare">
+      <div
+        key={group.id}
+        id={panelId}
+        role={panelId ? 'region' : undefined}
+        aria-labelledby={panelId ? panelId.replace('-panel-', '-tab-') : undefined}
+        className="settings-section settings-section-bare"
+      >
         {renderBeforeSection?.(group)}
         {renderedItems}
         {renderAfterSection?.(group)}
@@ -331,6 +382,9 @@ function renderGroup(
   return (
     <SettingsSection
       key={group.id}
+      id={panelId}
+      role={panelId ? 'region' : undefined}
+      aria-labelledby={panelId ? panelId.replace('-panel-', '-tab-') : undefined}
       title={renderGroupTitle(group, t)}
       description={
         group.descriptionKey && !group.descriptionAsHelp ? t(group.descriptionKey) : undefined
@@ -346,7 +400,13 @@ function renderGroup(
 export function SettingsRenderer({
   section,
   title,
+  description,
+  toolbar,
+  className,
+  panelId,
   highlightQuery,
+  visibleGroupIds,
+  hideGroupHeaders,
   resolveOptions,
   renderBeforeSection,
   renderAfterSection,
@@ -357,6 +417,11 @@ export function SettingsRenderer({
   useThemeDisplayVersion()
   const { t } = useI18n()
   const schema = useMemo(() => getSection(section), [section])
+  const groups = useMemo(() => {
+    if (!visibleGroupIds?.length) return schema.groups
+    const allowed = new Set(visibleGroupIds)
+    return schema.groups.filter((group) => allowed.has(group.id))
+  }, [schema.groups, visibleGroupIds])
 
   useEffect(() => {
     const q = highlightQuery?.trim()
@@ -368,9 +433,11 @@ export function SettingsRenderer({
     return () => window.cancelAnimationFrame(frame)
   }, [section, highlightQuery])
 
+  const pageClassName = ['settings-page--prefs', className].filter(Boolean).join(' ')
+
   return (
-    <SettingsPage title={title} className="settings-page--prefs">
-      {schema.groups.map((group) =>
+    <SettingsPage title={title} description={description} toolbar={toolbar} className={pageClassName}>
+      {groups.map((group) =>
         renderGroup(
           group,
           t,
@@ -380,6 +447,8 @@ export function SettingsRenderer({
           onAction,
           onFile,
           highlightQuery,
+          hideGroupHeaders,
+          panelId,
         ),
       )}
     </SettingsPage>

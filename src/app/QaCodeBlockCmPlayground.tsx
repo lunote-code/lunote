@@ -2,6 +2,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { useEffect, useMemo, useState } from 'react'
 
+import '../App.css'
 import { I18nProvider } from '../i18n'
 import { getEnMessagesSnapshot, getLocaleRawSnapshot, getLocaleMessagesSnapshot } from '../i18n/localeRegistry'
 import { selectAllInCurrentBlock } from '../editor/lunaBlockSelectAll'
@@ -16,6 +17,7 @@ import { flushVmTiptapRecorderBatch, VmTiptapRecorder } from '../vm/vmTiptapReco
 import { proseMirrorLowlight } from '../editor/proseMirrorLowlight'
 import { canonicalMarkdownSemantics } from '../markdown/canonicalMarkdownSemantics'
 import { flushAllCodeBlockSessions } from '../editor/codeBlock/boundary/codeBlockSessionRegistry'
+import { requestCodeBlockCmEdit } from '../editor/codeBlock/boundary/codeBlockBoundaryActions'
 import { resolveCodeBlockInputPolicy } from '../editor/codeBlock/boundary'
 import { isCodeBlockCmEnabled } from '../editor/codeBlock/cm/codeBlockCmFeature'
 import {
@@ -26,9 +28,11 @@ import { reconcileCodeBlockCmFocusAfterSerialize } from '../editor/codeBlock/cm/
 import {
   deleteInActiveCodeBlockCm,
   getFocusedCodeBlockCmView,
+  getCodeBlockCmViewInWrap,
   isCodeBlockCmFocused,
 } from '../editor/codeBlock/cm/codeBlockCmFocus'
 import { buildCodeBlockLineModel } from '../editor/codeBlock/model/lineModel'
+import { toggleCodeBlockWithFocusAndLog } from '../editor/codeBlock/behavior/toggleWithFocus'
 import { markAppSettingsHydratedForTests } from '../settings/appSettingsStore'
 import { DEFAULT_APP_SETTINGS } from '../settings/appSettingsTypes'
 
@@ -117,6 +121,7 @@ declare global {
         pmSoftLocked: boolean
         activeElementSummary: string
         pmSelectionEmpty: boolean
+        pmSelectionOutsideCodeBlock: boolean
       }
       scrollUntilCodeBlockOffScreen: (direction: 'up' | 'down') => boolean
       scrollCodeBlockCmHorizontally: (toEnd: boolean) => boolean
@@ -126,6 +131,15 @@ declare global {
       simulateStaleCmFocusedAfterFlush: () => boolean
       scrollEditorPageVertically: (deltaY: number) => boolean
       blurActiveElement: () => void
+      countCodeBlocks: () => number
+      probeBlockCaret: (blockIndex: number) => QaCodeBlockCaretProbe
+      scrollBlockOffScreen: (blockIndex: number) => boolean
+      getActiveCodeBlockIndex: () => number | null
+      /** Place PM caret at end of the paragraph immediately before code block N. */
+      focusPmEndBeforeCodeBlock: (blockIndex: number) => boolean
+      toggleCodeBlockWithFocus: () => boolean
+      focusCodeBlockAtIndex: (blockIndex: number) => boolean
+      focusQaParagraph: (label: 'above' | 'below') => boolean
     }
   }
 }
@@ -133,6 +147,11 @@ declare global {
 const SAMPLE = ['const hello = 1', 'function add(a: number, b: number) {', '  return a + b', '}', '暗示的款'].join(
   '\n',
 )
+
+const SAMPLE_B = ['// second block', 'export const beta = 2', 'console.log(beta)'].join('\n')
+
+const COMPACT_SAMPLE_A = ['line one', 'line two', 'line three'].join('\n')
+const COMPACT_SAMPLE_B = ['second one', 'second two', 'second three'].join('\n')
 
 const SCROLL_FILLER_BEFORE = Array.from({ length: 18 }, (_, i) => ({
   type: 'paragraph' as const,
@@ -143,6 +162,71 @@ const SCROLL_FILLER = Array.from({ length: 24 }, (_, i) => ({
   type: 'paragraph' as const,
   content: [{ type: 'text' as const, text: `Scroll filler line ${i + 1}. `.repeat(6) }],
 }))
+
+const SCROLL_FILLER_BETWEEN = Array.from({ length: 10 }, (_, i) => ({
+  type: 'paragraph' as const,
+  content: [{ type: 'text' as const, text: `Between blocks filler ${i + 1}. `.repeat(6) }],
+}))
+
+function resolveCodeBlockWrap(index: number): HTMLElement | null {
+  const wraps = document.querySelectorAll('[data-luna-code-block-wrap]')
+  const wrap = wraps.item(index)
+  return wrap instanceof HTMLElement ? wrap : null
+}
+
+function resolveScrollHost(): HTMLElement | null {
+  return (
+    (document.querySelector('[data-testid="qa-editor-scroll-host"]') as HTMLElement | null) ??
+    (document.querySelector('.preview-pane.markdown-visual-editor') as HTMLElement | null)
+  )
+}
+
+export type QaCodeBlockCaretProbe = {
+  blockIndex: number
+  cmFocusedClass: boolean
+  staleCmFocusedChrome: boolean
+  cmHasFocus: boolean
+  cmCursorCount: number
+  cmCursorVisibility: string | null
+  cmContentCaretColor: string
+  activeInBlock: boolean
+  blockInView: boolean
+  activeElementSummary: string
+}
+
+function probeCodeBlockWrapCaret(blockIndex: number): QaCodeBlockCaretProbe {
+  const wrap = resolveCodeBlockWrap(blockIndex)
+  const cmEditor = wrap?.querySelector('.pm-code-block-cm .cm-editor') as HTMLElement | null
+  const cmCursor = wrap?.querySelector('.pm-code-block-cm .cm-cursor') as HTMLElement | null
+  const cmContent = wrap?.querySelector('.pm-code-block-cm .cm-content') as HTMLElement | null
+  const scrollHost = resolveScrollHost()
+  const hostRect = scrollHost?.getBoundingClientRect()
+  const wrapRect = wrap?.getBoundingClientRect()
+  const active = document.activeElement
+  const cmView = getCodeBlockCmViewInWrap(wrap)
+  const activeInBlock =
+    Boolean(active instanceof HTMLElement && wrap?.contains(active)) || Boolean(cmView?.hasFocus)
+  return {
+    blockIndex,
+    cmFocusedClass: cmEditor?.classList.contains('cm-focused') ?? false,
+    staleCmFocusedChrome: Boolean(
+      wrap?.querySelector('.pm-code-block-cm .cm-editor.cm-focused:not(:focus-within)'),
+    ),
+    cmHasFocus: activeInBlock,
+    cmCursorCount: wrap?.querySelectorAll('.pm-code-block-cm .cm-cursor').length ?? 0,
+    cmCursorVisibility: cmCursor ? getComputedStyle(cmCursor).visibility : null,
+    cmContentCaretColor: cmContent ? getComputedStyle(cmContent).caretColor : '',
+    activeInBlock,
+    blockInView:
+      Boolean(hostRect && wrapRect) &&
+      wrapRect!.bottom > hostRect!.top &&
+      wrapRect!.top < hostRect!.bottom,
+    activeElementSummary:
+      active instanceof HTMLElement
+        ? `${active.tagName.toLowerCase()}${active.className ? `.${active.className.split(/\s+/).slice(0, 2).join('.')}` : ''}`
+        : String(active?.nodeName ?? 'none'),
+  }
+}
 
 const QA_BOOTSTRAP = {
   mergedMessages: getLocaleMessagesSnapshot('en'),
@@ -171,8 +255,37 @@ function readBlock(editor: NonNullable<ReturnType<typeof useEditor>>) {
 function QaCodeBlockCmInner() {
   const [status, setStatus] = useState('booting')
   const cmEnabled = isCodeBlockCmEnabled()
+  const multiBlock = useMemo(
+    () => new URLSearchParams(window.location.search).get('blocks') === '2',
+    [],
+  )
+  const compact = useMemo(
+    () => new URLSearchParams(window.location.search).get('compact') === '1',
+    [],
+  )
   const content = useMemo(
-    () => ({
+    () => {
+      if (multiBlock && compact) {
+        return {
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'Paragraph above code block.' }] },
+            {
+              type: 'codeBlock',
+              attrs: { language: 'typescript' },
+              content: [{ type: 'text', text: COMPACT_SAMPLE_A }],
+            },
+            { type: 'paragraph', content: [{ type: 'text', text: 'Between blocks.' }] },
+            {
+              type: 'codeBlock',
+              attrs: { language: 'javascript' },
+              content: [{ type: 'text', text: COMPACT_SAMPLE_B }],
+            },
+            { type: 'paragraph', content: [{ type: 'text', text: 'Paragraph below.' }] },
+          ],
+        }
+      }
+      return {
       type: 'doc',
       content: [
         { type: 'paragraph', content: [{ type: 'text', text: 'Paragraph above code block.' }] },
@@ -182,11 +295,22 @@ function QaCodeBlockCmInner() {
           attrs: { language: 'typescript' },
           content: [{ type: 'text', text: SAMPLE }],
         },
+        ...(multiBlock
+          ? [
+              ...SCROLL_FILLER_BETWEEN,
+              {
+                type: 'codeBlock',
+                attrs: { language: 'javascript' },
+                content: [{ type: 'text', text: SAMPLE_B }],
+              },
+            ]
+          : []),
         { type: 'paragraph', content: [{ type: 'text', text: 'Paragraph below.' }] },
         ...SCROLL_FILLER,
       ],
-    }),
-    [],
+    }
+    },
+    [compact, multiBlock],
   )
 
   const editor = useEditor({
@@ -224,6 +348,19 @@ function QaCodeBlockCmInner() {
       pmLineCount: () => readBlock(editor).lineCount,
       pmText: () => readBlock(editor).text,
       cmText: () => {
+        const root = document.querySelector('.pm-code-block-cm-root') as
+          | {
+              __lunaCmView?: {
+                state?: {
+                  doc?: {
+                    toString?: () => string
+                  }
+                }
+              }
+            }
+          | null
+        const live = root?.__lunaCmView?.state?.doc?.toString?.()
+        if (typeof live === 'string') return live
         const lines = document.querySelectorAll('.pm-code-block-cm .cm-line')
         if (lines.length === 0) return null
         return Array.from(lines)
@@ -302,7 +439,7 @@ function QaCodeBlockCmInner() {
           let coloredSpanCount = 0
           let highlightClassSpanCount = 0
           for (const line of lines) {
-            for (const span of line.querySelectorAll('span')) {
+            for (const span of Array.from(line.querySelectorAll('span'))) {
               lineSpanCount += 1
               const cls = span.className
               if (typeof cls === 'string' && (cls.includes('ͼ') || cls.includes('tok-'))) {
@@ -414,11 +551,24 @@ function QaCodeBlockCmInner() {
             : String(active?.nodeName ?? 'none')
 
         let pmSelectionEmpty = true
+        let pmSelectionOutsideCodeBlock = false
         try {
           const view = editor?.view
-          if (view) pmSelectionEmpty = view.state.selection.empty
+          if (view) {
+            pmSelectionEmpty = view.state.selection.empty
+            const { $from } = view.state.selection
+            let inCodeBlock = false
+            for (let depth = $from.depth; depth > 0; depth -= 1) {
+              if ($from.node(depth).type.name === 'codeBlock') {
+                inCodeBlock = true
+                break
+              }
+            }
+            pmSelectionOutsideCodeBlock = !inCodeBlock
+          }
         } catch {
           pmSelectionEmpty = true
+          pmSelectionOutsideCodeBlock = false
         }
 
         return {
@@ -443,6 +593,7 @@ function QaCodeBlockCmInner() {
           pmSoftLocked: editor ? isPmLockedForCodeBlockCm(editor) : false,
           activeElementSummary,
           pmSelectionEmpty,
+          pmSelectionOutsideCodeBlock,
         }
       },
       scrollUntilCodeBlockOffScreen: (direction: 'up' | 'down') => {
@@ -489,6 +640,75 @@ function QaCodeBlockCmInner() {
       blurActiveElement: () => {
         const active = document.activeElement
         if (active instanceof HTMLElement) active.blur()
+      },
+      countCodeBlocks: () => document.querySelectorAll('[data-luna-code-block-wrap]').length,
+      probeBlockCaret: (blockIndex: number) => probeCodeBlockWrapCaret(blockIndex),
+      scrollBlockOffScreen: (blockIndex: number) => {
+        const host = resolveScrollHost()
+        const wrap = resolveCodeBlockWrap(blockIndex)
+        if (!host || !wrap) return false
+        if (blockIndex === 0) {
+          host.scrollTop = 0
+        } else {
+          host.scrollTop = host.scrollHeight
+        }
+        const hostRect = host.getBoundingClientRect()
+        const wrapRect = wrap.getBoundingClientRect()
+        return !(wrapRect.bottom > hostRect.top && wrapRect.top < hostRect.bottom)
+      },
+      getActiveCodeBlockIndex: () => {
+        const active = document.activeElement
+        if (!(active instanceof HTMLElement)) return null
+        const wraps = document.querySelectorAll('[data-luna-code-block-wrap]')
+        for (let i = 0; i < wraps.length; i += 1) {
+          if (wraps.item(i)?.contains(active)) return i
+        }
+        return null
+      },
+      focusPmEndBeforeCodeBlock: (blockIndex: number) => {
+        const blockPositions: number[] = []
+        editor.state.doc.descendants((node, pos) => {
+          if (node.type.name === 'codeBlock') blockPositions.push(pos)
+        })
+        const blockPos = blockPositions[blockIndex]
+        if (blockPos == null) return false
+        const $block = editor.state.doc.resolve(blockPos)
+        const indexInParent = $block.index($block.depth)
+        if (indexInParent <= 0) return false
+        const prev = $block.parent.child(indexInParent - 1)
+        if (!prev.type.isTextblock) return false
+        const paraStart = blockPos - prev.nodeSize
+        const end = paraStart + 1 + prev.content.size
+        return editor.chain().focus().setTextSelection(end).scrollIntoView().run()
+      },
+      toggleCodeBlockWithFocus: () => toggleCodeBlockWithFocusAndLog(editor),
+      focusCodeBlockAtIndex: (blockIndex: number) => {
+        const blockPositions: number[] = []
+        editor.state.doc.descendants((node, pos) => {
+          if (node.type.name === 'codeBlock') blockPositions.push(pos)
+        })
+        const blockPos = blockPositions[blockIndex]
+        if (blockPos == null) return false
+        editor.chain().focus().setTextSelection(blockPos + 1).scrollIntoView().run()
+        try {
+          const wrap = editor.view.nodeDOM(blockPos) as HTMLElement | null
+          if (!wrap?.matches('[data-luna-code-block-wrap]')) return false
+          requestCodeBlockCmEdit(wrap)
+          return true
+        } catch {
+          return false
+        }
+      },
+      focusQaParagraph: (label: 'above' | 'below') => {
+        const targetText = label === 'above' ? 'Paragraph above code block.' : 'Paragraph below.'
+        let focused = false
+        editor.state.doc.descendants((node, pos) => {
+          if (focused || node.type.name !== 'paragraph') return
+          if (node.textContent !== targetText) return
+          editor.chain().focus().setTextSelection(pos + 1).run()
+          focused = true
+        })
+        return focused
       },
     }
 

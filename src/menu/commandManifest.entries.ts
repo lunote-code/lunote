@@ -81,7 +81,7 @@ export const COMMAND_MANIFEST_LIST: readonly CommandManifestEntry[] = Object.fre
     ui: M({ palette: true, paletteKeywords: ['template', '模板', 'settings', '设置', 'preferences'] }),
   }),
   def('file-open-file', 'menu.file.openFile', { accelerator: 'Mod+o' }),
-  def('open-folder', 'menu.file.openFolder', { ui: M({ toolbar: true, toolbarSlot: 'sidebar-header' }) }),
+  def('open-folder', 'menu.file.openFolder', { ui: M({ palette: true, paletteKeywords: ['folder', 'workspace', '打开', '文件夹'] }) }),
   def('file-recent-placeholder', 'menu.file.recent'),
   def('file-clear-recent', 'menu.file.clearRecent', {
     group: 'file',
@@ -282,12 +282,18 @@ export const COMMAND_MANIFEST_LIST: readonly CommandManifestEntry[] = Object.fre
   }),
   def('view-zoom-in', 'menu.view.zoomIn', { accelerator: 'Mod+=', runtime: 'menu' }),
   def('view-zoom-out', 'menu.view.zoomOut', { accelerator: 'Mod+-', runtime: 'menu' }),
-  def('toggle-sidebar', 'menu.view.sidebar', { ui: M({ palette: true }) }),
+  def('toggle-sidebar', 'menu.view.sidebar', {
+    accelerator: 'Mod+Shift+b',
+    ui: M({ palette: true, paletteKeywords: ['sidebar', '侧栏', '侧边栏'] }),
+  }),
   def('view-sidebar-outline', 'menu.view.outline', {
     action: 'toggle-sidebar-outline',
     ui: M({ palette: true, toolbar: true, toolbarSlot: 'sidebar-header' }),
   }),
-  def('view-sidebar-files', 'menu.view.docList', { action: 'toggle-sidebar-files' }),
+  def('view-sidebar-files', 'menu.view.docList', {
+    action: 'toggle-sidebar-files',
+    ui: M({ palette: true, toolbar: true, toolbarSlot: 'sidebar-header' }),
+  }),
   def('view-search', 'menu.view.search', {
     accelerator: 'Mod+Shift+f',
     action: 'view-search',

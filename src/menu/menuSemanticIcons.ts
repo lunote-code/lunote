@@ -127,7 +127,7 @@ export const MENU_COMMAND_SEMANTIC_ICONS: Partial<Record<string, SemanticIconNam
   'toggle-focus': 'focus',
   'toggle-sidebar': 'sidebar-open',
   'view-sidebar-outline': 'outline',
-  'view-sidebar-files': 'list',
+  'view-sidebar-files': 'files',
   'view-search': 'search',
   'view-word-count': 'word-count',
   'view-zoom-in': 'zoom-in',

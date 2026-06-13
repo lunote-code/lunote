@@ -1,6 +1,7 @@
 import type { RefObject } from 'react'
 import { useI18n } from '../../i18n'
 import { useClampedMenuPosition } from '../../lib/useClampedMenuPosition'
+import { FileContextMenuItem } from './FileContextMenuItem'
 import type { TabContextMenuPick } from '../workspace/contextMenuTypes'
 
 export function TabContextMenu({
@@ -27,24 +28,25 @@ export function TabContextMenu({
       style={{ left: menuX, top: menuY }}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('close', path, index)}>
-        {t('ctx.tab.close')}
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        className="file-ctx-item"
+      <FileContextMenuItem icon="close" label={t('ctx.tab.close')} onClick={() => onPick('close', path, index)} />
+      <FileContextMenuItem
+        icon="files"
+        label={t('ctx.tab.closeOthers')}
         disabled={!canCloseOthers}
         onClick={() => onPick('closeOthers', path, index)}
-      >
-        {t('ctx.tab.closeOthers')}
-      </button>
-      <button type="button" role="menuitem" className="file-ctx-item" disabled={!hasLeft} onClick={() => onPick('closeLeft', path, index)}>
-        {t('ctx.tab.closeLeft')}
-      </button>
-      <button type="button" role="menuitem" className="file-ctx-item" disabled={!hasRight} onClick={() => onPick('closeRight', path, index)}>
-        {t('ctx.tab.closeRight')}
-      </button>
+      />
+      <FileContextMenuItem
+        icon="chevron-left"
+        label={t('ctx.tab.closeLeft')}
+        disabled={!hasLeft}
+        onClick={() => onPick('closeLeft', path, index)}
+      />
+      <FileContextMenuItem
+        icon="chevron-right"
+        label={t('ctx.tab.closeRight')}
+        disabled={!hasRight}
+        onClick={() => onPick('closeRight', path, index)}
+      />
     </div>
   )
 }

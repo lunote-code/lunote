@@ -1,4 +1,4 @@
-import { defaultKeymap, deleteCharBackward, deleteCharForward, redo, selectAll, undo } from '@codemirror/commands'
+import { defaultKeymap, deleteCharBackward, deleteCharForward, history, redo, selectAll, undo } from '@codemirror/commands'
 import { Compartment, EditorState, type Extension } from '@codemirror/state'
 import { EditorView, drawSelection, highlightActiveLine, keymap, lineNumbers } from '@codemirror/view'
 
@@ -98,6 +98,7 @@ export type CreateCodeBlockCmExtensionsArgs = {
 export function createCodeBlockCmBaseExtensions(args: CreateCodeBlockCmExtensionsArgs): Extension[] {
   const tabSize = args.tabSize ?? 4
   const exts: Extension[] = [
+    history(),
     lineNumbers(),
     drawSelection(),
     highlightActiveLine(),
@@ -107,6 +108,33 @@ export function createCodeBlockCmBaseExtensions(args: CreateCodeBlockCmExtension
     EditorView.contentAttributes.of({ class: 'pm-code-block-cm-content', spellcheck: 'false' }),
     EditorState.tabSize.of(tabSize),
     EditorView.domEventHandlers({
+      keydown(event) {
+        const isUndo = (event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'z'
+        const isRedo =
+          (event.metaKey || event.ctrlKey) &&
+          ((event.shiftKey && event.key.toLowerCase() === 'z') || event.key.toLowerCase() === 'y')
+        if (isUndo) {
+          event.preventDefault()
+          return args.onUndo?.() ?? true
+        }
+        if (isRedo) {
+          event.preventDefault()
+          return args.onRedo?.() ?? true
+        }
+        return false
+      },
+      beforeinput(event) {
+        const inputType = (event as InputEvent).inputType
+        if (inputType === 'historyUndo') {
+          event.preventDefault()
+          return args.onUndo?.() ?? true
+        }
+        if (inputType === 'historyRedo') {
+          event.preventDefault()
+          return args.onRedo?.() ?? true
+        }
+        return false
+      },
       focus() {
         args.onFocus?.()
       },

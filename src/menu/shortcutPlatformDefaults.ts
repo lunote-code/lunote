@@ -97,6 +97,7 @@ export const MENU_CONFIGURABLE_SHORTCUT_IDS = [
   'para-table-insert',
   'para-math-block',
   'toggle-source-mode',
+  'toggle-sidebar',
   'toggle-focus',
   'command-palette-open',
   'view-search',
@@ -202,6 +203,7 @@ export const SHORTCUT_PREF_SECTIONS: ReadonlyArray<{
     labelKey: 'settings.shortcuts.group.view',
     commandIds: [
       'toggle-source-mode',
+      'toggle-sidebar',
       'toggle-focus',
       'command-palette-open',
       'view-search',

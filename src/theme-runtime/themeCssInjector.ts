@@ -50,6 +50,12 @@ const APPLIED_VARIABLES = [
   '--surface-elevated',
   '--shadow-soft',
   '--shadow-panel',
+  '--code-bg',
+  '--code-gutter-fg',
+  '--code-gutter-bg',
+  '--code-lang-fg',
+  '--code-lang-bg',
+  '--inline-code-bg',
 ] as const
 
 export type ApplyThemeCssOptions = {
@@ -67,6 +73,35 @@ function translucent(hexOrColor: string, alpha: number): string {
   const g = Number.parseInt(hex.slice(2, 4), 16)
   const b = Number.parseInt(hex.slice(4, 6), 16)
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+function parseHexRgb(value: string): [number, number, number] | null {
+  if (!value.startsWith('#')) return null
+  const hex = value.slice(1)
+  if (hex.length !== 6) return null
+  const r = Number.parseInt(hex.slice(0, 2), 16)
+  const g = Number.parseInt(hex.slice(2, 4), 16)
+  const b = Number.parseInt(hex.slice(4, 6), 16)
+  if ([r, g, b].some((v) => Number.isNaN(v))) return null
+  return [r, g, b]
+}
+
+function toHex([r, g, b]: [number, number, number]): string {
+  return `#${[r, g, b]
+    .map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
+function mixHex(base: string, target: string, ratio: number): string {
+  const a = parseHexRgb(base)
+  const b = parseHexRgb(target)
+  if (!a || !b) return base
+  const t = Math.max(0, Math.min(1, ratio))
+  return toHex([
+    a[0] + (b[0] - a[0]) * t,
+    a[1] + (b[1] - a[1]) * t,
+    a[2] + (b[2] - a[2]) * t,
+  ])
 }
 
 function escapeCssString(value: string): string {
@@ -108,6 +143,10 @@ function buildThemeTokenStylesheet(
   const hover = translucent(colors.foreground, 0.08)
   const legacy = bridgeLegacyCSSVariables(compatibleTheme)
   const shadows = shadowTokensForMode(mode)
+  const codeBg = mixHex(colors.background, colors.foreground, mode === 'light' ? 0.03 : 0.1)
+  const codeGutterBg = mixHex(codeBg, colors.foreground, mode === 'light' ? 0.06 : 0.14)
+  const codeGutterFg = mixHex(colors.foreground, colors.background, mode === 'light' ? 0.35 : 0.28)
+  const inlineCodeBg = mixHex(codeBg, colors.foreground, mode === 'light' ? 0.05 : 0.12)
 
   const vars: Record<string, string> = {
     '--color-bg-surface': colors.background,
@@ -151,6 +190,16 @@ function buildThemeTokenStylesheet(
     '--surface-elevated': panel,
     '--shadow-soft': shadows.soft,
     '--shadow-panel': shadows.panel,
+    ...(!theme.builtIn
+      ? {
+          '--code-bg': codeBg,
+          '--code-gutter-fg': codeGutterFg,
+          '--code-gutter-bg': codeGutterBg,
+          '--code-lang-fg': codeGutterFg,
+          '--code-lang-bg': codeGutterBg,
+          '--inline-code-bg': inlineCodeBg,
+        }
+      : {}),
   }
 
   const body = Object.entries(vars)

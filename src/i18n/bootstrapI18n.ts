@@ -4,7 +4,7 @@ import {
 } from '../settings/appSettingsStore'
 import type { AppLanguageSetting } from '../settings/appSettingsTypes'
 import { mergeMessages, warmLocale, type MessageDictionary } from './loadMessages'
-import { getEnMessagesSnapshot, getLocaleRawSnapshot } from './localeRegistry'
+import { getEnMessagesSnapshot, ensureLocaleRawLoaded } from './localeRegistry'
 import { FALLBACK_LOCALE, resolveEffectiveUiLocale, type UiLocaleId } from './resolveLocale'
 import { readTauriOsLocaleTag } from './systemLocale'
 
@@ -44,7 +44,7 @@ export async function bootstrapI18n(): Promise<I18nBootstrap> {
 
   const enMessages = getEnMessagesSnapshot()
   const rawLocale =
-    effectiveLocale === 'en' ? enMessages : getLocaleRawSnapshot(effectiveLocale)
+    effectiveLocale === 'en' ? enMessages : await ensureLocaleRawLoaded(effectiveLocale)
   const primary = await warmLocale(effectiveLocale)
   const fallback = await warmLocale(FALLBACK_LOCALE)
   const mergedMessages = mergeMessages(fallback, primary)

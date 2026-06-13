@@ -8,6 +8,7 @@ import {
   resolveCodeBlockInputPolicy,
 } from '../boundary'
 import { deleteInActiveCodeBlockCm, deleteInFocusedCodeBlockCm } from '../cm/codeBlockCmFocus'
+import { replaceEmptyCodeBlockWithParagraph } from '../cm/codeBlockCmSync'
 import { resolveCodeBlockTextRange } from '../behavior/selection'
 import { isPosInsideCodeSpecBlock } from '../../lunaCodeContext'
 import { isMermaidSourceKeyboardActive } from '../../mermaid/mermaidSourceDom'
@@ -83,15 +84,7 @@ export const LunaCodeFenceGuard = Extension.create({
         const block = state.doc.nodeAt(blockPos)
         if (!block || block.type.name !== 'codeBlock') return false
         if (block.textContent.length > 0) return false
-        const para = state.schema.nodes.paragraph
-        if (!para) return false
-        const parent = $from.node($from.depth - 1)
-        const index = $from.index($from.depth - 1)
-        if (!parent.canReplaceWith(index, index + 1, para)) return false
-        const tr = state.tr.replaceWith(blockPos, blockPos + block.nodeSize, para.create())
-        tr.setSelection(TextSelection.create(tr.doc, blockPos + 1)).scrollIntoView()
-        editor.view.dispatch(tr)
-        return true
+        return replaceEmptyCodeBlockWithParagraph(editor, blockPos)
       },
       Delete: ({ editor }) => {
         const { $from } = editor.state.selection
@@ -116,15 +109,7 @@ export const LunaCodeFenceGuard = Extension.create({
         const block = state.doc.nodeAt(blockPos)
         if (!block || block.type.name !== 'codeBlock') return false
         if (block.textContent.length > 0) return false
-        const para = state.schema.nodes.paragraph
-        if (!para) return false
-        const parent = $from.node($from.depth - 1)
-        const index = $from.index($from.depth - 1)
-        if (!parent.canReplaceWith(index, index + 1, para)) return false
-        const tr = state.tr.replaceWith(blockPos, blockPos + block.nodeSize, para.create())
-        tr.setSelection(TextSelection.create(tr.doc, blockPos + 1)).scrollIntoView()
-        editor.view.dispatch(tr)
-        return true
+        return replaceEmptyCodeBlockWithParagraph(editor, blockPos)
       },
       Enter: ({ editor }) => {
         const { $from } = editor.state.selection

@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react'
+
+import { SettingsButton } from './settings'
 import { useFocusTrap } from '../lib/useFocusTrap'
 
 export type AlertDialogProps = {
@@ -50,14 +52,14 @@ export function AlertDialog({ open, title, message, okLabel, onClose }: AlertDia
         <p id="alert-dialog-desc" className="about-modal-desc confirm-modal-desc alert-modal-desc">
           {message}
         </p>
-        <button
+        <SettingsButton
           ref={okButtonRef}
-          type="button"
-          className="about-modal-close confirm-modal-single-ok"
+          variant="primary"
+          className="confirm-modal-single-ok"
           onClick={onClose}
         >
           {okLabel}
-        </button>
+        </SettingsButton>
       </div>
     </div>
   )

@@ -28,6 +28,11 @@ export const LunaListTypora = Extension.create({
             return false
           }
           if (n.type.name === 'listItem') {
+            // Keep caret inside the list: merge into the previous item when possible.
+            // Lifting only when this is the first item (Typora-style exit).
+            if (editor.commands.joinItemBackward()) {
+              return true
+            }
             return editor.commands.liftListItem('listItem')
           }
         }

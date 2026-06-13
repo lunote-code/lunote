@@ -268,3 +268,78 @@ pub fn save_custom_theme_json(
   crate::core::atomic_io::atomic_write(&path, &data).map_err(|e| e.to_string())?;
   Ok(path.to_string_lossy().to_string())
 }
+
+#[tauri::command]
+pub fn save_theme_stylesheet(
+  app: AppHandle,
+  payload: SaveCustomThemePayload,
+) -> Result<String, String> {
+  validate_theme_basename(&payload.file_name)?;
+  prepare_theme_dirs(&app)?;
+  let dir = theme_styles_dir(&app)?;
+  let path = dir.join(&payload.file_name);
+  let data = payload.content.into_bytes();
+  crate::core::security::ensure_json_payload_size(&data, "Theme stylesheet")?;
+  crate::core::atomic_io::atomic_write(&path, &data).map_err(|e| e.to_string())?;
+  Ok(path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn save_theme_snippet(
+  app: AppHandle,
+  payload: SaveCustomThemePayload,
+) -> Result<String, String> {
+  validate_theme_basename(&payload.file_name)?;
+  prepare_theme_dirs(&app)?;
+  let dir = theme_snippets_dir(&app)?;
+  let path = dir.join(&payload.file_name);
+  let data = payload.content.into_bytes();
+  crate::core::security::ensure_json_payload_size(&data, "Theme snippet")?;
+  crate::core::atomic_io::atomic_write(&path, &data).map_err(|e| e.to_string())?;
+  Ok(path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn save_theme_export_style(
+  app: AppHandle,
+  payload: SaveCustomThemePayload,
+) -> Result<String, String> {
+  validate_theme_basename(&payload.file_name)?;
+  prepare_theme_dirs(&app)?;
+  let dir = theme_export_dir(&app)?;
+  let path = dir.join(&payload.file_name);
+  let data = payload.content.into_bytes();
+  crate::core::security::ensure_json_payload_size(&data, "Export style")?;
+  crate::core::atomic_io::atomic_write(&path, &data).map_err(|e| e.to_string())?;
+  Ok(path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn delete_theme_stylesheet(app: AppHandle, name: String) -> Result<(), String> {
+  validate_theme_basename(&name)?;
+  let path = theme_styles_dir(&app)?.join(&name);
+  if path.is_file() {
+    fs::remove_file(&path).map_err(|e| format!("Failed to delete theme stylesheet: {e}"))?;
+  }
+  Ok(())
+}
+
+#[tauri::command]
+pub fn delete_theme_snippet(app: AppHandle, name: String) -> Result<(), String> {
+  validate_theme_basename(&name)?;
+  let path = theme_snippets_dir(&app)?.join(&name);
+  if path.is_file() {
+    fs::remove_file(&path).map_err(|e| format!("Failed to delete theme snippet: {e}"))?;
+  }
+  Ok(())
+}
+
+#[tauri::command]
+pub fn delete_custom_theme_json(app: AppHandle, name: String) -> Result<(), String> {
+  validate_custom_theme_basename(&name)?;
+  let path = theme_tokens_dir(&app)?.join(&name);
+  if path.is_file() {
+    fs::remove_file(&path).map_err(|e| format!("Failed to delete custom theme: {e}"))?;
+  }
+  Ok(())
+}

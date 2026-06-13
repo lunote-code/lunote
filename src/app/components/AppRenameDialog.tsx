@@ -1,5 +1,6 @@
 import { useRef, type RefObject } from 'react'
 
+import { SettingsButton } from '../../components/settings'
 import type { TranslateFn } from '../../i18n'
 import { WorkspaceTemplateSelect } from '../../templates/workspaceTemplateSelect'
 import { useImeCompositionGuard } from '../../lib/keyboardIme'
@@ -36,7 +37,7 @@ export function AppRenameDialog({
   const renameCancelButtonRef = useRef<HTMLButtonElement | null>(null)
 
   useFocusTrap(Boolean(renameDialog), renameDialogRef.current, {
-    initialFocus: renameInputRef.current ?? renameCancelButtonRef.current,
+    initialFocusRef: renameInputRef,
     onEscape: renameSubmitting ? undefined : onRenameClose,
   })
 
@@ -120,23 +121,21 @@ export function AppRenameDialog({
               : 'rename-modal-actions'
           }
         >
-          <button
+          <SettingsButton
             ref={renameCancelButtonRef}
-            type="button"
-            className="about-modal-close rename-modal-cancel"
+            variant="secondary"
             disabled={renameSubmitting}
             onClick={onRenameClose}
           >
             {t('app.rename.cancel')}
-          </button>
-          <button
-            type="button"
-            className="about-modal-close"
+          </SettingsButton>
+          <SettingsButton
+            variant="primary"
             disabled={renameSubmitting}
             onClick={() => void onRenameSubmit()}
           >
             {renameSubmitting ? t('app.rename.submitting') : t('app.rename.submit')}
-          </button>
+          </SettingsButton>
         </div>
       </div>
     </div>

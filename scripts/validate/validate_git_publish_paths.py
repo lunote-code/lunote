@@ -67,8 +67,6 @@ def tracked_files() -> list[str]:
 
 def is_forbidden(path: str) -> bool:
     normalized = path.replace("\\", "/")
-    if normalized == ".env.example":
-        return False
     for prefix in FORBIDDEN_PREFIXES:
         if normalized == prefix.rstrip("/") or normalized.startswith(prefix):
             return True

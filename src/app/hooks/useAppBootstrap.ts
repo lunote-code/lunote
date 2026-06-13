@@ -90,7 +90,7 @@ export function useAppBootstrap(deps: AppBootstrapDeps) {
           console.info('[LAUNCH] workspace_restore aborted (cancelled after ensureLunaDirs)', { generation })
           return
         }
-        await hydrateAppSettingsStore({ force: true })
+        await hydrateAppSettingsStore()
         if (cancelled) {
           console.info('[LAUNCH] workspace_restore aborted (cancelled after settings hydrate)', { generation })
           return

@@ -51,13 +51,9 @@ export type AppEditorMainProps = {
   editorBodyFocused: boolean
   setEditorBodyFocused: Dispatch<SetStateAction<boolean>>
   focusMode: boolean
-  sidebarVisible: boolean
-  setSidebarVisible: Dispatch<SetStateAction<boolean>>
   activePath: string
   workspaceFolderName: string
   tabLabel: (path: string) => string
-  activeDocumentTitle: string
-  activeDocumentSubtitle: string
   setFocusMode: Dispatch<SetStateAction<boolean>>
   sidebarListMode: 'files' | 'outline'
   rootDir: string
@@ -127,13 +123,8 @@ export function AppEditorMain(props: AppEditorMainProps) {
     editorBodyFocused,
     setEditorBodyFocused,
     focusMode,
-    sidebarVisible,
-    setSidebarVisible,
     activePath,
-    workspaceFolderName,
     tabLabel,
-    activeDocumentTitle,
-    activeDocumentSubtitle,
     setFocusMode,
     sidebarListMode,
     rootDir,
@@ -224,64 +215,6 @@ export function AppEditorMain(props: AppEditorMainProps) {
           data-mode={mainPaneMode === 'source' ? 'source' : 'preview'}
         >
         {!focusMode && (
-          <header className="editor-header view-header">
-            <div className="editor-header-left">
-              {!sidebarVisible && (
-              <button
-                className="icon-btn ghost-btn"
-                onClick={() => setSidebarVisible(true)}
-                title={t('app.sidebar.show')}
-                aria-label={t('app.sidebar.show')}
-              >
-                  <Icon name="sidebar-open" size="md" />
-                </button>
-              )}
-              <div className="editor-document-heading" title={activePath ? tabLabel(activePath) : workspaceFolderName}>
-                <span className="editor-document-title">{activeDocumentTitle}</span>
-                <span className="editor-document-subtitle">{activeDocumentSubtitle}</span>
-              </div>
-            </div>
-            <div className="editor-header-right">
-              <button
-                className="icon-btn ghost-btn"
-                onClick={() => {
-                  setFocusMode(true)
-                }}
-                title={`${t('app.focusMode.title')} (${formatCommandShortcutDisplay('toggle-focus')})`}
-                aria-label={t('app.focusMode.title')}
-              >
-                <Icon name="focus" size="md" />
-              </button>
-              {rootDir && (
-                <button
-                  ref={graphButtonRef}
-                  type="button"
-                  className={`icon-btn ghost-btn${knowledgeRailVisible ? ' icon-btn-active' : ''}`}
-                  onClick={() => {
-                    dismissGraphToolbarHint()
-                    setKnowledgeRailVisible((v) => !v)
-                  }}
-                  title={
-                    knowledgeRailVisible ? t('app.knowledge.hidePanel') : t('app.knowledge.showPanel')
-                  }
-                  aria-pressed={knowledgeRailVisible}
-                  aria-label={
-                    knowledgeRailVisible ? t('app.knowledge.hidePanel') : t('app.knowledge.showPanel')
-                  }
-                >
-                  <Icon name="graph" size="md" stroke="strong" />
-                </button>
-              )}
-            </div>
-          </header>
-        )}
-        <KnowledgeGraphToolbarHint
-          t={t}
-          anchorRef={graphButtonRef}
-          open={showGraphToolbarHint}
-          onDismiss={dismissGraphToolbarHint}
-        />
-        {!focusMode && openedTabs.length > 0 && (
           <EditorTabBar
             t={t}
             openedTabs={openedTabs}
@@ -292,8 +225,51 @@ export function AppEditorMain(props: AppEditorMainProps) {
             onClose={closeTab}
             onReorder={onReorderOpenedTabs}
             onContextMenu={onTabContextMenu}
+            trailingActions={
+              <>
+                <button
+                  type="button"
+                  className="luna-chrome-icon-btn editor-chrome-action-btn"
+                  onClick={() => {
+                    setFocusMode(true)
+                  }}
+                  title={`${t('app.focusMode.title')} (${formatCommandShortcutDisplay('toggle-focus')})`}
+                  aria-label={t('app.focusMode.title')}
+                  data-testid="editor-focus-toggle"
+                >
+                  <Icon name="focus" size="sm" stroke="strong" />
+                </button>
+                {rootDir ? (
+                  <button
+                    ref={graphButtonRef}
+                    type="button"
+                    className={`luna-chrome-icon-btn editor-chrome-action-btn${knowledgeRailVisible ? ' luna-chrome-icon-btn--active' : ''}`}
+                    onClick={() => {
+                      dismissGraphToolbarHint()
+                      setKnowledgeRailVisible((v) => !v)
+                    }}
+                    title={
+                      knowledgeRailVisible ? t('app.knowledge.hidePanel') : t('app.knowledge.showPanel')
+                    }
+                    aria-pressed={knowledgeRailVisible}
+                    aria-label={
+                      knowledgeRailVisible ? t('app.knowledge.hidePanel') : t('app.knowledge.showPanel')
+                    }
+                    data-testid="editor-knowledge-toggle"
+                  >
+                    <Icon name="graph" size="sm" stroke="strong" />
+                  </button>
+                ) : null}
+              </>
+            }
           />
         )}
+        <KnowledgeGraphToolbarHint
+          t={t}
+          anchorRef={graphButtonRef}
+          open={showGraphToolbarHint}
+          onDismiss={dismissGraphToolbarHint}
+        />
         {!focusMode && !showEmptyState && mainPaneMode === 'visual' && openedTabs.length > 0 ? (
           <EditorFormatToolbar
             t={t}

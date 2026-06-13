@@ -2,6 +2,7 @@ import type { Editor } from '@tiptap/core'
 import type { EditorView } from '@tiptap/pm/view'
 
 import type { CodeBlockBoundarySession } from './codeBlockBoundarySession'
+import { exitAllCodeBlockEditingForView } from './codeBlockSessionRegistry'
 
 type BlockPos = number
 
@@ -72,6 +73,7 @@ export function isAnyCodeBlockFoldTransitionActive(editor: Editor): boolean {
 /** Cancel blur suppress / pending blur-exit when the user clicks outside CM into body text. */
 export function prepareCodeBlockCmExitForOutsideClick(view: EditorView): void {
   const map = sessionsByView.get(view)
+  exitAllCodeBlockEditingForView(view)
   if (!map) return
   for (const session of map.values()) {
     session.clearBlurSuppress()

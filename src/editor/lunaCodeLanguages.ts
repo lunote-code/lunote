@@ -18,7 +18,7 @@ const DISPLAY_OVERRIDES: Record<string, { displayName?: string; aliases?: string
   python: { aliases: ['py'] },
   rust: { aliases: ['rs'] },
   go: { aliases: ['golang'] },
-  bash: { aliases: ['sh', 'shell', 'zsh'] },
+  bash: { displayName: 'Shell', aliases: ['sh', 'shell', 'zsh', 'bash'] },
   plaintext: { displayName: 'Plain text', aliases: ['text', 'txt', 'plain'] },
   markdown: { aliases: ['md'] },
   json: { aliases: [] },

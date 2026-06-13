@@ -1,14 +1,23 @@
 /* ── Scrollbar tiers (see tokens.css) ──
- * 1. Sidebar file list — 4px, square thumb (.sidebar-scroll .file-list)
+ * 1. Sidebar file list — 4px, hover-reveal (.sidebar-scroll .file-list)
  * 2. Tabs (horizontal, hover-reveal) — editor-tabs.css, knowledgePanels .kos-rail-tabs
- * 3. Code blocks (hover-reveal) — editor-markdown-fence.css, editor-node-code-block.css (.pm-code-body-col, .pm-code-block-cm .cm-scroller)
- * 4. Standard overlay/panel — selectors below (+ opt-in .luna-overlay-scroll)
+ * 3. Code blocks (hover-reveal) — editor-markdown-fence.css, editor-node-code-block.css
+ * 4. Standard overlay/panel — hover-reveal below (+ opt-in .luna-overlay-scroll)
+ * 4b. Document body (.ProseMirror / source .cm-scroller) — scroll/gutter reveal via overlayScrollbarReveal.ts
+ *
+ * Hover-reveal keeps thumbs hidden until :hover / :focus-within so Windows/Linux
+ * WebView matches macOS-style overlay scrollbars (macOS also benefits from gutter: auto).
  */
 
-/*Sidebar file list scroll bar: stick to the right edge, thin*/
+/*── Tier 1: sidebar file list ──*/
 .sidebar-scroll .file-list {
   scrollbar-gutter: auto;
   scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.sidebar-scroll .file-list:hover,
+.sidebar-scroll .file-list:focus-within {
   scrollbar-color: var(--luna-sidebar-scrollbar-thumb) transparent;
 }
 
@@ -17,16 +26,29 @@
   height: var(--luna-sidebar-scrollbar-size);
 }
 
+.sidebar-scroll .file-list::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 .sidebar-scroll .file-list::-webkit-scrollbar-track {
   background: transparent;
   border-radius: 0;
 }
 
 .sidebar-scroll .file-list::-webkit-scrollbar-thumb {
-  background: var(--luna-sidebar-scrollbar-thumb);
   border-radius: 2px;
   border: none;
+  background: transparent;
   background-clip: border-box;
+  box-shadow: none;
+  transition: background 0.18s ease;
+}
+
+.sidebar-scroll .file-list:hover::-webkit-scrollbar-thumb,
+.sidebar-scroll .file-list:focus-within::-webkit-scrollbar-thumb {
+  background: var(--luna-sidebar-scrollbar-thumb);
   box-shadow: inset 1px 0 0 color-mix(in srgb, var(--border-subtle) 55%, transparent);
 }
 
@@ -38,7 +60,7 @@
   background: var(--luna-sidebar-scrollbar-thumb-active, var(--luna-sidebar-scrollbar-thumb-hover));
 }
 
-/*── Standard 8px scrollbars (editor, panels, overlays, menus) ──*/
+/*── Tier 4: standard 8px hover-reveal scrollbars ──*/
 .luna-overlay-scroll,
 .command-palette-list,
 .template-picker-list,
@@ -50,11 +72,12 @@
 .kos-rail-body,
 .kos-frontmatter-panel,
 .kos-embed-panel,
-.kos-frontmatter-suggestion,
+.kos-frontmatter-suggestions,
 .prefs-content-body,
 .settings-sidebar-nav,
 .settings-select-content,
 .prefs-theme-file-scroll,
+.prefs-plugin-detail-body,
 .document-history-list,
 .document-history-preview-body,
 .document-history-preview-body--diff,
@@ -71,9 +94,78 @@
 .preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-panel,
 .preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-preview-host,
 .preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-block-pre {
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--luna-scrollbar-thumb) var(--luna-scrollbar-track);
+  scrollbar-color: transparent transparent;
+}
+
+.luna-overlay-scroll:hover,
+.luna-overlay-scroll:focus-within,
+.command-palette-list:hover,
+.command-palette-list:focus-within,
+.template-picker-list:hover,
+.template-picker-list:focus-within,
+.sidebar-outline-scroll:hover,
+.sidebar-outline-scroll:focus-within,
+.preview-pane:hover,
+.preview-pane:focus-within,
+.editor-pane .cm-scroller:hover,
+.editor-pane .cm-scroller:focus-within,
+.preview-pane.markdown-visual-editor .ProseMirror:hover,
+.preview-pane.markdown-visual-editor .ProseMirror:focus-within,
+.kos-backlink-scroll:hover,
+.kos-backlink-scroll:focus-within,
+.kos-rail-body:hover,
+.kos-rail-body:focus-within,
+.kos-frontmatter-panel:hover,
+.kos-frontmatter-panel:focus-within,
+.kos-embed-panel:hover,
+.kos-embed-panel:focus-within,
+.kos-frontmatter-suggestions:hover,
+.kos-frontmatter-suggestions:focus-within,
+.prefs-content-body:hover,
+.prefs-content-body:focus-within,
+.settings-sidebar-nav:hover,
+.settings-sidebar-nav:focus-within,
+.settings-select-content:hover,
+.settings-select-content:focus-within,
+.prefs-theme-file-scroll:hover,
+.prefs-theme-file-scroll:focus-within,
+.prefs-plugin-detail-body:hover,
+.prefs-plugin-detail-body:focus-within,
+.document-history-list:hover,
+.document-history-list:focus-within,
+.document-history-preview-body:hover,
+.document-history-preview-body:focus-within,
+.document-history-preview-body--diff:hover,
+.document-history-preview-body--diff:focus-within,
+.file-ctx-menu:hover,
+.file-ctx-menu:focus-within,
+.file-ctx-submenu:hover,
+.file-ctx-submenu:focus-within,
+.file-ctx-submenu-portal:hover,
+.file-ctx-submenu-portal:focus-within,
+.app-dialog:hover,
+.app-dialog:focus-within,
+.app-menubar-panel:hover,
+.app-menubar-panel:focus-within,
+.luna-emoji-picker__grid:hover,
+.luna-emoji-picker__grid:focus-within,
+.save-conflict-merge:hover,
+.save-conflict-merge:focus-within,
+.preview-pane.markdown-visual-editor .pm-slash-menu:hover,
+.preview-pane.markdown-visual-editor .pm-slash-menu:focus-within,
+.editor-pane .pm-slash-menu:hover,
+.editor-pane .pm-slash-menu:focus-within,
+.luna-code-lang-palette__list:hover,
+.luna-code-lang-palette__list:focus-within,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-panel:hover,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-panel:focus-within,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-preview-host:hover,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-preview-host:focus-within,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-block-pre:hover,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-block-pre:focus-within {
+  scrollbar-color: var(--luna-scrollbar-thumb) transparent;
 }
 
 .luna-overlay-scroll::-webkit-scrollbar,
@@ -87,11 +179,12 @@
 .kos-rail-body::-webkit-scrollbar,
 .kos-frontmatter-panel::-webkit-scrollbar,
 .kos-embed-panel::-webkit-scrollbar,
-.kos-frontmatter-suggestion::-webkit-scrollbar,
+.kos-frontmatter-suggestions::-webkit-scrollbar,
 .prefs-content-body::-webkit-scrollbar,
 .settings-sidebar-nav::-webkit-scrollbar,
 .settings-select-content::-webkit-scrollbar,
 .prefs-theme-file-scroll::-webkit-scrollbar,
+.prefs-plugin-detail-body::-webkit-scrollbar,
 .document-history-list::-webkit-scrollbar,
 .document-history-preview-body::-webkit-scrollbar,
 .document-history-preview-body--diff::-webkit-scrollbar,
@@ -112,6 +205,80 @@
   height: var(--luna-scrollbar-size);
 }
 
+.luna-overlay-scroll::-webkit-scrollbar-button,
+.command-palette-list::-webkit-scrollbar-button,
+.template-picker-list::-webkit-scrollbar-button,
+.sidebar-outline-scroll::-webkit-scrollbar-button,
+.preview-pane::-webkit-scrollbar-button,
+.editor-pane .cm-scroller::-webkit-scrollbar-button,
+.preview-pane.markdown-visual-editor .ProseMirror::-webkit-scrollbar-button,
+.kos-backlink-scroll::-webkit-scrollbar-button,
+.kos-rail-body::-webkit-scrollbar-button,
+.kos-frontmatter-panel::-webkit-scrollbar-button,
+.kos-embed-panel::-webkit-scrollbar-button,
+.kos-frontmatter-suggestions::-webkit-scrollbar-button,
+.prefs-content-body::-webkit-scrollbar-button,
+.settings-sidebar-nav::-webkit-scrollbar-button,
+.settings-select-content::-webkit-scrollbar-button,
+.prefs-theme-file-scroll::-webkit-scrollbar-button,
+.prefs-plugin-detail-body::-webkit-scrollbar-button,
+.document-history-list::-webkit-scrollbar-button,
+.document-history-preview-body::-webkit-scrollbar-button,
+.document-history-preview-body--diff::-webkit-scrollbar-button,
+.file-ctx-menu::-webkit-scrollbar-button,
+.file-ctx-submenu::-webkit-scrollbar-button,
+.file-ctx-submenu-portal::-webkit-scrollbar-button,
+.app-dialog::-webkit-scrollbar-button,
+.app-menubar-panel::-webkit-scrollbar-button,
+.luna-emoji-picker__grid::-webkit-scrollbar-button,
+.save-conflict-merge::-webkit-scrollbar-button,
+.preview-pane.markdown-visual-editor .pm-slash-menu::-webkit-scrollbar-button,
+.editor-pane .pm-slash-menu::-webkit-scrollbar-button,
+.luna-code-lang-palette__list::-webkit-scrollbar-button,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-panel::-webkit-scrollbar-button,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-preview-host::-webkit-scrollbar-button,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-block-pre::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.luna-overlay-scroll::-webkit-scrollbar-corner,
+.command-palette-list::-webkit-scrollbar-corner,
+.template-picker-list::-webkit-scrollbar-corner,
+.sidebar-outline-scroll::-webkit-scrollbar-corner,
+.preview-pane::-webkit-scrollbar-corner,
+.editor-pane .cm-scroller::-webkit-scrollbar-corner,
+.preview-pane.markdown-visual-editor .ProseMirror::-webkit-scrollbar-corner,
+.kos-backlink-scroll::-webkit-scrollbar-corner,
+.kos-rail-body::-webkit-scrollbar-corner,
+.kos-frontmatter-panel::-webkit-scrollbar-corner,
+.kos-embed-panel::-webkit-scrollbar-corner,
+.kos-frontmatter-suggestions::-webkit-scrollbar-corner,
+.prefs-content-body::-webkit-scrollbar-corner,
+.settings-sidebar-nav::-webkit-scrollbar-corner,
+.settings-select-content::-webkit-scrollbar-corner,
+.prefs-theme-file-scroll::-webkit-scrollbar-corner,
+.prefs-plugin-detail-body::-webkit-scrollbar-corner,
+.document-history-list::-webkit-scrollbar-corner,
+.document-history-preview-body::-webkit-scrollbar-corner,
+.document-history-preview-body--diff::-webkit-scrollbar-corner,
+.file-ctx-menu::-webkit-scrollbar-corner,
+.file-ctx-submenu::-webkit-scrollbar-corner,
+.file-ctx-submenu-portal::-webkit-scrollbar-corner,
+.app-dialog::-webkit-scrollbar-corner,
+.app-menubar-panel::-webkit-scrollbar-corner,
+.luna-emoji-picker__grid::-webkit-scrollbar-corner,
+.save-conflict-merge::-webkit-scrollbar-corner,
+.preview-pane.markdown-visual-editor .pm-slash-menu::-webkit-scrollbar-corner,
+.editor-pane .pm-slash-menu::-webkit-scrollbar-corner,
+.luna-code-lang-palette__list::-webkit-scrollbar-corner,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-panel::-webkit-scrollbar-corner,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-preview-host::-webkit-scrollbar-corner,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-block-pre::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 .luna-overlay-scroll::-webkit-scrollbar-track,
 .command-palette-list::-webkit-scrollbar-track,
 .template-picker-list::-webkit-scrollbar-track,
@@ -123,11 +290,12 @@
 .kos-rail-body::-webkit-scrollbar-track,
 .kos-frontmatter-panel::-webkit-scrollbar-track,
 .kos-embed-panel::-webkit-scrollbar-track,
-.kos-frontmatter-suggestion::-webkit-scrollbar-track,
+.kos-frontmatter-suggestions::-webkit-scrollbar-track,
 .prefs-content-body::-webkit-scrollbar-track,
 .settings-sidebar-nav::-webkit-scrollbar-track,
 .settings-select-content::-webkit-scrollbar-track,
 .prefs-theme-file-scroll::-webkit-scrollbar-track,
+.prefs-plugin-detail-body::-webkit-scrollbar-track,
 .document-history-list::-webkit-scrollbar-track,
 .document-history-preview-body::-webkit-scrollbar-track,
 .document-history-preview-body--diff::-webkit-scrollbar-track,
@@ -159,11 +327,12 @@
 .kos-rail-body::-webkit-scrollbar-thumb,
 .kos-frontmatter-panel::-webkit-scrollbar-thumb,
 .kos-embed-panel::-webkit-scrollbar-thumb,
-.kos-frontmatter-suggestion::-webkit-scrollbar-thumb,
+.kos-frontmatter-suggestions::-webkit-scrollbar-thumb,
 .prefs-content-body::-webkit-scrollbar-thumb,
 .settings-sidebar-nav::-webkit-scrollbar-thumb,
 .settings-select-content::-webkit-scrollbar-thumb,
 .prefs-theme-file-scroll::-webkit-scrollbar-thumb,
+.prefs-plugin-detail-body::-webkit-scrollbar-thumb,
 .document-history-list::-webkit-scrollbar-thumb,
 .document-history-preview-body::-webkit-scrollbar-thumb,
 .document-history-preview-body--diff::-webkit-scrollbar-thumb,
@@ -180,9 +349,80 @@
 .preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-panel::-webkit-scrollbar-thumb,
 .preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-preview-host::-webkit-scrollbar-thumb,
 .preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-block-pre::-webkit-scrollbar-thumb {
-  background: var(--luna-scrollbar-thumb);
   border-radius: 999px;
   border: 2px solid transparent;
+  background: transparent;
+  background-clip: padding-box;
+  transition: background 0.18s ease;
+}
+
+.luna-overlay-scroll:hover::-webkit-scrollbar-thumb,
+.luna-overlay-scroll:focus-within::-webkit-scrollbar-thumb,
+.command-palette-list:hover::-webkit-scrollbar-thumb,
+.command-palette-list:focus-within::-webkit-scrollbar-thumb,
+.template-picker-list:hover::-webkit-scrollbar-thumb,
+.template-picker-list:focus-within::-webkit-scrollbar-thumb,
+.sidebar-outline-scroll:hover::-webkit-scrollbar-thumb,
+.sidebar-outline-scroll:focus-within::-webkit-scrollbar-thumb,
+.preview-pane:hover::-webkit-scrollbar-thumb,
+.preview-pane:focus-within::-webkit-scrollbar-thumb,
+.editor-pane .cm-scroller:hover::-webkit-scrollbar-thumb,
+.editor-pane .cm-scroller:focus-within::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror:hover::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror:focus-within::-webkit-scrollbar-thumb,
+.kos-backlink-scroll:hover::-webkit-scrollbar-thumb,
+.kos-backlink-scroll:focus-within::-webkit-scrollbar-thumb,
+.kos-rail-body:hover::-webkit-scrollbar-thumb,
+.kos-rail-body:focus-within::-webkit-scrollbar-thumb,
+.kos-frontmatter-panel:hover::-webkit-scrollbar-thumb,
+.kos-frontmatter-panel:focus-within::-webkit-scrollbar-thumb,
+.kos-embed-panel:hover::-webkit-scrollbar-thumb,
+.kos-embed-panel:focus-within::-webkit-scrollbar-thumb,
+.kos-frontmatter-suggestions:hover::-webkit-scrollbar-thumb,
+.kos-frontmatter-suggestions:focus-within::-webkit-scrollbar-thumb,
+.prefs-content-body:hover::-webkit-scrollbar-thumb,
+.prefs-content-body:focus-within::-webkit-scrollbar-thumb,
+.settings-sidebar-nav:hover::-webkit-scrollbar-thumb,
+.settings-sidebar-nav:focus-within::-webkit-scrollbar-thumb,
+.settings-select-content:hover::-webkit-scrollbar-thumb,
+.settings-select-content:focus-within::-webkit-scrollbar-thumb,
+.prefs-theme-file-scroll:hover::-webkit-scrollbar-thumb,
+.prefs-theme-file-scroll:focus-within::-webkit-scrollbar-thumb,
+.prefs-plugin-detail-body:hover::-webkit-scrollbar-thumb,
+.prefs-plugin-detail-body:focus-within::-webkit-scrollbar-thumb,
+.document-history-list:hover::-webkit-scrollbar-thumb,
+.document-history-list:focus-within::-webkit-scrollbar-thumb,
+.document-history-preview-body:hover::-webkit-scrollbar-thumb,
+.document-history-preview-body:focus-within::-webkit-scrollbar-thumb,
+.document-history-preview-body--diff:hover::-webkit-scrollbar-thumb,
+.document-history-preview-body--diff:focus-within::-webkit-scrollbar-thumb,
+.file-ctx-menu:hover::-webkit-scrollbar-thumb,
+.file-ctx-menu:focus-within::-webkit-scrollbar-thumb,
+.file-ctx-submenu:hover::-webkit-scrollbar-thumb,
+.file-ctx-submenu:focus-within::-webkit-scrollbar-thumb,
+.file-ctx-submenu-portal:hover::-webkit-scrollbar-thumb,
+.file-ctx-submenu-portal:focus-within::-webkit-scrollbar-thumb,
+.app-dialog:hover::-webkit-scrollbar-thumb,
+.app-dialog:focus-within::-webkit-scrollbar-thumb,
+.app-menubar-panel:hover::-webkit-scrollbar-thumb,
+.app-menubar-panel:focus-within::-webkit-scrollbar-thumb,
+.luna-emoji-picker__grid:hover::-webkit-scrollbar-thumb,
+.luna-emoji-picker__grid:focus-within::-webkit-scrollbar-thumb,
+.save-conflict-merge:hover::-webkit-scrollbar-thumb,
+.save-conflict-merge:focus-within::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .pm-slash-menu:hover::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .pm-slash-menu:focus-within::-webkit-scrollbar-thumb,
+.editor-pane .pm-slash-menu:hover::-webkit-scrollbar-thumb,
+.editor-pane .pm-slash-menu:focus-within::-webkit-scrollbar-thumb,
+.luna-code-lang-palette__list:hover::-webkit-scrollbar-thumb,
+.luna-code-lang-palette__list:focus-within::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-panel:hover::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-panel:focus-within::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-preview-host:hover::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-preview-host:focus-within::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-block-pre:hover::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-block-pre:focus-within::-webkit-scrollbar-thumb {
+  background: var(--luna-scrollbar-thumb);
   background-clip: padding-box;
 }
 
@@ -197,11 +437,12 @@
 .kos-rail-body::-webkit-scrollbar-thumb:hover,
 .kos-frontmatter-panel::-webkit-scrollbar-thumb:hover,
 .kos-embed-panel::-webkit-scrollbar-thumb:hover,
-.kos-frontmatter-suggestion::-webkit-scrollbar-thumb:hover,
+.kos-frontmatter-suggestions::-webkit-scrollbar-thumb:hover,
 .prefs-content-body::-webkit-scrollbar-thumb:hover,
 .settings-sidebar-nav::-webkit-scrollbar-thumb:hover,
 .settings-select-content::-webkit-scrollbar-thumb:hover,
 .prefs-theme-file-scroll::-webkit-scrollbar-thumb:hover,
+.prefs-plugin-detail-body::-webkit-scrollbar-thumb:hover,
 .document-history-list::-webkit-scrollbar-thumb:hover,
 .document-history-preview-body::-webkit-scrollbar-thumb:hover,
 .document-history-preview-body--diff::-webkit-scrollbar-thumb:hover,
@@ -233,11 +474,12 @@
 .kos-rail-body::-webkit-scrollbar-thumb:active,
 .kos-frontmatter-panel::-webkit-scrollbar-thumb:active,
 .kos-embed-panel::-webkit-scrollbar-thumb:active,
-.kos-frontmatter-suggestion::-webkit-scrollbar-thumb:active,
+.kos-frontmatter-suggestions::-webkit-scrollbar-thumb:active,
 .prefs-content-body::-webkit-scrollbar-thumb:active,
 .settings-sidebar-nav::-webkit-scrollbar-thumb:active,
 .settings-select-content::-webkit-scrollbar-thumb:active,
 .prefs-theme-file-scroll::-webkit-scrollbar-thumb:active,
+.prefs-plugin-detail-body::-webkit-scrollbar-thumb:active,
 .document-history-list::-webkit-scrollbar-thumb:active,
 .document-history-preview-body::-webkit-scrollbar-thumb:active,
 .document-history-preview-body--diff::-webkit-scrollbar-thumb:active,
@@ -254,6 +496,106 @@
 .preview-pane.markdown-visual-editor .ProseMirror .pm-mermaid-source-panel::-webkit-scrollbar-thumb:active,
 .preview-pane.markdown-visual-editor .ProseMirror .pm-mindmap-preview-host::-webkit-scrollbar-thumb:active,
 .preview-pane.markdown-visual-editor .ProseMirror .pm-luna-raw-block-pre::-webkit-scrollbar-thumb:active {
+  background: var(--luna-scrollbar-thumb-active);
+  background-clip: padding-box;
+}
+
+/*── Tier 4b: document body — scroll/gutter reveal (not container hover/focus) ──
+ * Visual `.ProseMirror` and source `.cm-scroller` stay focused while editing;
+ * tier-4 :hover/:focus-within would keep bars visible on Windows/Linux WebView.
+ * `bindOverlayScrollbarReveal` toggles `.luna-scrollbar-reveal` / `.luna-scrollbar-gutter-hover`.
+ */
+.preview-pane.markdown-visual-editor .ProseMirror,
+.editor-pane .cm-scroller {
+  scrollbar-gutter: auto;
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror:hover,
+.preview-pane.markdown-visual-editor .ProseMirror:focus-within,
+.editor-pane .cm-scroller:hover,
+.editor-pane .cm-scroller:focus-within {
+  scrollbar-color: transparent transparent;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror.luna-scrollbar-reveal,
+.preview-pane.markdown-visual-editor .ProseMirror.luna-scrollbar-gutter-hover,
+.editor-pane .cm-scroller.luna-scrollbar-reveal,
+.editor-pane .cm-scroller.luna-scrollbar-gutter-hover {
+  scrollbar-width: thin;
+  scrollbar-color: var(--luna-scrollbar-thumb) transparent;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror::-webkit-scrollbar,
+.editor-pane .cm-scroller::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror.luna-scrollbar-reveal::-webkit-scrollbar,
+.preview-pane.markdown-visual-editor .ProseMirror.luna-scrollbar-gutter-hover::-webkit-scrollbar,
+.editor-pane .cm-scroller.luna-scrollbar-reveal::-webkit-scrollbar,
+.editor-pane .cm-scroller.luna-scrollbar-gutter-hover::-webkit-scrollbar {
+  width: var(--luna-scrollbar-size);
+  height: var(--luna-scrollbar-size);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror::-webkit-scrollbar-button,
+.editor-pane .cm-scroller::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror::-webkit-scrollbar-corner,
+.editor-pane .cm-scroller::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror::-webkit-scrollbar-track,
+.editor-pane .cm-scroller::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 999px;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror::-webkit-scrollbar-thumb,
+.editor-pane .cm-scroller::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: transparent;
+  background-clip: padding-box;
+  transition: background 0.18s ease;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror:hover::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror:focus-within::-webkit-scrollbar-thumb,
+.editor-pane .cm-scroller:hover::-webkit-scrollbar-thumb,
+.editor-pane .cm-scroller:focus-within::-webkit-scrollbar-thumb {
+  background: transparent;
+  background-clip: padding-box;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror.luna-scrollbar-reveal::-webkit-scrollbar-thumb,
+.preview-pane.markdown-visual-editor .ProseMirror.luna-scrollbar-gutter-hover::-webkit-scrollbar-thumb,
+.editor-pane .cm-scroller.luna-scrollbar-reveal::-webkit-scrollbar-thumb,
+.editor-pane .cm-scroller.luna-scrollbar-gutter-hover::-webkit-scrollbar-thumb {
+  background: var(--luna-scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror.luna-scrollbar-reveal::-webkit-scrollbar-thumb:hover,
+.preview-pane.markdown-visual-editor .ProseMirror.luna-scrollbar-gutter-hover::-webkit-scrollbar-thumb:hover,
+.editor-pane .cm-scroller.luna-scrollbar-reveal::-webkit-scrollbar-thumb:hover,
+.editor-pane .cm-scroller.luna-scrollbar-gutter-hover::-webkit-scrollbar-thumb:hover {
+  background: var(--luna-scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror.luna-scrollbar-reveal::-webkit-scrollbar-thumb:active,
+.preview-pane.markdown-visual-editor .ProseMirror.luna-scrollbar-gutter-hover::-webkit-scrollbar-thumb:active,
+.editor-pane .cm-scroller.luna-scrollbar-reveal::-webkit-scrollbar-thumb:active,
+.editor-pane .cm-scroller.luna-scrollbar-gutter-hover::-webkit-scrollbar-thumb:active {
   background: var(--luna-scrollbar-thumb-active);
   background-clip: padding-box;
 }

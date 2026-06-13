@@ -53,7 +53,7 @@
   --luna-field-height-dense: 30px;
   --luna-field-radius: 10px;
   --luna-field-radius-compact: var(--radius-md);
-  --luna-field-bg: color-mix(in srgb, var(--input-bg) 86%, var(--surface-editor));
+  --luna-field-bg: color-mix(in srgb, var(--input-bg, var(--surface-editor)) 86%, var(--surface-editor));
   --luna-field-bg-editor: var(--surface-editor);
   --luna-field-border: var(--border-subtle);
   --luna-field-border-hover: color-mix(in srgb, var(--accent) 42%, var(--border-subtle));
@@ -66,7 +66,9 @@
   --luna-btn-hover-bg: color-mix(in srgb, var(--surface-hover) 82%, transparent);
   --luna-btn-active-bg: color-mix(in srgb, var(--accent) 12%, transparent);
   --luna-btn-disabled-opacity: 0.38;
-  /*Global scroll bar*/
+  /* Compact chrome toolbar icon buttons (sidebar header, editor tab actions) */
+  --luna-chrome-icon-btn-size: 28px;
+  /*Global scroll bar (tier 4: hover-reveal in scrollbars-app.css)*/
   --luna-scrollbar-size: 8px;
   --luna-scrollbar-track: transparent;
   --luna-scrollbar-thumb: color-mix(in srgb, var(--text-muted) 38%, transparent);

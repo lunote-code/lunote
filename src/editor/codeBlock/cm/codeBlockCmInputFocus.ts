@@ -1,3 +1,4 @@
+import { selectLine } from '@codemirror/commands'
 import type { EditorView } from '@codemirror/view'
 import type { Editor } from '@tiptap/core'
 
@@ -5,12 +6,18 @@ import { activateNativeInput, findNativeInputForTarget } from '../../documentRun
 import { isCodeBlockCmMouseTarget } from './codeBlockCmDom'
 import { focusCodeBlockCmView } from './codeBlockCmFocus'
 import { debugCodeBlockCmFocus, describeDomTarget } from './codeBlockCmFocusDebug'
+import { prepareCodeBlockCmFocusTransfer, hasOtherCodeBlockCmActivity } from './codeBlockCmPmFocusReconcile'
 import { disablePmCodeBlockMirrorEditing } from './codeBlockCmPmMirror'
 
 export type CodeBlockCmInputFocusHandlers = {
   getCmView: () => EditorView | null
   onActivateEditing: () => void
+  /** Re-enter a warm session without scheduling deferred CM mount focus. */
+  onWarmRefocus?: () => void
+  isSessionEditing?: () => boolean
   editor?: Editor
+  /** CM mounts after enter-editing — schedule focus once the view exists. */
+  onCmViewPending?: () => void
   /** Capture CM selection before Chromium collapses it on right-click. */
   onRightMouseDownPreserveSelection?: (view: EditorView) => void
 }
@@ -173,11 +180,50 @@ export function placeCodeBlockCmSelectionFromMouse(
   return pos
 }
 
+function resolveCodeBlockCmPosFromMouseEvent(view: EditorView, event: MouseEvent): number {
+  const coords = { x: event.clientX, y: event.clientY }
+  return (
+    view.posAtCoords(coords) ??
+    view.posAndSideAtCoords(coords)?.pos ??
+    resolveCodeBlockCmPosFromMouse(view, event.clientX, event.clientY)
+  )
+}
+
+/** Double/triple-click word or line selection (mousedown uses preventDefault, so CM defaults never run). */
+export function placeCodeBlockCmWordSelectionFromMouse(view: EditorView, event: MouseEvent): void {
+  const pos = resolveCodeBlockCmPosFromMouseEvent(view, event)
+  dispatchCodeBlockCmSelection(view, pos, pos)
+  const word = view.state.wordAt(view.state.selection.main.head)
+  if (word) dispatchCodeBlockCmSelection(view, word.from, word.to)
+}
+
+export function placeCodeBlockCmLineSelectionFromMouse(view: EditorView, event: MouseEvent): void {
+  const pos = resolveCodeBlockCmPosFromMouseEvent(view, event)
+  dispatchCodeBlockCmSelection(view, pos, pos)
+  selectLine(view)
+}
+
 type DragSession = {
   view: EditorView
   anchor: number
   onMove: (event: MouseEvent) => void
   onUp: (event: MouseEvent) => void
+}
+
+type RecentClick = {
+  time: number
+  x: number
+  y: number
+}
+
+const DOUBLE_CLICK_MS = 450
+const DOUBLE_CLICK_SLOP_PX = 5
+
+function isSameClickCluster(a: RecentClick, event: MouseEvent): boolean {
+  return (
+    Math.abs(event.clientX - a.x) <= DOUBLE_CLICK_SLOP_PX &&
+    Math.abs(event.clientY - a.y) <= DOUBLE_CLICK_SLOP_PX
+  )
 }
 
 function clearCodeBlockCmDragSession(session: DragSession | null): void {
@@ -195,6 +241,15 @@ export function installCodeBlockCmMouseDownCapture(
   handlers: CodeBlockCmInputFocusHandlers,
 ): () => void {
   let dragSession: DragSession | null = null
+  let recentClick: RecentClick | null = null
+  let mouseDownGeneration = 0
+
+  const scheduleDeferredMouseDown = (generation: number, run: () => void): void => {
+    queueMicrotask(() => {
+      if (generation !== mouseDownGeneration) return
+      run()
+    })
+  }
 
   const onMouseDownCapture = (event: MouseEvent) => {
     const target = event.target
@@ -210,19 +265,121 @@ export function installCodeBlockCmMouseDownCapture(
     }
     if (event.button !== 0) return
 
+    mouseDownGeneration += 1
+    const generation = mouseDownGeneration
+
     clearCodeBlockCmDragSession(dragSession)
     dragSession = null
 
     event.preventDefault()
-    const view = handlers.getCmView()
-    if (!view) return
-    handlers.onActivateEditing()
+    const warmView = handlers.getCmView()
+    const warmSession = Boolean(warmView && handlers.isSessionEditing?.())
+    if (handlers.editor) {
+      const pmDom = handlers.editor.view.dom
+      if (
+        pmDom instanceof HTMLElement &&
+        hasOtherCodeBlockCmActivity(pmDom, wrap)
+      ) {
+        prepareCodeBlockCmFocusTransfer(handlers.editor, wrap)
+      }
+    }
+    if (warmSession) {
+      handlers.onWarmRefocus?.()
+    } else {
+      handlers.onActivateEditing()
+    }
+    const view = warmView ?? handlers.getCmView()
+    if (!view) {
+      handlers.onCmViewPending?.()
+      return
+    }
     const reg = findNativeInputForTarget(target)
     const ok = acquireCodeBlockCmFocus(view, {
       pmDom: handlers.editor?.view.dom,
       nativeInputId: reg?.id ?? null,
       wrap,
     })
+
+    if (event.detail === 2 && !event.shiftKey) {
+      clearCodeBlockCmDragSession(dragSession)
+      dragSession = null
+      recentClick = null
+      placeCodeBlockCmWordSelectionFromMouse(view, event)
+      debugCodeBlockCmFocus('kernel-mousedown-doubleclick', {
+        cmHasFocus: view.hasFocus,
+        detail: event.detail,
+        focusOk: ok,
+        activeElement: describeDomTarget(document.activeElement),
+        target: describeDomTarget(target),
+      })
+      if (!ok) {
+        scheduleDeferredMouseDown(generation, () => {
+          const activeView = handlers.getCmView()
+          if (!activeView) return
+          if (!activeView.hasFocus) {
+            acquireCodeBlockCmFocus(activeView, {
+              pmDom: handlers.editor?.view.dom,
+              nativeInputId: reg?.id ?? null,
+              wrap,
+            })
+          }
+          placeCodeBlockCmWordSelectionFromMouse(activeView, event)
+        })
+      }
+      return
+    }
+
+    if (event.detail >= 3 && !event.shiftKey) {
+      clearCodeBlockCmDragSession(dragSession)
+      dragSession = null
+      recentClick = null
+      placeCodeBlockCmLineSelectionFromMouse(view, event)
+      debugCodeBlockCmFocus('kernel-mousedown-tripleclick', {
+        cmHasFocus: view.hasFocus,
+        detail: event.detail,
+        focusOk: ok,
+        activeElement: describeDomTarget(document.activeElement),
+        target: describeDomTarget(target),
+      })
+      if (!ok) {
+        scheduleDeferredMouseDown(generation, () => {
+          const activeView = handlers.getCmView()
+          if (!activeView) return
+          if (!activeView.hasFocus) {
+            acquireCodeBlockCmFocus(activeView, {
+              pmDom: handlers.editor?.view.dom,
+              nativeInputId: reg?.id ?? null,
+              wrap,
+            })
+          }
+          placeCodeBlockCmLineSelectionFromMouse(activeView, event)
+        })
+      }
+      return
+    }
+
+    const now = Date.now()
+    if (
+      event.detail === 1 &&
+      !event.shiftKey &&
+      recentClick &&
+      now - recentClick.time <= DOUBLE_CLICK_MS &&
+      isSameClickCluster(recentClick, event)
+    ) {
+      clearCodeBlockCmDragSession(dragSession)
+      dragSession = null
+      recentClick = null
+      placeCodeBlockCmWordSelectionFromMouse(view, event)
+      debugCodeBlockCmFocus('kernel-mousedown-doubleclick-cluster', {
+        cmHasFocus: view.hasFocus,
+        focusOk: ok,
+        activeElement: describeDomTarget(document.activeElement),
+        target: describeDomTarget(target),
+      })
+      return
+    }
+    recentClick = { time: now, x: event.clientX, y: event.clientY }
+
     const placed = placeCodeBlockCmSelectionFromMouse(view, event, { extend: event.shiftKey })
     const dragAnchor = event.shiftKey ? view.state.selection.main.anchor : placed
 
@@ -253,7 +410,7 @@ export function installCodeBlockCmMouseDownCapture(
       target: describeDomTarget(target),
     })
     if (!ok) {
-      requestAnimationFrame(() => {
+      scheduleDeferredMouseDown(generation, () => {
         const activeView = handlers.getCmView()
         if (!activeView) return
         if (!activeView.hasFocus) {

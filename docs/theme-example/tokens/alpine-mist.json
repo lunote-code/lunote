@@ -1,0 +1,22 @@
+{
+  "id": "alpine-mist",
+  "name": "Alpine Mist",
+  "label": "Alpine Mist",
+  "family": "alpine-mist",
+  "variant": "light",
+  "colors": {
+    "background": "#f5f8fb",
+    "foreground": "#1d2b3a",
+    "primary": "#3b82f6",
+    "border": "rgba(29, 43, 58, 0.12)",
+    "muted": "#6a7d91"
+  },
+  "radius": {
+    "card": 16,
+    "control": 10
+  },
+  "spacing": {
+    "row": 14,
+    "section": 24
+  }
+}

@@ -24,8 +24,19 @@ export type AppSettingsState = {
     theme?: {
       active?: string
       cssFile?: string
+      cssImportFile?: string
+      /** Inline CSS for web builds when theme files are not on disk. */
+      cssContent?: string
       cssSnippets?: string
+      cssSnippetImport?: string
+      /** name -> css for web snippet imports */
+      cssSnippetsInline?: string
       exportCssSnippets?: string
+      exportCssFile?: string
+      exportCssContent?: string
+      exportCssImport?: string
+      /** name -> css for web export style imports */
+      exportCssSnippetsInline?: string
       customThemeFile?: string
       customThemeJSON?: string
     }
@@ -34,10 +45,12 @@ export type AppSettingsState = {
       fontFamily?: string
       /** px，1–60 */
       fontSize?: number
-      /** Reading column max width in px (720 / 860 / 960). */
+      /** Reading column max width in px (560 / 720 / 860 / 960 / 1080 / 1200). */
       columnWidth?: number
       /** Show the formatting toolbar row in visual mode. */
       formatToolbarEnabled?: boolean
+      /** Enable native spellcheck in document visual and source modes. */
+      spellcheckEnabled?: boolean
       autosaveEnabled?: boolean
       /** seconds, 30–600*/
       autosaveIntervalSec?: number
@@ -61,6 +74,7 @@ export const DEFAULT_APP_SETTINGS: AppSettingsState = {
       cssFile: '',
       cssSnippets: '',
       exportCssSnippets: '',
+      exportCssFile: '',
     },
     export: {
       preset: 'print-a4',
@@ -73,6 +87,7 @@ export const DEFAULT_APP_SETTINGS: AppSettingsState = {
       autosaveScope: 'activeOnly',
       columnWidth: 860,
       formatToolbarEnabled: true,
+      spellcheckEnabled: true,
     },
   },
 }

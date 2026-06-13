@@ -29,6 +29,7 @@ See also: [External CSS reference](../theme/external-css.md) · [Built-in vs the
 | `.editor-format-toolbar`, `.editor-format-btn` | Format toolbar |
 | `.editor-tab-row`, `.editor-tab` | Document tabs |
 | `.preview-pane.markdown-visual-editor` | Visual mode container |
+| `.preview-pane.markdown-visual-editor .tiptap-editor-shell` | Scroll viewport wrapper — **reading edge fade overlays** |
 | `.source-pane`, `.editor-pane` | Source mode container |
 
 ---
@@ -139,3 +140,18 @@ Shipped in app CSS (`editor-visual-core.css`, `editor-chrome-shell.css`, `editor
 - Callout cards: 12px radius, gradient bg, hover shadow
 
 Use [snippets/extra-chrome.css](./snippets/extra-chrome.css) for optional layers on top (tables, preview pre/img).
+
+### Reading edge fade / blur (optional snippets)
+
+Not built-in — enable one snippet from [snippets/](./snippets/):
+
+| Snippet | Technique | Hook |
+|---------|-----------|------|
+| `reading-edge-fade.css` | Top/bottom gradient overlay | `.tiptap-editor-shell::before/::after` |
+| `reading-edge-fade-deep.css` | Stronger top/bottom overlay | same |
+| `reading-vignette.css` | Four-edge inset shadow | `.tiptap-editor-shell::before` |
+| `reading-side-fade.css` | Left/right gradient overlay | `.tiptap-editor-shell::before` |
+| `reading-scroll-mask.css` | Content mask while scrolling | `.ProseMirror` `mask-image` |
+| `reading-frost-glass.css` | Backdrop blur on editor pane | `.editor-body-surface.view-content` |
+
+Tune with snippet variables, e.g. `--reading-fade-size`, `--reading-fade-color`, `--reading-vignette-size`.

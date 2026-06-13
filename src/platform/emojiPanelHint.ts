@@ -37,8 +37,13 @@ function resolveUiLocale(): UiLocaleId {
 /** Localized hint for the built-in emoji picker footer (system panel shortcuts). */
 export function readEmojiPanelHint(platform: DesktopPlatform = getDesktopPlatform()): string {
   const locale = resolveUiLocale()
-  const messages = getLocaleMessagesSnapshot(locale)
   const en = getEnMessagesSnapshot()
+  let messages = en
+  try {
+    messages = getLocaleMessagesSnapshot(locale)
+  } catch {
+    /* locale not warmed yet — fall back to en copy */
+  }
   const key = resolveEmojiPanelHintKey(platform)
   const template = messages[key] ?? en[key] ?? messages[EMOJI_PANEL_HINT_KEYS.generic] ?? en[EMOJI_PANEL_HINT_KEYS.generic] ?? ''
   return formatMessage(template, {})

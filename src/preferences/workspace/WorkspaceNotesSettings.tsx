@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { TranslateFn } from '../../i18n'
 import {
   SettingsButton,
@@ -7,7 +7,6 @@ import {
   SettingsSection,
   SettingsSwitch,
 } from '../../components/settings'
-import { openDailyNote, openRelativeDailyNote } from '../../templates/dailyNoteService'
 import { revealWorkspaceTemplatesFolder } from '../../templates/templateService'
 import { WorkspaceTemplateSelect } from '../../templates/workspaceTemplateSelect'
 import {
@@ -15,13 +14,18 @@ import {
   writeWorkspaceConfig,
 } from '../../workspace/workspaceConfig'
 import type { WorkspaceConfig } from '../../workspace/workspaceConfigTypes'
-import { closePreferencesDialog } from '../preferencesDialogStore'
+import { PreferencesNotice } from '../PreferencesNotice'
 import { SettingsHelpPopover, SettingsLabelWithHelp } from '../../components/settings'
+
+export type WorkspaceNotesSection = 'daily' | 'templates' | 'all'
 
 type Props = {
   t: TranslateFn
   rootDir: string
   highlightQuery?: string
+  visibleSection?: WorkspaceNotesSection
+  hideSectionHeaders?: boolean
+  panelId?: string
 }
 
 function fieldHelp(title: string, body: string, bodyMono = false): ReactNode {
@@ -40,11 +44,19 @@ function rowHighlight(label: string, description: string | undefined, highlightQ
     : undefined
 }
 
-export function WorkspaceNotesSettings({ t, rootDir, highlightQuery = '' }: Props) {
+export function WorkspaceNotesSettings({
+  t,
+  rootDir,
+  highlightQuery = '',
+  visibleSection = 'all',
+  hideSectionHeaders = false,
+  panelId,
+}: Props) {
   const [config, setConfig] = useState<WorkspaceConfig | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [templateReloadKey, setTemplateReloadKey] = useState(0)
+  const [committedTemplatesFolder, setCommittedTemplatesFolder] = useState('Templates')
+  const lastPersistedTemplatesFolderRef = useRef<string | null>(null)
 
   const load = useCallback(async () => {
     if (!rootDir.trim()) {
@@ -55,7 +67,9 @@ export function WorkspaceNotesSettings({ t, rootDir, highlightQuery = '' }: Prop
       const next = await readWorkspaceConfig(rootDir)
       setConfig(next)
       setError(null)
-      setTemplateReloadKey((key) => key + 1)
+      const folder = next.templates?.folder ?? 'Templates'
+      lastPersistedTemplatesFolderRef.current = folder
+      setCommittedTemplatesFolder(folder)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -82,6 +96,9 @@ export function WorkspaceNotesSettings({ t, rootDir, highlightQuery = '' }: Prop
       try {
         await writeWorkspaceConfig(rootDir, next)
         setConfig(next)
+        const folder = next.templates?.folder ?? 'Templates'
+        lastPersistedTemplatesFolderRef.current = folder
+        setCommittedTemplatesFolder(folder)
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
       } finally {
@@ -93,34 +110,14 @@ export function WorkspaceNotesSettings({ t, rootDir, highlightQuery = '' }: Prop
 
   const dailyTemplatePath = config?.dailyNotes?.template ?? 'Templates/Daily.md'
   const defaultTemplatePath = config?.templates?.defaultNewNote ?? 'Templates/Default.md'
+  const templatesFolderPath = config?.templates?.folder ?? 'Templates'
 
   if (!rootDir.trim()) {
-    return <p className="prefs-empty-state">{t('settings.templates.noWorkspace')}</p>
+    return <PreferencesNotice tone="muted">{t('settings.templates.noWorkspace')}</PreferencesNotice>
   }
 
   if (!config) {
-    return <p className="prefs-empty-state">{t('settings.workspaceNotes.loading')}</p>
-  }
-
-  const runOpenDailyNote = async (open: () => Promise<string | null>) => {
-    setSaving(true)
-    setError(null)
-    try {
-      if (config.dailyNotes?.enabled === false) {
-        setError(t('app.menu.dailyNoteDisabled'))
-        return
-      }
-      const openedPath = await open()
-      if (openedPath) {
-        closePreferencesDialog()
-      } else {
-        setError(t('app.menu.dailyNoteDisabled'))
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setSaving(false)
-    }
+    return <PreferencesNotice tone="muted">{t('settings.workspaceNotes.loading')}</PreferencesNotice>
   }
 
   const runQuickAction = async (action: () => Promise<void>) => {
@@ -158,53 +155,34 @@ export function WorkspaceNotesSettings({ t, rootDir, highlightQuery = '' }: Prop
   const templatesFolderDescription = t('settings.workspaceNotes.templatesFolder.description')
   const defaultTemplateLabel = t('settings.workspaceNotes.defaultTemplate.label')
 
+  const showDaily = visibleSection === 'all' || visibleSection === 'daily'
+  const showTemplates = visibleSection === 'all' || visibleSection === 'templates'
+  const dailySectionTitle = hideSectionHeaders ? undefined : t('settings.workspaceNotes.dailySectionTitle')
+  const templatesSectionTitle = hideSectionHeaders
+    ? undefined
+    : t('settings.workspaceNotes.templatesSectionTitle')
+
   return (
-    <>
+    <div
+      id={panelId}
+      role={panelId ? 'region' : undefined}
+      aria-labelledby={panelId ? panelId.replace('-panel-', '-tab-') : undefined}
+      className="workspace-notes-root"
+    >
       {saving ? (
-        <p className="prefs-save-status" role="status" aria-live="polite">
+        <PreferencesNotice tone="status" role="status" ariaLive="polite">
           {t('settings.workspaceNotes.saving')}
-        </p>
+        </PreferencesNotice>
       ) : null}
 
       {error ? (
-        <p className="prefs-error-state" role="alert">
+        <PreferencesNotice tone="error" role="alert">
           {error}
-        </p>
+        </PreferencesNotice>
       ) : null}
 
-      <SettingsSection title={t('settings.workspaceNotes.dailySectionTitle')}>
-        <div className="workspace-notes-actions">
-          <SettingsButton
-            type="button"
-            variant="secondary"
-            disabled={saving}
-            onClick={() =>
-              void runOpenDailyNote(async () => openRelativeDailyNote(rootDir, -1))
-            }
-          >
-            {t('settings.workspaceNotes.openYesterday')}
-          </SettingsButton>
-          <SettingsButton
-            type="button"
-            variant="secondary"
-            className="workspace-notes-action-today"
-            disabled={saving}
-            onClick={() => void runOpenDailyNote(async () => openDailyNote(rootDir))}
-          >
-            {t('settings.workspaceNotes.openToday')}
-          </SettingsButton>
-          <SettingsButton
-            type="button"
-            variant="secondary"
-            disabled={saving}
-            onClick={() =>
-              void runOpenDailyNote(async () => openRelativeDailyNote(rootDir, 1))
-            }
-          >
-            {t('settings.workspaceNotes.openTomorrow')}
-          </SettingsButton>
-        </div>
-
+      {showDaily ? (
+      <SettingsSection title={dailySectionTitle} className="workspace-notes-section">
         <SettingsRow
           label={dailyEnabledLabel}
           description={dailyEnabledDescription}
@@ -267,8 +245,8 @@ export function WorkspaceNotesSettings({ t, rootDir, highlightQuery = '' }: Prop
           className={rowHighlight(dailyTemplateLabel, t('settings.workspaceNotes.dailyTemplate.description'), highlightQuery)}
         >
           <WorkspaceTemplateSelect
-            key={`daily-${templateReloadKey}`}
             rootDir={rootDir}
+            templatesFolder={committedTemplatesFolder}
             value={dailyTemplatePath}
             disabled={saving}
             ariaLabel={dailyTemplateLabel}
@@ -300,16 +278,19 @@ export function WorkspaceNotesSettings({ t, rootDir, highlightQuery = '' }: Prop
           />
         </SettingsRow>
       </SettingsSection>
+      ) : null}
 
-      <SettingsSection title={t('settings.workspaceNotes.templatesSectionTitle')}>
+      {showTemplates ? (
+      <SettingsSection title={templatesSectionTitle} className="workspace-notes-section">
         <SettingsRow
           label={templatesFolderLabel}
           description={templatesFolderDescription}
           className={rowHighlight(templatesFolderLabel, templatesFolderDescription, highlightQuery)}
         >
-          <div className="workspace-template-field">
+          <div className="settings-stack">
             <SettingsInput
-              value={config.templates?.folder ?? 'Templates'}
+              data-testid="workspace-templates-folder-input"
+              value={templatesFolderPath}
               disabled={saving}
               onChange={(e) => {
                 setConfig({
@@ -317,12 +298,14 @@ export function WorkspaceNotesSettings({ t, rootDir, highlightQuery = '' }: Prop
                   templates: { ...config.templates, folder: e.target.value },
                 })
               }}
-              onBlur={async () => {
-                await persist(config)
-                setTemplateReloadKey((key) => key + 1)
+              onBlur={() => {
+                const folder = config.templates?.folder ?? 'Templates'
+                const lastFolder = lastPersistedTemplatesFolderRef.current ?? 'Templates'
+                if (folder === lastFolder) return
+                void persist(config)
               }}
             />
-            <div className="workspace-template-field-actions">
+            <div className="settings-inline-controls workspace-template-actions">
               <SettingsButton
                 type="button"
                 variant="secondary"
@@ -346,8 +329,8 @@ export function WorkspaceNotesSettings({ t, rootDir, highlightQuery = '' }: Prop
           className={rowHighlight(defaultTemplateLabel, t('settings.workspaceNotes.defaultTemplate.description'), highlightQuery)}
         >
           <WorkspaceTemplateSelect
-            key={`default-${templateReloadKey}`}
             rootDir={rootDir}
+            templatesFolder={committedTemplatesFolder}
             value={defaultTemplatePath}
             disabled={saving}
             ariaLabel={defaultTemplateLabel}
@@ -360,13 +343,8 @@ export function WorkspaceNotesSettings({ t, rootDir, highlightQuery = '' }: Prop
             }}
           />
         </SettingsRow>
-
-        <div className="workspace-template-section-footer">
-          <SettingsButton type="button" variant="secondary" disabled={saving} onClick={() => void load()}>
-            {t('settings.workspaceNotes.reload')}
-          </SettingsButton>
-        </div>
       </SettingsSection>
-    </>
+      ) : null}
+    </div>
   )
 }

@@ -66,7 +66,7 @@
 
 .file-list .note-item.file-list-flat-item .file-list-flat-icon {
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: 0;
 }
 
 .file-list-flat-item.active {
@@ -416,7 +416,7 @@ body.is-workspace-file-dragging .sidebar-scroll {
 .file-list .tree-file.note-item {
   flex-direction: row;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   width: 100%;
 }
 
@@ -446,18 +446,20 @@ body.is-workspace-file-dragging .sidebar-scroll {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
+  width: 16px;
+  height: 16px;
   color: color-mix(in srgb, var(--text-muted) 88%, var(--accent) 12%);
   opacity: 0.92;
 }
 
-/*Sidebar document row: icon aligned with file name (tree view single-line rows only)*/
-.file-list .tree-file.note-item {
-  align-items: center;
+.tree-icon svg {
+  display: block;
+  flex-shrink: 0;
 }
 
 .file-list .tree-file.note-item .tree-label,
 .file-list-flat-item .file-list-flat-label {
-  line-height: 1.35;
+  line-height: 1;
 }
 
 .tree-label {
@@ -526,6 +528,23 @@ body.is-workspace-file-dragging .sidebar-scroll {
     inset 2px 0 0 var(--accent);
 }
 
+.note-item.is-context-target:not(.active) {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-panel) 92%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.note-item.is-context-target.active {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent),
+    inset 2px 0 0 var(--accent);
+}
+
+.tree-folder.is-context-target .tree-folder-inner {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-panel) 92%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
+  border-radius: var(--radius-sm, 6px);
+}
+
 .note-item.active:hover {
   background: color-mix(in srgb, var(--accent) 12%, var(--surface-panel) 88%);
 }
@@ -554,4 +573,25 @@ body.is-workspace-file-dragging .sidebar-scroll {
   background: rgba(255, 208, 0, 0.35);
 }
 
+/* Playwright sidebar chrome QA: single #root child so diagnostics do not overlap header controls. */
+.qa-sidebar-chrome-root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.qa-sidebar-chrome-root > .qa-sidebar-chrome-shell {
+  flex: 0 0 auto;
+  width: min(100%, var(--sidebar-width, 310px));
+}
+
+.qa-sidebar-chrome-diagnostics {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 12px;
+}
 

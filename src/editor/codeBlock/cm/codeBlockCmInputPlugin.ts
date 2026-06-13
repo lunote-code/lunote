@@ -30,7 +30,7 @@ export function createCodeBlockCmInputPlugin(editor: Editor): Plugin {
           key === 'End'
         ) {
           if (key === 'ArrowDown' || key === 'ArrowUp') {
-            if (tryEnterCodeBlockCmOnBoundaryArrow(view, key)) {
+            if (tryEnterCodeBlockCmOnBoundaryArrow(view, key, editor)) {
               event.preventDefault()
               return true
             }
@@ -53,7 +53,7 @@ export function createCodeBlockCmInputPlugin(editor: Editor): Plugin {
 
           const range = start + 1
           const pmOffset = Math.max(0, view.state.selection.to - range)
-          if (delegateCodeBlockCmNavigationKey(wrap, key, pmOffset, view.dom)) {
+          if (delegateCodeBlockCmNavigationKey(wrap, key, pmOffset, view.dom, editor)) {
             event.preventDefault()
             return true
           }

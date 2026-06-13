@@ -2,7 +2,7 @@
 
 Lunote separates **what you see while editing** from **how exported files look**. You can combine a built-in color scheme with JSON token themes, external CSS, optional snippets, and export-only styles.
 
-Open **File → Preferences** (`Cmd+,` on macOS, `Ctrl+,` on Windows/Linux), then use the **Appearance** tab (and **Export** for print/PDF-related options).
+Open **File → Preferences** (`Cmd+,` on macOS, `Ctrl+,` on Windows/Linux), then use the **Appearance** section (three tabs below) and **Export** for print/PDF-related options.
 
 ---
 
@@ -10,18 +10,17 @@ Open **File → Preferences** (`Cmd+,` on macOS, `Ctrl+,` on Windows/Linux), the
 
 These control Lunote’s default UI tokens (sidebars, editor chrome). They do **not** read files from `.luna/theme/` by themselves.
 
-| Option | Effect |
-|--------|--------|
-| **System** | Follow light/dark mode of the operating system |
-| **Light** | Light built-in palette |
-| **Dark** | Dark built-in palette |
-| **Dim** | Softer dark variant |
-| **GitHub** | GitHub-like light styling |
-| **IDEA** | IDE-inspired light styling |
+On **Preferences → Appearance → Built-in theme → Theme**, choose among six variants in three groups:
 
-Switch from the desktop **Theme** menu or **Preferences → Appearance**.
+| Group | Light | Dark |
+|-------|-------|------|
+| GitHub | GitHub — light | GitHub — dark |
+| IDEA | IDEA — light | IDEA — dark |
+| Dim | Dim — light | Dim — dark |
 
-**Custom JSON theme:** Place `.json` files in **`.luna/theme/tokens/`**, rescan, then use **Import Theme** or pick a file under **Custom theme file**. See [token schema](../theme/tokens/custom-theme.example.json) and [theme examples](../theme-example/README.md#json-token-themes).
+Switch from the desktop **Theme** menu or **Preferences → Appearance → Built-in theme**.
+
+**Custom JSON theme:** Place `.json` files in **`.luna/theme/tokens/`**, rescan, then use **Import Theme** or pick a file under **Custom theme file** on the same tab. See [token schema](../theme/tokens/custom-theme.example.json) and [theme examples](../theme-example/README.md#json-token-themes).
 
 ---
 
@@ -60,7 +59,8 @@ Older installs: content under `~/.luna/config/Theme/` or loose `.css` / `.json` 
 ## External CSS theme
 
 1. Copy a `.css` file into **`~/.luna/theme/style/`** (not `snippets/`, `export/`, or `tokens/`).
-2. Choose it under **Preferences → Appearance → External CSS Theme**.
+2. **Preferences → Appearance → External CSS** → **Rescan**.
+3. Choose the file under **External CSS theme**, or import via **External CSS file** → **Import CSS**.
 
 Only **one** full external CSS file is active at a time. When it is active, built-in preset colors and JSON token variables step aside so the CSS file owns the palette; **UI snippets** still stack on top.
 
@@ -72,7 +72,7 @@ Reference: [External CSS](../theme/external-css.md) · starter: [crossplatnote-t
 
 ## UI snippets
 
-Extra `.css` files in **`.luna/theme/snippets/`**. Enable **multiple** snippets in **Preferences → Appearance**; they apply after the active external CSS theme.
+Extra `.css` files in **`.luna/theme/snippets/`**. On **Preferences → Appearance → UI snippets**, enable **multiple** snippets (search, filter All/Enabled, import via **Import snippet**); they apply after the active external CSS theme.
 
 Use snippets for small tweaks (fonts, links, callouts) without replacing a full theme. Examples: [theme-example/snippets/](../theme-example/README.md#ui-snippets).
 
@@ -82,7 +82,7 @@ Use snippets for small tweaks (fonts, links, callouts) without replacing a full 
 
 Files in **`.luna/theme/export/`** style **exported** HTML, PDF, and PNG. They do **not** change the live editor.
 
-Enable styles in **Preferences → Export**. Paper size and margins are in the same area.
+Enable styles on **Preferences → Export → Export styles**. Paper size, TOC, and page breaks are on the **Presets** tab. Sample: [theme-example/export/print-comfort.css](../theme-example/export/print-comfort.css).
 
 ---
 

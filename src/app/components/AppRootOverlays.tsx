@@ -7,7 +7,6 @@ import { DeleteConfirmDialog } from '../../components/DeleteConfirmDialog'
 import { PreferencesDialog } from '../../preferences/PreferencesDialog'
 import { WorkspaceGlobalSearchModal } from './WorkspaceGlobalSearchModal'
 import { KnowledgeHoverCard } from '../../editor/knowledgeOS/ui/KnowledgeHoverCard'
-import { KnowledgeSearchModal } from '../../editor/knowledgeOS/ui/KnowledgeSearchModal'
 import type { TranslateFn } from '../../i18n'
 import type { PaletteCommandDef } from '../../menu'
 import { AboutDialog } from '../../components/AboutDialog'
@@ -40,10 +39,6 @@ export type AppRootOverlaysProps = {
   onGlobalSearchQueryChange: (q: string) => void
   onGlobalSearchClose: () => void
   globalSearchInputRef: RefObject<HTMLInputElement | null>
-  knowledgeSearchOpen: boolean
-  knowledgeSearchQuery: string
-  onKnowledgeSearchQueryChange: (q: string) => void
-  onKnowledgeSearchClose: () => void
   rootDir: string
   workspaceSearchIndex: readonly WorkspaceSearchIndexEntry[]
   onGlobalSearchOpenDocument: (root: string, path: string) => void | Promise<void>
@@ -123,10 +118,6 @@ export function AppRootOverlays(props: AppRootOverlaysProps) {
     onGlobalSearchQueryChange,
     onGlobalSearchClose,
     globalSearchInputRef,
-    knowledgeSearchOpen,
-    knowledgeSearchQuery,
-    onKnowledgeSearchQueryChange,
-    onKnowledgeSearchClose,
     rootDir,
     workspaceSearchIndex,
     onGlobalSearchOpenDocument,
@@ -187,12 +178,6 @@ export function AppRootOverlays(props: AppRootOverlaysProps) {
         inputRef={globalSearchInputRef}
         onOpenDocument={onGlobalSearchOpenDocument}
         t={t}
-      />
-      <KnowledgeSearchModal
-        open={knowledgeSearchOpen}
-        query={knowledgeSearchQuery}
-        onQueryChange={onKnowledgeSearchQueryChange}
-        onClose={onKnowledgeSearchClose}
       />
       <KnowledgeHoverCard hoverId={wikiHoverId} />
       <AppCommandPaletteOverlay

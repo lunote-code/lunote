@@ -127,9 +127,11 @@ Legacy paths (`lunaCodeBlock.tsx`, `codeBlockLineMetrics.ts`, `codeBlockSelectio
 
 ## Scrollbars
 
-Add new scrollable regions to the selector list in `scrollbars-app.css` (standard 8px block), or use utility class `.luna-overlay-scroll`.
+Four tiers in `scrollbars-app.css` (see `tokens.css` for sizes). Tiers 1–4 use **hover-reveal** for panels and lists. **Document body** (visual `.ProseMirror`, source `.cm-scroller`) uses **tier 4b**: bars stay hidden while editing and appear only while scrolling or when the pointer is over the right gutter (`bindOverlayScrollbarReveal` in `overlayScrollbarReveal.ts`). This avoids always-visible bars on Windows/Linux WebView where `:hover` / `:focus-within` never clear during normal editing.
 
-Sidebar file list and editor tabs use thinner dedicated tokens (`--luna-sidebar-scrollbar-*`, `--luna-tabs-scrollbar-*`).
+Add new scrollable regions to the tier-4 selector list in `scrollbars-app.css`, or use utility class `.luna-overlay-scroll`.
+
+Sidebar file list and editor tabs use thinner dedicated tokens (`--luna-sidebar-scrollbar-*`, `--luna-tabs-scrollbar-*`). Code blocks use tier 3 in `editor-node-code-block.css` / `editor-markdown-fence.css`.
 
 ---
 

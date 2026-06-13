@@ -3,13 +3,17 @@ use std::path::PathBuf;
 use std::process::Command;
 
 #[derive(serde::Deserialize)]
-#[allow(dead_code)]
 struct ChromeCandidatesFile {
+  #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
   darwin: Vec<String>,
+  #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
   win32: Vec<String>,
+  #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
   linux: Vec<String>,
+  #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
   #[serde(default, rename = "linuxRelativeHome")]
   linux_relative_home: Vec<String>,
+  #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
   #[serde(default, rename = "linuxWhichBinaries")]
   linux_which_binaries: Vec<String>,
 }

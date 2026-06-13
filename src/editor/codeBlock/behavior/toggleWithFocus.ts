@@ -1,7 +1,69 @@
 import type { Editor } from '@tiptap/core'
 import { NodeSelection } from '@tiptap/pm/state'
 
+import { requestCodeBlockCmEdit } from '../boundary/codeBlockBoundaryActions'
+import { isCodeBlockCmEnabled } from '../cm/codeBlockCmFeature'
+import { getCodeBlockCmViewInWrap } from '../cm/codeBlockCmFocus'
 import { insertCodeBlockAtRange, resolveInsertCodeBlockRange } from './toggle'
+import { resolveCodeBlockTextRange } from './selection'
+
+const SHORTCUT_CM_FOCUS_MAX_ATTEMPTS = 180
+
+function scheduleShortcutCmFocusRetry(run: () => void, tryCount: number): void {
+  if (tryCount > 0 && tryCount % 12 === 0) {
+    window.setTimeout(run, 0)
+    return
+  }
+  requestAnimationFrame(run)
+}
+
+function lastCodeBlockPos(doc: Editor['state']['doc']): number | null {
+  let last: number | null = null
+  doc.descendants((node, pos) => {
+    if (node.type.name === 'codeBlock') last = pos
+  })
+  return last
+}
+
+/** CM NodeView mounts after PM insert — retry until wrap + CM focus are ready. */
+function focusCodeBlockCmAfterShortcut(editor: Editor): void {
+  if (!isCodeBlockCmEnabled()) return
+
+  const attempt = (tryCount = 0) => {
+    if (editor.isDestroyed) return
+    let range = resolveCodeBlockTextRange(editor.state.selection.$from)
+    if (!range) {
+      const blockPos = lastCodeBlockPos(editor.state.doc)
+      if (blockPos != null) {
+        editor.chain().focus().setTextSelection(blockPos + 1).scrollIntoView().run()
+        range = resolveCodeBlockTextRange(editor.state.selection.$from)
+      }
+    }
+    if (!range) {
+      if (tryCount >= SHORTCUT_CM_FOCUS_MAX_ATTEMPTS) return
+      scheduleShortcutCmFocusRetry(() => attempt(tryCount + 1), tryCount + 1)
+      return
+    }
+    try {
+      const wrap = editor.view.nodeDOM(range.blockPos) as HTMLElement | null
+      if (!wrap?.matches('[data-luna-code-block-wrap]')) {
+        if (tryCount >= SHORTCUT_CM_FOCUS_MAX_ATTEMPTS) return
+        scheduleShortcutCmFocusRetry(() => attempt(tryCount + 1), tryCount + 1)
+        return
+      }
+      requestCodeBlockCmEdit(wrap)
+      const cmView = getCodeBlockCmViewInWrap(wrap)
+      if (cmView?.hasFocus) return
+      if (tryCount >= SHORTCUT_CM_FOCUS_MAX_ATTEMPTS) return
+      scheduleShortcutCmFocusRetry(() => attempt(tryCount + 1), tryCount + 1)
+    } catch {
+      if (tryCount >= SHORTCUT_CM_FOCUS_MAX_ATTEMPTS) return
+      scheduleShortcutCmFocusRetry(() => attempt(tryCount + 1), tryCount + 1)
+    }
+  }
+
+  requestAnimationFrame(() => attempt())
+}
 
 /**
  * Shortcut key/menu: After toggle fence code block, if the selection falls outside the codeBlock text range, it will be included in the content area.
@@ -47,8 +109,12 @@ export function toggleCodeBlockWithFocusAndLog(editor: Editor, language = 'text'
       if (nodeBefore?.type.name === 'codeBlock') {
         const start = $pos.pos - nodeBefore.nodeSize
         moveSelectionIntoCodeBlock(start + 1)
+      } else {
+        const blockPos = lastCodeBlockPos(s.doc)
+        if (blockPos != null) moveSelectionIntoCodeBlock(blockPos + 1)
       }
     }
   }
+  focusCodeBlockCmAfterShortcut(editor)
   return true
 }

@@ -14,6 +14,7 @@
  *   - IME composition is tracked via view.composing; batch flushes on compositionend.
  */
 import { Extension } from '@tiptap/core'
+import type { EditorState } from '@tiptap/pm/state'
 import { Plugin } from '@tiptap/pm/state'
 import { TextSelection } from '@tiptap/pm/state'
 import { ReplaceAroundStep, ReplaceStep, type Step } from '@tiptap/pm/transform'
@@ -88,6 +89,23 @@ function scheduleBatchFlush(docId: string): void {
 /** True when every step is character-level replace (typing), not marks/blocks. */
 function isTypingOnlySteps(steps: readonly Step[]): boolean {
   return steps.every((s) => s instanceof ReplaceStep || s instanceof ReplaceAroundStep)
+}
+
+/**
+ * Enter/splitBlock moves the selection into a different textblock. Treat that
+ * as its own undo boundary so "type → Enter → type" does not collapse into one
+ * large undo unit.
+ */
+function changesCurrentTextblock(oldState: EditorState, newState: EditorState): boolean {
+  return !oldState.selection.$from.sameParent(newState.selection.$from)
+}
+
+function insertsLineBreak(steps: readonly Step[]): boolean {
+  return steps.some((step) => {
+    if (!(step instanceof ReplaceStep || step instanceof ReplaceAroundStep)) return false
+    const inserted = step.slice.content.textBetween(0, step.slice.content.size, '\n', '\n')
+    return inserted.includes('\n')
+  })
 }
 
 function enqueuePMEntry(docId: string, entry: PMStepEntry, forceImmediate: boolean): void {
@@ -177,7 +195,10 @@ export const VmTiptapRecorder = Extension.create({
             },
           }
 
-          const forceImmediate = forwardSteps.length >= IMMEDIATE_PUSH_STEP_THRESHOLD
+          const forceImmediate =
+            forwardSteps.length >= IMMEDIATE_PUSH_STEP_THRESHOLD ||
+            insertsLineBreak(forwardSteps) ||
+            changesCurrentTextblock(oldState, newState)
           enqueuePMEntry(activeDocId, entry, forceImmediate)
           return null
         },

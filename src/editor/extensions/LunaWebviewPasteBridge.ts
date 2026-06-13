@@ -13,6 +13,7 @@ import {
   extractValidImageFiles,
   htmlFromClipboardData,
   plainTextFromClipboardData,
+  allowNavigatorClipboardReadForPasteEvent,
   type WebviewPasteImageHandler,
 } from '../webviewPasteBridge'
 
@@ -49,8 +50,9 @@ export const LunaWebviewPasteBridge = Extension.create<LunaWebviewPasteBridgeOpt
                 if (shouldSkipDuplicatePaste(fingerprint)) return
                 const ok = await applyWebviewPasteFallback({
                   cmView: codeBlockCm,
-                  prefetchedText: prefetched || undefined,
+                  prefetchedText: prefetched,
                   prefetchedHtml: prefetchedHtml || undefined,
+                  allowNavigatorClipboardRead: allowNavigatorClipboardReadForPasteEvent(event),
                 })
                 if (ok && fingerprint) recordSuccessfulPaste(fingerprint)
               })()
@@ -99,8 +101,9 @@ export const LunaWebviewPasteBridge = Extension.create<LunaWebviewPasteBridgeOpt
                 pmView: view,
                 domImages,
                 onPasteImage,
-                prefetchedText: prefetched || undefined,
+                prefetchedText: prefetched,
                 prefetchedHtml: prefetchedHtml || undefined,
+                allowNavigatorClipboardRead: allowNavigatorClipboardReadForPasteEvent(event),
               })
               logPasteScrollPhase('handlePaste-async-done', {
                 pmView: view,

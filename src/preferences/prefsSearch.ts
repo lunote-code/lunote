@@ -2,30 +2,8 @@ import type { TranslateFn } from '../i18n'
 import { listCustomizableShortcutCommands } from '../menu/shortcutCustomization'
 import { getFlatSettingsSchema } from '../settings-runtime/settingsRegistry'
 import type { SettingsSectionId } from '../settings-runtime/settingsTypes'
+import { PREFS_TAB_CATEGORY_KEY, PREFS_TAB_DESCRIPTION_KEY } from './prefsMeta'
 import { PREFS_TAB_IDS, type PrefsTabId } from './types'
-
-const TAB_LABEL_KEY: Record<PrefsTabId, string> = {
-  general: 'prefs.category.general',
-  appearance: 'prefs.category.appearance',
-  export: 'prefs.category.export',
-  import: 'prefs.category.import',
-  templates: 'prefs.category.templates',
-  editor: 'prefs.category.editor',
-  language: 'prefs.category.language',
-  shortcuts: 'prefs.category.shortcuts',
-}
-
-/** Used for sidebar search: match category name with panel introduction copy*/
-const TAB_SEARCH_KEY: Record<PrefsTabId, string> = {
-  general: 'prefs.section.general.lead',
-  appearance: 'prefs.section.appearance.lead',
-  export: 'prefs.section.export.lead',
-  import: 'prefs.section.import.lead',
-  templates: 'prefs.section.templates.lead',
-  editor: 'prefs.section.editor.lead',
-  language: 'prefs.section.language.intro',
-  shortcuts: 'prefs.section.shortcuts.lead',
-}
 
 function settingsTabMatchesQuery(t: TranslateFn, section: SettingsSectionId, q: string): boolean {
   for (const item of getFlatSettingsSchema()) {
@@ -38,7 +16,7 @@ function settingsTabMatchesQuery(t: TranslateFn, section: SettingsSectionId, q: 
 }
 
 function exportTabMatchesQuery(t: TranslateFn, q: string): boolean {
-  const lead = t(TAB_SEARCH_KEY.export).toLowerCase()
+  const lead = t(PREFS_TAB_DESCRIPTION_KEY.export).toLowerCase()
   if (lead.includes(q)) return true
   for (const item of getFlatSettingsSchema()) {
     if (item.section !== 'export') continue
@@ -57,24 +35,41 @@ const TEMPLATE_SEARCH_KEYS = [
   'settings.workspaceNotes.openOnStartup.label',
   'settings.workspaceNotes.templatesFolder.label',
   'settings.workspaceNotes.defaultTemplate.label',
-  'settings.workspaceNotes.openToday',
   'settings.workspaceNotes.variablesTitle',
 ] as const
 
 function templatesTabMatchesQuery(t: TranslateFn, q: string): boolean {
-  const lead = t(TAB_SEARCH_KEY.templates).toLowerCase()
+  const lead = t(PREFS_TAB_DESCRIPTION_KEY.templates).toLowerCase()
   if (lead.includes(q)) return true
   return TEMPLATE_SEARCH_KEYS.some((key) => t(key).toLowerCase().includes(q))
 }
 
 function shortcutsTabMatchesQuery(t: TranslateFn, q: string): boolean {
-  const lead = t(TAB_SEARCH_KEY.shortcuts).toLowerCase()
+  const lead = t(PREFS_TAB_DESCRIPTION_KEY.shortcuts).toLowerCase()
   if (lead.includes(q)) return true
   for (const entry of listCustomizableShortcutCommands()) {
     const label = t(entry.labelKey).toLowerCase()
     if (label.includes(q)) return true
   }
   return false
+}
+
+function pluginsTabMatchesQuery(t: TranslateFn, q: string): boolean {
+  const hay = [
+    t(PREFS_TAB_CATEGORY_KEY.plugins),
+    t(PREFS_TAB_DESCRIPTION_KEY.plugins),
+    t('settings.plugins.searchPlaceholder'),
+    t('settings.plugins.tabBrowse'),
+    t('settings.plugins.tabInstalled'),
+    t('settings.plugins.install'),
+    t('settings.plugins.uninstall'),
+    t('settings.plugins.update'),
+    t('settings.plugins.refresh'),
+    t('settings.plugins.refreshInstalled'),
+  ]
+    .join(' ')
+    .toLowerCase()
+  return hay.includes(q)
 }
 
 export function filterPrefsTabs(t: TranslateFn, query: string): PrefsTabId[] {
@@ -84,8 +79,9 @@ export function filterPrefsTabs(t: TranslateFn, query: string): PrefsTabId[] {
     if (tab === 'export') return exportTabMatchesQuery(t, q)
     if (tab === 'templates') return templatesTabMatchesQuery(t, q)
     if (tab === 'shortcuts') return shortcutsTabMatchesQuery(t, q)
+    if (tab === 'plugins') return pluginsTabMatchesQuery(t, q)
     if (settingsTabMatchesQuery(t, tab, q)) return true
-    const hay = `${t(TAB_LABEL_KEY[tab])} ${t(TAB_SEARCH_KEY[tab])}`.toLowerCase()
+    const hay = `${t(PREFS_TAB_CATEGORY_KEY[tab])} ${t(PREFS_TAB_DESCRIPTION_KEY[tab])}`.toLowerCase()
     return hay.includes(q)
   })
 }

@@ -31,6 +31,8 @@ import { LunaRawBlock } from './lunaRawBlock'
 import { LunaRawInline } from './lunaRawInline'
 import { LunaHeading } from './lunaHeading'
 import { LunaImage } from './lunaImage'
+import { LunaImageParagraphGuard } from './lunaImageParagraphGuard'
+import { LunaBlockVerticalNav } from './lunaBlockVerticalNav'
 import { LunaListTypora } from './lunaListTypora'
 import { LunaTabInText } from './lunaTabInText'
 import { TocDirective } from './tocDirective'
@@ -185,6 +187,8 @@ export function createLunaMarkdownEditorExtensions(options: LunaMarkdownEditorEx
       resolveSrc: options.resolveMediaSrc,
       getNoteAssetContext: options.getNoteAssetContext,
     } as Parameters<typeof LunaImage.configure>[0]),
+    LunaImageParagraphGuard,
+    LunaBlockVerticalNav,
     LunaTable.configure({
       resizable: true,
       View: LunaTableView,

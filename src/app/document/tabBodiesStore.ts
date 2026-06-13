@@ -12,6 +12,24 @@ export const MAX_TAB_BODY_CACHE_ENTRIES = MAX_OPEN_DOCUMENT_TABS
 
 const bodies: Record<string, string> = {}
 const accessOrder: string[] = []
+const listeners = new Set<() => void>()
+let tabBodiesRevision = 0
+
+function notifyTabBodiesListeners(): void {
+  tabBodiesRevision += 1
+  for (const listener of listeners) listener()
+}
+
+export function subscribeTabBodies(onStoreChange: () => void): () => void {
+  listeners.add(onStoreChange)
+  return () => {
+    listeners.delete(onStoreChange)
+  }
+}
+
+export function getTabBodiesRevision(): number {
+  return tabBodiesRevision
+}
 
 function findKey(path: string): string | undefined {
   if (!path) return undefined
@@ -51,9 +69,15 @@ export function setTabBody(path: string, body: string): void {
     delete bodies[key]
     removeAccess(key)
   }
+  const previous = bodies[path]
+  if (previous === body) {
+    touchAccess(path)
+    return
+  }
   bodies[path] = body
   touchAccess(path)
   evictIfNeeded()
+  notifyTabBodiesListeners()
 }
 
 export function deleteTabBody(path: string): void {
@@ -61,6 +85,7 @@ export function deleteTabBody(path: string): void {
   if (key == null) return
   delete bodies[key]
   removeAccess(key)
+  notifyTabBodiesListeners()
 }
 
 /** Move cached tab body when a note path changes (rename / move). */
@@ -74,11 +99,13 @@ export function renameTabBodyPath(oldPath: string, newPath: string): void {
   bodies[newPath] = body
   touchAccess(newPath)
   evictIfNeeded()
+  notifyTabBodiesListeners()
 }
 
 export function clearTabBodies(): void {
   for (const key of Object.keys(bodies)) delete bodies[key]
   accessOrder.length = 0
+  notifyTabBodiesListeners()
 }
 
 /** Drop cached bodies not in `keepPaths` (e.g. after closing tabs). */
@@ -93,6 +120,7 @@ export function pruneTabBodiesExcept(keepPaths: readonly string[]): void {
     delete bodies[key]
     removeAccess(key)
   }
+  notifyTabBodiesListeners()
 }
 
 export function syncTabBodyFromKernel(path: string, content: string): void {

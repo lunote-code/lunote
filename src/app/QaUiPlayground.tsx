@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import '../App.css'
+import { AboutDialog } from '../components/AboutDialog'
+import { AlertDialog } from '../components/AlertDialog'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog'
 import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog'
+import { Icon } from '../design-system/icons/Icon'
 import { AppCommandPaletteOverlay } from './components/AppCommandPaletteOverlay'
+import { AppRenameDialog } from './components/AppRenameDialog'
 import { EditorTabBar } from './components/EditorTabBar'
+import type { RenameDialogState } from './workspace/types'
 import type { PaletteCommandDef } from '../menu/menu.types'
 import {
   applyBootEarlyThemeFromLocalStorage,
@@ -29,6 +36,19 @@ const UI_MESSAGES: Record<string, string> = {
   'app.commandPalette.aria': 'Command palette',
   'app.commandPalette.placeholder': 'Type a command…',
   'commandPalette.empty': 'No matching commands',
+  'app.about.close': 'Close',
+  'app.about.desc': 'A local Markdown notebook application for offline writing, editing, and document management.',
+  'app.about.title': '{name} · Version {version}',
+  'app.about.update.available': 'Version {version} is available',
+  'app.about.update.checkFailed': 'Unable to check for updates right now.',
+  'app.about.update.checking': 'Checking for updates…',
+  'app.about.update.download': 'Download update',
+  'app.about.update.latest': 'Up to date',
+  'app.rename.cancel': 'Cancel',
+  'app.rename.fileTitle': 'Rename file',
+  'app.rename.hint': 'Enter a new name (include extension for files)',
+  'app.rename.submit': 'Rename',
+  'app.rename.submitting': 'Renaming…',
 }
 
 const PALETTE_COMMANDS: PaletteCommandDef[] = [
@@ -61,8 +81,13 @@ const PALETTE_COMMANDS: PaletteCommandDef[] = [
   },
 ]
 
-function t(key: string): string {
-  return UI_MESSAGES[key] ?? key
+function t(key: string, vars?: Record<string, string | number>): string {
+  let value = UI_MESSAGES[key] ?? key
+  if (!vars) return value
+  for (const [name, replacement] of Object.entries(vars)) {
+    value = value.replace(`{${name}}`, String(replacement))
+  }
+  return value
 }
 
 declare global {
@@ -110,6 +135,14 @@ function QaUiInner() {
   const [paletteIndex, setPaletteIndex] = useState(0)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [unsavedOpen, setUnsavedOpen] = useState(false)
+  const [alertOpen, setAlertOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
+  const [renameDialog, setRenameDialog] = useState<RenameDialogState | null>(null)
+  const [renameInputValue, setRenameInputValue] = useState('note.md')
+  const [renameError, setRenameError] = useState('')
+  const [renameSubmitting, setRenameSubmitting] = useState(false)
+  const renameInputRef = useRef<HTMLInputElement | null>(null)
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>('dark')
   const [focusMode, setFocusModeState] = useState(false)
   const focusModeRef = useRef(false)
@@ -254,7 +287,8 @@ function QaUiInner() {
         const footerStats = footer?.querySelector('.editor-footer-stats')
         const isVisible = (el: Element | null | undefined) => {
           if (!(el instanceof HTMLElement)) return false
-          return el.offsetParent !== null || getComputedStyle(el).display !== 'none'
+          const style = getComputedStyle(el)
+          return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) > 0
         }
         return {
           layoutHasFocusClass: layout?.classList.contains('focus-mode') ?? false,
@@ -295,6 +329,33 @@ function QaUiInner() {
         </button>
         <button type="button" data-testid="open-unsaved" onClick={() => window.__QA_UI__?.openUnsaved()}>
           Open unsaved dialog
+        </button>
+        <button type="button" data-testid="open-alert" onClick={() => setAlertOpen(true)}>
+          Open alert dialog
+        </button>
+        <button type="button" data-testid="open-delete" onClick={() => setDeleteOpen(true)}>
+          Open delete dialog
+        </button>
+        <button type="button" data-testid="open-about" onClick={() => setAboutOpen(true)}>
+          Open about dialog
+        </button>
+        <button
+          type="button"
+          data-testid="open-rename"
+          onClick={() => {
+            setRenameError('')
+            setRenameSubmitting(false)
+            setRenameInputValue('note.md')
+            setRenameDialog({
+              root: '/qa-vault',
+              oldPath: '/qa-vault/note.md',
+              isDirectory: false,
+              mode: 'rename',
+              parentPath: '/qa-vault',
+            })
+          }}
+        >
+          Open rename dialog
         </button>
         <button type="button" data-testid="set-theme-light" onClick={() => setTheme('light')}>
           Light theme
@@ -399,6 +460,26 @@ function QaUiInner() {
           setStatus(`reordered:${fromIndex}->${toIndex}`)
         }}
         onContextMenu={() => {}}
+        trailingActions={
+          <>
+            <button
+              type="button"
+              className="luna-chrome-icon-btn editor-chrome-action-btn"
+              data-testid="editor-focus-toggle"
+              aria-label="Focus mode"
+            >
+              <Icon name="focus" size="sm" stroke="strong" />
+            </button>
+            <button
+              type="button"
+              className="luna-chrome-icon-btn editor-chrome-action-btn"
+              data-testid="editor-knowledge-toggle"
+              aria-label="Knowledge panel"
+            >
+              <Icon name="graph" size="sm" stroke="strong" />
+            </button>
+          </>
+        }
       />
 
       <AppCommandPaletteOverlay
@@ -461,6 +542,59 @@ function QaUiInner() {
           setUnsavedOpen(false)
           setStatus('dialog:cancel')
         }}
+      />
+
+      <AlertDialog
+        open={alertOpen}
+        title="Export failed"
+        message="The document could not be exported."
+        okLabel="OK"
+        onClose={() => {
+          setAlertOpen(false)
+          setStatus('dialog:alert-ok')
+        }}
+      />
+
+      <DeleteConfirmDialog
+        open={deleteOpen}
+        title="Delete note?"
+        message="This file will be moved to the trash."
+        fileLabel="note.md"
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={() => {
+          setDeleteOpen(false)
+          setStatus('dialog:delete-confirm')
+        }}
+        onCancel={() => {
+          setDeleteOpen(false)
+          setStatus('dialog:delete-cancel')
+        }}
+      />
+
+      {aboutOpen ? <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} t={t} /> : null}
+
+      <AppRenameDialog
+        t={t}
+        renameDialog={renameDialog}
+        renameInputValue={renameInputValue}
+        renameError={renameError}
+        renameSubmitting={renameSubmitting}
+        renameInputRef={renameInputRef}
+        onRenameInputChange={setRenameInputValue}
+        onRenameSubmit={async () => {
+          setRenameSubmitting(true)
+          setRenameError('')
+          await new Promise((resolve) => window.setTimeout(resolve, 0))
+          setRenameSubmitting(false)
+          setRenameDialog(null)
+          setStatus('dialog:rename-submit')
+        }}
+        onRenameClose={() => {
+          setRenameDialog(null)
+          setStatus('dialog:rename-cancel')
+        }}
+        onRenameTemplateChange={() => {}}
       />
     </div>
   )

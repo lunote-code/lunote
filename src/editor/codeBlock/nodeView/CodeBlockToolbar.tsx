@@ -59,33 +59,35 @@ export function CodeBlockToolbar({
           <IconChevronDown className="pm-code-lang-chip__chev-svg" />
         </span>
       </LunaCodeToolbarButton>
-      <LunaCodeToolbarButton
-        variant="icon"
-        pressed={folded}
-        title={folded ? expandLabel : collapseLabel}
-        aria-label={folded ? expandLabel : collapseLabel}
-        onPointerDown={onToggleFoldedPointerDown}
-        onClick={onToggleFolded}
-      >
-        {folded ? <IconChevronDown /> : <IconChevronUp />}
-      </LunaCodeToolbarButton>
-      <LunaCodeToolbarButton
-        variant="icon"
-        preventMouseDownDefault
-        className={`luna-btn--copy${copySuccess ? ' luna-btn--copy-success' : ''}`}
-        title={copyLabel}
-        aria-label={copyLabel}
-        onClick={onCopyClick}
-      >
-        <span className="luna-btn__copy-icons" aria-hidden>
-          <span className="luna-btn__copy-icon luna-btn__copy-icon--idle">
-            <IconCopy />
+      <div className="luna-code-toolbar__actions" data-testid="code-toolbar-secondary-actions">
+        <LunaCodeToolbarButton
+          variant="icon"
+          pressed={folded}
+          title={folded ? expandLabel : collapseLabel}
+          aria-label={folded ? expandLabel : collapseLabel}
+          onPointerDown={onToggleFoldedPointerDown}
+          onClick={onToggleFolded}
+        >
+          {folded ? <IconChevronDown /> : <IconChevronUp />}
+        </LunaCodeToolbarButton>
+        <LunaCodeToolbarButton
+          variant="icon"
+          preventMouseDownDefault
+          className={`luna-btn--copy${copySuccess ? ' luna-btn--copy-success' : ''}`}
+          title={copyLabel}
+          aria-label={copyLabel}
+          onClick={onCopyClick}
+        >
+          <span className="luna-btn__copy-icons" aria-hidden>
+            <span className="luna-btn__copy-icon luna-btn__copy-icon--idle">
+              <IconCopy />
+            </span>
+            <span className="luna-btn__copy-icon luna-btn__copy-icon--done">
+              <IconCheck />
+            </span>
           </span>
-          <span className="luna-btn__copy-icon luna-btn__copy-icon--done">
-            <IconCheck />
-          </span>
-        </span>
-      </LunaCodeToolbarButton>
+        </LunaCodeToolbarButton>
+      </div>
     </div>
   )
 }

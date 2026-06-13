@@ -6,6 +6,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from 'react'
 
 import { LunaHintPopover } from '../../components/LunaHintPopover'
@@ -37,6 +38,8 @@ type Props = {
   onClose: (path: string) => void
   onReorder: (fromIndex: number, toIndex: number) => void
   onContextMenu: (e: MouseEvent, path: string, index: number) => void
+  leadingSlot?: ReactNode
+  trailingActions?: ReactNode
 }
 
 const EDITOR_TAB_DRAGGING_BODY_CLASS = 'is-editor-tab-dragging'
@@ -83,6 +86,8 @@ export function EditorTabBar({
   onClose,
   onReorder,
   onContextMenu,
+  leadingSlot,
+  trailingActions,
 }: Props) {
   const [dragVisual, setDragVisual] = useState<TabDragVisualState | null>(null)
   const dragSessionRef = useRef<TabDragSession | null>(null)
@@ -311,6 +316,8 @@ export function EditorTabBar({
         </div>
       ) : null}
       <div className="editor-tabs-strip-row">
+      {leadingSlot ? <div className="editor-chrome-leading">{leadingSlot}</div> : null}
+      {openedTabs.length > 0 ? (
       <div
         ref={tabsStripRef}
         className="editor-tabs"
@@ -433,6 +440,9 @@ export function EditorTabBar({
           )
         })}
       </div>
+      ) : null}
+      <div className="editor-chrome-tab-spacer" aria-hidden />
+      {openedTabs.length > 0 ? (
       <div
         className="editor-tabs-capacity"
         data-testid="editor-tabs-capacity"
@@ -461,6 +471,8 @@ export function EditorTabBar({
           />
         ) : null}
       </div>
+      ) : null}
+      {trailingActions ? <div className="editor-chrome-actions">{trailingActions}</div> : null}
       </div>
     </div>
   )

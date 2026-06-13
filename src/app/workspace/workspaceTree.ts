@@ -38,6 +38,40 @@ export function pathExistsInTree(nodes: FsTreeNode[], path: string): boolean {
 export const countMarkdownInTree = (nodes: FsTreeNode[]): number =>
   nodes.reduce((acc, n) => acc + (n.kind === 'file' ? 1 : countMarkdownInTree(n.children)), 0)
 
+export type WorkspaceFolderIconName = 'workspace' | 'workspace-open'
+
+export type WorkspaceFolderContentState = 'empty' | 'filled'
+
+export type WorkspaceFolderChrome = {
+  iconName: WorkspaceFolderIconName
+  contentState: WorkspaceFolderContentState
+  folderClass: string
+}
+
+/** Sidebar folder row icon: empty vs filled, and open when expanded (Finder-style). */
+export function resolveWorkspaceFolderChrome(children: FsTreeNode[], expanded: boolean): WorkspaceFolderChrome {
+  const hasDocs = countMarkdownInTree(children) > 0
+  if (!hasDocs) {
+    return {
+      iconName: 'workspace',
+      contentState: 'empty',
+      folderClass: 'tree-folder-empty',
+    }
+  }
+  if (expanded) {
+    return {
+      iconName: 'workspace-open',
+      contentState: 'filled',
+      folderClass: 'tree-folder-filled tree-folder-expanded',
+    }
+  }
+  return {
+    iconName: 'workspace',
+    contentState: 'filled',
+    folderClass: 'tree-folder-filled',
+  }
+}
+
 export function normalizeNewNoteStemInput(raw: string, defaultStem: string): string {
   let s = raw.trim()
   if (!s) return defaultStem

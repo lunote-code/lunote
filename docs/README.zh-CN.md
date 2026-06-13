@@ -5,7 +5,7 @@
 <h1 align="center">Lunote</h1>
 
 <p align="center">
-  <strong>打开你的 Markdown 文件夹就能用——写作、双链、图谱，无需插件。</strong><br />
+  <strong>打开 Markdown 文件夹就能用——写作、双链、图谱；核心内建，还可选装主题插件。</strong><br />
   <em>免费开源、可离线。每一篇笔记都是磁盘上的 <code>.md</code> 文件。</em><br />
   <em>笔记只存在你的电脑上。无需账号、不上传——需要时用 Git、Syncthing、iCloud 等自行同步文件夹。</em>
 </p>
@@ -53,7 +53,7 @@
 </p>
 
 <p align="center">
-  <strong>Typora 式写作 + Obsidian 式双链 — 内建，不用装插件。</strong>
+  <strong>Typora 式写作 + Obsidian 式双链 — 内建，并附带主题插件目录。</strong>
 </p>
 
 <p align="center">
@@ -69,10 +69,10 @@
 <!-- readme-demo-gif -->
 <p align="center">
   <a href="#preview">
-    <img src="assets/demo/lunote-demo.gif" alt="Lunote — 演示：写作、双链、知识图谱、主题" width="720" />
+    <img src="assets/demo/lunote-demo.gif" alt="Lunote — 演示：写作、双链、知识图谱、主题、插件" width="720" />
   </a>
 </p>
-<p align="center"><sub>写作 · `[[双链]]` · 反向链接 · 图谱 · 导出 · 主题</sub></p>
+<p align="center"><sub>写作 · `[[双链]]` · 反向链接 · 图谱 · 导出 · 主题 · 插件</sub></p>
 
 ---
 
@@ -92,18 +92,6 @@
 | :---: | :---: | :---: |
 | <img src="assets/screenshots/search.png" alt="全局搜索" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/snipaste.png" alt="历史快照" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="主题设置" width="240" style="max-width: 100%; height: auto;" /> |
 
-### 更多主题预览
-
-更多外观截图见 `assets/screenshots/theme/`。可直接复制的 CSS、JSON 令牌与片段： **[主题示例](theme-example/README.md)**.
-
-| GitHub 浅色 | GitHub 深色 | IDEA 浅色 | IDEA 深色 | Dim 浅色 |
-| :---: | :---: | :---: | :---: | :---: |
-| <img src="assets/screenshots/theme/github-light.png" alt="GitHub 浅色" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/github-dark.png" alt="GitHub 深色" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/idea-light.png" alt="IDEA 浅色" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/idea-dark.png" alt="IDEA 深色" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/dim-light.png" alt="Dim 浅色" width="200" style="max-width: 100%; height: auto;" /> |
-
-| Dim 深色 | 森林晨曦 | 余烬微光 | 石墨黑 | 薰衣草雾 |
-| :---: | :---: | :---: | :---: | :---: |
-| <img src="assets/screenshots/theme/dim-dark.png" alt="Dim 深色" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/forest-dawn.png" alt="森林晨曦" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/ember-glow.png" alt="余烬微光" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/graphite-noir.png" alt="石墨黑" width="200" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme/lavender-haze.png" alt="薰衣草雾" width="200" style="max-width: 100%; height: auto;" /> |
-
 ---
 
 <!-- readme-body-start -->
@@ -111,11 +99,12 @@
 
 ## 这是什么
 
-打开 **`.md` 文件夹**就能写。内建 `[[双链]]`、反向链接与知识图谱——**无需账号，无需插件市场**。
+打开 **`.md` 文件夹**就能写。内建 `[[双链]]`、反向链接与知识图谱——**无需账号；可在偏好设置 → 插件浏览主题包**.
 
 - 把任意 **`.md` 文件夹**当作工作区打开
 - **可视化与源码**一键切换（`Cmd+/` / `Ctrl+/`）
 - 内建 **双链**、反向链接、知识图谱、大纲与全文搜索
+- **偏好设置 → 插件**：从 [lunote-theme](https://github.com/lunote-code/lunote-theme) 目录浏览并安装主题包（CSS、片段、令牌）
 
 | | |
 |---|---|
@@ -144,7 +133,7 @@
 
 ### 双链
 
-*搭建第二大脑：`[[双链]]`、反向链接、图谱，无需插件。*
+*搭建第二大脑：`[[双链]]`、反向链接、图谱，核心能力内建即用。*
 
 - `[[双链]]` 自动补全，可安全打开尚未创建的笔记
 - **知识侧栏**：反向链接、本地图谱、嵌入、标签与 **YAML Frontmatter** 编辑
@@ -160,11 +149,12 @@
 
 ### 导出与外观
 
-*分享或打印 PDF/Word/HTML，主题可自定义。*
+*分享或打印 PDF/Word/HTML，主题可自定义，也可安装插件主题包。*
 
 - 导出 **PDF、HTML、DOCX、PNG**，支持系统**打印**
 - 明暗主题、**Theme 文件夹**、外部 CSS
 - 视觉模式与预览支持**阅读栏宽**预设（窄 / 标准 / 宽）
+- **偏好设置 → 插件**：从 [lunote-theme](https://github.com/lunote-code/lunote-theme) 目录安装主题包
 
 ### 历史
 
@@ -219,7 +209,7 @@
 ## 为什么用 Lunote
 
 - **文件在你手里**：笔记就是你自己文件夹里的 `.md`。
-- **一个应用搞定**：写作体验顺手，双链和图谱也内建，不用折腾插件。
+- **一个应用搞定**：写作顺手，双链和图谱内建，需要时还可安装主题包。
 
 ---
 
@@ -227,17 +217,13 @@
 
 ## 和其他工具比
 
-正在用 Typora 或 Obsidian？Lunote 适合想要**顺手写作 + 内建双链图谱**、又不想折腾插件的人。
+正在用 Typora 或 Obsidian？Lunote 适合想要**顺手写作 + 内建双链图谱**的人；需要更多外观时再浏览插件目录。
 
 | | Typora | Obsidian | Lunote |
 |---|---|---|---|
 | **写作体验** | 很好 | 不错 | 很好，内建 |
 | **双链与图谱** | 较弱 | 强（常靠插件） | 强，内建 |
-| **上手要不要插件** | 很少 | 经常要 | 不需要 |
-
-
----
-
+| **上手要不要插件** | 很少 | 经常要 | **可选**（主题目录） |
 
 <a id="user-guide"></a>
 
@@ -245,14 +231,12 @@
 
 英文分步说明（主题、快捷键与完整 **`/`** 斜杠命令列表）：
 
-- [主题](guide/themes.md) — 内置外观、Theme 文件夹、external CSS、代码片段与导出样式
+- [主题](guide/themes.md) — 内置外观、Theme 文件夹、external CSS、代码片段、导出样式与**偏好设置 → 插件**目录
 - [快捷键与快捷菜单](guide/shortcuts-and-menus.md) — 命令面板、键盘快捷键与完整 **`/`** 斜杠命令列表
-- [模板](Templates/README.md) — 默认笔记与日记模板、变量说明
 - [平台差异](guide/platform-differences.md) — 各系统 PDF、打印、在文件管理器中显示与排错
 - [指南目录](guide/README.md) — 全部指南页面
 
 ---
-
 
 <a id="development"></a>
 
@@ -281,7 +265,59 @@
 
 想法与迁移经验：[讨论区](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
 
+<a id="development"></a>
+
+## 开发
+
+自行构建 Lunote：
+
+- **环境：** Node.js、Rust 与 [Tauri](https://tauri.app/) 平台依赖
+- **开发：** `npm install` 后执行 `npm run tauri:dev`
+- **打包：** `npm run tauri:bundle`（或 `tauri:bundle:dmg` / `msi` / `deb`）
+- **文档：** [文档索引](README.md) · [打包说明](packaging-strategy.md) · [脚本说明](../scripts/README.md)
+
+问题反馈：[提 Issue](https://github.com/lunote-code/lunote/issues)，欢迎 PR。
+
 ---
+
+<a id="contribution"></a>
+
+## 参与贡献
+
+提交 PR 前建议：
+
+- 阅读 [脚本与维护](../scripts/README.md) 了解多语言与发布流程
+- 修改编辑器或导出相关代码时运行 `npm run lint` 与相关测试
+- 调整产品文案时同步 [多语言 README](README.md)
+
+想法与迁移经验：[讨论区](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
+
+<a id="development"></a>
+
+## 开发
+
+自行构建 Lunote：
+
+- **环境：** Node.js、Rust 与 [Tauri](https://tauri.app/) 平台依赖
+- **开发：** `npm install` 后执行 `npm run tauri:dev`
+- **打包：** `npm run tauri:bundle`（或 `tauri:bundle:dmg` / `msi` / `deb`）
+- **文档：** [文档索引](README.md) · [打包说明](packaging-strategy.md) · [脚本说明](../scripts/README.md)
+
+问题反馈：[提 Issue](https://github.com/lunote-code/lunote/issues)，欢迎 PR。
+
+---
+
+<a id="contribution"></a>
+
+## 参与贡献
+
+提交 PR 前建议：
+
+- 阅读 [脚本与维护](../scripts/README.md) 了解多语言与发布流程
+- 修改编辑器或导出相关代码时运行 `npm run lint` 与相关测试
+- 调整产品文案时同步 [多语言 README](README.md)
+
+想法与迁移经验：[讨论区](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
 
 <a id="faq"></a>
 
@@ -299,6 +335,9 @@
 **能完全替代 Obsidian 或 Notion 吗？**  
 不一定。Lunote 侧重桌面写作与内建双链；若强依赖移动端或大型插件生态，可与其他工具搭配。
 
+**有插件吗？**  
+有——主题类插件。打开 **偏好设置 → 插件**，可从 [lunote-theme](https://github.com/lunote-code/lunote-theme) 目录浏览主题包（CSS、片段、JSON 令牌）。双链、图谱与导出无需安装插件即可使用。
+
 **如何反馈问题或想法？**  
 欢迎 [提 Issue](https://github.com/lunote-code/lunote/issues) 或参与 [讨论](https://github.com/lunote-code/lunote/discussions)——迁移经验也能帮助更多人发现 Lunote。
 
@@ -309,18 +348,5 @@
 ## 许可证
 
 开源软件。条款见仓库中的许可证文件。
-
-<a id="sponsor"></a>
-
-## 支持项目
-
-如果 Lunote 对你有帮助，欢迎通过 Tron 网络上的 **TRC20 USDT** 自愿赞助开发。
-
-| | |
-|---|---|
-| **网络** | Tron（TRC20）· USDT |
-| **地址** | USDT · `TEDgPJzSmv7YTjrs2EZrFF5kCNbuZY15iY` |
-
-<sub>转账前务必核对地址。链上转账不可撤销。赞助为自愿行为，不构成服务购买。</sub>
 
 ---

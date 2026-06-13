@@ -14,13 +14,13 @@ import {
 import type { TranslateFn } from '../../i18n'
 import { setWikiLinkSuggestPathProvider } from '../../editor/lunaWikiLinkSuggest'
 import { pathInList, pathsEqual } from '../../lib/workspacePathUtils'
+import { isBufferTabId } from '../workspace/constants'
 import {
   collectDirPaths,
   countFilesInTree,
   filterSidebarWorkspaceTree,
   filterWorkspaceTreeByQuery,
   flattenWorkspaceFiles,
-  noteFileStem,
   sortWorkspaceTree,
 } from '../workspace/workspaceTree'
 import {
@@ -37,7 +37,7 @@ import {
 } from '../workspace/workspaceFileMultiSelect'
 import type { FileSortMode, FsTreeNode } from '../workspace/types'
 import type { EditorDocMenuState, FileContextMenuState } from '../workspace/contextMenuTypes'
-import { APP_DISPLAY_NAME, isBufferTabId } from '../workspace/constants'
+import { deriveWindowTitleParts } from '../../platform/tauri/windowTitleModel'
 
 export type WorkspaceSidebarDeps = {
   t: TranslateFn
@@ -117,26 +117,16 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
     return parts[parts.length - 1] || norm
   }, [rootDir, t])
 
-  const activeDocumentTitle = useMemo(() => {
-    if (!activePath) {
-      if (!rootDir.trim()) return t('app.titleBar.welcomeTitle', { app: APP_DISPLAY_NAME })
-      return t('app.editor.empty.noNoteTitle')
-    }
-    const label = tabLabel(activePath)
-    return noteFileStem(label) || label || t('app.tab.unnamed')
-  }, [activePath, rootDir, tabLabel, t])
-
-  const activeDocumentSubtitle = useMemo(() => {
-    if (!activePath) {
-      if (!rootDir.trim()) return t('app.titleBar.welcomeSubtitle')
-      return t('app.titleBar.readySubtitle')
-    }
-    const label = tabLabel(activePath)
-    const dir = label.replace(/\\/g, '/').replace(/\/?[^/]*$/u, '')
-    if (dir) return dir
-    if (isBufferTabId(activePath)) return t('app.titleBar.tempDoc')
-    return workspaceFolderName
-  }, [activePath, rootDir, tabLabel, workspaceFolderName, t])
+  const { documentTitle: windowTitleDocument, workspaceTitle: windowTitleWorkspace } = useMemo(
+    () =>
+      deriveWindowTitleParts({
+        activePath,
+        rootDir,
+        tabLabel,
+        workspaceFolderName,
+      }),
+    [activePath, rootDir, tabLabel, workspaceFolderName],
+  )
 
   const flatWorkspaceFiles = useMemo(
     () => (rootDir && fileTree.length > 0 ? flattenWorkspaceFiles(fileTree, rootDir) : []),
@@ -249,6 +239,16 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
     clearWorkspaceFileSelection()
   }, [clearWorkspaceFileSelection, rootDir])
 
+  /** Keep sidebar selection aligned with the active editor tab (tab bar, wikilink, etc.). */
+  useEffect(() => {
+    if (!activePath || isBufferTabId(activePath)) {
+      clearWorkspaceFileSelection()
+      return
+    }
+    setSelectedFilePaths([activePath])
+    selectionAnchorRef.current = activePath
+  }, [activePath, clearWorkspaceFileSelection])
+
   useEffect(() => {
     if (!isSidebarFiltering || !rootDir) return
     const dirs = collectDirPaths(sortedFileTree)
@@ -357,10 +357,7 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
       if (x < pad) x = pad
       if (y < pad) y = pad
       setEditorDocMenu(null)
-      if (!isDirectory && !pathInList(path, selectedFilePaths)) {
-        setSelectedFilePaths([path])
-        selectionAnchorRef.current = path
-      }
+      // Keep sidebar selection on the active tab; context menu actions use `path` / `bulkDeletePaths`.
       const bulkDeletePaths =
         !isDirectory && pathInList(path, selectedFilePaths) && selectedFilePaths.length > 1
           ? [...selectedFilePaths]
@@ -460,8 +457,8 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
 
   return {
     workspaceFolderName,
-    activeDocumentTitle,
-    activeDocumentSubtitle,
+    windowTitleDocument,
+    windowTitleWorkspace,
     sortedFlatWorkspaceFiles: filteredFlatWorkspaceFiles,
     sortedFileTree,
     workspaceFolderNodes,

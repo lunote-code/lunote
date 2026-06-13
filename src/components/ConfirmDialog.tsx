@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react'
+
+import { SettingsButton } from './settings'
 import { useFocusTrap } from '../lib/useFocusTrap'
 
 export type ConfirmDialogVariant = 'default' | 'warning'
@@ -24,7 +26,6 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  const dialogRef = useRef<HTMLDivElement | null>(null)
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null)
   const [dialogEl, setDialogEl] = useState<HTMLDivElement | null>(null)
 
@@ -35,10 +36,7 @@ export function ConfirmDialog({
   return (
     <div className="about-modal-backdrop confirm-modal-backdrop" role="presentation">
       <div
-        ref={(el) => {
-          dialogRef.current = el
-          setDialogEl(el)
-        }}
+        ref={setDialogEl}
         className={`about-modal confirm-modal confirm-modal-${variant}`}
         role="alertdialog"
         aria-modal="true"
@@ -71,22 +69,16 @@ export function ConfirmDialog({
         <p id="confirm-dialog-desc" className="about-modal-desc confirm-modal-desc">
           {message}
         </p>
-        <div className="rename-modal-actions confirm-modal-actions">
-          <button
-            ref={cancelButtonRef}
-            type="button"
-            className="about-modal-close rename-modal-cancel"
-            onClick={onCancel}
-          >
+        <div className="rename-modal-actions confirm-modal-actions settings-inline-controls">
+          <SettingsButton ref={cancelButtonRef} variant="secondary" onClick={onCancel}>
             {cancelLabel}
-          </button>
-          <button
-            type="button"
-            className={`about-modal-close confirm-modal-confirm confirm-modal-confirm-${variant}`}
+          </SettingsButton>
+          <SettingsButton
+            variant={variant === 'warning' ? 'danger' : 'primary'}
             onClick={onConfirm}
           >
             {confirmLabel}
-          </button>
+          </SettingsButton>
         </div>
       </div>
     </div>

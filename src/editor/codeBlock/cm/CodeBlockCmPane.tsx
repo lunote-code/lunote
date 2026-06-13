@@ -167,11 +167,19 @@ export function CodeBlockCmPane({
     const view = viewRef.current
     if (!view) return
     if (view.compositionStarted) return
+    // While CM owns focus, sessionDoc lags one React frame behind CM edits (paste/typing).
+    // Patching from stale props here reverts the first keystroke/paste ("flash then gone").
+    if (view.hasFocus) return
     if (view.state.doc.toString() === doc) return
     return scheduleCodeBlockCmDocPatch(view, doc, (activeView, nextDoc) => {
       suppressEmitRef.current = true
       patchCodeBlockCmDocFromPm(activeView, nextDoc)
-      suppressEmitRef.current = false
+      // Keep suppression through the deferred CM doc-change flush (next microtask).
+      queueMicrotask(() => {
+        queueMicrotask(() => {
+          suppressEmitRef.current = false
+        })
+      })
     })
   }, [doc])
 

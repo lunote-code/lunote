@@ -1,19 +1,25 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { forwardRef } from 'react'
 
 type SettingsButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'secondary' | 'ghost'
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'destructive'
   children: ReactNode
 }
 
-export function SettingsButton({
-  variant = 'secondary',
-  className = '',
-  children,
-  ...props
-}: SettingsButtonProps) {
+export const SettingsButton = forwardRef<HTMLButtonElement, SettingsButtonProps>(function SettingsButton(
+  { variant = 'secondary', type = 'button', className = '', children, ...props },
+  ref,
+) {
   return (
-    <button className={`settings-button settings-button-${variant} ${className}`.trim()} {...props}>
+    <button
+      ref={ref}
+      type={type}
+      className={`settings-button settings-button-${variant} ${className}`.trim()}
+      {...props}
+    >
       {children}
     </button>
   )
-}
+})
+
+SettingsButton.displayName = 'SettingsButton'

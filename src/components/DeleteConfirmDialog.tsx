@@ -1,4 +1,6 @@
 import { useRef } from 'react'
+
+import { SettingsButton } from './settings'
 import { useFocusTrap } from '../lib/useFocusTrap'
 
 export type DeleteConfirmDialogProps = {
@@ -25,7 +27,7 @@ export function DeleteConfirmDialog({
   const dialogRef = useRef<HTMLDivElement | null>(null)
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null)
 
-  useFocusTrap(open, dialogRef.current, { initialFocus: cancelButtonRef.current, onEscape: onCancel })
+  useFocusTrap(open, dialogRef.current, { initialFocusRef: cancelButtonRef, onEscape: onCancel })
 
   if (!open) return null
 
@@ -73,17 +75,12 @@ export function DeleteConfirmDialog({
           <span className="delete-modal-file-name">{fileLabel}</span>
         </div>
         <div className="rename-modal-actions delete-modal-actions">
-          <button
-            ref={cancelButtonRef}
-            type="button"
-            className="about-modal-close rename-modal-cancel"
-            onClick={onCancel}
-          >
+          <SettingsButton ref={cancelButtonRef} variant="secondary" onClick={onCancel}>
             {cancelLabel}
-          </button>
-          <button type="button" className="about-modal-close delete-modal-confirm" onClick={onConfirm}>
+          </SettingsButton>
+          <SettingsButton variant="destructive" onClick={onConfirm}>
             {confirmLabel}
-          </button>
+          </SettingsButton>
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
-import { useMemo, useRef, type MutableRefObject } from 'react'
+import { useMemo, useRef, useSyncExternalStore, type MutableRefObject } from 'react'
 
-import { getTabBody } from '../document/tabBodiesStore'
+import { getTabBody, getTabBodiesRevision, subscribeTabBodies } from '../document/tabBodiesStore'
 import { getDocumentRuntimeSnapshot } from '../../documentRuntime/documentKernel'
 import { parseOutlineHeadingsFromMarkdown } from '../../editor/markdownOutlineFromMarkdown'
 import { pathsEqual } from '../../lib/workspacePathUtils'
@@ -59,6 +59,7 @@ function resolveOutlineMarkdown(activePath: string): string {
 export function useSidebarOutlineHeadings(activePath: string, content: string): TocHeading[] {
   const cacheRef = useRef(new Map<string, { content: string; headings: TocHeading[] }>())
   const orderRef = useRef<string[]>([])
+  const tabBodyRevision = useSyncExternalStore(subscribeTabBodies, getTabBodiesRevision, getTabBodiesRevision)
 
   return useMemo(() => {
     if (!activePath) return []
@@ -78,5 +79,5 @@ export function useSidebarOutlineHeadings(activePath: string, content: string): 
     const headings = parseOutlineHeadingsFromMarkdown(markdown)
     rememberOutlineCache(cacheRef, orderRef, activePath, markdown, headings)
     return headings
-  }, [activePath, content])
+  }, [activePath, content, tabBodyRevision])
 }

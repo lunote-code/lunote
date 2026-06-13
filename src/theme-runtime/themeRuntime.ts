@@ -16,6 +16,7 @@ import { listCustomThemeFiles, readCustomThemeJson } from '../platform/tauri/the
 import { refreshThemeExportStylesFromSettings } from './themeExportStyleRuntime'
 import { refreshThemeStylesheetFromSettings } from './themeStylesheetRuntime'
 import { refreshThemeSnippetsFromSettings } from './themeSnippetRuntime'
+import { syncTauriWindowTheme } from '../platform/tauri/windowThemeSync'
 
 type ThemeSubscriber = (theme: ThemeDefinition) => void
 
@@ -201,6 +202,9 @@ export function applyCompatibleTheme(theme: ThemeDefinition): void {
   document.body?.classList.add(themeMode === 'light' ? 'theme-light' : 'theme-dark')
   document.body?.setAttribute('data-theme', themeMode)
   document.body?.setAttribute('data-theme-preset', presetForTheme(safeTheme))
+  root.style.backgroundColor = safeTheme.colors.background
+  root.style.colorScheme = themeMode
+  void syncTauriWindowTheme(themeMode, safeTheme.colors.background)
   notify()
 }
 
@@ -278,10 +282,23 @@ export function subscribeThemeRuntime(): () => void {
     subscribe('theme.active', refreshThemeFromSettings),
     subscribe('theme.customThemeJSON', refreshThemeFromSettings),
     subscribe('theme.cssFile', refreshThemeFromSettings),
+    subscribe('theme.cssContent', refreshThemeFromSettings),
     subscribe('theme.cssSnippets', () => {
       void refreshThemeSnippetsFromSettings()
     }),
+    subscribe('theme.cssSnippetsInline', () => {
+      void refreshThemeSnippetsFromSettings()
+    }),
+    subscribe('theme.exportCssFile', () => {
+      void refreshThemeExportStylesFromSettings()
+    }),
+    subscribe('theme.exportCssContent', () => {
+      void refreshThemeExportStylesFromSettings()
+    }),
     subscribe('theme.exportCssSnippets', () => {
+      void refreshThemeExportStylesFromSettings()
+    }),
+    subscribe('theme.exportCssSnippetsInline', () => {
       void refreshThemeExportStylesFromSettings()
     }),
   ]

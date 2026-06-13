@@ -356,6 +356,19 @@
   flex: 0 1 auto;
 }
 
+.about-modal-actions .settings-button,
+.rename-modal-actions .settings-button,
+.delete-modal-actions .settings-button,
+.confirm-modal-single-ok.settings-button {
+  width: 100%;
+}
+
+.confirm-modal-actions-multi .settings-button {
+  width: auto;
+  min-width: 96px;
+  flex: 0 1 auto;
+}
+
 .confirm-modal-confirm {
   background: var(--accent);
   color: var(--accent-contrast);

@@ -27,7 +27,12 @@ function renderExportTocList(nodes: HeadingOutlineTreeNode[]): string {
 
 export function resolveExportTocTitle(localeId?: UiLocaleId): string {
   const locale = localeId ?? 'en'
-  const messages = getLocaleMessagesSnapshot(locale)
+  let messages = getLocaleMessagesSnapshot('en')
+  try {
+    messages = getLocaleMessagesSnapshot(locale)
+  } catch {
+    /* locale not warmed yet */
+  }
   return messages['menu.para.toc'] || messages['app.sidebar.outlineHeader'] || 'Contents'
 }
 

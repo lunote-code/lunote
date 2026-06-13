@@ -1,6 +1,7 @@
 import type { RefObject } from 'react'
 import { useI18n } from '../../i18n'
 import { useClampedMenuPosition } from '../../lib/useClampedMenuPosition'
+import { FileContextMenuItem } from './FileContextMenuItem'
 import type { FileContextMenuPick, FileContextMenuState, FileContextTarget } from '../workspace/contextMenuTypes'
 
 export function WorkspaceFileContextMenu({
@@ -27,23 +28,17 @@ export function WorkspaceFileContextMenu({
         style={{ left: menuX, top: menuY }}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('newFile', ctx)}>
-          {t('ctx.file.newFile')}
-        </button>
-        <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('newFileFromTemplate', ctx)}>
-          {t('ctx.file.newFileFromTemplate')}
-        </button>
-        <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('newFolder', ctx)}>
-          {t('ctx.file.newFolder')}
-        </button>
+        <FileContextMenuItem icon="note-new" label={t('ctx.file.newFile')} onClick={() => onPick('newFile', ctx)} />
+        <FileContextMenuItem
+          icon="template"
+          label={t('ctx.file.newFileFromTemplate')}
+          onClick={() => onPick('newFileFromTemplate', ctx)}
+        />
+        <FileContextMenuItem icon="workspace" label={t('ctx.file.newFolder')} onClick={() => onPick('newFolder', ctx)} />
         <div className="file-ctx-sep" role="separator" />
-        <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('copyPath', ctx)}>
-          {t('ctx.file.copyPath')}
-        </button>
+        <FileContextMenuItem icon="copy" label={t('ctx.file.copyPath')} onClick={() => onPick('copyPath', ctx)} />
         <div className="file-ctx-sep" role="separator" />
-        <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('reveal', ctx)}>
-          {t('ctx.file.reveal')}
-        </button>
+        <FileContextMenuItem icon="reveal" label={t('ctx.file.reveal')} onClick={() => onPick('reveal', ctx)} />
       </div>
     )
   }
@@ -56,45 +51,38 @@ export function WorkspaceFileContextMenu({
       onContextMenu={(e) => e.preventDefault()}
     >
       {!isDirectory ? (
-        <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('open', ctx)}>
-          {t('ctx.file.open')}
-        </button>
+        <FileContextMenuItem icon="note" label={t('ctx.file.open')} onClick={() => onPick('open', ctx)} />
       ) : null}
       {!isDirectory ? (
-        <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('openTab', ctx)}>
-          {t('ctx.file.openTab')}
-        </button>
+        <FileContextMenuItem icon="tab-new" label={t('ctx.file.openTab')} onClick={() => onPick('openTab', ctx)} />
       ) : null}
       {!isDirectory ? <div className="file-ctx-sep" role="separator" /> : null}
-      <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('newFile', ctx)}>
-        {t('ctx.file.newFile')}
-      </button>
-      <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('newFileFromTemplate', ctx)}>
-        {t('ctx.file.newFileFromTemplate')}
-      </button>
-      <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('newFolder', ctx)}>
-        {t('ctx.file.newFolder')}
-      </button>
+      <FileContextMenuItem icon="note-new" label={t('ctx.file.newFile')} onClick={() => onPick('newFile', ctx)} />
+      <FileContextMenuItem
+        icon="template"
+        label={t('ctx.file.newFileFromTemplate')}
+        onClick={() => onPick('newFileFromTemplate', ctx)}
+      />
+      <FileContextMenuItem icon="workspace" label={t('ctx.file.newFolder')} onClick={() => onPick('newFolder', ctx)} />
       <div className="file-ctx-sep" role="separator" />
-      <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('rename', ctx)}>
-        {t('ctx.file.rename')}
-      </button>
+      <FileContextMenuItem icon="rename" label={t('ctx.file.rename')} onClick={() => onPick('rename', ctx)} />
       <div className="file-ctx-sep" role="separator" />
-      <button type="button" role="menuitem" className="file-ctx-item file-ctx-item-danger" onClick={() => onPick('delete', ctx)}>
-        {bulkCount > 1
-          ? t('ctx.file.deleteMultiple', { count: bulkCount })
-          : isDirectory
-            ? t('ctx.file.deleteFolder')
-            : t('ctx.file.delete')}
-      </button>
+      <FileContextMenuItem
+        icon="delete"
+        danger
+        label={
+          bulkCount > 1
+            ? t('ctx.file.deleteMultiple', { count: bulkCount })
+            : isDirectory
+              ? t('ctx.file.deleteFolder')
+              : t('ctx.file.delete')
+        }
+        onClick={() => onPick('delete', ctx)}
+      />
       <div className="file-ctx-sep" role="separator" />
-      <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('copyPath', ctx)}>
-        {t('ctx.file.copyPath')}
-      </button>
+      <FileContextMenuItem icon="copy" label={t('ctx.file.copyPath')} onClick={() => onPick('copyPath', ctx)} />
       <div className="file-ctx-sep" role="separator" />
-      <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('reveal', ctx)}>
-        {t('ctx.file.reveal')}
-      </button>
+      <FileContextMenuItem icon="reveal" label={t('ctx.file.reveal')} onClick={() => onPick('reveal', ctx)} />
     </div>
   )
 }

@@ -4,7 +4,9 @@ import { Selection } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
 
 import { codeBlockNodeAt } from '../behavior/selection'
+import { isAtLastNonEmptyCodeLineEnd } from './trailingEmptyLines'
 import { isCodeBlockCmFocused } from '../cm/codeBlockCmFocus'
+import { enterCodeBlockCmAtDocPos } from '../cm/codeBlockCmPmDelegate'
 import { ensurePmEditableForCodeBlockInteraction } from '../cm/codeBlockCmPmFocusLock'
 import { isPosInsideCodeSpecBlock } from '../../lunaCodeContext'
 
@@ -30,7 +32,7 @@ export function isAtCodeBlockFirstLineStart($from: ResolvedPos): boolean {
 export function isAtCodeBlockLastLineEnd($from: ResolvedPos): boolean {
   if ($from.parent.type.name !== 'codeBlock') return false
   const text = codeBlockText($from)
-  return $from.parentOffset === text.length
+  return isAtLastNonEmptyCodeLineEnd(text, $from.parentOffset)
 }
 
 export function focusCodeBlockLangInput(view: EditorView, blockDocPos: number): boolean {
@@ -61,6 +63,10 @@ function ensurePmEditableForCodeBlockExit(editor: Editor): void {
 /** Leaving the code block: the cursor enters the next editable position*/
 export function exitCodeBlockForward(editor: Editor, blockStart: number): boolean {
   ensurePmEditableForCodeBlockExit(editor)
+  const active = document.activeElement
+  if (active instanceof HTMLElement && active.closest('.pm-code-block-cm')) {
+    active.blur()
+  }
   const { state } = editor
   const { doc } = state
   const node = codeBlockNodeAt(editor, blockStart)
@@ -73,8 +79,20 @@ export function exitCodeBlockForward(editor: Editor, blockStart: number): boolea
   } catch {
     return false
   }
+  const nodeAfter = $after.nodeAfter
+  if (nodeAfter?.type.name === 'codeBlock') {
+    return enterCodeBlockCmAtDocPos(editor, after, 0)
+  }
+
   const found = Selection.findFrom($after, 1, true)
   if (found) {
+    const $found = found.$from
+    if ($found.parent.type.name === 'codeBlock') {
+      const start = codeBlockStartDocPos($found)
+      if (start != null) {
+        return enterCodeBlockCmAtDocPos(editor, start, $found.parentOffset)
+      }
+    }
     const tr = state.tr.setSelection(found).scrollIntoView()
     editor.view.dispatch(tr)
     editor.view.focus()

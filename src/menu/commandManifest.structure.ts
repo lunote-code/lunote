@@ -308,7 +308,7 @@ export const TOOLBAR_DROPDOWN_CHILDREN: Partial<Record<string, readonly string[]
 
 /** toolbar slot → command id list*/
 export const TOOLBAR_LAYOUT: ToolbarLayout = {
-  'sidebar-header': ['open-folder', 'view-sidebar-outline'],
+  'sidebar-header': ['view-sidebar-files', 'view-sidebar-outline'],
   'editor-format': [
     'fmt-bold',
     'fmt-italic',

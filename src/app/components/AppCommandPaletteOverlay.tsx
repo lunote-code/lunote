@@ -53,7 +53,7 @@ export function AppCommandPaletteOverlay({
     <div
       className="command-palette-backdrop"
       role="presentation"
-      onClick={onClose}
+      onMouseDown={onClose}
     >
       <div
         ref={setDialogEl}
@@ -61,7 +61,7 @@ export function AppCommandPaletteOverlay({
         role="dialog"
         aria-modal="true"
         aria-label={t('app.commandPalette.aria')}
-        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         <input
           ref={inputRef}

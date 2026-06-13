@@ -2,8 +2,10 @@ import {
   Component,
   StrictMode,
   Suspense,
+  lazy,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ErrorInfo,
@@ -11,17 +13,19 @@ import {
 } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 
-import App from '../App'
 import { MacNativeMenuEarlyUpgrade } from './components/MacNativeMenuEarlyUpgrade'
 import { bootstrapI18n, I18nProvider, type I18nBootstrap } from '../i18n'
 import { BootErrorScreen } from './BootScreens'
 import { BootShell } from './components/BootShell'
-import { applyInitialThemeFromSettings, reloadCustomThemesFromDisk } from '../theme-runtime/themeRuntime'
-import { reloadThemeExportStylesFromDisk } from '../theme-runtime/themeExportStyleRuntime'
-import { reloadThemeStylesheetsFromDisk } from '../theme-runtime/themeStylesheetRuntime'
-import { reloadThemeSnippetsFromDisk } from '../theme-runtime/themeSnippetRuntime'
+import { applyBootEarlyThemeFromLocalStorage } from '../platform/bootEarlyTheme'
+import { syncTauriWindowTheme } from '../platform/tauri/windowThemeSync'
+import { applyInitialThemeFromSettings } from '../theme-runtime/themeRuntime'
+import { scheduleDeferredThemeAssetsReload } from './bootThemeAssets'
+import { markBootPhase, measureBootSince } from './bootPerf'
 import { logCrash, logError, logInfo } from '../lib/lunaLogger'
 import { installSingleInstanceHandler } from './singleInstance'
+
+const LazyApp = lazy(() => import('../App'))
 
 type BootPhase =
   | { status: 'loading' }
@@ -69,6 +73,13 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { error: strin
 
 const BOOT_CROSSFADE_MS = 160
 
+function AppReadyGate({ children, onReady }: { children: ReactNode; onReady: () => void }) {
+  useLayoutEffect(() => {
+    onReady()
+  }, [onReady])
+  return <>{children}</>
+}
+
 function BootApp() {
   const [phase, setPhase] = useState<BootPhase>({ status: 'loading' })
   const [bootShellMounted, setBootShellMounted] = useState(true)
@@ -77,27 +88,34 @@ function BootApp() {
   /** Intergenerational token: compatible with StrictMode dual mounting to avoid re-running bootstrap after cleanup is cancelled.*/
   const bootGenerationRef = useRef(0)
 
+  const handleAppReady = useCallback(() => {
+    markBootPhase('app_chunk_ready')
+    requestAnimationFrame(() => {
+      setAppEntered(true)
+      setBootShellExiting(true)
+    })
+  }, [])
+
   const runBootstrap = useCallback(async (isStale?: () => boolean) => {
     setPhase({ status: 'loading' })
     setBootShellMounted(true)
     setBootShellExiting(false)
     setAppEntered(false)
+    markBootPhase('start')
     logBoot('start')
     try {
+      const earlyTheme = applyBootEarlyThemeFromLocalStorage()
+      void syncTauriWindowTheme(earlyTheme.mode, earlyTheme.surfaceApp)
+      markBootPhase('early_theme_synced')
+      markBootPhase('i18n_start')
       const bootstrap = await bootstrapI18n()
+      markBootPhase('i18n_ready')
       if (isStale?.()) {
         logBoot('stale_skip_ready')
         return
       }
-      await reloadCustomThemesFromDisk()
-      if (isStale?.()) return
-      await reloadThemeStylesheetsFromDisk()
-      if (isStale?.()) return
-      await reloadThemeSnippetsFromDisk()
-      if (isStale?.()) return
-      await reloadThemeExportStylesFromDisk()
-      if (isStale?.()) return
       applyInitialThemeFromSettings()
+      markBootPhase('theme_applied')
       logBoot('ready', {
         settingsLoaded: true,
         documentLoaded: false,
@@ -106,6 +124,9 @@ function BootApp() {
         bootError: null,
       })
       setPhase({ status: 'ready', bootstrap })
+      scheduleDeferredThemeAssetsReload()
+      const ms = measureBootSince('start', 'theme_applied')
+      if (ms != null) logBoot('bootstrap_ms', { ms: Math.round(ms) })
     } catch (e) {
       if (isStale?.()) return
       const message = e instanceof Error ? e.message : String(e)
@@ -115,26 +136,18 @@ function BootApp() {
   }, [])
 
   useEffect(() => {
+    markBootPhase('react_mounted')
     const generation = ++bootGenerationRef.current
     void runBootstrap(() => bootGenerationRef.current !== generation)
   }, [runBootstrap])
 
   useEffect(() => {
-    if (phase.status !== 'ready') return
-
-    const enterFrame = requestAnimationFrame(() => {
-      setAppEntered(true)
-      setBootShellExiting(true)
-    })
+    if (!appEntered) return
     const unmountTimer = window.setTimeout(() => {
       setBootShellMounted(false)
     }, BOOT_CROSSFADE_MS)
-
-    return () => {
-      cancelAnimationFrame(enterFrame)
-      window.clearTimeout(unmountTimer)
-    }
-  }, [phase.status])
+    return () => window.clearTimeout(unmountTimer)
+  }, [appEntered])
 
   useEffect(() => {
     if (phase.status !== 'ready') return
@@ -158,8 +171,10 @@ function BootApp() {
         <div className={`boot-app-layer${appEntered ? ' boot-app-layer--enter' : ''}`}>
           <I18nProvider bootstrap={phase.bootstrap}>
             <MacNativeMenuEarlyUpgrade />
-            <Suspense fallback={null}>
-              <App />
+            <Suspense fallback={<BootShell />}>
+              <AppReadyGate onReady={handleAppReady}>
+                <LazyApp />
+              </AppReadyGate>
             </Suspense>
           </I18nProvider>
         </div>

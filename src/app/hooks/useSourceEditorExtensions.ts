@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useSyncExternalStore, type Dispatch, type MutableRefObject, type RefObject, type SetStateAction } from 'react'
+import { useEffect, useMemo, useSyncExternalStore, type Dispatch, type MutableRefObject, type RefObject, type SetStateAction } from 'react'
 import { markdown } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
 import {
@@ -26,6 +26,11 @@ import {
 } from '../../editor/knowledgeOS/ui/cmWikiLinkExtension'
 import type { WikiLinkTarget } from '../../editor/knowledgeRuntime/types'
 import { getAppSettingsSnapshot, subscribeAppSettings } from '../../settings/appSettingsStore'
+import { createCmSpellcheckExtension } from '../../editor/cmEditorSpellcheck'
+import {
+  EDITOR_SPELLCHECK_ENABLED_DEFAULT,
+  resolveEditorSpellcheckEnabled,
+} from '../../settings-runtime/editorSpellcheck'
 import {
   comfortableEditorTheme,
   createWriterBaseExtensions,
@@ -36,7 +41,6 @@ import { useI18n } from '../../i18n'
 export type SourceEditorExtensionsDeps = {
   isLargeDoc: boolean
   sidebarListMode: 'files' | 'outline'
-  setSidebarListMode: Dispatch<SetStateAction<'files' | 'outline'>>
   outlineSpyCtxRef: MutableRefObject<{ sidebarListMode: 'files' | 'outline' }>
   setActiveOutlineIdRef: MutableRefObject<(id: string) => void>
   setActiveOutlineId: Dispatch<SetStateAction<string>>
@@ -50,7 +54,6 @@ export function useSourceEditorExtensions(deps: SourceEditorExtensionsDeps) {
   const {
     isLargeDoc,
     sidebarListMode,
-    setSidebarListMode,
     outlineSpyCtxRef,
     setActiveOutlineIdRef,
     setActiveOutlineId,
@@ -124,10 +127,6 @@ export function useSourceEditorExtensions(deps: SourceEditorExtensionsDeps) {
     [outlineSpyCtxRef, setActiveOutlineId],
   )
 
-  const toggleSidebarListOutline = useCallback(() => {
-    setSidebarListMode((v) => (v === 'files' ? 'outline' : 'files'))
-  }, [setSidebarListMode])
-
   const wikiLinkCmExt = useMemo(
     () => createWikiLinkClickExtension(wikiHandlersRef, wikiTargetResolverRef),
     [wikiHandlersRef, wikiTargetResolverRef],
@@ -146,8 +145,19 @@ export function useSourceEditorExtensions(deps: SourceEditorExtensionsDeps) {
     () => '{}',
   )
 
+  const spellcheckEnabled = useSyncExternalStore(
+    subscribeAppSettings,
+    () => resolveEditorSpellcheckEnabled(getAppSettingsSnapshot().appearance?.editor),
+    () => EDITOR_SPELLCHECK_ENABLED_DEFAULT,
+  )
+
   const editorExtensions = useMemo(() => {
-    const exts: Extension[] = [...createWriterBaseExtensions(t), drawSelection(), highlightActiveLine()]
+    const exts: Extension[] = [
+      createCmSpellcheckExtension(spellcheckEnabled),
+      ...createWriterBaseExtensions(t),
+      drawSelection(),
+      highlightActiveLine(),
+    ]
     if (!isLargeDoc) {
       exts.push(markdown({ codeLanguages: languages }), lineNumbers())
     }
@@ -176,6 +186,7 @@ export function useSourceEditorExtensions(deps: SourceEditorExtensionsDeps) {
     wikiLinkCmExt,
     cmWebviewPasteExt,
     cmWikiLinkSuggestExt,
+    spellcheckEnabled,
   ])
 
   useEffect(() => {
@@ -183,5 +194,5 @@ export function useSourceEditorExtensions(deps: SourceEditorExtensionsDeps) {
     if (view) reconfigureCmManifestKeymap(view)
   }, [editorViewRef, shortcutBindRevision])
 
-  return { editorExtensions, toggleSidebarListOutline }
+  return { editorExtensions }
 }

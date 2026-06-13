@@ -12,6 +12,27 @@ function isAuxiliaryEditorChromeInput(el: HTMLElement): boolean {
   return false
 }
 
+export type NativeTextInputSelection = {
+  element: HTMLInputElement | HTMLTextAreaElement
+  text: string
+  start: number
+  end: number
+}
+
+export function readNativeTextInputSelection(): NativeTextInputSelection | null {
+  const active = document.activeElement
+  if (!(active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement)) return null
+  if (!isNonEditorTextInputTarget()) return null
+  const { selectionStart, selectionEnd, value } = active
+  if (selectionStart == null || selectionEnd == null) return null
+  return {
+    element: active,
+    text: value.slice(selectionStart, selectionEnd),
+    start: selectionStart,
+    end: selectionEnd,
+  }
+}
+
 export function readBlockNativeTextareaSelection():
   | { text: string; textarea: HTMLTextAreaElement }
   | null {
@@ -23,6 +44,57 @@ export function readBlockNativeTextareaSelection():
     text: value.slice(selectionStart, selectionEnd),
     textarea: active,
   }
+}
+
+function setNativeInputValue(element: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+  const proto =
+    element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+  const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set
+  if (setter) setter.call(element, value)
+  else element.value = value
+  element.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+export function insertTextIntoNativeTextInput(
+  element: HTMLInputElement | HTMLTextAreaElement,
+  text: string,
+): void {
+  const start = element.selectionStart ?? element.value.length
+  const end = element.selectionEnd ?? start
+  const next = `${element.value.slice(0, start)}${text}${element.value.slice(end)}`
+  setNativeInputValue(element, next)
+  const caret = start + text.length
+  element.setSelectionRange(caret, caret)
+}
+
+export async function pasteIntoFocusedNativeTextInput(text?: string): Promise<boolean> {
+  const selection = readNativeTextInputSelection()
+  const active = selection?.element ?? document.activeElement
+  if (!(active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement)) return false
+  if (!isNonEditorTextInputTarget()) return false
+
+  const payload = text ?? (await navigator.clipboard.readText().catch(() => ''))
+  if (!payload) {
+    if (typeof document.execCommand === 'function' && document.execCommand('paste')) return true
+    return false
+  }
+
+  insertTextIntoNativeTextInput(active, payload)
+  active.focus()
+  return true
+}
+
+export async function cutNativeTextInputSelection(): Promise<boolean> {
+  const selection = readNativeTextInputSelection()
+  if (!selection) return false
+  if (!selection.text) return false
+  if (typeof document.execCommand === 'function' && document.execCommand('cut')) return true
+  await navigator.clipboard.writeText(selection.text)
+  const next = `${selection.element.value.slice(0, selection.start)}${selection.element.value.slice(selection.end)}`
+  setNativeInputValue(selection.element, next)
+  selection.element.setSelectionRange(selection.start, selection.start)
+  selection.element.focus()
+  return true
 }
 
 /** Whether the focus is on the text editor (ProseMirror / CodeMirror), used for Tauri Cmd+V to paste routes*/

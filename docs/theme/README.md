@@ -38,6 +38,7 @@ Legacy paths (`~/.luna/config/Theme/`, loose `~/.luna/theme/*.css` / `*.json` at
 - `theme-example/style/*.css` → `~/.luna/theme/style/`
 - `theme-example/tokens/*.json` → `~/.luna/theme/tokens/`
 - `theme-example/snippets/*.css` → `~/.luna/theme/snippets/`
+- `theme-example/export/*.css` → `~/.luna/theme/export/`
 
 See the [quick start](../theme-example/README.md#quick-start) there, then **Rescan** in Preferences.
 

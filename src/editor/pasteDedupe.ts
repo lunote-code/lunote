@@ -2,14 +2,14 @@ let lastSuccessfulPaste: { token: string; at: number } | null = null
 
 const DEDUPE_MS = 500
 
-/** Plain text is given priority; when there is no text, image metadata is used to avoid pasting pure images. dedupe fingerprint is empty*/
+/** Plain text is given priority when there is no image payload; image metadata avoids filename-only dedupe collisions. */
 export function computePasteFingerprint(text: string, images: readonly File[] = []): string {
-  const trimmed = text.trim()
-  if (trimmed) return trimmed.slice(0, 64)
   if (images.length > 0) {
     const f = images[0]!
     return `img:${f.size}:${f.type}:${f.name}`.slice(0, 64)
   }
+  const trimmed = text.trim()
+  if (trimmed) return trimmed.slice(0, 64)
   return ''
 }
 

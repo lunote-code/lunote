@@ -31,6 +31,28 @@ export function countNonEmptyLines(text: string): number {
   return splitCodeBlockLines(text).filter((line) => line.length > 0).length
 }
 
+/** Character offset where the last non-empty row ends (ignores allowed trailing blank rows). */
+export function lastNonEmptyCodeLineEndOffset(text: string): number {
+  const normalized = normalizeCodeBlockText(text)
+  const lines = splitCodeBlockLines(normalized)
+  const trailing = countTrailingEmptyLines(normalized)
+  const lastNonEmptyIndex = lines.length - trailing - 1
+  if (lastNonEmptyIndex < 0) return 0
+
+  let offset = 0
+  for (let i = 0; i < lastNonEmptyIndex; i += 1) {
+    offset += (lines[i]?.length ?? 0) + 1
+  }
+  return offset + (lines[lastNonEmptyIndex]?.length ?? 0)
+}
+
+/** True when `offset` sits at the end of the last non-empty row (trailing blank rows skipped). */
+export function isAtLastNonEmptyCodeLineEnd(text: string, offset: number): boolean {
+  const normalized = normalizeCodeBlockText(text)
+  if (offset >= normalized.length) return true
+  return offset >= lastNonEmptyCodeLineEndOffset(normalized)
+}
+
 function collapseTrailingEmptyRun(text: string, maxTrailingEmpty: number): string {
   const normalized = normalizeCodeBlockText(text)
   const lines = splitCodeBlockLines(normalized)

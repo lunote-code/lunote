@@ -1,7 +1,6 @@
 import { isTauri } from '@tauri-apps/api/core'
 import { getSetting, setSetting } from '../settings-runtime/settingsRuntime'
 import {
-  ensureThemeExportDirectory,
   listThemeExportStyles,
   readThemeExportStyle,
   type ThemeStyleEntry,
@@ -30,13 +29,39 @@ function normalizeNames(raw: string): string[] {
   )
 }
 
-function readExportStyleSetting(): string[] {
+function readLegacyExportStyleNames(): string[] {
   const value = getSetting('theme.exportCssSnippets')
   return typeof value === 'string' ? normalizeNames(value) : []
 }
 
-export function stringifyExportStyleNames(names: readonly string[]): string {
-  return normalizeNames(names.join('\n')).join('\n')
+function readExportCssFileName(): string {
+  const value = getSetting('theme.exportCssFile')
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  const legacy = readLegacyExportStyleNames()
+  return legacy[0] ?? ''
+}
+
+function readExportStyleInlineMap(): Record<string, string> {
+  const raw = getSetting('theme.exportCssSnippetsInline')
+  if (typeof raw !== 'string' || !raw.trim()) return {}
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    return parsed as Record<string, string>
+  } catch {
+    return {}
+  }
+}
+
+function readExportCssContent(): string {
+  const value = getSetting('theme.exportCssContent')
+  return typeof value === 'string' ? value : ''
+}
+
+export async function upsertExportStyleInline(name: string, css: string): Promise<void> {
+  const map = readExportStyleInlineMap()
+  map[name] = css
+  await setSetting('theme.exportCssSnippetsInline', JSON.stringify(map))
 }
 
 export function listAvailableThemeExportStyles(): readonly ThemeStyleEntry[] {
@@ -56,23 +81,14 @@ export function getActiveThemeExportStyleCss(): string {
   return activeExportStyleCss
 }
 
-export async function toggleThemeExportStyle(name: string): Promise<void> {
-  const current = new Set(readExportStyleSetting())
-  if (current.has(name)) current.delete(name)
-  else current.add(name)
-  await setSetting('theme.exportCssSnippets', stringifyExportStyleNames(Array.from(current)))
-}
-
-export async function ensureThemeExportFolder(): Promise<string> {
-  return ensureThemeExportDirectory()
-}
-
 export async function reloadThemeExportStylesFromDisk(): Promise<void> {
   if (!isTauri()) {
-    availableExportStyles = []
-    activeExportStyleNames = []
-    activeExportStyleCss = ''
+    const inlineMap = readExportStyleInlineMap()
+    availableExportStyles = Object.keys(inlineMap)
+      .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+      .map((name) => ({ name }))
     notifyExportStyleSubscribers()
+    await refreshThemeExportStylesFromSettings()
     return
   }
   const nextEntries = await listThemeExportStyles()
@@ -82,30 +98,32 @@ export async function reloadThemeExportStylesFromDisk(): Promise<void> {
 }
 
 export async function refreshThemeExportStylesFromSettings(): Promise<void> {
-  const names = readExportStyleSetting()
-  activeExportStyleNames = names
+  const fileName = readExportCssFileName()
+  activeExportStyleNames = fileName ? [fileName] : []
 
-  if (!isTauri() || names.length === 0) {
+  if (!fileName) {
     activeExportStyleCss = ''
     notifyExportStyleSubscribers()
     return
   }
 
-  const chunks = await Promise.all(
-    names.map(async (name) => {
-      try {
-        const css = await readThemeExportStyle(name)
-        return `/* export-style:${name} */\n${css}`
-      } catch (error) {
-        console.warn('[theme-export-style-runtime] Failed to read export style.', {
-          name,
-          message: error instanceof Error ? error.message : String(error),
-        })
-        return ''
-      }
-    }),
-  )
+  if (!isTauri()) {
+    const inlineMap = readExportStyleInlineMap()
+    const inlineCss = inlineMap[fileName]?.trim() ?? readExportCssContent().trim()
+    activeExportStyleCss = inlineCss
+    notifyExportStyleSubscribers()
+    return
+  }
 
-  activeExportStyleCss = chunks.filter(Boolean).join('\n\n')
+  try {
+    const css = await readThemeExportStyle(fileName)
+    activeExportStyleCss = css
+  } catch (error) {
+    activeExportStyleCss = ''
+    console.warn('[theme-export-style-runtime] Failed to read export style.', {
+      fileName,
+      message: error instanceof Error ? error.message : String(error),
+    })
+  }
   notifyExportStyleSubscribers()
 }

@@ -12,6 +12,7 @@ import {
   Camera,
   CheckSquare,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   CircleCheck,
   CircleHelp,
@@ -25,6 +26,7 @@ import {
   EyeOff,
   FileJson,
   FilePlus,
+  Files,
   FileText,
   Focus,
   Folder,
@@ -57,6 +59,7 @@ import {
   Paperclip,
   PenLine,
   Printer,
+  Puzzle,
   Quote,
   Redo2,
   RefreshCw,
@@ -93,6 +96,7 @@ export type SemanticIconName =
   | 'workspace-tree'
   | 'note'
   | 'note-new'
+  | 'files'
   | 'graph'
   | 'backlinks'
   | 'assets'
@@ -106,6 +110,7 @@ export type SemanticIconName =
   | 'editor'
   | 'language'
   | 'shortcuts'
+  | 'plugins'
   | 'source'
   | 'preview'
   | 'focus'
@@ -120,6 +125,7 @@ export type SemanticIconName =
   | 'sort-time'
   | 'sort-created'
   | 'chevron-down'
+  | 'chevron-left'
   | 'chevron-right'
   | 'empty'
   | 'callout'
@@ -184,6 +190,7 @@ export const iconRegistry: Record<Exclude<SemanticIconName, 'app-mark'>, LucideI
   'workspace-tree': FolderTree,
   note: FileText,
   'note-new': FilePlus,
+  files: Files,
   graph: Network,
   backlinks: CornerDownLeft,
   assets: Paperclip,
@@ -197,6 +204,7 @@ export const iconRegistry: Record<Exclude<SemanticIconName, 'app-mark'>, LucideI
   editor: PenLine,
   language: Languages,
   shortcuts: Keyboard,
+  plugins: Puzzle,
   source: Braces,
   preview: BookOpen,
   focus: Focus,
@@ -211,6 +219,7 @@ export const iconRegistry: Record<Exclude<SemanticIconName, 'app-mark'>, LucideI
   'sort-time': Clock3,
   'sort-created': CalendarDays,
   'chevron-down': ChevronDown,
+  'chevron-left': ChevronLeft,
   'chevron-right': ChevronRight,
   empty: Sparkles,
   callout: MessageSquare,

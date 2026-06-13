@@ -70,6 +70,12 @@ function testMacMenuBootPipeline() {
     findAccel(boot.bar, 'view-fullscreen') === 'CmdOrCtrl+Ctrl+KeyF',
     'mac-menu-boot.json must ship macOS accelerators (not Linux/Win defaults)',
   )
+  for (const action of ['edit-paste', 'edit-copy', 'edit-cut']) {
+    assert(
+      findAccel(boot.bar, action) === undefined,
+      `mac-menu-boot.json ${action} must not register Tauri accelerator`,
+    )
+  }
 }
 
 function testContractTestsUsePublishedPathsOnly() {
@@ -92,6 +98,16 @@ function testAppHideShowCrossPlatform() {
   assert(source.includes('show_all_application(app)'), 'app-show-all handler must call show_all_application')
 }
 
+function testUiLocaleParityContractExists() {
+  const pkg = read('package.json')
+  assert(pkg.includes('validate:ui-locale-parity'), 'package.json must define validate:ui-locale-parity')
+  const contract = read('scripts/validate/run_ui_locale_parity_contract.mjs')
+  assert(contract.includes('testUiLocaleKeyParity'), 'ui locale parity contract must check UI keys')
+  assert(contract.includes('testShellMenuKeyParity'), 'ui locale parity contract must check shell menu keys')
+  const ci = read('scripts/validate/verify_github_ci.mjs')
+  assert(ci.includes('validate:ui-locale-parity'), 'verify:ci checks must run ui locale parity contract')
+}
+
 const tests = [
   ['playwright scope and modKey', testPlaywrightScopeAndModKey],
   ['ci build job', testCiBuildJob],
@@ -99,6 +115,7 @@ const tests = [
   ['contract tests use published paths only', testContractTestsUsePublishedPathsOnly],
   ['workspace watch path normalization', testWorkspaceWatchNormalizesSeparators],
   ['app-hide/show cross-platform', testAppHideShowCrossPlatform],
+  ['ui locale parity contract wiring', testUiLocaleParityContractExists],
 ]
 
 let failed = 0

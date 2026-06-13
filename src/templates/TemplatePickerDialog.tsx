@@ -500,17 +500,12 @@ export function TemplatePickerDialog({
         </SettingsDescription>
 
         <div className="rename-modal-actions confirm-modal-actions">
-          <button type="button" className="about-modal-close rename-modal-cancel" onClick={onClose}>
+          <SettingsButton variant="secondary" onClick={onClose}>
             {t('settings.workspaceNotes.templatePicker.cancel')}
-          </button>
-          <button
-            type="button"
-            className="about-modal-close confirm-modal-confirm confirm-modal-confirm-default"
-            disabled={!selected || saving}
-            onClick={() => void handleConfirm()}
-          >
+          </SettingsButton>
+          <SettingsButton variant="primary" disabled={!selected || saving} onClick={() => void handleConfirm()}>
             {t('settings.workspaceNotes.templatePicker.use')}
-          </button>
+          </SettingsButton>
         </div>
       </div>
     </div>,

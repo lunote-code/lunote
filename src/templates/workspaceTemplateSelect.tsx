@@ -30,6 +30,7 @@ export function buildTemplateSelectOptions(
 type WorkspaceTemplateSelectProps = {
   rootDir: string
   value: string
+  templatesFolder?: string
   disabled?: boolean
   ariaLabel: string
   onValueChange: (path: string) => void
@@ -40,6 +41,7 @@ type WorkspaceTemplateSelectProps = {
 export function WorkspaceTemplateSelect({
   rootDir,
   value,
+  templatesFolder,
   disabled = false,
   ariaLabel,
   onValueChange,
@@ -47,11 +49,12 @@ export function WorkspaceTemplateSelect({
   className,
 }: WorkspaceTemplateSelectProps) {
   const [templates, setTemplates] = useState<WorkspaceTemplateEntry[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
     if (!rootDir.trim()) {
       setTemplates([])
+      setLoading(false)
       return
     }
     setLoading(true)
@@ -67,7 +70,7 @@ export function WorkspaceTemplateSelect({
 
   useEffect(() => {
     void refresh()
-  }, [refresh])
+  }, [refresh, templatesFolder])
 
   const options = useMemo(() => buildTemplateSelectOptions(templates, value), [templates, value])
 
@@ -79,7 +82,7 @@ export function WorkspaceTemplateSelect({
     .filter(Boolean)
     .join(' ')
 
-  if (loading || options.length === 0) {
+  if (options.length === 0) {
     return <p className="workspace-template-select-status rename-modal-template-status">{emptyLabel}</p>
   }
 

@@ -11,24 +11,58 @@
 
 .editor-tabs-strip-row {
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  box-sizing: border-box;
   min-width: 0;
+  min-height: var(--luna-chrome-toolbar-h);
+  height: var(--luna-chrome-toolbar-h);
+}
+
+.editor-chrome-leading {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: var(--editor-chrome-inline);
+}
+
+.editor-chrome-tab-spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--luna-chrome-tabs-h);
+}
+
+.editor-chrome-actions {
+  flex-shrink: 0;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 var(--editor-chrome-inline);
+  border-left: var(--hairline) solid var(--border-subtle);
+}
+
+.editor-chrome-action-btn {
+  flex-shrink: 0;
 }
 
 .editor-tabs-capacity {
   flex-shrink: 0;
+  align-self: stretch;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: flex-end;
   gap: 4px;
-  padding: 4px 12px 4px 10px;
+  padding: 0 12px 0 10px;
   border-left: var(--hairline) solid var(--border-subtle);
   font-variant-numeric: tabular-nums;
-  line-height: 1.2;
 }
 
 .editor-tabs-count {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
@@ -85,16 +119,18 @@
 
 .editor-tabs {
   flex: 1 1 auto;
+  align-self: stretch;
   min-width: 0;
   position: relative;
   display: flex;
   flex-wrap: nowrap;
-  align-items: flex-start;
+  align-items: center;
+  align-content: center;
   gap: 4px;
   box-sizing: border-box;
-  min-height: var(--luna-chrome-tabs-h);
-  height: auto;
-  max-height: calc(var(--luna-chrome-tabs-h) + var(--luna-tabs-scrollbar-size));
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
   padding: 0 var(--editor-chrome-inline);
   overflow-x: auto;
   overflow-y: hidden;
@@ -105,8 +141,10 @@
 
 .editor-tabs-drop-indicator {
   position: absolute;
-  top: 5px;
-  bottom: 5px;
+  top: 50%;
+  bottom: auto;
+  height: calc(var(--luna-chrome-tabs-h) - 8px);
+  transform: translateY(-50%);
   width: 3px;
   margin-left: 0;
   border-radius: 999px;
@@ -246,11 +284,11 @@
 .editor-tab-row {
   position: relative;
   display: inline-flex;
-  align-items: stretch;
+  align-items: center;
   flex-shrink: 0;
   height: var(--luna-chrome-tabs-h);
   max-width: 280px;
-  border-radius: 6px 6px 0 0;
+  border-radius: var(--radius-sm);
   padding-inline-end: 2px;
   gap: 0;
 }
@@ -338,14 +376,14 @@ body.is-editor-tab-dragging .editor-tabs-strip {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13.5px;
-  font-weight: 650;
+  font-size: 13px;
+  font-weight: 560;
   letter-spacing: 0.005em;
-  line-height: 1.25;
+  line-height: 1;
   -webkit-user-select: none;
   user-select: none;
-  padding-bottom: 0;
-  margin-bottom: 0;
+  padding: 0;
+  margin: 0;
   box-sizing: border-box;
 }
 

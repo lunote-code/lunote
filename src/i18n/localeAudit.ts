@@ -92,11 +92,20 @@ function pct(count: number, total: number): number {
   return Math.min(100, Math.max(0, Math.round((100 * count) / total)))
 }
 
+function tryLocaleRaw(localeId: UiLocaleId, en: MessageDictionary): MessageDictionary {
+  if (localeId === 'en') return en
+  try {
+    return getLocaleRawSnapshot(localeId)
+  } catch {
+    return { 'meta.nativeName': localeId }
+  }
+}
+
 /** Calculate the true degree of completion based on sparse files (the use of merged dictionaries is prohibited)*/
 export function computeLocaleTruthStats(
   localeId: UiLocaleId,
   en: MessageDictionary = getEnMessagesSnapshot(),
-  rawLocale: MessageDictionary = localeId === 'en' ? en : getLocaleRawSnapshot(localeId),
+  rawLocale: MessageDictionary = tryLocaleRaw(localeId, en),
 ): LocaleTruthStats {
   const keys = getComparableUiKeys(en)
   let translated = 0
@@ -150,7 +159,7 @@ export function listNonTranslatedKeys(localeId: UiLocaleId): {
   missing: KeyTranslationInfo[]
 } {
   const en = getEnMessagesSnapshot()
-  const raw = localeId === 'en' ? en : getLocaleRawSnapshot(localeId)
+  const raw = tryLocaleRaw(localeId, en)
   const fallback: KeyTranslationInfo[] = []
   const missing: KeyTranslationInfo[] = []
 

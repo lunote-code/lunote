@@ -5,7 +5,7 @@ Lunote loads desktop UI styles from `~/.luna/theme/style/*.css`. External CSS af
 ## How it works
 
 1. Place a `.css` file in **`~/.luna/theme/style/`** (not in `snippets/`, `export/`, or `tokens/`).
-2. Select it in **Preferences → Appearance → External CSS Theme**, or from the native **Theme** menu.
+2. Select it in **Preferences → Appearance → External CSS → External CSS theme**, or from the native **Theme** menu.
 3. Click **Rescan** after adding or editing files.
 
 Only **one** full external CSS theme is active at a time. While it is active, **built-in preset colors** (`theme-presets.css`) and **JSON/built-in token variables** step aside so the external file owns the palette. Optional **UI snippets** (`.luna/theme/snippets/`) still stack on top.
@@ -159,7 +159,7 @@ Full list: [theme-example/SELECTORS.md](../theme-example/SELECTORS.md)
 1. **Start with variables** — override Luna tokens for broad color/font changes with minimal CSS.
 2. **Target NodeView headings** — use `.pm-heading-block--lN .pm-heading-content`, not bare `h1` alone.
 3. **Set `--editor-column-width`** instead of `max-width` on `.ProseMirror`.
-4. **Use snippets for optional layers** — `extra-chrome`, `reading-comfort`, `warm-selection` stack on built-in defaults.
+4. **Use snippets for optional layers** — `extra-chrome`, `reading-comfort`, `reading-edge-fade`, `reading-frost-glass`, `warm-selection` stack on built-in defaults (enable only one reading-fade overlay at a time).
 5. **Test light and dark** — scope rules with `html[data-theme]` or `body.theme-light` / `body.theme-dark`.
 
 Copy [style/crossplatnote-theme.example.css](./style/crossplatnote-theme.example.css) or any file from [theme-example/style/](../theme-example/README.md#external-css-themes) into `~/.luna/theme/style/` as a starting point.

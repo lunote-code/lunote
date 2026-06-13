@@ -1,5 +1,5 @@
 import type { MessageDictionary, UiLocaleId } from './localeRegistry'
-import { getLocaleMessagesSnapshot } from './localeRegistry'
+import { ensureLocaleRawLoaded, getEnMessagesSnapshot } from './localeRegistry'
 import { FALLBACK_LOCALE } from './resolveLocale'
 
 export type { MessageDictionary }
@@ -10,8 +10,10 @@ export function mergeMessages(base: MessageDictionary, over: MessageDictionary):
 }
 
 export async function loadLocaleMessages(locale: UiLocaleId): Promise<MessageDictionary> {
-  //localeRegistry has loaded all JSON through eager glob; there is no more dynamic import here to avoid invalid subpackaging warnings
-  return getLocaleMessagesSnapshot(locale)
+  const en = getEnMessagesSnapshot()
+  if (locale === 'en') return en
+  const raw = await ensureLocaleRawLoaded(locale)
+  return { ...en, ...raw }
 }
 
 export async function warmLocale(locale: UiLocaleId): Promise<MessageDictionary> {

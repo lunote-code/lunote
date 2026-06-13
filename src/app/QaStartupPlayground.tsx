@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 
 import { bootstrapI18n, I18nProvider, type I18nBootstrap } from '../i18n'
 import { getWorkspaceRestorePlan } from '../editor/knowledgeOS/ui/knowledgeAppIntegration'
-import { pathsEqual } from '../lib/workspacePathUtils'
 import {
   applyBootEarlyThemeFromLocalStorage,
   readBootEarlySettingsRaw,
@@ -11,11 +10,18 @@ import {
 import { getAppSettingsSnapshot } from '../settings/appSettingsStore'
 import { getSetting } from '../settings-runtime/settingsRuntime'
 import { resolveEffectiveEditorFontSize } from '../settings-runtime/editorTypography'
-import { applyInitialThemeFromSettings, getCurrentThemeMode, getCurrentThemeSelection } from '../theme-runtime/themeRuntime'
+import { applyInitialThemeFromSettings, applyTheme, getCurrentThemeMode, getCurrentThemeSelection } from '../theme-runtime/themeRuntime'
+import { getTheme } from '../theme-runtime/themeRegistry'
+import {
+  analyzeWindowThemeSyncHistory,
+  getLastTauriWindowThemeSync,
+  getTauriWindowThemeSyncHistory,
+  resetTauriWindowThemeSyncHistory,
+} from '../platform/tauri/windowThemeSync'
 import { workspaceIdFromRoot } from '../lunaPersistence'
 import {
-  QA_STARTUP_FILES,
   readQaWorkspaceSnapshot,
+  qaStartupWorkspaceHasPath,
   writeQaWorkspaceSnapshot,
 } from './qaStartupPersistence'
 
@@ -49,6 +55,33 @@ declare global {
         dataThemePreset: string | null
         backgroundColor: string
       }
+      getWindowThemeSync: () => {
+        mode: 'light' | 'dark'
+        background: string
+        syncedAt: number
+      } | null
+      getWindowThemeSyncHistory: () => Array<{
+        mode: 'light' | 'dark'
+        background: string
+        syncedAt: number
+        seq: number
+      }>
+      resetWindowThemeSyncHistory: () => void
+      analyzeWindowThemeSyncHistory: () => {
+        inconsistentEntries: Array<{
+          index: number
+          mode: 'light' | 'dark'
+          background: string
+          reason: 'mode-background-mismatch'
+        }>
+        oscillationEvents: Array<{
+          startedAt: number
+          endedAt: number
+          modes: Array<'light' | 'dark'>
+        }>
+        totalSyncs: number
+      }
+      switchThemeVariant: (variant: string) => void
       writeWorkspaceSnapshot: (snapshot: {
         rootDir: string
         activePath: string | null
@@ -69,7 +102,7 @@ async function simulateWebWorkspaceRestore(): Promise<QaStartupWorkspaceRestore 
   const savedRoot = snap?.rootDir?.trim() || savedWorkspaceRoot
   if (!savedRoot) return null
 
-  const treeHas = (path: string) => QA_STARTUP_FILES.some((file) => pathsEqual(file, path))
+  const treeHas = (path: string) => qaStartupWorkspaceHasPath(path)
   const { tabPaths } = getWorkspaceRestorePlan(treeHas, snap?.openTabs ?? [])
   const prefer = snap?.activePath?.trim() || null
   const activePath =
@@ -147,6 +180,15 @@ function QaStartupInner({
           dataThemePreset: root.getAttribute('data-theme-preset'),
           backgroundColor: root.style.backgroundColor,
         }
+      },
+      getWindowThemeSync: () => getLastTauriWindowThemeSync(),
+      getWindowThemeSyncHistory: () => getTauriWindowThemeSyncHistory(),
+      resetWindowThemeSyncHistory: () => resetTauriWindowThemeSyncHistory(),
+      analyzeWindowThemeSyncHistory: () => analyzeWindowThemeSyncHistory(),
+      switchThemeVariant: (variant: string) => {
+        const theme = getTheme(variant)
+        if (!theme) throw new Error(`unknown theme variant: ${variant}`)
+        applyTheme(theme)
       },
       writeWorkspaceSnapshot: (snapshot) => {
         const workspaceId = workspaceIdFromRoot(snapshot.rootDir)

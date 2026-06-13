@@ -1,0 +1,75 @@
+/**
+ * Alpine Mist — external CSS theme
+ *
+ * Clean alpine blue palette with airy spacing and calm chrome.
+ */
+
+html[data-theme='light'] {
+  --surface-app: #f5f8fb;
+  --surface-panel: rgba(255, 255, 255, 0.92);
+  --surface-editor: #ffffff;
+  --surface-preview: #f8fbff;
+  --surface-hover: rgba(59, 130, 246, 0.08);
+  --surface-elevated: #ffffff;
+  --text-primary: #1d2b3a;
+  --text-secondary: #455b73;
+  --text-muted: #6a7d91;
+  --text-tertiary: #6a7d91;
+  --border-subtle: rgba(29, 43, 58, 0.12);
+  --border-strong: rgba(29, 43, 58, 0.18);
+  --accent: #3b82f6;
+  --link: #2563eb;
+  --link-hover: #1d4ed8;
+  --link-visited: #6d28d9;
+  --focus-ring: rgba(59, 130, 246, 0.22);
+  --code-bg: #f3f7fd;
+  --code-gutter-fg: #5f7388;
+  --code-gutter-bg: #e9f1fc;
+  --inline-code-bg: #eaf2fd;
+  --shadow-soft: 0 1px 2px rgba(29, 43, 58, 0.08);
+  --shadow-panel: 0 10px 28px rgba(29, 43, 58, 0.12);
+}
+
+html[data-theme='dark'] {
+  --surface-app: #0f172a;
+  --surface-panel: rgba(15, 23, 42, 0.92);
+  --surface-editor: #111827;
+  --surface-preview: #0b1220;
+  --surface-hover: rgba(125, 177, 255, 0.12);
+  --surface-elevated: #1e293b;
+  --text-primary: #dbe8ff;
+  --text-secondary: #9db2d6;
+  --text-muted: #7d93b6;
+  --text-tertiary: #7d93b6;
+  --border-subtle: rgba(219, 232, 255, 0.12);
+  --border-strong: rgba(219, 232, 255, 0.2);
+  --accent: #60a5fa;
+  --link: #7db6ff;
+  --link-hover: #a6cbff;
+  --link-visited: #c4b5fd;
+  --focus-ring: rgba(125, 177, 255, 0.26);
+  --code-bg: #101a2d;
+  --code-gutter-fg: #7d93b6;
+  --code-gutter-bg: #0d1526;
+  --inline-code-bg: #1a2841;
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-panel: 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+
+.workspace-root {
+  background:
+    radial-gradient(ellipse 75% 50% at 8% -8%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 58%),
+    var(--surface-app);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l1 .pm-heading-content,
+.preview-pane.markdown-visual-editor .ProseMirror > h1 {
+  letter-spacing: -0.02em;
+  color: color-mix(in srgb, var(--accent) 75%, var(--text-primary));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror > blockquote {
+  border-left: 3px solid color-mix(in srgb, var(--accent) 58%, var(--border-strong));
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface-editor));
+  border-radius: 0 10px 10px 0;
+}

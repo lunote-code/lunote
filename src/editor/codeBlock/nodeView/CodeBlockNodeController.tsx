@@ -1,5 +1,7 @@
+import type { Editor } from '@tiptap/core'
 import { NodeViewContent, NodeViewWrapper, type ReactNodeViewProps } from '@tiptap/react'
 import type { EditorView as CmEditorView } from '@codemirror/view'
+import { redo as cmRedo, undo as cmUndo } from '@codemirror/commands'
 import {
   useCallback,
   useEffect,
@@ -39,6 +41,7 @@ import {
   acquireCodeBlockCmFocus,
   installCodeBlockCmMouseDownCapture,
 } from '../cm/codeBlockCmInputFocus'
+import { consumeRecentCodeBlockCmOutsidePointerRelease } from '../cm/codeBlockCmPmFocusReconcile'
 import { installCodeBlockCmClipboardCapture } from '../cm/codeBlockCmClipboard'
 import {
   disablePmCodeBlockMirrorEditing,
@@ -52,10 +55,13 @@ import {
 } from '../cm/codeBlockCmFocusDebug'
 import { isCodeBlockCmDom, isCodeBlockCmMouseTarget } from '../cm/codeBlockCmDom'
 import { isCodeBlockCmFocused } from '../cm/codeBlockCmFocus'
+import { patchCodeBlockCmDocFromPm } from '../cm/codeBlockCmDefer'
+import { computeCodeBlockTextPatchRange } from '../cm/codeBlockCmSync'
 import { countDocumentLinesFromText } from '../model/lineModel'
 import { redoLastTransaction, undoLastTransaction } from '../../../menu/commandTransaction'
 import { deleteEmptyCodeBlock, commitCodeBlockSessionText } from '../pm/CodeBlockPmAdapter'
 import { flushVmTiptapRecorderBatch, getVmTiptapRecorderDocId } from '../../../vm/vmTiptapRecorder'
+import { VM_REDO_META, VM_UNDO_META } from '../../../vm/vmStepLog'
 import {
   INITIAL_CODE_BLOCK_SESSION_STATE,
   reduceCodeBlockSessionState,
@@ -69,7 +75,29 @@ import { CodeBlockToolbar } from './CodeBlockToolbar'
 import { useCodeBlockCopyFlashRoot } from './codeBlockCopyFlash'
 
 const ENABLE_EXPERIMENTAL_DIFF = false
+const CODE_BLOCK_SESSION_HISTORY_BATCH_MS = 1000
 let controllerInstanceSeq = 0
+
+function shouldKeepCodeBlockCmFocus(
+  editor: Editor,
+  wrap: HTMLElement | null,
+  ownedBlockPos: number | null,
+  blurSuppressed: boolean,
+  blurReason: 'cm' | 'toolbar' | null,
+): boolean {
+  const active = document.activeElement
+  if (active instanceof HTMLElement && wrap?.contains(active)) return true
+  if (
+    active instanceof HTMLElement &&
+    active.closest('.luna-code-toolbar, .luna-code-lang-palette')
+  ) {
+    return true
+  }
+  if (blurSuppressed && (blurReason === 'cm' || blurReason === 'toolbar')) return true
+  if (ownedBlockPos == null) return false
+  const range = resolveCodeBlockTextRange(editor.state.selection.$from)
+  return range?.blockPos === ownedBlockPos
+}
 
 export function CodeBlockNodeController(props: ReactNodeViewProps) {
   const { t } = useI18n()
@@ -83,7 +111,17 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
   const chipRef = useRef<HTMLButtonElement>(null)
   const cmViewRef = useRef<CmEditorView | null>(null)
   const sessionSyncingToPmRef = useRef(false)
+  const sessionSyncingFromPmRef = useRef(false)
   const pendingSessionDocRef = useRef<string | null>(null)
+  const lastCommittedSessionDocRef = useRef<string | null>(null)
+  const suppressNextPmHistoryRef = useRef(false)
+  const sessionUndoStackRef = useRef<string[]>([])
+  const sessionRedoStackRef = useRef<string[]>([])
+  const sessionBatchBaselineRef = useRef<string | null>(null)
+  const sessionBatchTimerRef = useRef<number | null>(null)
+  const sessionLastEditAtRef = useRef(0)
+  const sessionLastValueRef = useRef('')
+  const sessionHistoryApplyingRef = useRef(false)
   const paletteOpenRef = useRef(false)
   const sessionModeRef = useRef(INITIAL_CODE_BLOCK_SESSION_STATE.mode)
   const pendingCmSelectionRef = useRef<number | null>(null)
@@ -232,7 +270,13 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
     pendingSessionDocRef.current = null
     sessionSyncingToPmRef.current = true
     disablePmCodeBlockMirrorEditing(wrapRef.current)
-    commitCodeBlockSessionText(editor, pos, pending)
+    const addToHistory = !suppressNextPmHistoryRef.current
+    suppressNextPmHistoryRef.current = false
+    const applied = commitCodeBlockSessionText(editor, pos, pending, { addToHistory })
+    if (applied) {
+      lastCommittedSessionDocRef.current = pending
+      setSessionDoc((prev) => (prev === pending ? prev : pending))
+    }
     queueMicrotask(() => {
       sessionSyncingToPmRef.current = false
       disablePmCodeBlockMirrorEditing(wrapRef.current)
@@ -249,11 +293,67 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
     boundary.flushCommit(() => commitPendingSessionToPmRef.current())
   }, [boundary])
 
+  const clearSessionBatchTimer = useCallback(() => {
+    if (sessionBatchTimerRef.current != null) {
+      window.clearTimeout(sessionBatchTimerRef.current)
+      sessionBatchTimerRef.current = null
+    }
+  }, [])
+
+  const flushSessionUndoBatch = useCallback(() => {
+    clearSessionBatchTimer()
+    const baseline = sessionBatchBaselineRef.current
+    const current = sessionLastValueRef.current
+    if (baseline != null && baseline !== current) {
+      sessionUndoStackRef.current.push(baseline)
+    }
+    sessionBatchBaselineRef.current = null
+  }, [clearSessionBatchTimer])
+
+  const scheduleSessionUndoBatchFlush = useCallback(() => {
+    clearSessionBatchTimer()
+    sessionBatchTimerRef.current = window.setTimeout(() => {
+      flushSessionUndoBatch()
+    }, CODE_BLOCK_SESSION_HISTORY_BATCH_MS)
+  }, [clearSessionBatchTimer, flushSessionUndoBatch])
+
+  const resetSessionHistory = useCallback(
+    (value: string) => {
+      clearSessionBatchTimer()
+      sessionUndoStackRef.current = []
+      sessionRedoStackRef.current = []
+      sessionBatchBaselineRef.current = null
+      sessionLastEditAtRef.current = 0
+      sessionLastValueRef.current = value
+    },
+    [clearSessionBatchTimer],
+  )
+
+  const applySessionHistoryValue = useCallback(
+    (value: string) => {
+      const cmView = cmViewRef.current
+      if (!cmView) return false
+      sessionHistoryApplyingRef.current = true
+      sessionLastValueRef.current = value
+      patchCodeBlockCmDocFromPm(cmView, value)
+      pendingSessionDocRef.current = value
+      setSessionDoc((prev) => (prev === value ? prev : value))
+      suppressNextPmHistoryRef.current = true
+      flushSessionToPm()
+      queueMicrotask(() => {
+        sessionHistoryApplyingRef.current = false
+      })
+      return true
+    },
+    [flushSessionToPm],
+  )
+
   useEffect(() => {
     return () => {
+      clearSessionBatchTimer()
       boundary.flushCommit(() => commitPendingSessionToPmRef.current())
     }
-  }, [boundary, editor])
+  }, [boundary, clearSessionBatchTimer, editor])
 
   useEffect(() => {
     if (!cmEnabled || folded) {
@@ -283,12 +383,27 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
 
   useEffect(() => {
     if (cmViewRef.current?.hasFocus) return
+    if (pendingSessionDocRef.current != null) return
     setSessionDoc(blockText)
-  }, [blockText, ownedBlockPos])
+    resetSessionHistory(blockText)
+  }, [blockText, ownedBlockPos, resetSessionHistory])
 
   useEffect(() => {
-    const refreshFromPm = () => {
-      if (sessionSyncingToPmRef.current) return
+    const applyCmPatchFromPm = (live: string) => {
+      const cmView = cmViewRef.current
+      if (!cmView) return
+      sessionSyncingFromPmRef.current = true
+      pendingSessionDocRef.current = null
+      lastCommittedSessionDocRef.current = live
+      patchCodeBlockCmDocFromPm(cmView, live)
+      setSessionDoc((prev) => (prev === live ? prev : live))
+      queueMicrotask(() => {
+        sessionSyncingFromPmRef.current = false
+      })
+    }
+
+    const refreshFromPm = ({ transaction }: { transaction: { getMeta: (key: string) => unknown } }) => {
+      if (sessionSyncingToPmRef.current || sessionSyncingFromPmRef.current) return
       const pos = resolveOwnedCodeBlockPos(editor, getPos?.() ?? null, node)
       if (pos == null) return
       const block = codeBlockNodeAt(editor, pos)
@@ -296,10 +411,16 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
       const live = block.textBetween(0, block.content.size, '\n', '\n')
       const cmView = cmViewRef.current
       if (cmView?.compositionStarted) return
+      const isHistoryTransaction =
+        Boolean(transaction.getMeta(VM_UNDO_META)) || Boolean(transaction.getMeta(VM_REDO_META))
       if (cmView?.hasFocus) {
         const cmText = cmView.state.doc.toString()
         const pending = pendingSessionDocRef.current
         if (live === cmText || live === pending) return
+        if (!isHistoryTransaction && (sessionSyncingToPmRef.current || pending != null)) return
+        if (!isHistoryTransaction) return
+        applyCmPatchFromPm(live)
+        return
       }
       setSessionDoc((prev) => (prev === live ? prev : live))
     }
@@ -338,6 +459,17 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
   useEffect(() => {
     if (!isEditing || !boundary.peekFocusCmAfterRender()) return
     const frame = window.requestAnimationFrame(() => {
+      if (
+        !shouldKeepCodeBlockCmFocus(
+          editor,
+          wrapRef.current,
+          ownedBlockPos,
+          boundary.isBlurSuppressed(),
+          boundary.getBlurSuppressReason(),
+        )
+      ) {
+        return
+      }
       boundary.consumeFocusCmAfterRender()
       const view = cmViewRef.current
       if (view) {
@@ -345,7 +477,7 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
       }
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [boundary, editor, isEditing])
+  }, [boundary, editor, isEditing, ownedBlockPos])
 
   const isOwnedCmFocused = useCallback(() => {
     if (!isCodeBlockCmFocused()) return false
@@ -372,10 +504,23 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
     if (sessionModeRef.current !== 'editing') {
       dispatchSession({ type: 'enter-editing' })
     }
+    boundary.requestFocusCmAfterRender()
   }, [boundary, editor, isOwnedBlockFoldedInPm, isOwnedCmFocused, dispatchSession])
+
+  const warmRefocusCmEditing = useCallback(() => {
+    if (!boundary.canAcquireCmEditing(isOwnedBlockFoldedInPm)) return
+    boundary.clearBlurExitTimer()
+    boundary.lockPmForCm(wrapRef.current)
+    if (sessionModeRef.current !== 'editing') {
+      dispatchSession({ type: 'enter-editing' })
+    }
+  }, [boundary, dispatchSession, isOwnedBlockFoldedInPm])
 
   const activateCmEditingRef = useRef(activateCmEditing)
   activateCmEditingRef.current = activateCmEditing
+  const warmRefocusCmEditingRef = useRef(warmRefocusCmEditing)
+  warmRefocusCmEditingRef.current = warmRefocusCmEditing
+  const scheduleFocusCmRef = useRef<() => void>(() => {})
 
   useEffect(() => {
     if (!cmAvailable) return
@@ -385,8 +530,10 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
   }, [cmAvailable, editor, flushSessionToPm])
 
   useEffect(() => {
-    if (!cmAvailable) return
-    return registerCodeBlockSessionExitEditing(editor, () => {
+    const wrap = wrapRef.current
+    if (!wrap || !cmAvailable) return
+    return registerCodeBlockSessionExitEditing(editor, wrap, () => {
+      scheduleFocusCmGenerationRef.current += 1
       boundary.clearBlurExitTimer()
       if (sessionModeRef.current === 'editing') {
         dispatchSession({ type: 'exit-editing' })
@@ -401,7 +548,13 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
     const disposeCapture = installCodeBlockCmMouseDownCapture(wrap, {
       getCmView: () => cmViewRef.current,
       onActivateEditing: () => activateCmEditingRef.current(),
+      onWarmRefocus: () => warmRefocusCmEditingRef.current(),
+      isSessionEditing: () => sessionModeRef.current === 'editing',
       editor,
+      onCmViewPending: () => {
+        boundary.requestFocusCmAfterRender()
+        scheduleFocusCmRef.current()
+      },
       onRightMouseDownPreserveSelection: (view) => {
         boundary.suppressBlurForCm(800)
         const main = view.state.selection.main
@@ -417,9 +570,10 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
       disposeCapture()
       disposeClipboard()
     }
-  }, [cmAvailable, editor])
+  }, [boundary, cmAvailable, editor])
 
   const cmRefocusGuardRef = useRef(0)
+  const scheduleFocusCmGenerationRef = useRef(0)
 
   const scheduleFocusCm = useCallback(() => {
     if (!boundary.canAcquireCmEditing(isOwnedBlockFoldedInPm)) {
@@ -437,8 +591,21 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
       sessionMode: sessionModeRef.current,
       pmSelection: describePmSelection(editor.view),
     })
+    const generation = ++scheduleFocusCmGenerationRef.current
     const pmDom = editor.view.dom
     const focusNow = () => {
+      if (generation !== scheduleFocusCmGenerationRef.current) return
+      if (
+        !shouldKeepCodeBlockCmFocus(
+          editor,
+          wrapRef.current,
+          ownedBlockPos,
+          boundary.isBlurSuppressed(),
+          boundary.getBlurSuppressReason(),
+        )
+      ) {
+        return
+      }
       boundary.consumeFocusCmAfterRender()
       const view = cmViewRef.current
       if (!view) return
@@ -465,8 +632,37 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
       focusNow()
       return
     }
-    window.requestAnimationFrame(focusNow)
-  }, [activateCmEditing, boundary, editor, isOwnedBlockFoldedInPm])
+    const attempt = (tryCount = 0) => {
+      if (generation !== scheduleFocusCmGenerationRef.current) return
+      if (
+        !shouldKeepCodeBlockCmFocus(
+          editor,
+          wrapRef.current,
+          ownedBlockPos,
+          boundary.isBlurSuppressed(),
+          boundary.getBlurSuppressReason(),
+        )
+      ) {
+        return
+      }
+      if (cmViewRef.current) {
+        focusNow()
+        return
+      }
+      if (tryCount >= 16) return
+      window.requestAnimationFrame(() => attempt(tryCount + 1))
+    }
+    attempt()
+  }, [activateCmEditing, boundary, editor, isOwnedBlockFoldedInPm, ownedBlockPos])
+  scheduleFocusCmRef.current = scheduleFocusCm
+
+  const refocusAfterToolbarDismiss = useCallback(() => {
+    if (sessionModeRef.current === 'editing' && cmAvailable) {
+      scheduleFocusCm()
+      return
+    }
+    requestAnimationFrame(() => chipRef.current?.focus({ preventScroll: true }))
+  }, [cmAvailable, scheduleFocusCm])
 
   const suppressBlurForToolbar = useCallback(() => {
     boundary.suppressBlurForToolbar()
@@ -570,6 +766,40 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
     resolveCmOffsetFromPmSelection,
   ])
 
+  useEffect(() => {
+    if (!cmAvailable || folded || !selectionInOwnedBlock) return
+    if (ownedBlockPos == null) return
+    if (sessionModeRef.current === 'editing' && isOwnedCmFocused()) return
+    const active = document.activeElement
+    const activeOnToolbar =
+      active instanceof HTMLElement &&
+      Boolean(active.closest('.luna-code-toolbar, .luna-code-lang-palette'))
+    if (
+      boundary.shouldDeferSelectionAutoEdit({
+        isBlockFoldedInPm: isOwnedBlockFoldedInPm,
+        paletteOpen: paletteOpenRef.current,
+        ownedCmFocused: isOwnedCmFocused(),
+        toolbarSuppressActive:
+          boundary.isBlurSuppressed() && boundary.getBlurSuppressReason() === 'toolbar',
+        activeOnToolbar,
+      })
+    ) {
+      return
+    }
+    if (resolveCmOffsetFromPmSelection() == null) return
+    enterEditing()
+  }, [
+    boundary,
+    cmAvailable,
+    enterEditing,
+    folded,
+    isOwnedBlockFoldedInPm,
+    isOwnedCmFocused,
+    ownedBlockPos,
+    resolveCmOffsetFromPmSelection,
+    selectionInOwnedBlock,
+  ])
+
   const focusLegacyBody = useCallback(() => {
     const pos = resolveOwnedCodeBlockPos(editor, getPos?.() ?? null, node)
     if (pos == null) return
@@ -630,11 +860,52 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
 
   const onSessionChange = useCallback(
     (value: string) => {
-      setSessionDoc(value)
+      if (sessionSyncingFromPmRef.current) return
+      if (sessionHistoryApplyingRef.current) return
+      const previous = sessionLastValueRef.current
+      if (previous !== value) {
+        const now = Date.now()
+        const patch = computeCodeBlockTextPatchRange(previous, value)
+        const removed = patch ? previous.slice(patch.from, patch.to) : ''
+        const lineBreakBoundary = Boolean(patch && (patch.insert.includes('\n') || removed.includes('\n')))
+        const batchExpired =
+          sessionBatchBaselineRef.current != null &&
+          sessionLastEditAtRef.current > 0 &&
+          now - sessionLastEditAtRef.current > CODE_BLOCK_SESSION_HISTORY_BATCH_MS
+        if (lineBreakBoundary) {
+          flushSessionUndoBatch()
+          sessionUndoStackRef.current.push(previous)
+          sessionBatchBaselineRef.current = null
+        } else if (sessionBatchBaselineRef.current == null) {
+          sessionBatchBaselineRef.current = previous
+        } else if (batchExpired) {
+          flushSessionUndoBatch()
+          sessionBatchBaselineRef.current = previous
+        }
+        sessionRedoStackRef.current = []
+        sessionLastEditAtRef.current = now
+        sessionLastValueRef.current = value
+        if (lineBreakBoundary) {
+          clearSessionBatchTimer()
+        } else {
+          scheduleSessionUndoBatchFlush()
+        }
+      }
+      const cmView = cmViewRef.current
+      const cmText = cmView?.state.doc.toString() ?? null
+      if (lastCommittedSessionDocRef.current === value && cmText === value) {
+        pendingSessionDocRef.current = null
+        return
+      }
       pendingSessionDocRef.current = value
+      // CM owns the doc while focused; syncing React state on every keystroke can
+      // re-enter PM→CM patches and trigger Maximum update depth loops.
+      if (!cmView?.hasFocus) {
+        setSessionDoc((prev) => (prev === value ? prev : value))
+      }
       scheduleCommit()
     },
-    [scheduleCommit],
+    [clearSessionBatchTimer, flushSessionUndoBatch, scheduleCommit, scheduleSessionUndoBatchFlush],
   )
 
   const onSessionBlur = useCallback(
@@ -672,6 +943,7 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
       }
 
       if (blurDecision === 'suppress-refocus') {
+        if (sessionModeRef.current !== 'editing') return
         if (isCodeBlockCmFocused()) return
         const now = Date.now()
         if (now - cmRefocusGuardRef.current < 80) return
@@ -680,8 +952,27 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
         return
       }
 
+      if (consumeRecentCodeBlockCmOutsidePointerRelease(editor.view)) {
+        return
+      }
+
+      const focusLeftForPmProse = (target: EventTarget | null): boolean => {
+        if (!(target instanceof HTMLElement)) return false
+        if (!editor.view.dom.contains(target)) return false
+        return !target.closest('.pm-code-block-cm')
+      }
+
       flushSessionToPm()
       boundary.unlockPmIfLocked()
+
+      if (
+        focusLeftForPmProse(relatedTarget) ||
+        focusLeftForPmProse(document.activeElement)
+      ) {
+        boundary.clearBlurExitTimer()
+        return
+      }
+
       boundary.scheduleBlurExit(
         () => {
           if (boundary.isFoldTransitionActive() || isOwnedBlockFoldedInPm()) return false
@@ -695,6 +986,8 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
             if (active.closest('.luna-code-lang-palette')) return false
             if (active.closest('.luna-code-toolbar')) return false
             if (active.closest('.pm-code-block-cm')) return false
+            // PM prose owns focus — keep CM mounted for fast re-focus after outside click.
+            if (editor.view.dom.contains(active)) return false
           }
           return true
         },
@@ -705,7 +998,7 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
         },
       )
     },
-    [boundary, flushSessionToPm, isOwnedBlockFoldedInPm, scheduleFocusCm],
+    [boundary, editor, flushSessionToPm, isOwnedBlockFoldedInPm, scheduleFocusCm],
   )
 
   const focusLangChipFromCm = useCallback(() => {
@@ -728,23 +1021,99 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
     const pos = resolveOwnedCodeBlockPos(editor, getPos?.() ?? null, node)
     if (pos == null) return false
     boundary.clearAllTimers()
+    boundary.suppressBlurForCm(400)
     dispatchSession({ type: 'exit-editing' })
     boundary.unlockPmIfLocked()
     return deleteEmptyCodeBlock(editor, pos)
   }, [boundary, editor, getPos, node])
 
+  const syncCmFromPmAfterHistory = useCallback(() => {
+    const cmView = cmViewRef.current
+    if (!cmView) return
+    const pos = resolveOwnedCodeBlockPos(editor, getPos?.() ?? null, node)
+    if (pos == null) return
+    const block = codeBlockNodeAt(editor, pos)
+    if (!block) return
+    const live = block.textBetween(0, block.content.size, '\n', '\n')
+
+    sessionSyncingFromPmRef.current = true
+    pendingSessionDocRef.current = null
+    lastCommittedSessionDocRef.current = live
+    resetSessionHistory(live)
+    patchCodeBlockCmDocFromPm(cmView, live)
+    setSessionDoc((prev) => (prev === live ? prev : live))
+    queueMicrotask(() => {
+      sessionSyncingFromPmRef.current = false
+    })
+  }, [editor, getPos, node, resetSessionHistory])
+
   const onUndo = useCallback(() => {
+    const cmView = cmViewRef.current
+    if (cmView) {
+      const current = cmView.state.doc.toString()
+      sessionLastValueRef.current = current
+      const batched = sessionBatchBaselineRef.current
+      if (batched != null && batched !== current) {
+        sessionBatchBaselineRef.current = null
+        clearSessionBatchTimer()
+        sessionRedoStackRef.current.push(current)
+        return applySessionHistoryValue(batched)
+      }
+      const target = sessionUndoStackRef.current.pop()
+      if (target != null && target !== current) {
+        sessionRedoStackRef.current.push(current)
+        return applySessionHistoryValue(target)
+      }
+      if (cmUndo(cmView)) {
+        suppressNextPmHistoryRef.current = true
+        flushSessionToPm()
+        return true
+      }
+      // Keep keyboard Mod+Z inside the active CM session. Falling through to
+      // older PM history while CM is focused can resurrect stale block content
+      // and produce oscillating undo states.
+      return true
+    }
+    flushSessionToPm()
     const docId = getVmTiptapRecorderDocId()
-    if (!docId) return false
-    flushVmTiptapRecorderBatch(docId)
-    return undoLastTransaction(docId)
-  }, [])
+    if (docId) {
+      flushVmTiptapRecorderBatch(docId)
+      if (undoLastTransaction(docId)) {
+        syncCmFromPmAfterHistory()
+        return true
+      }
+    }
+    return true
+  }, [applySessionHistoryValue, clearSessionBatchTimer, flushSessionToPm, syncCmFromPmAfterHistory])
   const onRedo = useCallback(() => {
+    const cmView = cmViewRef.current
+    if (cmView) {
+      flushSessionUndoBatch()
+      const current = cmView.state.doc.toString()
+      sessionLastValueRef.current = current
+      const target = sessionRedoStackRef.current.pop()
+      if (target != null && target !== current) {
+        sessionUndoStackRef.current.push(current)
+        return applySessionHistoryValue(target)
+      }
+      if (cmRedo(cmView)) {
+        suppressNextPmHistoryRef.current = true
+        flushSessionToPm()
+        return true
+      }
+      return true
+    }
+    flushSessionToPm()
     const docId = getVmTiptapRecorderDocId()
-    if (!docId) return false
-    flushVmTiptapRecorderBatch(docId)
-    return redoLastTransaction(docId)
-  }, [])
+    if (docId) {
+      flushVmTiptapRecorderBatch(docId)
+      if (redoLastTransaction(docId)) {
+        syncCmFromPmAfterHistory()
+        return true
+      }
+    }
+    return true
+  }, [applySessionHistoryValue, flushSessionToPm, flushSessionUndoBatch, syncCmFromPmAfterHistory])
 
   const commitLanguage = useCallback(
     (id: string) => {
@@ -754,7 +1123,9 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
       if (canonical === 'mermaid' && mermaidType && pos != null) {
         const block = codeBlockNodeAt(editor, pos)
         if (!block) return
-        const text = isEditing ? sessionDoc : block.textContent
+        const text = isEditing
+          ? (cmViewRef.current?.state.doc.toString() ?? sessionDoc)
+          : block.textContent
         const ok = editor
           .chain()
           .focus()
@@ -784,7 +1155,9 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
   const copyAllCode = useCallback(async () => {
     const pos = resolveOwnedCodeBlockPos(editor, getPos?.(), node)
     const block = pos != null ? codeBlockNodeAt(editor, pos) : null
-    const text = isEditing ? sessionDoc : (block?.textContent ?? blockText)
+    const text = isEditing
+      ? (cmViewRef.current?.state.doc.toString() ?? sessionDoc)
+      : (block?.textContent ?? blockText)
     let ok: boolean
     try {
       await navigator.clipboard.writeText(text)
@@ -813,13 +1186,21 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
     window.setTimeout(() => setCopyFlash(false), 220)
     setCopySuccess(true)
     window.setTimeout(() => setCopySuccess(false), 900)
-  }, [blockText, editor, getPos, isEditing, node, sessionDoc])
+    if (cmAvailable) {
+      scheduleFocusCm()
+    }
+  }, [blockText, cmAvailable, editor, getPos, node, scheduleFocusCm, sessionDoc])
 
   const onCopyClick = useCallback((event: MouseEvent) => {
     event.preventDefault()
     event.stopPropagation()
-    void copyAllCode()
-  }, [copyAllCode])
+    boundary.clearBlurExitTimer()
+    suppressBlurForToolbar()
+    boundary.releasePmForToolbar()
+    void copyAllCode().finally(() => {
+      if (cmAvailable) scheduleFocusCm()
+    })
+  }, [boundary, cmAvailable, copyAllCode, scheduleFocusCm, suppressBlurForToolbar])
 
   useEffect(() => {
     if (!contextMenu) return
@@ -1151,7 +1532,7 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
           boundary.clearBlurExitTimer()
           boundary.releasePmForToolbar()
           dispatchSession({ type: 'close-palette' })
-          requestAnimationFrame(() => chipRef.current?.focus({ preventScroll: true }))
+          refocusAfterToolbarDismiss()
         }}
       />
       <div className="pm-code-block-surface" onPointerDown={onSurfacePointerDown}>
@@ -1169,7 +1550,7 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
           onTogglePalette={() => {
             if (sessionState.paletteOpen) {
               dispatchSession({ type: 'close-palette' })
-              requestAnimationFrame(() => chipRef.current?.focus({ preventScroll: true }))
+              refocusAfterToolbarDismiss()
               return
             }
             suppressBlurForToolbar()

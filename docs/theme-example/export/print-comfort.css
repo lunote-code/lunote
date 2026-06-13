@@ -1,0 +1,39 @@
+/**
+ * Export-only CSS example — comfortable reading for HTML / PDF / PNG.
+ *
+ * Copy to ~/.luna/theme/export/print-comfort.css
+ * Enable: Preferences → Export → Export styles
+ * Rescan if the file does not appear in the list.
+ *
+ * Does NOT affect the live editor. Pairs well with editor themes from style/ or tokens/.
+ */
+
+.markdown-body.markdown-export-body {
+  font-family: Georgia, 'Times New Roman', 'Songti SC', 'Noto Serif SC', serif;
+  line-height: 1.75;
+  color: #1a1a24;
+}
+
+body.markdown-export-root[data-theme='dark'] .markdown-body.markdown-export-body {
+  color: #e8e8f0;
+}
+
+.markdown-body.markdown-export-body > p {
+  margin: 0.65em 0;
+}
+
+.markdown-body.markdown-export-body h1,
+.markdown-body.markdown-export-body h2,
+.markdown-body.markdown-export-body h3 {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.markdown-body.markdown-export-body pre,
+.markdown-body.markdown-export-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.markdown-body.markdown-export-body .md-callout {
+  border-radius: 10px;
+}

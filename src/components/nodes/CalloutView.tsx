@@ -1,10 +1,15 @@
 import { NodeViewContent, NodeViewWrapper, type ReactNodeViewProps } from '@tiptap/react'
-import { memo, useCallback, useMemo } from 'react'
+import { memo, useCallback, useMemo, useSyncExternalStore } from 'react'
 import clsx from 'clsx'
 import { CALLOUT_KINDS, type CalloutKind } from '../../editor/lunaCallout'
 import { calloutHeaderVariants, calloutRootVariants } from './calloutCva'
 import { Icon, type SemanticIconName } from '../../design-system/icons'
 import './lunaCalloutCard.css'
+import { getAppSettingsSnapshot, subscribeAppSettings } from '../../settings/appSettingsStore'
+import {
+  EDITOR_SPELLCHECK_ENABLED_DEFAULT,
+  resolveEditorSpellcheckEnabled,
+} from '../../settings-runtime/editorSpellcheck'
 
 const CALLOUT_SET = new Set<string>(CALLOUT_KINDS)
 
@@ -40,6 +45,11 @@ export const CalloutView = memo(function CalloutView(props: ReactNodeViewProps) 
   const kind: CalloutKind = CALLOUT_SET.has(raw) ? (raw as CalloutKind) : 'note'
   const collapsed = Boolean(node.attrs.collapsed)
   const editable = editor.isEditable
+  const spellcheckEnabled = useSyncExternalStore(
+    subscribeAppSettings,
+    () => resolveEditorSpellcheckEnabled(getAppSettingsSnapshot().appearance?.editor),
+    () => EDITOR_SPELLCHECK_ENABLED_DEFAULT,
+  )
 
   const toggleCollapsed = useCallback(() => {
     updateAttributes({ collapsed: !collapsed })
@@ -69,7 +79,7 @@ export const CalloutView = memo(function CalloutView(props: ReactNodeViewProps) 
       as="aside"
       className={rootClass}
       data-luna-callout={kind}
-      spellCheck={editable}
+      spellCheck={editable && spellcheckEnabled}
     >
       <div
         className={calloutHeaderVariants({ interactive: editable })}

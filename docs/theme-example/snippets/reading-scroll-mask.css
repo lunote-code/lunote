@@ -1,0 +1,34 @@
+/**
+ * Reading scroll mask — UI snippet
+ *
+ * Applies a vertical mask to the scrolling ProseMirror column so content itself
+ * fades near the top and bottom while scrolling (content-aware fade).
+ *
+ * Unlike overlay gradients, the mask moves with scroll — best for “infinite scroll” feel.
+ * Top/bottom lines near the viewport edge are always slightly softened.
+ *
+ * Copy to ~/.luna/theme/snippets/reading-scroll-mask.css → Rescan → enable in UI snippets.
+ * Do not combine with other reading-fade snippets (visual overlap).
+ */
+
+.preview-pane.markdown-visual-editor .ProseMirror {
+  --reading-scroll-mask-size: 48px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    #000 var(--reading-scroll-mask-size),
+    #000 calc(100% - var(--reading-scroll-mask-size)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    #000 var(--reading-scroll-mask-size),
+    #000 calc(100% - var(--reading-scroll-mask-size)),
+    transparent 100%
+  );
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}

@@ -65,6 +65,18 @@ export async function saveCustomThemeJson(payload: SaveCustomThemePayload): Prom
   return invoke<string>('save_custom_theme_json', { payload })
 }
 
+export async function saveThemeStylesheet(payload: SaveCustomThemePayload): Promise<string> {
+  return invoke<string>('save_theme_stylesheet', { payload })
+}
+
+export async function saveThemeSnippet(payload: SaveCustomThemePayload): Promise<string> {
+  return invoke<string>('save_theme_snippet', { payload })
+}
+
+export async function saveThemeExportStyle(payload: SaveCustomThemePayload): Promise<string> {
+  return invoke<string>('save_theme_export_style', { payload })
+}
+
 export async function revealCustomThemeDirectory(): Promise<void> {
   await invoke('reveal_custom_theme_directory')
 }
@@ -75,4 +87,16 @@ export async function listCustomThemeFiles(): Promise<CustomThemeEntry[]> {
 
 export async function readCustomThemeJson(name: string): Promise<string> {
   return invoke<string>('read_custom_theme_json', { name })
+}
+
+export async function deleteThemeStylesheet(name: string): Promise<void> {
+  await invoke('delete_theme_stylesheet', { name })
+}
+
+export async function deleteThemeSnippet(name: string): Promise<void> {
+  await invoke('delete_theme_snippet', { name })
+}
+
+export async function deleteCustomThemeJson(name: string): Promise<void> {
+  await invoke('delete_custom_theme_json', { name })
 }

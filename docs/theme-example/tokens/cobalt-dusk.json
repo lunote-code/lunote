@@ -1,0 +1,22 @@
+{
+  "id": "cobalt-dusk",
+  "name": "Cobalt Dusk",
+  "label": "Cobalt Dusk",
+  "family": "cobalt-dusk",
+  "variant": "dark",
+  "colors": {
+    "background": "#111827",
+    "foreground": "#e5ecff",
+    "primary": "#60a5fa",
+    "border": "rgba(229, 236, 255, 0.12)",
+    "muted": "#8ea0bd"
+  },
+  "radius": {
+    "card": 16,
+    "control": 10
+  },
+  "spacing": {
+    "row": 16,
+    "section": 28
+  }
+}

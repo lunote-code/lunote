@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react'
+
+import { SettingsButton } from './settings'
 import { useFocusTrap } from '../lib/useFocusTrap'
 
 export type UnsavedChangesDialogProps = {
@@ -28,7 +30,6 @@ export function UnsavedChangesDialog({
   onDiscard,
   onCancel,
 }: UnsavedChangesDialogProps) {
-  const dialogRef = useRef<HTMLDivElement | null>(null)
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null)
   const [dialogEl, setDialogEl] = useState<HTMLDivElement | null>(null)
 
@@ -39,10 +40,7 @@ export function UnsavedChangesDialog({
   return (
     <div className="about-modal-backdrop confirm-modal-backdrop" role="presentation">
       <div
-        ref={(el) => {
-          dialogRef.current = el
-          setDialogEl(el)
-        }}
+        ref={setDialogEl}
         className="about-modal confirm-modal confirm-modal-warning"
         role="alertdialog"
         aria-modal="true"
@@ -67,25 +65,16 @@ export function UnsavedChangesDialog({
         <p id="unsaved-dialog-desc" className="about-modal-desc confirm-modal-desc">
           {message}
         </p>
-        <div className="confirm-modal-actions confirm-modal-actions-multi">
-          <button
-            ref={cancelButtonRef}
-            type="button"
-            className="about-modal-close rename-modal-cancel"
-            onClick={onCancel}
-          >
+        <div className="confirm-modal-actions confirm-modal-actions-multi settings-inline-controls">
+          <SettingsButton ref={cancelButtonRef} variant="secondary" onClick={onCancel}>
             {cancelLabel}
-          </button>
-          <button type="button" className="about-modal-close rename-modal-cancel" onClick={onDiscard}>
+          </SettingsButton>
+          <SettingsButton variant="secondary" onClick={onDiscard}>
             {discardLabel}
-          </button>
-          <button
-            type="button"
-            className="about-modal-close confirm-modal-confirm confirm-modal-confirm-warning"
-            onClick={onSave}
-          >
+          </SettingsButton>
+          <SettingsButton variant="primary" onClick={onSave}>
             {saveLabel}
-          </button>
+          </SettingsButton>
         </div>
       </div>
     </div>

@@ -1,15 +1,18 @@
+import { isTauri } from '@tauri-apps/api/core'
+import type { EditorView } from '@codemirror/view'
+
 import { getFocusedCodeBlockCmView, isCodeBlockCmFocused } from './codeBlock/cm/codeBlockCmFocus'
 import { bridgeReplaceSelection } from './editorMutationBridge'
 import { recordSuccessfulPaste, shouldSkipDuplicatePaste, computePasteFingerprint } from './pasteDedupe'
 import { debugPasteScroll, logPasteScrollPhase, startPasteScrollTrace } from './pasteScrollDebug'
+import type { TiptapMarkdownEditorHandle } from './TiptapMarkdownEditor'
 import {
   applyWebviewPasteFallback,
   readNavigatorClipboardImageFile,
   readNavigatorClipboardText,
   type WebviewPasteImageHandler,
 } from './webviewPasteBridge'
-import type { TiptapMarkdownEditorHandle } from './TiptapMarkdownEditor'
-import type { EditorView } from '@codemirror/view'
+import { isNonEditorTextInputTarget, pasteIntoFocusedNativeTextInput } from './webviewPasteFocus'
 
 type RefLike<T> = { current: T }
 
@@ -22,6 +25,10 @@ export async function pasteFromNavigatorClipboard(options: {
 }): Promise<boolean> {
   const plainOnly = options.plainOnly ?? false
   const mode = options.mainPaneMode ?? 'visual'
+
+  if (isNonEditorTextInputTarget()) {
+    return pasteIntoFocusedNativeTextInput()
+  }
 
   const textPreview = await readNavigatorClipboardText().catch(() => '')
   let imagePreview: { file: File; mime: string } | null = null
@@ -66,6 +73,7 @@ export async function pasteFromNavigatorClipboard(options: {
       cmView,
       onPasteImage: options.onPasteImage,
       prefetchedText: textPreview || undefined,
+      allowNavigatorClipboardRead: !isTauri(),
     })
     logPasteScrollPhase('pasteFromNavigatorClipboard-done', { pmView, ok })
     if (ok && fingerprint) recordSuccessfulPaste(fingerprint)

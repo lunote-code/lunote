@@ -255,36 +255,46 @@
 /*—— Luna code block toolbar: VSCode/Notion style floating bar, unified design system ——*/
 .preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar {
   --luna-toolbar-h: calc(var(--reveal-source-btn-height) + 2px);
-  --luna-toolbar-radius: 8px;
-  --luna-toolbar-pad-x: calc(var(--reveal-source-btn-pad-x) - 2px);
+  --luna-toolbar-radius: 9px;
+  --luna-toolbar-pad-x: calc(var(--reveal-source-btn-pad-x) - 3px);
   --luna-toolbar-font: 12px;
-  --luna-toolbar-bg: var(--reveal-source-btn-bg);
-  --luna-toolbar-bg-hover: color-mix(in srgb, var(--surface-hover) 88%, var(--surface-panel));
-  --luna-toolbar-border: var(--reveal-source-btn-border);
+  --luna-toolbar-bg: color-mix(in srgb, var(--surface-panel) 84%, transparent);
+  --luna-toolbar-bg-hover: color-mix(in srgb, var(--surface-hover) 82%, var(--surface-panel));
+  --luna-toolbar-border: color-mix(in srgb, var(--border-subtle) 72%, transparent);
   position: absolute;
   z-index: 4;
-  top: var(--luna-code-toolbar-inset);
+  top: calc(var(--luna-code-toolbar-inset) - 1px);
   right: var(--luna-code-toolbar-inset);
   display: flex;
   align-items: center;
-  gap: 6px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 140ms ease;
+  gap: 8px;
+  pointer-events: auto;
+  transition: transform 180ms ease, opacity 180ms ease;
 }
 
-.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:hover .luna-code-toolbar,
-.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--palette-open .luna-code-toolbar,
-.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus-within .luna-code-toolbar,
-.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--copy-failed .luna-code-toolbar {
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.52;
+  transform: translateX(-2px);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:hover .luna-code-toolbar__actions,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--palette-open .luna-code-toolbar__actions,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus-within .luna-code-toolbar__actions,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--copy-failed .luna-code-toolbar__actions {
   opacity: 1;
-  pointer-events: auto;
+  transform: translateX(0);
 }
 
 @media (hover: none) {
-  .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap .luna-code-toolbar {
+  .preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar__actions {
     opacity: 1;
-    pointer-events: auto;
+    transform: none;
   }
 }
 
@@ -310,12 +320,14 @@
     background 0.12s ease,
     border-color 0.12s ease,
     color 0.12s ease,
-    box-shadow 0.12s ease;
+    box-shadow 0.12s ease,
+    opacity 0.12s ease;
+  backdrop-filter: blur(8px);
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn:hover {
   background: var(--luna-toolbar-bg-hover);
-  border-color: color-mix(in srgb, var(--border-subtle) 92%, var(--text-muted));
+  border-color: color-mix(in srgb, var(--border-subtle) 82%, var(--text-muted));
   color: var(--text-primary);
 }
 
@@ -333,10 +345,23 @@
   width: var(--luna-toolbar-h);
   min-width: var(--luna-toolbar-h);
   padding: 0;
+  background: color-mix(in srgb, var(--surface-panel) 26%, transparent);
+  border-color: color-mix(in srgb, var(--border-subtle) 36%, transparent);
+  color: var(--text-muted);
+  box-shadow: none;
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn--icon svg {
   flex-shrink: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:hover .luna-code-toolbar .luna-btn--icon,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--palette-open .luna-code-toolbar .luna-btn--icon,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus-within .luna-code-toolbar .luna-btn--icon,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--copy-failed .luna-code-toolbar .luna-btn--icon {
+  background: var(--luna-toolbar-bg);
+  border-color: var(--luna-toolbar-border);
+  color: var(--reveal-source-btn-fg);
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn[aria-pressed='true'] {
@@ -347,20 +372,22 @@
 
 /*Language chip: pill aligned with overlay menu typography*/
 .preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn--chip.pm-code-lang-chip {
-  min-width: 6.25rem;
+  min-width: 5.5rem;
   max-width: min(14rem, calc(100vw - 120px));
   justify-content: flex-start;
   gap: 6px;
-  padding: 2px 10px 2px 10px;
+  padding: 2px 9px 2px 9px;
   border-radius: var(--radius-md);
-  background: var(--code-lang-bg, color-mix(in srgb, var(--luna-overlay-panel-bg) 72%, var(--luna-toolbar-bg)));
-  border-color: color-mix(in srgb, var(--border-subtle) 82%, transparent);
+  background: color-mix(in srgb, var(--code-lang-bg, var(--surface-panel)) 86%, transparent);
+  border-color: color-mix(in srgb, var(--border-subtle) 64%, transparent);
   color: var(--code-lang-fg, var(--text-primary));
   font-family: var(--font-ui);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.01em;
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--text-primary) 4%, transparent);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--text-primary) 3%, transparent),
+    0 3px 10px color-mix(in srgb, #000 4%, transparent);
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn--chip.pm-code-lang-chip:hover {

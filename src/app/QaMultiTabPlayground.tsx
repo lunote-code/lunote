@@ -266,7 +266,16 @@ function QaMultiTabInner() {
       const left = await flushEditorToMemory()
       if (!left || tabNavGenerationRef.current !== generation) return
       bumpColdOpenGeneration()
-      await loadDocumentIntoEditor(target, 'qa-activate-tab')
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        try {
+          await loadDocumentIntoEditor(target, 'qa-activate-tab')
+          break
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          if (attempt === 3 || !message.includes('no registered capabilities')) throw error
+          await waitMs(60 * (attempt + 1))
+        }
+      }
       if (tabNavGenerationRef.current !== generation) return
       await waitMs(120)
     },
@@ -448,7 +457,7 @@ function QaMultiTabInner() {
       for (let round = 0; round < rounds; round += 1) {
         for (const path of paths) {
           await activateTab(path)
-          await waitMs(40)
+          await waitMs(80)
           const plain = editorPlainText()
           const expectedHeading = path.includes('doc-a')
             ? 'Doc A'

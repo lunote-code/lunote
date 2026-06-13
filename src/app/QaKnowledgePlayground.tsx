@@ -10,7 +10,6 @@ import {
   setBacklinkPanelDocKey,
 } from '../editor/knowledgeOS/index'
 import { KnowledgeRightRail } from '../editor/knowledgeOS/ui/KnowledgeRightRail'
-import { KnowledgeSearchModal } from '../editor/knowledgeOS/ui/KnowledgeSearchModal'
 import { registerKnowledgeInteractionHost } from '../editor/knowledgeOS/ui/knowledgeInteractionHost'
 import {
   bootstrapWorkspaceLinkGraphIndex,
@@ -62,6 +61,11 @@ function QaKnowledgeInner() {
   const [searchQuery, setSearchQuery] = useState('')
   const activeDocKeyRef = useRef<string | null>(null)
 
+  const openSearch = useCallback(() => {
+    setSearchQuery('')
+    setSearchOpen(true)
+  }, [])
+
   const activateNote = useCallback((note: QaKnowledgeNoteId) => {
     const path = notePath(note)
     const docKey = absolutePathToDocKeyOs(path, QA_KNOWLEDGE_ROOT)
@@ -75,7 +79,7 @@ function QaKnowledgeInner() {
     window.__QA_KNOWLEDGE__ = {
       activeDocKey: () => activeDocKeyRef.current,
       setActiveNote: activateNote,
-      openSearch: () => setSearchOpen(true),
+      openSearch,
       closeSearch: () => setSearchOpen(false),
       countInRail: (selector) => document.querySelectorAll(`.qa-knowledge-rail ${selector}`).length,
       backlinkSourceTitles: () =>
@@ -86,7 +90,7 @@ function QaKnowledgeInner() {
     return () => {
       delete window.__QA_KNOWLEDGE__
     }
-  }, [activateNote])
+  }, [activateNote, openSearch])
 
   useEffect(() => {
     let cancelled = false
@@ -109,7 +113,7 @@ function QaKnowledgeInner() {
         clearEditorSelection: () => {},
         focusEditor: () => {},
         onHoverIdChange: () => {},
-        openSearchModal: () => setSearchOpen(true),
+        openSearchModal: openSearch,
         revealNavigationAnchor: () => {},
         updateDocumentFrontmatter: async () => false,
       })
@@ -137,7 +141,7 @@ function QaKnowledgeInner() {
       cancelled = true
       registerKnowledgeInteractionHost(null)
     }
-  }, [activateNote])
+  }, [activateNote, openSearch])
 
   const shellClass = useMemo(
     () => ['preview-pane', 'markdown-visual-editor', 'qa-knowledge-shell'].filter(Boolean).join(' '),
@@ -145,31 +149,40 @@ function QaKnowledgeInner() {
   )
 
   return (
-    <div style={{ padding: 24, background: '#0f1115', minHeight: '100vh' }}>
-      <h1 data-testid="qa-ready">Knowledge QA</h1>
-      <p data-testid="qa-status">{status}</p>
-      <p data-testid="qa-active-doc" style={{ color: '#94a3b8' }}>
-        active={activeDocKey ?? 'none'}
-      </p>
-      <div className={shellClass} style={{ display: 'flex', maxWidth: 980, minHeight: 520 }}>
-        <div style={{ flex: 1, padding: 16, color: '#cbd5e1' }} data-testid="qa-editor-stub">
-          Editor stub — knowledge rail on the right.
+    <div className="qa-knowledge-root layout workspace-split mod-root with-knowledge-rail" style={{ minHeight: '100vh' }}>
+      <div className="qa-knowledge-diagnostics" style={{ padding: '12px 24px' }}>
+        <h1 data-testid="qa-ready">Knowledge QA</h1>
+        <p data-testid="qa-status">{status}</p>
+        <p data-testid="qa-active-doc" style={{ color: 'var(--text-secondary)' }}>
+          active={activeDocKey ?? 'none'}
+        </p>
+      </div>
+      <main className="main main-with-rail workspace-leaf mod-active" style={{ display: 'flex', maxWidth: 980, minHeight: 520, margin: '0 24px 24px' }}>
+        <div className="editor-body-surface view-content" style={{ flex: 1, minWidth: 0 }}>
+          <div
+            className={shellClass}
+            data-testid="qa-editor-stub"
+            style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}
+          >
+            Knowledge rail QA — editor chrome uses production classes.
+          </div>
         </div>
-        <div className="qa-knowledge-rail" style={{ width: 360, minWidth: 280 }}>
+        <div className="qa-knowledge-rail kos-right-rail" style={{ width: 360, minWidth: 280 }}>
           <KnowledgeRightRail
             activeDocKey={activeDocKey}
             visible={railVisible}
-            onOpenSearch={() => setSearchOpen(true)}
-            onClose={() => setRailVisible(false)}
+            searchOpen={searchOpen}
+            searchQuery={searchQuery}
+            onSearchOpenChange={setSearchOpen}
+            onSearchQueryChange={setSearchQuery}
+            onClose={() => {
+              setSearchOpen(false)
+              setSearchQuery('')
+              setRailVisible(false)
+            }}
           />
         </div>
-      </div>
-      <KnowledgeSearchModal
-        open={searchOpen}
-        query={searchQuery}
-        onQueryChange={setSearchQuery}
-        onClose={() => setSearchOpen(false)}
-      />
+      </main>
     </div>
   )
 }

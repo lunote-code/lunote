@@ -1,0 +1,34 @@
+/**
+ * Reading vignette — UI snippet (all four edges)
+ *
+ * Fixed viewport overlay that fades content toward every edge — classic “focus column” look.
+ *
+ * Copy to ~/.luna/theme/snippets/reading-vignette.css → Rescan → enable in UI snippets.
+ * Enable only ONE reading-fade snippet at a time.
+ */
+
+.preview-pane.markdown-visual-editor .tiptap-editor-shell {
+  --reading-vignette-size: 56px;
+  --reading-vignette-color: var(--surface-editor, var(--surface-panel));
+}
+
+.preview-pane.markdown-visual-editor .tiptap-editor-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  box-shadow:
+    inset 0 var(--reading-vignette-size) calc(var(--reading-vignette-size) * 0.85)
+      calc(var(--reading-vignette-size) * -0.65) var(--reading-vignette-color),
+    inset 0 calc(var(--reading-vignette-size) * -1) calc(var(--reading-vignette-size) * 0.85)
+      calc(var(--reading-vignette-size) * -0.65) var(--reading-vignette-color),
+    inset var(--reading-vignette-size) 0 calc(var(--reading-vignette-size) * 0.85)
+      calc(var(--reading-vignette-size) * -0.65) var(--reading-vignette-color),
+    inset calc(var(--reading-vignette-size) * -1) 0 calc(var(--reading-vignette-size) * 0.85)
+      calc(var(--reading-vignette-size) * -0.65) var(--reading-vignette-color);
+}
+
+.preview-pane.markdown-visual-editor .tiptap-editor-shell::after {
+  content: none;
+}

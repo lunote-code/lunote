@@ -1,10 +1,12 @@
 import { isTauri } from '@tauri-apps/api/core'
 import { Fragment, Slice } from '@tiptap/pm/model'
+import { TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state'
+import { canSplit } from '@tiptap/pm/transform'
 import type { EditorView } from '@tiptap/pm/view'
 import type { EditorView as CmEditorView } from '@codemirror/view'
 
 import { MAX_PASTE_IMAGE_BYTES } from '../app/assets/imagePasteLimits'
-import { applyPlainTextPasteInsertion, setInputLayerSource } from './inputLayer/inputLayerPaste'
+import { applyPlainTextPasteInsertion, INPUT_LAYER_SOURCE_META, setInputLayerSource } from './inputLayer/inputLayerPaste'
 import { preserveProseMirrorScrollDuring } from './preserveProseMirrorScroll'
 import { logPasteScrollPhase, logPasteScrollTransaction } from './pasteScrollDebug'
 import { readTauriClipboardImage, readTauriClipboardText } from './tauriClipboardRead'
@@ -128,8 +130,7 @@ export async function clipboardEventHasUsablePayload(event: ClipboardEvent): Pro
 
 export async function readNavigatorClipboardText(): Promise<string> {
   if (isTauri()) {
-    const native = await readTauriClipboardText()
-    if (native) return native
+    return (await readTauriClipboardText()) ?? ''
   }
   try {
     return await navigator.clipboard.readText()
@@ -138,13 +139,8 @@ export async function readNavigatorClipboardText(): Promise<string> {
   }
 }
 
-/** Tauri gives priority to native reading; only browsers use navigator.clipboard.read()*/
-export async function readNavigatorClipboardImageFile(): Promise<{ file: File; mime: string } | null> {
-  if (isTauri()) {
-    const native = await readTauriClipboardImage()
-    if (native) return native
-    return null
-  }
+/** Browser-only async clipboard image read (requires user-gesture / may show system Paste UI). */
+async function readBrowserClipboardImageFile(): Promise<{ file: File; mime: string } | null> {
   if (!navigator.clipboard.read) return null
   try {
     const items = await navigator.clipboard.read()
@@ -162,18 +158,81 @@ export async function readNavigatorClipboardImageFile(): Promise<{ file: File; m
   return null
 }
 
+/** Tauri gives priority to native reading; only browsers use navigator.clipboard.read() */
+export async function readNavigatorClipboardImageFile(): Promise<{ file: File; mime: string } | null> {
+  if (isTauri()) {
+    const native = await readTauriClipboardImage()
+    if (native) return native
+    return null
+  }
+  return readBrowserClipboardImageFile()
+}
+
+async function readClipboardImageForPaste(allowNavigatorClipboardRead: boolean): Promise<{ file: File; mime: string } | null> {
+  if (isTauri()) return readTauriClipboardImage()
+  if (!allowNavigatorClipboardRead) return null
+  return readBrowserClipboardImageFile()
+}
+
 export type WebviewPasteImageHandler = (file: File, mimeHint: string) => Promise<string | null>
+
+/** Insert image, then place the caret in a new paragraph below (Typora-style). */
+export function buildImagePasteTransaction(state: EditorState, src: string, alt = 'image'): Transaction | null {
+  const imageType = state.schema.nodes.image
+  const paragraph = state.schema.nodes.paragraph
+  if (!imageType || !paragraph) return null
+
+  const image = imageType.create({ src, alt })
+  const { $from } = state.selection
+  const parent = $from.parent
+
+  const imageParagraph = paragraph.create(null, image)
+  const trailingParagraph = paragraph.create()
+  const markPaste = (tr: Transaction) => {
+    tr.setMeta(INPUT_LAYER_SOURCE_META, 'paste-rich')
+    tr.setMeta('uiEvent', 'paste')
+    return tr
+  }
+
+  // Headings must not contain block-style image cards; insert below the heading block.
+  if (parent.type.name === 'heading') {
+    const afterBlock = $from.after($from.depth)
+    let tr = state.tr.insert(afterBlock, Fragment.from([imageParagraph, trailingParagraph]))
+    tr = tr.setSelection(TextSelection.create(tr.doc, afterBlock + imageParagraph.nodeSize + 1))
+    return markPaste(tr)
+  }
+
+  let tr = state.tr.replaceSelection(new Slice(Fragment.from(image), 0, 0))
+
+  let $pos = tr.doc.resolve(tr.selection.from)
+  if ($pos.nodeBefore?.type === imageType || $pos.nodeAfter?.type === imageType) {
+    tr = tr.setSelection(TextSelection.create(tr.doc, $pos.pos))
+    $pos = tr.doc.resolve(tr.selection.from)
+  }
+
+  if ($pos.parent.type === paragraph && $pos.parentOffset === $pos.parent.content.size) {
+    const splitPos = $pos.after()
+    if (canSplit(tr.doc, splitPos)) {
+      tr = tr.split(splitPos)
+      const caret = Math.min(splitPos + 1, tr.doc.content.size)
+      tr = tr.setSelection(TextSelection.create(tr.doc, caret))
+    } else {
+      const afterBlock = $pos.after($pos.depth)
+      tr = tr.insert(afterBlock, trailingParagraph)
+      tr = tr.setSelection(TextSelection.create(tr.doc, afterBlock + 1))
+    }
+  }
+
+  return markPaste(tr)
+}
 
 export async function insertImageIntoPmView(
   view: EditorView,
   src: string,
   alt = 'image',
 ): Promise<void> {
-  const { state } = view
-  const imageType = state.schema.nodes.image
-  if (!imageType) return
-  const node = imageType.create({ src, alt })
-  const tr = state.tr.replaceSelection(new Slice(Fragment.from(node), 0, 0))
+  const tr = buildImagePasteTransaction(view.state, src, alt)
+  if (!tr) return
   logPasteScrollTransaction('insert-image-dispatch', view, tr)
   preserveProseMirrorScrollDuring(view, () => view.dispatch(tr))
 }
@@ -306,8 +365,11 @@ export async function applyWebviewPasteFallback(options: {
   prefetchedText?: string
   prefetchedHtml?: string
   onPasteImage?: WebviewPasteImageHandler
+  /** When false (native paste event), skip navigator.clipboard.read/readText fallbacks that trigger the system Paste UI. */
+  allowNavigatorClipboardRead?: boolean
 }): Promise<boolean> {
   const { pmView, cmView, domImages = [], plainOnly = false, onPasteImage, prefetchedHtml } = options
+  const allowNavigatorClipboardRead = options.allowNavigatorClipboardRead !== false
 
   //Paste event clipboardData takes priority: read pictures synchronously to avoid navigator.clipboard.read / asynchronous native reading to trigger the system Paste menu
   if (!plainOnly && onPasteImage) {
@@ -333,7 +395,12 @@ export async function applyWebviewPasteFallback(options: {
     }
   }
 
-  const text = options.prefetchedText ?? (await readNavigatorClipboardText())
+  const text =
+    options.prefetchedText !== undefined
+      ? options.prefetchedText
+      : allowNavigatorClipboardRead
+        ? await readNavigatorClipboardText()
+        : ''
   if (text && shouldPasteClipboardText(text, plainOnly)) {
     if (pmView) {
       if (!plainOnly && insertMarkdownTableIntoPmView(pmView, text)) return true
@@ -366,9 +433,9 @@ export async function applyWebviewPasteFallback(options: {
     }
   }
 
-  //The solution when WKWebView and other clipboardData is empty (menu pasting, Tauri native image reading)
+  //Menu paste / empty WKWebView clipboardData: Tauri native invoke, or browser navigator when allowed.
   if (!plainOnly && onPasteImage && domImages.length === 0) {
-    const image = await readNavigatorClipboardImageFile()
+    const image = await readClipboardImageForPaste(allowNavigatorClipboardRead)
     if (image) {
       const src = await onPasteImage(image.file, image.mime)
       if (src && (await insertResolvedImage(pmView, cmView, src))) return true
@@ -376,6 +443,12 @@ export async function applyWebviewPasteFallback(options: {
   }
 
   return false
+}
+
+/** Tauri/WKWebView: never async-read navigator on paste (macOS Paste UI). Browser: only for trusted user paste (Cmd+V). */
+export function allowNavigatorClipboardReadForPasteEvent(event: Pick<ClipboardEvent, 'isTrusted'> | null | undefined): boolean {
+  if (isTauri()) return false
+  return Boolean(event?.isTrusted)
 }
 
 /** Tauri desktop needs to compensate for the empty clipboardData of WKWebView; the pasting pipeline itself browser is shared with Tauri*/

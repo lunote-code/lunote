@@ -8,9 +8,11 @@ mod luna_paths;
 mod pdf_render;
 mod theme;
 mod theme_migration;
+mod plugins;
 mod app_menu;
 mod mac_boot_menu;
 mod mac_menu_template;
+mod mac_window;
 
 pub(crate) use app_menu::handle_native_shell_menu;
 
@@ -105,6 +107,7 @@ pub fn run() {
       }
 
       if let Some(win) = app.get_webview_window("main") {
+        mac_window::configure_native_centered_titlebar(&win);
         let icon_bytes = include_bytes!("../icons/32x32.png");
         if let Ok(icon) = Image::from_bytes(icon_bytes) {
           if let Err(e) = win.set_icon(icon) {
@@ -229,6 +232,7 @@ pub fn run() {
       commands::sync_theme_css_menu,
       commands::sync_view_fullscreen_menu_checked,
       mac_menu_template::sync_mac_native_menu_icon_templates,
+      mac_window::sync_mac_native_titlebar_theme,
       commands::get_app_settings,
       commands::save_app_settings,
       commands::index_notes,
@@ -260,7 +264,17 @@ pub fn run() {
       theme::reveal_custom_theme_directory,
       theme::list_custom_theme_files,
       theme::read_custom_theme_json,
-      theme::save_custom_theme_json
+      theme::save_custom_theme_json,
+      theme::save_theme_stylesheet,
+      theme::save_theme_snippet,
+      theme::save_theme_export_style,
+      theme::delete_theme_stylesheet,
+      theme::delete_theme_snippet,
+      theme::delete_custom_theme_json,
+      plugins::install_plugin_files,
+      plugins::list_installed_plugins,
+      plugins::read_plugin_manifest,
+      plugins::uninstall_plugin
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

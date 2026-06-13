@@ -12,7 +12,7 @@ type SettingsSelectProps<T extends string> = {
   value: T
   activeValue?: T
   options: readonly SettingsSelectOption<T>[]
-  onValueChange: (value: T) => void
+  onValueChange: (value: T) => void | Promise<void>
   onPreviewValue?: (value: T) => void
   onClearPreview?: () => void
   ariaLabel?: string
@@ -30,7 +30,10 @@ export function SettingsSelect<T extends string>({
   const reactId = useId()
   const id = `settings-select-${reactId.replace(/:/g, '')}`
   const rootRef = useRef<HTMLDivElement | null>(null)
+  const onClearPreviewRef = useRef(onClearPreview)
+  onClearPreviewRef.current = onClearPreview
   const [open, setOpen] = useState(false)
+  const wasOpenRef = useRef(false)
   const selected = useMemo(
     () => options.find((option) => option.value === value) ?? options[0],
     [options, value],
@@ -61,19 +64,33 @@ export function SettingsSelect<T extends string>({
     return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [open])
 
-  useEffect(() => {
-    if (!open) onClearPreview?.()
-  }, [onClearPreview, open])
+  const clearPreview = useCallback(() => {
+    onClearPreviewRef.current?.()
+  }, [])
 
-  useEffect(() => () => onClearPreview?.(), [onClearPreview])
+  useEffect(() => {
+    const wasOpen = wasOpenRef.current
+    wasOpenRef.current = open
+    if (wasOpen && !open) clearPreview()
+  }, [clearPreview, open])
+
+  useEffect(() => () => clearPreview(), [clearPreview])
+
+  const clearPreviewUnlessFocusStaysInSelect = useCallback(
+    (event: { relatedTarget: EventTarget | null }) => {
+      const related = event.relatedTarget
+      if (related instanceof Node && rootRef.current?.contains(related)) return
+      clearPreview()
+    },
+    [clearPreview],
+  )
 
   const selectValue = useCallback(
-    (next: T) => {
-      onClearPreview?.()
-      onValueChange(next)
+    async (next: T) => {
+      await Promise.resolve(onValueChange(next))
       setOpen(false)
     },
-    [onClearPreview, onValueChange],
+    [onValueChange],
   )
 
   const focusOption = useCallback((optionValue: T) => {
@@ -124,7 +141,7 @@ export function SettingsSelect<T extends string>({
           className="settings-select-content"
           role="listbox"
           aria-activedescendant={`${id}-item-${value}`}
-          onMouseLeave={onClearPreview}
+          onMouseLeave={clearPreview}
         >
           {renderedOptions.map((row) => {
             if (row.type === 'group') {
@@ -147,7 +164,7 @@ export function SettingsSelect<T extends string>({
                 title={option.description}
                 onMouseEnter={() => onPreviewValue?.(option.value)}
                 onFocus={() => onPreviewValue?.(option.value)}
-                onBlur={onClearPreview}
+                onBlur={clearPreviewUnlessFocusStaysInSelect}
                 onClick={() => selectValue(option.value)}
                 onKeyDown={(event) => {
                   if (event.key === 'Escape') {

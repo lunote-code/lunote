@@ -1,7 +1,6 @@
 # Environment & local secrets (never commit)
 .env
 .env.*
-!.env.example
 
 # Release signing material (local only)
 *.pem

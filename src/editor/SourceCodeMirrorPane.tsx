@@ -12,6 +12,7 @@ import {
   waitLayoutStabilizationBarrier,
 } from './layoutStabilization'
 import { debugModeSwitch, describeScrollMetrics, describeSelectionInText } from './modeSwitchDebug'
+import { bindOverlayScrollbarReveal } from '../app/overlayScrollbarReveal'
 import { EditorOpenReason, type EditorOpenReason as EditorSurfaceOpenReason } from './editorOpenReason'
 
 export type SourceCodeMirrorPaneProps = {
@@ -133,6 +134,7 @@ export function SourceCodeMirrorPane({
     const view = new EditorView({ state, parent: root })
     viewRef.current = view
     onViewReadyRef.current?.(view)
+    const unbindScrollbarReveal = bindOverlayScrollbarReveal(view.scrollDOM)
 
     if (import.meta.env.DEV) {
       debugModeSwitch('[mode-switch][source-pane][created]', {
@@ -261,6 +263,7 @@ export function SourceCodeMirrorPane({
     }
 
     return () => {
+      unbindScrollbarReveal()
       view.destroy()
       viewRef.current = null
     }

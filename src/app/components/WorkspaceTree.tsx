@@ -2,6 +2,7 @@ import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent }
 import { pathSetHas, pathsEqual } from '../../lib/workspacePathUtils'
 import { Icon } from '../../design-system/icons'
 import type { FlatWorkspaceFile, FsTreeNode } from '../workspace/types'
+import { resolveWorkspaceFolderChrome } from '../workspace/workspaceTree'
 import {
   WorkspaceFolderDropTarget,
   isWorkspacePathDragging,
@@ -25,6 +26,7 @@ export type WorkspaceTreeProps = {
   onDragOverTarget?: (target: WorkspaceDragTarget | null) => void
   onMoveFileToFolder?: (sourcePath: string | string[], destDir: string, isDirectory?: boolean) => void
   onFilePointerDown?: (e: ReactPointerEvent, path: string, isDirectory?: boolean) => void
+  contextMenuFilePath?: string | null
 }
 export function WorkspaceTree({
   nodes,
@@ -41,11 +43,16 @@ export function WorkspaceTree({
   onDragOverTarget,
   onMoveFileToFolder,
   onFilePointerDown,
+  contextMenuFilePath,
 }: WorkspaceTreeProps) {
   return (
     <>
       {nodes.map((node) =>
         node.kind === 'dir' ? (
+          (() => {
+            const expanded = pathSetHas(expandedDirs, node.path)
+            const folderChrome = resolveWorkspaceFolderChrome(node.children, expanded)
+            return (
           <div key={node.path} className="tree-node">
             <WorkspaceFolderDropTarget
               folderPath={node.path}
@@ -54,12 +61,15 @@ export function WorkspaceTree({
               draggingFilePath={draggingFilePath}
               onDragOverTarget={onDragOverTarget}
               onMoveFileToFolder={onMoveFileToFolder}
-              className={`tree-folder${isWorkspacePathDragging(draggingFilePath, node.path) ? ' tree-folder-dragging' : ''}`}
+              className={`tree-folder ${folderChrome.folderClass}${pathsEqual(contextMenuFilePath, node.path) ? ' is-context-target' : ''}${isWorkspacePathDragging(draggingFilePath, node.path) ? ' tree-folder-dragging' : ''}`}
               style={{ paddingLeft: 8 + depth * 14 }}
               onClick={() => onToggleDir(node.path)}
             >
               <span
                 className="tree-folder-inner"
+                data-folder-content={folderChrome.contentState}
+                data-folder-icon={folderChrome.iconName}
+                data-folder-expanded={expanded ? 'true' : 'false'}
                 onMouseDown={preventButtonSecondaryMouseDown}
                 onPointerDown={(e) => {
                   if (!onFilePointerDown || e.button !== 0) return
@@ -73,17 +83,17 @@ export function WorkspaceTree({
                 }}
               >
                 <span className="tree-chevron" aria-hidden>
-                  {pathSetHas(expandedDirs, node.path) ? (
+                  {expanded ? (
                     <Icon name="chevron-down" size="sm" stroke="strong" />
                   ) : (
                     <Icon name="chevron-right" size="sm" stroke="strong" />
                   )}
                 </span>
-                <Icon name="workspace" size="md" className="tree-icon" tone="muted" />
+                <Icon name={folderChrome.iconName} size="md" className="tree-icon" tone="muted" />
                 <span className="tree-label">{node.name}</span>
               </span>
             </WorkspaceFolderDropTarget>
-            {pathSetHas(expandedDirs, node.path) && node.children.length > 0 ? (
+            {expanded && node.children.length > 0 ? (
               <div className="tree-node-children">
                 <WorkspaceTree
                   nodes={node.children}
@@ -100,10 +110,13 @@ export function WorkspaceTree({
                   onDragOverTarget={onDragOverTarget}
                   onMoveFileToFolder={onMoveFileToFolder}
                   onFilePointerDown={(e, path, isDirectory) => onFilePointerDown?.(e, path, isDirectory)}
+                  contextMenuFilePath={contextMenuFilePath}
                 />
               </div>
             ) : null}
           </div>
+            )
+          })()
         ) : (
           <div
             role="button"
@@ -111,7 +124,7 @@ export function WorkspaceTree({
             key={node.path}
             data-workspace-file-path={node.path}
             data-workspace-drop-dir={workspaceParentDir(rootDir, node.path)}
-            className={`tree-file note-item ${pathsEqual(activePath, node.path) ? 'active' : ''}${isFileSelected?.(node.path) ? ' is-selected' : ''}${isWorkspacePathDragging(draggingFilePath, node.path) ? ' tree-file-dragging' : ''}${dragOverTarget?.kind === 'file' && pathsEqual(dragOverTarget.anchorPath, node.path) ? ' tree-file-drop-target' : ''}`}
+            className={`tree-file note-item ${pathsEqual(activePath, node.path) ? 'active' : ''}${isFileSelected?.(node.path) ? ' is-selected' : ''}${pathsEqual(contextMenuFilePath, node.path) ? ' is-context-target' : ''}${isWorkspacePathDragging(draggingFilePath, node.path) ? ' tree-file-dragging' : ''}${dragOverTarget?.kind === 'file' && pathsEqual(dragOverTarget.anchorPath, node.path) ? ' tree-file-drop-target' : ''}`}
             style={{ paddingLeft: 12 + depth * 14 + 20 }}
             onClick={(e) => onFileClick?.(e, node.path)}
             onKeyDown={(e) => {
@@ -132,7 +145,7 @@ export function WorkspaceTree({
               onFileContextMenu(e, node.path, false)
             }}
           >
-            <Icon name="note" size="sm" className="tree-icon" tone="muted" />
+            <Icon name="note" size="md" className="tree-icon" tone="muted" />
             <span className="tree-label">{node.name}</span>
           </div>
         ),
@@ -150,6 +163,7 @@ export function WorkspaceFlatList({
   onFilePointerDown,
   draggingFilePath,
   dragOverTarget,
+  contextMenuFilePath,
 }: {
   files: FlatWorkspaceFile[]
   rootDir: string
@@ -160,6 +174,7 @@ export function WorkspaceFlatList({
   onFilePointerDown?: (e: ReactPointerEvent, path: string, isDirectory?: boolean) => void
   draggingFilePath?: string[] | string | null
   dragOverTarget?: WorkspaceDragTarget | null
+  contextMenuFilePath?: string | null
 }) {
   return (
     <>
@@ -170,7 +185,7 @@ export function WorkspaceFlatList({
           key={f.path}
           data-workspace-file-path={f.path}
           data-workspace-drop-dir={workspaceParentDir(rootDir, f.path)}
-          className={`note-item file-list-flat-item ${pathsEqual(activePath, f.path) ? 'active' : ''}${isFileSelected?.(f.path) ? ' is-selected' : ''}${isWorkspacePathDragging(draggingFilePath, f.path) ? ' tree-file-dragging' : ''}${dragOverTarget?.kind === 'file' && pathsEqual(dragOverTarget.anchorPath, f.path) ? ' tree-file-drop-target' : ''}`}
+          className={`note-item file-list-flat-item ${pathsEqual(activePath, f.path) ? 'active' : ''}${isFileSelected?.(f.path) ? ' is-selected' : ''}${pathsEqual(contextMenuFilePath, f.path) ? ' is-context-target' : ''}${isWorkspacePathDragging(draggingFilePath, f.path) ? ' tree-file-dragging' : ''}${dragOverTarget?.kind === 'file' && pathsEqual(dragOverTarget.anchorPath, f.path) ? ' tree-file-drop-target' : ''}`}
           onClick={(e) => onFileClick?.(e, f.path)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -190,7 +205,7 @@ export function WorkspaceFlatList({
             onFileContextMenu(e, f.path, false)
           }}
         >
-          <Icon name="note" size="sm" className="tree-icon file-list-flat-icon" tone="muted" />
+          <Icon name="note" size="md" className="tree-icon file-list-flat-icon" tone="muted" />
           <span className="file-list-flat-text">
             <span className="file-list-flat-label">{f.label}</span>
             {f.sublabel ? <span className="file-list-flat-sublabel">{f.sublabel}</span> : null}

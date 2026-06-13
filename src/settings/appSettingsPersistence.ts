@@ -10,6 +10,7 @@ import {
   needsFormatToolbarSettingsMigration,
   normalizeEditorFormatToolbarEnabled,
 } from '../settings-runtime/editorFormatToolbarEnabled'
+import { normalizeEditorSpellcheckEnabled } from '../settings-runtime/editorSpellcheck'
 import { normalizeThemeVariant } from '../theme-runtime/themeResolver'
 import { isShortcutCustomizable } from '../menu/shortcutPlatformDefaults'
 import { mirrorAppSettingsLocalCache } from '../platform/bootEarlyTheme'
@@ -29,6 +30,7 @@ function normalizeEditorAppearance(editor: Partial<EditorAppearance> | undefined
     editor?.formatToolbarEnabled,
     (editor as { formatToolbarMode?: unknown } | undefined)?.formatToolbarMode ?? legacyToolbarEnabled,
   )
+  const spellcheckEnabled = normalizeEditorSpellcheckEnabled(editor?.spellcheckEnabled)
   if (legacyToolbarEnabled !== undefined) clearLegacyFormatToolbarPinnedStorage()
   const autosaveScope: 'allDirty' | 'activeOnly' =
     editor?.autosaveScope === 'allDirty' ? 'allDirty' : 'activeOnly'
@@ -40,6 +42,7 @@ function normalizeEditorAppearance(editor: Partial<EditorAppearance> | undefined
     fontSize,
     columnWidth,
     formatToolbarEnabled,
+    spellcheckEnabled,
     autosaveScope,
   }
 }

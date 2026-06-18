@@ -23,7 +23,7 @@ use rusqlite::Connection;
 use tauri::image::Image;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, Runtime, WindowEvent};
 
-fn raise_main_window<R: Runtime>(app: &AppHandle<R>) {
+pub fn raise_main_window<R: Runtime>(app: &AppHandle<R>) {
   #[cfg(target_os = "macos")]
   {
     let _ = app.show();
@@ -31,6 +31,11 @@ fn raise_main_window<R: Runtime>(app: &AppHandle<R>) {
   if let Some(win) = app.get_webview_window("main") {
     let _ = win.unminimize();
     let _ = win.show();
+    #[cfg(target_os = "windows")]
+    {
+      let _ = win.set_always_on_top(true);
+      let _ = win.set_always_on_top(false);
+    }
     let _ = win.set_focus();
   }
 }
@@ -243,6 +248,9 @@ pub fn run() {
           }
           return;
         }
+        if id == "quick-capture-show" || id == "daily-note-open" {
+          raise_main_window(app);
+        }
         emit_app_menu(app, serde_json::json!({ "action": id }));
       });
 
@@ -288,6 +296,7 @@ pub fn run() {
       commands::sync_theme_css_menu,
       commands::sync_view_fullscreen_menu_checked,
       commands::set_close_to_tray_ready,
+      commands::raise_main_window,
       mac_menu_template::sync_mac_native_menu_icon_templates,
       mac_window::sync_mac_native_titlebar_theme,
       commands::get_app_settings,

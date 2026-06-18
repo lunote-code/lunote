@@ -21,6 +21,8 @@ GAP_DIR = ROOT / "scripts" / "locale_corpus" / "gaps"
 OUT_DIR = ROOT / "src" / "i18n" / "locales"
 
 META_PREFIX = "meta."
+# Keys that must appear in sparse locale files even when identical to en (runtime/contracts).
+ALWAYS_MATERIALIZE_KEYS = frozenset({"app.tabs.countLabel"})
 
 
 def load_flat(path: pathlib.Path) -> dict[str, str]:
@@ -108,7 +110,7 @@ def main() -> int:
         for k in en:
             if k.startswith(META_PREFIX):
                 continue
-            if k in corpus and corpus[k] != en[k]:
+            if k in corpus and (corpus[k] != en[k] or k in ALWAYS_MATERIALIZE_KEYS):
                 sparse[k] = corpus[k]
 
         ordered: dict[str, str] = {}

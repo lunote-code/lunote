@@ -5,7 +5,7 @@ import { register, unregister } from '@tauri-apps/plugin-global-shortcut'
 
 import { getEffectiveAccelerator } from '../../menu/shortcutCustomization'
 import { toGlobalShortcutAccelerator } from '../../menu/menu.shortcuts'
-import { isMacDesktopPlatform } from '../desktopPlatform'
+import { isMacDesktopPlatform, isLinuxDesktopPlatform } from '../desktopPlatform'
 import { setCloseToTrayReady } from './platformShellService'
 import { raiseMainWindow } from './raiseMainWindow'
 import { applyTrayIcon, loadTrayIconForCreate } from './trayIcon'
@@ -96,13 +96,9 @@ async function buildTrayMenu(deps: QuickCaptureDeps): Promise<Menu> {
 
 function onTrayLeftClick(event: TrayIconEvent): void {
   if (event.type !== 'Click') return
-  if (event.button !== 'Left' || event.buttonState !== 'Down') return
-  const deps = trayState().deps
-  if (!deps) return
-  void (async () => {
-    await raiseMainWindow()
-    await deps.onOpenTodayDailyNote()
-  })()
+  if (event.button !== 'Left') return
+  if (event.buttonState !== 'Down' && event.buttonState !== 'Up') return
+  void raiseMainWindow()
 }
 
 function onGlobalDailyNoteShortcut(): void {
@@ -124,13 +120,14 @@ async function ensureTrayInstance(deps: QuickCaptureDeps): Promise<TrayIcon> {
 
   await TrayIcon.removeById(TRAY_ID).catch(() => undefined)
 
+  const showMenuOnLeftClick = isLinuxDesktopPlatform()
   state.tray = await TrayIcon.new({
     id: TRAY_ID,
     ...(await loadTrayIconForCreate()),
     tooltip: deps.t('tray.tooltip'),
     menu: await buildTrayMenu(deps),
-    showMenuOnLeftClick: false,
-    action: onTrayLeftClick,
+    showMenuOnLeftClick,
+    ...(showMenuOnLeftClick ? {} : { action: onTrayLeftClick }),
   })
   return state.tray
 }

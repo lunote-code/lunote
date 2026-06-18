@@ -225,26 +225,7 @@ Already on Typora or Obsidian? Lunote is for people who want **comfortable writi
 | **Wiki links & graph** | Limited | Strong (often via plugins) | Strong, built-in |
 | **Plugins to get started** | Few | Many | **Optional** (theme catalog) |
 
-<a id="why-lunote"></a>
-
-## Why Lunote
-
-- **Your files**: notes stay as normal `.md` in folders you control.
-- **One app**: comfortable writing, wiki links, graph, and optional theme packs—core features work out of the box.
-
 ---
-
-<a id="typora-vs-obsidian-vs-lunote"></a>
-
-## How it compares
-
-Already on Typora or Obsidian? Lunote is for people who want **comfortable writing and wiki links in one desktop app**, with optional theme packs when you want more.
-
-| | Typora | Obsidian | Lunote |
-|---|---|---|---|
-| **Writing** | Excellent | Good | Excellent, built-in |
-| **Wiki links & graph** | Limited | Strong (often via plugins) | Strong, built-in |
-| **Plugins to get started** | Few | Many | **Optional** (theme catalog) |
 
 <a id="user-guide"></a>
 

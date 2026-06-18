@@ -594,6 +594,12 @@ pub fn set_close_to_tray_ready(state: State<CloseToTrayState>, ready: bool) -> R
 }
 
 #[tauri::command]
+pub fn raise_main_window(app: AppHandle) -> Result<(), String> {
+  crate::raise_main_window(&app);
+  Ok(())
+}
+
+#[tauri::command]
 pub fn watch_workspace(app: AppHandle, payload: RootPayload) -> Result<(), String> {
   let root = resolve_workspace_root(&payload.root)?;
   crate::core::workspace_watch::watch_workspace_root(&app, &root)

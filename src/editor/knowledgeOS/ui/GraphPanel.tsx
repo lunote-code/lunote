@@ -16,6 +16,7 @@ import {
 import {
   getActiveGraphNodeId,
   getNodeActivationRenderState,
+  requestNodeActivation,
   subscribeActiveGraphNode,
   subscribeNodeActivationRenderState,
 } from '../graphNodeActivationRuntime'
@@ -477,6 +478,9 @@ export function GraphPanel({ centerDocKey, layoutVariant = 'embedded' }: Props) 
         suppressGraphClickRef.current = false
         return
       }
+      if ((e.target as Element | null)?.closest?.('.kos-graph-node')) {
+        return
+      }
       navigateFromEvent(e)
     },
     [navigateFromEvent],
@@ -574,6 +578,10 @@ export function GraphPanel({ centerDocKey, layoutVariant = 'embedded' }: Props) 
       suppressGraphClickRef.current = false
     }
     e.stopPropagation()
+    const nodeId = e.currentTarget.getAttribute('data-graph-node-id')
+    if (nodeId) {
+      requestNodeActivation(nodeId)
+    }
   }, [])
 
   const onNodeDoubleClick = useCallback(

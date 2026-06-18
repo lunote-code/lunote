@@ -1,7 +1,7 @@
 {
   "name": "crossplatnote",
   "private": true,
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Lunote — local-first cross-platform Markdown notes & PKM app with wiki links, backlinks, knowledge graph, and offline storage.",
   "keywords": [
     "markdown",

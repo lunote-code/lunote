@@ -225,26 +225,7 @@ Sin registro · solo `.md` locales · funciona sin conexión
 | **Enlaces wiki y grafo** | Limitado | Fuerte (a menudo plugins) | Fuerte, integrado |
 | **Plugins al empezar** | Pocos | Muchos | **Opcionales** (catálogo) |
 
-<a id="why-lunote"></a>
-
-## Por qué Lunote
-
-- **Tus archivos**: `.md` normales en carpetas que controlas.
-- **Una sola app**: buena escritura, enlaces wiki y grafo integrados—packs de tema opcionales.
-
 ---
-
-<a id="typora-vs-obsidian-vs-lunote"></a>
-
-## Comparación
-
-¿Usas Typora u Obsidian? Lunote es para quien quiere **escritura cómoda y enlaces wiki en una app de escritorio**, con catálogo de temas opcional.
-
-| | Typora | Obsidian | Lunote |
-|---|---|---|---|
-| **Escritura** | Excelente | Buena | Excelente, integrada |
-| **Enlaces wiki y grafo** | Limitado | Fuerte (a menudo plugins) | Fuerte, integrado |
-| **Plugins al empezar** | Pocos | Muchos | **Opcionales** (catálogo) |
 
 <a id="user-guide"></a>
 

@@ -225,26 +225,7 @@ Usa Typora ou Obsidian? Lunote é para quem quer **escrita confortável e links 
 | **Links wiki e grafo** | Limitado | Forte (muitos plugins) | Forte, integrado |
 | **Plugins para começar** | Poucos | Muitos | **Opcionais** (catálogo) |
 
-<a id="why-lunote"></a>
-
-## Por que Lunote
-
-- **Seus arquivos**: `.md` normais em pastas que você controla.
-- **Um app só**: boa escrita, links wiki e grafo integrados—packs opcionais.
-
 ---
-
-<a id="typora-vs-obsidian-vs-lunote"></a>
-
-## Comparação
-
-Usa Typora ou Obsidian? Lunote é para quem quer **escrita confortável e links wiki em um app desktop**, com catálogo de temas opcional.
-
-| | Typora | Obsidian | Lunote |
-|---|---|---|---|
-| **Escrita** | Excelente | Boa | Excelente, integrada |
-| **Links wiki e grafo** | Limitado | Forte (muitos plugins) | Forte, integrado |
-| **Plugins para começar** | Poucos | Muitos | **Opcionais** (catálogo) |
 
 <a id="user-guide"></a>
 

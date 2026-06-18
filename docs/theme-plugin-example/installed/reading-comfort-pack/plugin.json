@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 2,
+  "id": "reading-comfort-pack",
+  "name": "Reading Comfort Pack",
+  "version": "1.0.0",
+  "entry": null,
+  "pluginType": "theme-pack",
+  "capabilities": ["theme.style", "theme.snippet", "theme.token"],
+  "platforms": ["desktop", "web"],
+  "requiresRestart": false,
+  "experimental": false,
+  "minAppVersion": "0.6.0",
+  "maxAppVersion": null,
+  "permissions": {
+    "theme": {
+      "register": true
+    }
+  },
+  "contributes": {
+    "theme": {
+      "style": [
+        {
+          "file": "theme/style/reading-pack-accent.css",
+          "label": "Reading Pack Accent",
+          "description": "Literary cream palette with restrained heading accents."
+        }
+      ],
+      "snippets": [
+        {
+          "file": "theme/snippets/reading-focus.css",
+          "id": "reading-focus",
+          "label": "Reading Focus",
+          "description": "Slightly wider column and calmer selection tint for long-form reading.",
+          "defaultEnabled": true
+        }
+      ],
+      "tokens": [
+        {
+          "file": "theme/tokens/reading-pack.json",
+          "label": "Reading Pack Tokens",
+          "description": "JSON palette preset paired with Reading Pack Accent CSS."
+        }
+      ],
+      "defaultEnable": {
+        "style": false,
+        "snippets": ["reading-focus"]
+      }
+    },
+    "commands": [],
+    "preferencesSections": [],
+    "panels": []
+  }
+}

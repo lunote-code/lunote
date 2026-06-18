@@ -1,6 +1,7 @@
 import { isBufferTabId } from '../app/workspace/constants'
 import type { DocumentCommand } from '../documentRuntime/documentTypes'
 import { resolveDocumentBody } from '../documentRuntime/documentAuthority'
+import { diskMarkdownForDocumentSave } from '../lib/editorContentSync'
 import { pathsEqual } from '../lib/workspacePathUtils'
 import {
   createDocumentSnapshot,
@@ -34,7 +35,7 @@ type RestoreSnapshotParams = {
 
 function resolveSnapshotContent(path: string, resolver?: ResolveDocumentBodyFn): string {
   const content = (resolver ?? resolveDocumentBody)(path)
-  if (content !== undefined) return content
+  if (content !== undefined) return diskMarkdownForDocumentSave(path, content)
   throw new Error(`Failed to resolve document body for history snapshot: ${path}`)
 }
 

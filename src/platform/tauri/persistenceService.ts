@@ -6,7 +6,6 @@ export type LunaWorkspaceSnapshotRecord = {
   activePath: string | null
   openTabs: string[]
   graphViewport?: { x: number; y: number; zoom: number } | null
-  backlinkPanel?: { activeDocKey?: string | null } | null
   lastNavigationTarget?: string | null
   updatedAt: number
 }

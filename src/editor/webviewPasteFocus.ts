@@ -75,6 +75,8 @@ export async function pasteIntoFocusedNativeTextInput(text?: string): Promise<bo
 
   const payload = text ?? (await navigator.clipboard.readText().catch(() => ''))
   if (!payload) {
+    // execCommand('paste') triggers WebKit/Tauri "Paste" affordance banners — avoid for block source editors.
+    if (isBlockNativeSourceTextarea(active)) return false
     if (typeof document.execCommand === 'function' && document.execCommand('paste')) return true
     return false
   }

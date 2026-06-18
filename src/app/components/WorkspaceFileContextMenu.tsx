@@ -51,9 +51,6 @@ export function WorkspaceFileContextMenu({
       onContextMenu={(e) => e.preventDefault()}
     >
       {!isDirectory ? (
-        <FileContextMenuItem icon="note" label={t('ctx.file.open')} onClick={() => onPick('open', ctx)} />
-      ) : null}
-      {!isDirectory ? (
         <FileContextMenuItem icon="tab-new" label={t('ctx.file.openTab')} onClick={() => onPick('openTab', ctx)} />
       ) : null}
       {!isDirectory ? <div className="file-ctx-sep" role="separator" /> : null}

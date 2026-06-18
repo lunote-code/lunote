@@ -107,6 +107,7 @@ export type AppRootOverlaysProps = {
     ) => Promise<import('../../documentHistory/types').DocumentHistoryEntry | null> | import('../../documentHistory/types').DocumentHistoryEntry | null
     onConfirmDelete: (entry: import('../../documentHistory/types').DocumentHistoryEntry) => Promise<boolean> | boolean
     onDeleteAll: (context: DocumentHistoryDialogContext) => Promise<boolean> | boolean
+    flushEditorToMemory?: () => Promise<boolean>
   }
 }
 

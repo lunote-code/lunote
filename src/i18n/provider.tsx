@@ -26,6 +26,7 @@ import {
 } from './localeRegistry'
 import { resolveEffectiveUiLocale } from './resolveLocale'
 import { getCachedTauriOsLocaleTag, readTauriOsLocaleTag } from './systemLocale'
+import { resolvePlatformShortcutHintText } from './platformShortcutHint'
 
 export type TranslateFn = (key: string, vars?: Record<string, string | number>) => string
 
@@ -120,7 +121,8 @@ export function I18nProvider({
         raw = mergedMessages[key] ?? key
         raw = resolveMenuVisibleLabel(key, effectiveLocale, raw, enMessages, rawLocale)
       }
-      return vars ? formatMessage(raw, vars) : raw
+      const text = vars ? formatMessage(raw, vars) : raw
+      return resolvePlatformShortcutHintText(text)
     },
     [mergedMessages, enMessages, rawLocale, effectiveLocale],
   )

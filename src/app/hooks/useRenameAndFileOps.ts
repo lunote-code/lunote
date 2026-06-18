@@ -419,10 +419,6 @@ export function useRenameAndFileOps(deps: RenameAndFileOpsDeps) {
             }
             try {
               switch (action) {
-                case 'open':
-                  if (isDirectory) return
-                  await dispatchOpenDocument(rootDir, path, 'file-context-open')
-                  return
                 case 'openTab':
                   if (isDirectory) return
                   await dispatchDocumentCommand({

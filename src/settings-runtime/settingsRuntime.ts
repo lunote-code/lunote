@@ -91,6 +91,8 @@ function readValue(path: string): SettingsValue {
       return String(snapshot.appearance?.editor?.autosaveIntervalSec ?? 120)
     case 'editor.autosaveScope':
       return snapshot.appearance?.editor?.autosaveScope === 'allDirty' ? 'allDirty' : 'activeOnly'
+    case 'window.closeToTrayEnabled':
+      return snapshot.appearance?.window?.closeToTrayEnabled !== false
     case 'updates.autoCheckEnabled':
       return snapshot.updates?.autoCheckEnabled !== false
     default:
@@ -219,6 +221,9 @@ async function writeValue(path: string, value: SettingsValue): Promise<void> {
         'editor.autosaveScope',
         value === 'allDirty' ? 'allDirty' : 'activeOnly',
       )
+      return
+    case 'window.closeToTrayEnabled':
+      await setAppearanceSetting('window.closeToTrayEnabled', Boolean(value))
       return
     case 'updates.autoCheckEnabled':
       await setUpdatesSetting('autoCheckEnabled', Boolean(value))

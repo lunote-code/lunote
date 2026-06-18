@@ -8,7 +8,6 @@ import {
   resetLinkGraphIndex,
 } from './linkGraphIndex'
 import { getLinkIndexState, setLinkIndexState } from './linkIndexState'
-import { listDocumentKeys } from './knowledgeRegistry'
 import { rebuildSearchIndexFromRegistry } from './searchRuntime'
 import { vaultIdFromRoot } from './vaultRuntime'
 import type { AbsoluteDocPath } from './types'
@@ -24,17 +23,6 @@ export {
 const CHUNK_SIZE = 50
 
 let bootstrapGeneration = 0
-
-function isAgentLogEnabled(): boolean {
-  if (!import.meta.env.DEV) return false
-  const g = globalThis as { __KOS_AGENT_LOG__?: boolean }
-  if (g.__KOS_AGENT_LOG__ === true) return true
-  try {
-    return localStorage.getItem('kos.agentLog') === '1'
-  } catch {
-    return false
-  }
-}
 
 export function resetWorkspaceLinkGraphBootstrap(): void {
   bootstrapGeneration += 1
@@ -81,13 +69,6 @@ async function finishBootstrap(
     (!invariant.ok || invariant.fragmentedTargetKeySlots > 0)
   ) {
     console.warn('[LinkGraphInvariant]', invariant)
-  }
-  if (isAgentLogEnabled()) {
-    // #region agent log
-    const counts = getLinkGraphEdgeCounts()
-    console.debug('[graph-runtime-rebuild]', { docsParsed, outgoingEdges: counts.outgoingEdges, incomingEdges: counts.incomingEdges })
-    console.debug('[graph-runtime-node-count]', { documentCount: listDocumentKeys().length, outgoingEdges: counts.outgoingEdges, incomingEdges: counts.incomingEdges })
-    // #endregion
   }
   emitKnowledgeEvent('graph-updated', { nodeCount: 0, edgeCount: outgoingEdges })
   logLinkGraphBootstrap(docsParsed)
@@ -136,11 +117,6 @@ export function bootstrapWorkspaceLinkGraphIndex(
   return (async () => {
     resetLinkGraphIndex()
     resetLinkGraph()
-    if (isAgentLogEnabled()) {
-      // #region agent log
-      console.debug('[graph-runtime-reset]', { rootDir, generation: gen, reason: 'workspace_bootstrap' })
-      // #endregion
-    }
 
     if (gen !== bootstrapGeneration) return 0
 

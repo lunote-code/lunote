@@ -238,7 +238,6 @@ const QA_BOOTSTRAP = {
 
 const QA_APP_SETTINGS = { ...DEFAULT_APP_SETTINGS, language: 'en' as const }
 const QA_TRANSACTION_DOC_ID = 'qa:codeblock-cm'
-markAppSettingsHydratedForTests(QA_APP_SETTINGS)
 
 function readBlock(editor: NonNullable<ReturnType<typeof useEditor>>) {
   let text: string | null = null
@@ -253,6 +252,10 @@ function readBlock(editor: NonNullable<ReturnType<typeof useEditor>>) {
 }
 
 function QaCodeBlockCmInner() {
+  useEffect(() => {
+    markAppSettingsHydratedForTests(QA_APP_SETTINGS)
+  }, [])
+
   const [status, setStatus] = useState('booting')
   const cmEnabled = isCodeBlockCmEnabled()
   const multiBlock = useMemo(

@@ -4,7 +4,7 @@ import { type as readOsType } from '@tauri-apps/plugin-os'
 /** Normalized desktop platform for shortcuts and modifier-key UI copy. */
 export type DesktopPlatform = 'mac' | 'win' | 'linux' | 'web'
 
-function detectFromNavigator(): DesktopPlatform {
+function detectFromNavigator(): 'mac' | 'win' | 'linux' {
   if (typeof navigator === 'undefined') {
     // Node/SSR generators (CI locale pipeline): avoid "web" — use host OS baseline.
     if (typeof process !== 'undefined') {
@@ -61,6 +61,13 @@ export function isWindowsDesktopPlatform(): boolean {
 
 export function isLinuxDesktopPlatform(): boolean {
   return getDesktopPlatform() === 'linux'
+}
+
+/** Resolve mac/win/linux for UI hints; never returns `web`. */
+export function getDesktopPlatformForHints(): 'mac' | 'win' | 'linux' {
+  const platform = getDesktopPlatform()
+  if (platform === 'mac' || platform === 'win' || platform === 'linux') return platform
+  return detectFromNavigator()
 }
 
 /** Whether UI should describe primary modifiers as Cmd (macOS) vs Ctrl (Win/Linux). */

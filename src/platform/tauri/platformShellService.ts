@@ -24,3 +24,7 @@ export async function syncThemeCssMenu(names: string[]): Promise<void> {
 export async function syncViewFullscreenMenuCheckedByHost(checked: boolean): Promise<void> {
   await invoke('sync_view_fullscreen_menu_checked', { checked })
 }
+
+export async function setCloseToTrayReady(ready: boolean): Promise<void> {
+  await invoke('set_close_to_tray_ready', { ready })
+}

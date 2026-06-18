@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 
 import './styles/dialogs-app.css'
 import './styles/editor-document-history.css'
 import { DocumentHistoryDialog } from './components/DocumentHistoryDialog'
+import { setTabBody } from '../app/document/tabBodiesStore'
 import { resolveDocumentBody } from '../documentRuntime/documentAuthority'
 import {
   dispatchDocumentCommand,
@@ -41,6 +42,10 @@ declare global {
       getThemeMode: () => 'light' | 'dark'
       previewHeadingColor: () => string
       openHistoryDialog: () => void
+      setPendingEditorBody: (body: string) => void
+      clearSnapshots: () => void
+      getFlushCount: () => number
+      resetFlushCount: () => void
     }
   }
 }
@@ -204,6 +209,7 @@ function installDocumentRuntime(initialBody: string): DocumentRuntimeCapabilitie
 
 export function QaSnapshotPlayground() {
   const storeRef = useRef<HistoryStore>(createInitialStore())
+  const flushCountRef = useRef(0)
   const [status, setStatus] = useState('booting')
   const [historyOpen, setHistoryOpen] = useState(false)
   const [editorBody, setEditorBody] = useState(QA_INITIAL_BODY)
@@ -261,18 +267,35 @@ export function QaSnapshotPlayground() {
         return el ? getComputedStyle(el).color : ''
       },
       openHistoryDialog: () => setHistoryOpen(true),
+      setPendingEditorBody: (body: string) => {
+        setTabBody(QA_PATH, body)
+        setEditorBody(body)
+      },
+      clearSnapshots: () => {
+        storeRef.current = { entries: [], snapshots: {} }
+        bumpStore((n) => n + 1)
+      },
+      getFlushCount: () => flushCountRef.current,
+      resetFlushCount: () => {
+        flushCountRef.current = 0
+      },
     }
   })
+
+  const flushEditorToMemory = useCallback(async (): Promise<boolean> => {
+    flushCountRef.current += 1
+    return true
+  }, [])
 
   const onCreateSnapshot = useCallback(async () => {
     const entry = await createManualSnapshotForDocument({
       rootDir: QA_ROOT,
       path: QA_PATH,
-      flushEditorToMemory: async () => true,
+      flushEditorToMemory,
     })
     if (entry) setStatus(`created:${entry.id}`)
     return entry
-  }, [])
+  }, [flushEditorToMemory])
 
   const onRestore = useCallback(
     async (snapshotId: string) => {
@@ -280,12 +303,13 @@ export function QaSnapshotPlayground() {
         rootDir: QA_ROOT,
         path: QA_PATH,
         snapshotId,
+        flushEditorToMemory,
         dispatchDocumentCommand,
       })
       syncEditorFromRuntime()
       setStatus(`restored:${snapshotId}`)
     },
-    [syncEditorFromRuntime],
+    [flushEditorToMemory, syncEditorFromRuntime],
   )
 
   return (
@@ -312,6 +336,7 @@ export function QaSnapshotPlayground() {
         onCreateSnapshot={onCreateSnapshot}
         onConfirmDeleteSnapshot={async () => true}
         onDeleteAllSnapshots={async () => storeRef.current.entries.length > 0}
+        flushEditorToMemory={flushEditorToMemory}
       />
     </div>
   )

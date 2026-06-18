@@ -5,6 +5,8 @@ import { register, unregister } from '@tauri-apps/plugin-global-shortcut'
 
 import { getEffectiveAccelerator } from '../../menu/shortcutCustomization'
 import { toGlobalShortcutAccelerator } from '../../menu/menu.shortcuts'
+import { isMacDesktopPlatform } from '../desktopPlatform'
+import { setCloseToTrayReady } from './platformShellService'
 import { raiseMainWindow } from './raiseMainWindow'
 import { applyTrayIcon, loadTrayIconForCreate } from './trayIcon'
 
@@ -26,6 +28,7 @@ const TRAY_STATE_KEY = '__lunoteQuickCaptureTrayState__'
 
 type QuickCaptureTrayState = {
   tray: TrayIcon | null
+  trayReady: boolean
   registeredShortcut: string | null
   deps: QuickCaptureDeps | null
   trayOp: Promise<void>
@@ -36,6 +39,7 @@ function trayState(): QuickCaptureTrayState {
   if (!host[TRAY_STATE_KEY]) {
     host[TRAY_STATE_KEY] = {
       tray: null,
+      trayReady: false,
       registeredShortcut: null,
       deps: null,
       trayOp: Promise.resolve(),
@@ -52,6 +56,19 @@ function queueTrayOp<T>(fn: () => Promise<T>): Promise<T> {
     () => undefined,
   )
   return run
+}
+
+async function syncCloseToTrayRuntime(ready: boolean): Promise<void> {
+  const state = trayState()
+  state.trayReady = ready
+  if (!isTauri()) return
+  await setCloseToTrayReady(ready).catch(() => undefined)
+}
+
+export function isCloseToTrayAvailable(): boolean {
+  // macOS keeps the app in the Dock after hide(); tray is optional for reopen.
+  if (isMacDesktopPlatform()) return true
+  return trayState().trayReady
 }
 
 async function buildTrayMenu(deps: QuickCaptureDeps): Promise<Menu> {
@@ -150,6 +167,7 @@ async function installQuickCaptureInternal(deps: QuickCaptureDeps): Promise<void
   await applyTrayIcon(instance)
   await instance.setMenu(await buildTrayMenu(deps))
   await instance.setTooltip(deps.t('tray.tooltip'))
+  await syncCloseToTrayRuntime(true)
 }
 
 async function teardownQuickCaptureInternal(): Promise<void> {
@@ -164,10 +182,18 @@ async function teardownQuickCaptureInternal(): Promise<void> {
     state.tray = null
   }
   await TrayIcon.removeById(TRAY_ID).catch(() => undefined)
+  await syncCloseToTrayRuntime(false)
 }
 
 export function installQuickCapture(deps: QuickCaptureDeps): Promise<void> {
-  return queueTrayOp(() => installQuickCaptureInternal(deps))
+  return queueTrayOp(async () => {
+    try {
+      await installQuickCaptureInternal(deps)
+    } catch (error) {
+      await syncCloseToTrayRuntime(false)
+      throw error
+    }
+  })
 }
 
 /** Explicit shutdown only — not called on React StrictMode/HMR remounts. */

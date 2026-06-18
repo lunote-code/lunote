@@ -21,7 +21,28 @@ use std::sync::Mutex;
 
 use rusqlite::Connection;
 use tauri::image::Image;
-use tauri::{AppHandle, Emitter, Manager, Runtime};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, Runtime, WindowEvent};
+
+fn raise_main_window<R: Runtime>(app: &AppHandle<R>) {
+  #[cfg(target_os = "macos")]
+  {
+    let _ = app.show();
+  }
+  if let Some(win) = app.get_webview_window("main") {
+    let _ = win.unminimize();
+    let _ = win.show();
+    let _ = win.set_focus();
+  }
+}
+
+fn handle_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
+  #[cfg(target_os = "macos")]
+  if let RunEvent::Reopen { .. } = event {
+    raise_main_window(app);
+  }
+  #[cfg(not(target_os = "macos"))]
+  let _ = event;
+}
 
 /// Deliver `app-menu` to the front end: priority is given to the current focus window to avoid repeated processing of multiple WebViews.
 fn emit_app_menu<R: Runtime>(app: &AppHandle<R>, payload: serde_json::Value) {
@@ -65,22 +86,56 @@ pub struct RecentMenuPaths(pub Mutex<Vec<String>>);
 /// List of file names synchronized with the "Theme → Theme/*.css" sub-item (consistent with the front-end scan results)
 pub struct ThemeMenuCssNames(pub Mutex<Vec<String>>);
 
+/// Runtime guard: only hide the main window when a tray entry is actually available.
+pub struct CloseToTrayState(pub Mutex<bool>);
+
+#[cfg(not(target_os = "macos"))]
+fn close_to_tray_ready<R: Runtime>(app: &AppHandle<R>) -> bool {
+  app
+    .try_state::<CloseToTrayState>()
+    .and_then(|state| state.0.lock().ok().map(|ready| *ready))
+    .unwrap_or(false)
+}
+
+fn close_to_tray_allowed<R: Runtime>(app: &AppHandle<R>, settings: &app_settings::AppSettings) -> bool {
+  if !settings.close_to_tray_enabled() {
+    return false;
+  }
+  #[cfg(target_os = "macos")]
+  {
+    let _ = app;
+    return true;
+  }
+  #[cfg(not(target_os = "macos"))]
+  {
+    close_to_tray_ready(app)
+  }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   logging::install_panic_hook();
   tauri::Builder::default()
     .enable_macos_default_menu(false)
     .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-      if let Some(win) = app.get_webview_window("main") {
-        let _ = win.unminimize();
-        let _ = win.show();
-        let _ = win.set_focus();
-      }
+      raise_main_window(app);
     }))
     .plugin(tauri_plugin_opener::init())
     .plugin(tauri_plugin_os::init())
     .plugin(tauri_plugin_process::init())
     .plugin(tauri_plugin_dialog::init())
+    .on_window_event(|window, event| {
+      if window.label() != "main" {
+        return;
+      }
+      if let WindowEvent::CloseRequested { api, .. } = event {
+        let settings = app_settings::read_app_settings(window.app_handle());
+        if close_to_tray_allowed(window.app_handle(), &settings) {
+          api.prevent_close();
+          let _ = window.hide();
+        }
+      }
+    })
     .setup(|app| {
       #[cfg(not(any(target_os = "android", target_os = "ios")))]
       app.handle()
@@ -100,6 +155,7 @@ pub fn run() {
       app.manage(core::workspace_watch::WorkspaceWatchState::new());
       app.manage(RecentMenuPaths(Mutex::new(Vec::new())));
       app.manage(ThemeMenuCssNames(Mutex::new(Vec::new())));
+      app.manage(CloseToTrayState(Mutex::new(false)));
 
       #[cfg(target_os = "macos")]
       if let Err(e) = mac_boot_menu::install_startup_menu(app.handle()) {
@@ -231,6 +287,7 @@ pub fn run() {
       commands::sync_recent_menu,
       commands::sync_theme_css_menu,
       commands::sync_view_fullscreen_menu_checked,
+      commands::set_close_to_tray_ready,
       mac_menu_template::sync_mac_native_menu_icon_templates,
       mac_window::sync_mac_native_titlebar_theme,
       commands::get_app_settings,
@@ -276,6 +333,9 @@ pub fn run() {
       plugins::read_plugin_manifest,
       plugins::uninstall_plugin
     ])
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    .build(tauri::generate_context!())
+    .expect("error while building tauri application")
+    .run(|app, event| {
+      handle_run_event(app, event);
+    });
 }

@@ -9,7 +9,7 @@ import {
 import { useSurfaceLayout } from './useSurfaceLayout'
 import { isSurfaceResizing } from '../layout/surfaceSplitLayoutRuntime'
 import type { WikiLinkTarget } from '../../knowledgeRuntime/types'
-import { normalizeDocKeyForNavigation, resolveCanonicalIdentity } from '../../knowledgeRuntime'
+import { normalizeDocKeyForNavigation } from '../../knowledgeRuntime'
 import { resolveClickIntent } from '../../navigation/clickIntentResolver'
 import { asMetadataResolvedTarget, dispatchKnowledgeNavigate } from './interactionTransaction'
 import { resolveWikiTarget } from '../wikiLinkRuntime'
@@ -18,17 +18,6 @@ import { KnowledgePanelLoading } from './KnowledgePanelLoading'
 
 type Props = {
   docKey: string | null
-}
-
-function isAgentLogEnabled(): boolean {
-  if (!import.meta.env.DEV) return false
-  const g = globalThis as { __KOS_AGENT_LOG__?: boolean }
-  if (g.__KOS_AGENT_LOG__ === true) return true
-  try {
-    return localStorage.getItem('kos.agentLog') === '1'
-  } catch {
-    return false
-  }
 }
 
 type NavigateFn = (
@@ -152,7 +141,6 @@ export function BacklinkPanel({ docKey }: Props) {
         heading: normalizedTarget.heading ?? resolved.rawTarget.heading,
       }
     }
-    const identity = resolveCanonicalIdentity(normalizedDocKey)
     const intent = resolveClickIntent({
       type: 'backlink',
       event,
@@ -164,12 +152,6 @@ export function BacklinkPanel({ docKey }: Props) {
         blockId: normalizedTarget.blockId,
       },
     })
-    if (isAgentLogEnabled()) {
-      // #region agent log
-      console.debug('[backlink-click]', { traceId, docKey: normalizedTarget.docKey ?? null, resolvedPath: null, root: null, eventType: null, commandType: null, backlinkId, heading: normalizedTarget.heading ?? null, blockId: normalizedTarget.blockId ?? null, allowDispatch: intent.allowDispatch, reason: intent.reason })
-      console.debug('[backlink-resolve]', { traceId, identity, backlinkId, heading: normalizedTarget.heading ?? null, blockId: normalizedTarget.blockId ?? null })
-      // #endregion
-    }
     dispatchKnowledgeNavigate('backlink', {
       intent,
       backlinkId,

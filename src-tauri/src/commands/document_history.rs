@@ -1,6 +1,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
+use std::time::Instant;
 
 use uuid::Uuid;
 
@@ -107,7 +108,19 @@ pub fn create_document_snapshot(
 
 #[tauri::command]
 pub fn list_document_snapshots(payload: NotePayload) -> Result<Vec<DocumentHistoryEntry>, String> {
+  let started_at = Instant::now();
+  log::info!(
+    "[history] list_document_snapshots:start root={} path={}",
+    payload.root,
+    payload.path
+  );
   let root = resolve_workspace_root(&payload.root)?;
+  log::info!(
+    "[history] list_document_snapshots:root_resolved root={} path={} elapsed_ms={}",
+    root,
+    payload.path,
+    started_at.elapsed().as_millis()
+  );
   let workspace_id = safe_workspace_id(&root)?;
   let index = read_document_history_index(&workspace_id)?;
   let mut entries = index
@@ -116,6 +129,13 @@ pub fn list_document_snapshots(payload: NotePayload) -> Result<Vec<DocumentHisto
     .filter(|entry| entry.path == payload.path)
     .collect::<Vec<_>>();
   entries.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+  log::info!(
+    "[history] list_document_snapshots:ok workspace_id={} path={} count={} elapsed_ms={}",
+    workspace_id,
+    payload.path,
+    entries.len(),
+    started_at.elapsed().as_millis()
+  );
   Ok(entries)
 }
 

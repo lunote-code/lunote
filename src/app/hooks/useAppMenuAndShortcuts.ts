@@ -169,8 +169,7 @@ export function useAppMenuAndShortcuts(deps: AppMenuAndShortcutsDeps) {
         else window.close()
       },
       onQuit: () => {
-        if (isTauri()) void getCurrentWindow().close()
-        else window.close()
+        void paletteUiDepsRef.current.quitApp?.()
       },
       onCloseWindow: () => {
         if (isTauri()) void getCurrentWindow().close()

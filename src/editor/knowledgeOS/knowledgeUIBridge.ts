@@ -9,6 +9,7 @@ import { getBacklinkPanelSnapshot } from './backlinkPanelRuntime'
 import {
   flushDeferredGraphLayout,
   getNoteGraphSnapshot,
+  invalidateNoteGraphSubgraphCache,
   subscribeNoteGraph,
 } from './noteGraphRuntime'
 import { beginKnowledgeOSBoot, endKnowledgeOSBoot, resetKnowledgeOSBoot } from './knowledgeOSBoot'
@@ -171,18 +172,26 @@ export function subscribeKnowledgeOSSnapshot(listener: () => void): () => void {
 
 let knowledgeUIBridgeBooted = false
 
+function applyKnowledgeOSOptions(options?: {
+  fileAdapter?: VaultFileAdapter
+  contentResolver?: ContentResolver
+}): void {
+  if (options?.fileAdapter) registerVaultFileAdapter(options.fileAdapter)
+  if (options?.contentResolver) initKnowledgeSurfaceRuntime(options.contentResolver)
+}
+
 export function initKnowledgeOS(options?: {
   fileAdapter?: VaultFileAdapter
   contentResolver?: ContentResolver
 }): void {
+  applyKnowledgeOSOptions(options)
   if (knowledgeUIBridgeBooted) return
   knowledgeUIBridgeBooted = true
   if (import.meta.env.DEV) {
     console.debug('[KnowledgeOS] active runtime scope', ACTIVE_KNOWLEDGE_OS_MODULES)
   }
   beginKnowledgeOSBoot()
-  if (options?.fileAdapter) registerVaultFileAdapter(options.fileAdapter)
-  initKnowledgeSurfaceRuntime(options?.contentResolver)
+  initKnowledgeSurfaceRuntime()
   bindInteractionAxisOsInvalidation(() => invalidateKnowledgeOSSnapshot())
   bindGraphViewportOsInvalidation(() => invalidateKnowledgeOSSnapshot())
   bindSurfaceSplitOsInvalidation(() => invalidateKnowledgeOSSnapshot())
@@ -206,8 +215,12 @@ export function initKnowledgeOS(options?: {
       if (
         ev.kind === 'index-updated' ||
         ev.kind === 'graph-updated' ||
+        ev.kind === 'document-removed' ||
         ev.kind === 'document-renamed'
       ) {
+        if (ev.kind === 'graph-updated' || ev.kind === 'document-removed') {
+          invalidateNoteGraphSubgraphCache()
+        }
         refreshBacklinkPanel()
         const wsActive = getKnowledgeWorkspaceSnapshot().activeDocKey
         if (wsActive) refreshBacklinkPanel(wsActive)
@@ -233,6 +246,7 @@ export function initKnowledgeOS(options?: {
 }
 
 export function onKnowledgeOSWorkspaceOpened(rootDir: string): void {
+  endKnowledgeOSBoot()
   openKnowledgeVault(rootDir)
   openKnowledgeWorkspace(rootDir)
   onKsrWorkspaceOpened(rootDir)
@@ -269,9 +283,9 @@ export function resetKnowledgeOS(): void {
   resetKnowledgeSearchRuntime()
   resetKnowledgeWorkspaceRuntime()
   registerVaultFileAdapter(null)
-  osListeners.clear()
+  knowledgeUIBridgeBooted = false
   resetOSKernelClock()
-  cachedOsSnapshot = null
+  invalidateKnowledgeOSSnapshot()
   revisionQueued = false
   if (unsubKnowledgeEvents) {
     unsubKnowledgeEvents()

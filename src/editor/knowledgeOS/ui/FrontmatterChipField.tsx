@@ -19,6 +19,7 @@ type Props = {
   chips: string[]
   disabled: boolean
   docKey: string | null
+  onChipClick?: (value: string) => void
   onAdd: (value: string) => void
   onRemove: (value: string) => void
 }
@@ -38,18 +39,29 @@ function filterSuggestions(
 ): string[] {
   void revision
   const q = query.trim().toLowerCase()
-  if (!q) return []
   const selected = new Set(chips.map((c) => c.toLowerCase()))
   const pool =
     kind === 'tag'
       ? listAllTags()
       : listVaultAliasLabels(docKey ? { excludeDocKey: docKey } : undefined)
-  return pool
-    .filter((item) => !selected.has(item.toLowerCase()) && item.toLowerCase().includes(q))
+  const filtered = pool.filter((item) => {
+    if (selected.has(item.toLowerCase())) return false
+    if (!q) return true
+    return item.toLowerCase().includes(q)
+  })
+  return filtered
     .slice(0, 8)
 }
 
-export function FrontmatterChipField({ kind, chips, disabled, docKey, onAdd, onRemove }: Props) {
+export function FrontmatterChipField({
+  kind,
+  chips,
+  disabled,
+  docKey,
+  onChipClick,
+  onAdd,
+  onRemove,
+}: Props) {
   const { t } = useI18n()
   const revision = useOsRevision()
   const listId = useId()
@@ -57,6 +69,7 @@ export function FrontmatterChipField({ kind, chips, disabled, docKey, onAdd, onR
   const [draft, setDraft] = useState('')
   const [highlight, setHighlight] = useState(0)
   const [suggestionsOpen, setSuggestionsOpen] = useState(false)
+  const [navigatedSuggestions, setNavigatedSuggestions] = useState(false)
 
   const suggestions = useMemo(
     () => filterSuggestions(kind, draft, chips, docKey, revision),
@@ -65,7 +78,10 @@ export function FrontmatterChipField({ kind, chips, disabled, docKey, onAdd, onR
 
   useEffect(() => {
     setHighlight(0)
+    setNavigatedSuggestions(false)
   }, [draft, suggestions.length])
+
+  const normalizedDraft = normalizeChipInput(kind, draft)
 
   const labels =
     kind === 'tag'
@@ -100,12 +116,12 @@ export function FrontmatterChipField({ kind, chips, disabled, docKey, onAdd, onR
   )
 
   const submit = useCallback(() => {
-    if (suggestionsOpen && suggestions.length > 0) {
+    if (suggestionsOpen && suggestions.length > 0 && (normalizedDraft.length > 0 || navigatedSuggestions)) {
       commitValue(suggestions[highlight] ?? suggestions[0]!)
       return
     }
     commitValue(draft)
-  }, [commitValue, draft, highlight, suggestions, suggestionsOpen])
+  }, [commitValue, draft, highlight, navigatedSuggestions, normalizedDraft.length, suggestions, suggestionsOpen])
 
   const onSubmit = useCallback(
     (event: FormEvent) => {
@@ -120,12 +136,14 @@ export function FrontmatterChipField({ kind, chips, disabled, docKey, onAdd, onR
       if (event.key === 'ArrowDown' && suggestions.length > 0) {
         event.preventDefault()
         setSuggestionsOpen(true)
+        setNavigatedSuggestions(true)
         setHighlight((prev) => (prev + 1) % suggestions.length)
         return
       }
       if (event.key === 'ArrowUp' && suggestions.length > 0) {
         event.preventDefault()
         setSuggestionsOpen(true)
+        setNavigatedSuggestions(true)
         setHighlight((prev) => (prev - 1 + suggestions.length) % suggestions.length)
         return
       }
@@ -141,7 +159,7 @@ export function FrontmatterChipField({ kind, chips, disabled, docKey, onAdd, onR
     [highlight, submit, suggestions.length],
   )
 
-  const showSuggestions = suggestionsOpen && suggestions.length > 0 && normalizeChipInput(kind, draft).length > 0
+  const showSuggestions = suggestionsOpen && suggestions.length > 0
 
   return (
     <div className="kos-frontmatter-editable">
@@ -151,7 +169,17 @@ export function FrontmatterChipField({ kind, chips, disabled, docKey, onAdd, onR
         ) : (
           chips.map((chip) => (
             <span key={chip} className="kos-tag-chip kos-tag-chip--editable">
-              {chip}
+              {onChipClick ? (
+                <button
+                  type="button"
+                  className="kos-tag-chip-label"
+                  onClick={() => onChipClick(chip)}
+                >
+                  {chip}
+                </button>
+              ) : (
+                chip
+              )}
               <button
                 type="button"
                 className="kos-tag-chip-remove"
@@ -181,8 +209,12 @@ export function FrontmatterChipField({ kind, chips, disabled, docKey, onAdd, onR
             onChange={(event) => {
               setDraft(event.target.value)
               setSuggestionsOpen(true)
+              setNavigatedSuggestions(false)
             }}
-            onFocus={() => setSuggestionsOpen(true)}
+            onFocus={() => {
+              setSuggestionsOpen(true)
+              setNavigatedSuggestions(false)
+            }}
             onBlur={() => {
               window.setTimeout(() => setSuggestionsOpen(false), 120)
             }}
@@ -208,7 +240,7 @@ export function FrontmatterChipField({ kind, chips, disabled, docKey, onAdd, onR
         <button
           type="submit"
           className="kos-frontmatter-tag-add"
-          disabled={disabled || !normalizeChipInput(kind, draft)}
+          disabled={disabled || !normalizedDraft}
         >
           {labels.add}
         </button>

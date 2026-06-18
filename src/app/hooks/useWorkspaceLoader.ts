@@ -71,6 +71,7 @@ export function useWorkspaceLoader(deps: WorkspaceLoaderDeps) {
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(() => new Set())
   const workspaceRestoringRef = useRef(false)
   const pendingRestoreEventIdRef = useRef<string | null>(null)
+  const [workspaceSyncTick, setWorkspaceSyncTick] = useState(0)
 
   const loadNotes = useCallback(
     async (root: string, preferredPath?: string | null, restoredOpenTabs?: string[] | null) => {
@@ -223,6 +224,7 @@ export function useWorkspaceLoader(deps: WorkspaceLoaderDeps) {
       } finally {
         workspaceRestoringRef.current = false
         pendingRestoreEventIdRef.current = null
+        setWorkspaceSyncTick((tick) => tick + 1)
       }
     },
     [resetModeSwitchEditorBootstrap, bumpColdOpenGeneration, t, setStatus],
@@ -358,5 +360,6 @@ export function useWorkspaceLoader(deps: WorkspaceLoaderDeps) {
     toggleDir,
     workspaceRestoringRef,
     pendingRestoreEventIdRef,
+    workspaceSyncTick,
   }
 }

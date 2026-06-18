@@ -15,6 +15,7 @@ import {
 /** Caret at the vertical edge of an inline textblock (line start/end). */
 export function isAtTextblockVerticalBoundary($from: ResolvedPos, dir: 'up' | 'down'): boolean {
   if (!$from.parent.isTextblock) return false
+  if (isEmptyParagraphNode($from.parent)) return true
   return dir === 'down'
     ? $from.parentOffset === $from.parent.content.size
     : $from.parentOffset === 0
@@ -57,15 +58,17 @@ export function findAdjacentCodeBlockPos(
   view?: EditorView | null,
 ): number | null {
   if (!$from.parent.isTextblock) return null
-  if (dir === 'down') {
-    if (
-      $from.parentOffset !== $from.parent.content.size &&
-      !isAtTextblockVisualBoundary($from, dir, view)
-    ) {
+  if (!isEmptyParagraphNode($from.parent)) {
+    if (dir === 'down') {
+      if (
+        $from.parentOffset !== $from.parent.content.size &&
+        !isAtTextblockVisualBoundary($from, dir, view)
+      ) {
+        return null
+      }
+    } else if ($from.parentOffset !== 0 && !isAtTextblockVisualBoundary($from, dir, view)) {
       return null
     }
-  } else if ($from.parentOffset !== 0 && !isAtTextblockVisualBoundary($from, dir, view)) {
-    return null
   }
 
   for (let depth = $from.depth; depth >= 0; depth -= 1) {
@@ -179,21 +182,16 @@ function resolveNavAcrossEmptyParagraph(
   const node = doc.nodeAt(emptyParagraphPos)
   if (!node || !isEmptyParagraphNode(node)) return null
 
-  if (dir === 'down') {
-    const after = emptyParagraphPos + node.nodeSize
-    const found = Selection.findFrom(doc.resolve(after), 1, true)
-    if (found) return found
-    return selectionNearBlock(doc, after, 1)
+  if (dir === 'up') {
+    const $before = doc.resolve(emptyParagraphPos)
+    const prev = $before.nodeBefore
+    if (prev && isImageOnlyParagraph(prev)) {
+      return textSelection(doc, imageParagraphAfterImagePos(doc, emptyParagraphPos - prev.nodeSize))
+    }
   }
 
-  const $before = doc.resolve(emptyParagraphPos)
-  const prev = $before.nodeBefore
-  if (prev && isImageOnlyParagraph(prev)) {
-    return textSelection(doc, imageParagraphAfterImagePos(doc, emptyParagraphPos - prev.nodeSize))
-  }
-  const found = Selection.findFrom($before, -1, true)
-  if (found) return found
-  return selectionNearBlock(doc, emptyParagraphPos, -1)
+  // Move into this adjacent empty paragraph only; do not skip consecutive blank lines.
+  return textSelection(doc, emptyParagraphPos + 1)
 }
 
 function resolveImageSeatedNav($from: ResolvedPos, dir: 'up' | 'down'): Selection | null {

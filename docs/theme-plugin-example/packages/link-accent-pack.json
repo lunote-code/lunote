@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 2,
+  "id": "link-accent-pack",
+  "version": "1.0.0",
+  "manifest": {
+    "schemaVersion": 2,
+    "id": "link-accent-pack",
+    "name": "Link Accent Pack",
+    "version": "1.0.0",
+    "entry": null,
+    "pluginType": "ui-snippet",
+    "capabilities": [
+      "theme.snippet"
+    ],
+    "platforms": [
+      "desktop",
+      "web"
+    ],
+    "requiresRestart": false,
+    "experimental": false,
+    "minAppVersion": "0.6.0",
+    "maxAppVersion": null,
+    "permissions": {
+      "theme": {
+        "register": true
+      }
+    },
+    "contributes": {
+      "theme": {
+        "style": [],
+        "snippets": [
+          {
+            "file": "theme/snippets/link-accent-pack.css",
+            "id": "link-accent-pack",
+            "label": "Link Accent",
+            "description": "Stronger underline on inline wiki links.",
+            "defaultEnabled": false
+          }
+        ],
+        "tokens": [],
+        "defaultEnable": {}
+      },
+      "commands": [],
+      "preferencesSections": [],
+      "panels": []
+    }
+  },
+  "files": [
+    {
+      "path": "plugin.json",
+      "content": "{\n  \"schemaVersion\": 2,\n  \"id\": \"link-accent-pack\",\n  \"name\": \"Link Accent Pack\",\n  \"version\": \"1.0.0\",\n  \"entry\": null,\n  \"pluginType\": \"ui-snippet\",\n  \"capabilities\": [\n    \"theme.snippet\"\n  ],\n  \"platforms\": [\n    \"desktop\",\n    \"web\"\n  ],\n  \"requiresRestart\": false,\n  \"experimental\": false,\n  \"minAppVersion\": \"0.6.0\",\n  \"maxAppVersion\": null,\n  \"permissions\": {\n    \"theme\": {\n      \"register\": true\n    }\n  },\n  \"contributes\": {\n    \"theme\": {\n      \"style\": [],\n      \"snippets\": [\n        {\n          \"file\": \"theme/snippets/link-accent-pack.css\",\n          \"id\": \"link-accent-pack\",\n          \"label\": \"Link Accent\",\n          \"description\": \"Stronger underline on inline wiki links.\",\n          \"defaultEnabled\": false\n        }\n      ],\n      \"tokens\": [],\n      \"defaultEnable\": {}\n    },\n    \"commands\": [],\n    \"preferencesSections\": [],\n    \"panels\": []\n  }\n}\n"
+    },
+    {
+      "path": "theme/snippets/link-accent-pack.css",
+      "content": "/**\n * Link accent — UI snippet\n *\n * Stronger link underline in visual editor and export preview.\n * Built-in link colors come from --luna-link-inline-* tokens; this reinforces underline only.\n *\n * Copy to ~/.luna/theme/snippets/link-accent.css → Rescan → enable in UI snippets.\n */\n\n.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline,\n.markdown-preview-view a {\n  text-decoration: underline;\n  text-underline-offset: 3px;\n  text-decoration-thickness: 1px;\n  text-decoration-color: color-mix(in srgb, var(--link) 45%, transparent);\n}\n\n.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline:hover,\n.markdown-preview-view a:hover {\n  color: var(--link-hover);\n  text-decoration-color: color-mix(in srgb, var(--link-hover) 55%, transparent);\n}\n\n.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline:visited,\n.markdown-preview-view a:visited {\n  color: var(--link-visited);\n}\n"
+    }
+  ]
+}

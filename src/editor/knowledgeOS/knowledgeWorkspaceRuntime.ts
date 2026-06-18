@@ -1,3 +1,4 @@
+import { pathsEqual } from '../../lib/workspacePathUtils'
 import {
   activateTab,
   bindWorkspaceVault,
@@ -10,7 +11,7 @@ import {
 } from '../knowledgeRuntime'
 import { setGraphViewport } from '../knowledgeRuntime/workspaceRuntime'
 import { vaultIdFromRoot } from '../knowledgeRuntime'
-import { getKnowledgeVaultRoot } from './vaultRuntime'
+import { absolutePathToDocKeyOs, getKnowledgeVaultRoot } from './vaultRuntime'
 import type { AbsoluteDocPath, DocKey } from '../knowledgeRuntime/types'
 import type { KnowledgeWorkspaceSnapshot, KnowledgeWorkspaceTabSnapshot } from './types'
 
@@ -56,8 +57,43 @@ export function openKnowledgeWorkspace(rootDir: string): void {
   notify()
 }
 
-export function openNoteInWorkspace(absolutePath: AbsoluteDocPath, docKey: DocKey): void {
-  openDocumentTab(absolutePath, docKey)
+export function openNoteInWorkspace(
+  absolutePath: AbsoluteDocPath,
+  docKey: DocKey,
+  options?: { activate?: boolean },
+): void {
+  openDocumentTab(absolutePath, docKey, options)
+  notify()
+}
+
+/** Mirror Luna opened tabs into Knowledge workspace; close tabs no longer open in Luna. */
+export function syncKnowledgeWorkspaceTabsFromLuna(
+  rootDir: string,
+  openedTabPaths: readonly string[],
+  activePath: string | null,
+  isBufferTab: (path: string) => boolean,
+): void {
+  const root = rootDir.replace(/[/\\]+$/u, '')
+  const lunaOpenPaths = openedTabPaths.filter((path) => !isBufferTab(path))
+
+  const staleTabIds = [...getWorkspaceState().tabs.values()]
+    .filter((tab) => !lunaOpenPaths.some((path) => pathsEqual(path, tab.absolutePath)))
+    .map((tab) => tab.id)
+  for (const tabId of staleTabIds) {
+    closeTab(tabId)
+  }
+
+  for (const path of lunaOpenPaths) {
+    openDocumentTab(path, absolutePathToDocKeyOs(path, root), { activate: false })
+  }
+
+  if (activePath && !isBufferTab(activePath)) {
+    const activeTab = [...getWorkspaceState().tabs.values()].find((tab) =>
+      pathsEqual(tab.absolutePath, activePath),
+    )
+    if (activeTab) activateTab(activeTab.id)
+  }
+
   notify()
 }
 
@@ -110,16 +146,6 @@ export function restoreKnowledgeUILayoutFromStorage(vaultId: string): void {
     /* ignore corrupt layout */
   }
   notify()
-}
-
-/** @deprecated Luna snapshot is the true source of tab; only UI layout is retained for persistence*/
-export function persistWorkspaceSession(vaultId: string): void {
-  persistKnowledgeUILayout(vaultId)
-}
-
-/** @deprecated Luna snapshot is the true source of tab; only restores UI layout such as map viewport*/
-export function restoreWorkspaceSessionFromStorage(vaultId: string): void {
-  restoreKnowledgeUILayoutFromStorage(vaultId)
 }
 
 export { setGraphViewport }

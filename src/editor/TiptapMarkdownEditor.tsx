@@ -301,14 +301,13 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
       const openHint = isModifierHintMacLike()
         ? tRef.current('editor.linkOpenCmdClick')
         : tRef.current('editor.linkOpenCtrlClick')
+      const revealHint = isModifierHintMacLike()
+        ? tRef.current('editor.linkRevealCmdClick')
+        : tRef.current('editor.linkRevealCtrlClick')
       anchor.classList.add('pm-link-modifier-hint')
       if (isLunaAssetHref(href)) {
         const assetTip = getLunaAssetTooltipRef.current?.(href) ?? savedTitle
-        anchor.title = savedTitle
-          ? `${assetTip}\n${isModifierHintMacLike() ? 'Cmd + Click to reveal in folder' : 'Ctrl + Click to reveal in folder'}`
-          : isModifierHintMacLike()
-            ? 'Cmd + Click to reveal in folder'
-            : 'Ctrl + Click to reveal in folder'
+        anchor.title = savedTitle ? `${assetTip}\n${revealHint}` : revealHint
       } else {
         anchor.title = savedTitle ? `${savedTitle}\n${openHint}` : openHint
       }

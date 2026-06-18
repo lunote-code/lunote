@@ -2,6 +2,7 @@ import { Node, mergeAttributes, type Editor } from '@tiptap/core'
 import { ReactNodeViewRenderer } from '@tiptap/react'
 import { MermaidView } from '../../components/nodes/MermaidView'
 import { isNativeInputDom } from '../documentRuntime/nativeInput'
+import { resolveMermaidBlockPos } from '../mermaid/mermaidSourceCommit'
 
 /**
  * Corresponds to Markdown ` ```mermaid ` fences: lifted from `codeBlock` by `markdownDocument.liftMermaidCodeBlocks`,
@@ -90,10 +91,22 @@ export function ensureMermaidBlockIdAtPos(
   pos: number,
   attrs: { blockId?: string | null; source?: string },
 ): string {
-  const blockId = ensureMermaidBlockId(attrs)
-  if (String(attrs.blockId ?? '').trim()) return blockId
+  const existing = String(attrs.blockId ?? '').trim()
+  if (existing) return existing
+  if (editor.isDestroyed) return ensureMermaidBlockId(attrs)
+
+  const resolved = resolveMermaidBlockPos(editor, pos)
+  if (resolved == null) return ensureMermaidBlockId(attrs)
+
+  const node = editor.state.doc.nodeAt(resolved)
+  if (!node || node.type.name !== 'mermaidBlock') return ensureMermaidBlockId(attrs)
+
+  const nodeBlockId = String((node.attrs as { blockId?: string | null }).blockId ?? '').trim()
+  if (nodeBlockId) return nodeBlockId
+
+  const blockId = newMermaidBlockId()
   editor.view.dispatch(
-    editor.view.state.tr.setNodeMarkup(pos, undefined, { ...attrs, blockId }),
+    editor.view.state.tr.setNodeMarkup(resolved, undefined, { ...node.attrs, blockId }),
   )
   return blockId
 }

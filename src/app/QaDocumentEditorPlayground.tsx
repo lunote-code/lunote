@@ -223,6 +223,13 @@ declare global {
         nearestListMarkerLeftPx: number | null
         visualOrphanAfterList: boolean
       } | null
+      probeCaretDocBlock: () => {
+        docChildIndex: number
+        blockType: string
+        isEmptyParagraph: boolean
+        blockText: string
+      } | null
+      probeDocBlockTypes: () => string[]
       clickBelowLastOrderedListItem: () => boolean
     }
   }
@@ -984,6 +991,31 @@ function QaDocumentEditorInner() {
         const root = document.querySelector('.qa-document-editor-shell .ProseMirror')
         if (!editor || !root) return null
         return probeCaretStructuralContext(editor.state, root)
+      },
+      probeCaretDocBlock: () => {
+        const editor = editorRef.current?.getEditor()
+        if (!editor) return null
+        const $from = editor.state.selection.$from
+        const docChildIndex = $from.index(0)
+        const block = editor.state.doc.child(docChildIndex)
+        return {
+          docChildIndex,
+          blockType: block.type.name,
+          isEmptyParagraph:
+            block.type.name === 'paragraph' &&
+            (block.content.size === 0 ||
+              (block.childCount === 1 && block.firstChild?.type.name === 'hardBreak')),
+          blockText: block.textContent.slice(0, 80),
+        }
+      },
+      probeDocBlockTypes: () => {
+        const editor = editorRef.current?.getEditor()
+        if (!editor) return []
+        const types: string[] = []
+        editor.state.doc.forEach((node) => {
+          types.push(node.type.name)
+        })
+        return types
       },
       clickBelowLastOrderedListItem: () => {
         const root = document.querySelector('.qa-document-editor-shell .ProseMirror') as HTMLElement | null

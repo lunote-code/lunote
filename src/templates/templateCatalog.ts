@@ -12,19 +12,10 @@ import {
   loadTemplateContent,
 } from './templateService'
 
-function normalizeFolderRel(folder: string): string {
-  return folder.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '').trim()
-}
+import { isFileUnderWorkspaceFolder, normalizeWorkspaceRelPath } from './templatePathMatch'
 
-/** Whether `relativePath` is a markdown file under the configured templates folder (workspace-relative). */
-function isTemplateFileRel(relativePath: string, folderRel: string): boolean {
-  const fileParts = normalizeFolderRel(relativePath).split('/').filter(Boolean)
-  const folderParts = normalizeFolderRel(folderRel).split('/').filter(Boolean)
-  if (folderParts.length === 0 || fileParts.length <= folderParts.length) return false
-  for (let i = 0; i < folderParts.length; i++) {
-    if (fileParts[i]?.toLowerCase() !== folderParts[i]?.toLowerCase()) return false
-  }
-  return true
+function normalizeFolderRel(folder: string): string {
+  return normalizeWorkspaceRelPath(folder)
 }
 
 export type WorkspaceTemplateEntry = {
@@ -80,7 +71,7 @@ function walkTemplateFiles(
     }
     const lower = relativePath.toLowerCase()
     if (!(lower.endsWith('.md') || lower.endsWith('.markdown'))) continue
-    if (!isTemplateFileRel(relativePath, folderRel)) continue
+    if (!isFileUnderWorkspaceFolder(relativePath, folderRel)) continue
     const fileName = node.name || relativePath.split('/').at(-1) || relativePath
     const folderNorm = normalizeFolderRel(folderRel)
     const parent = parentDirectoryOfFile(relativePath)

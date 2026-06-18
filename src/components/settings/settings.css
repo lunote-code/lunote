@@ -838,6 +838,47 @@
   background: color-mix(in srgb, var(--accent) 6%, var(--settings-card));
 }
 
+.settings-info-callout--inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.settings-info-callout-text {
+  flex: 1 1 220px;
+  min-width: 0;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.settings-info-callout-dismiss {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.settings-info-callout-dismiss:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.settings-info-callout-dismiss:focus-visible {
+  outline: none;
+  box-shadow: var(--luna-focus-ring);
+}
+
 .settings-info-callout-title {
   font-size: 13px;
   font-weight: 600;

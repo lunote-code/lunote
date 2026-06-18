@@ -1,6 +1,7 @@
 import { mindmapEdgePath } from '../../../mindmap/edgePath'
 import { layoutMindmapTree } from '../../../mindmap/layoutMindmap'
 import { parseMindmapSource } from '../../../mindmap/parseMindmap'
+import { mindmapNodeShapeMarkup } from '../../../mindmap/renderMindmapNode'
 import { parseChangedBlock } from '../../incrementalParser'
 import type { BlockRenderer, BlockRenderContext, BlockRenderOutput } from '../blockRenderer'
 import { mindmapTheme } from '../../../../theme/mindmapTheme'
@@ -13,14 +14,6 @@ function levelColor(level: number): { fill: string; stroke: string; text: string
     return { fill: mindmapTheme.colors.fill2, stroke: 'var(--color-border-subtle, var(--border-subtle))', text: mindmapTheme.colors.level2 }
   }
   return { fill: mindmapTheme.colors.fill2, stroke: 'var(--color-border-subtle, var(--border-subtle))', text: mindmapTheme.colors.level3 }
-}
-
-function escapeXml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }
 
 export function buildMindmapSvgHtml(source: string): BlockRenderOutput {
@@ -54,8 +47,7 @@ export function buildMindmapSvgHtml(source: string): BlockRenderOutput {
     const c = levelColor(n.level)
     nodes.push(
       `<g class="mindmap-node pm-mindmap-node" transform="translate(${n.x},${n.y})">` +
-        `<rect width="${n.width}" height="${n.height}" rx="${mindmapTheme.borderRadius}" ry="${mindmapTheme.borderRadius}" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1"/>` +
-        `<text x="${n.width / 2}" y="${n.height / 2}" dominant-baseline="middle" text-anchor="middle" fill="${c.text}" font-size="${mindmapTheme.fontSize}" font-family="${mindmapTheme.fontFamily}">${escapeXml(n.label)}</text>` +
+        mindmapNodeShapeMarkup(n, c) +
         `</g>`,
     )
   }

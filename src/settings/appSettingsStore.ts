@@ -147,6 +147,7 @@ export async function setAppearanceSetting(path: string, value: unknown): Promis
   const theme = { ...((appearance.theme as Record<string, unknown> | undefined) ?? {}) }
   const editor = { ...((appearance.editor as Record<string, unknown> | undefined) ?? {}) }
   const exportPrefs = { ...((appearance.export as Record<string, unknown> | undefined) ?? {}) }
+  const windowPrefs = { ...((appearance.window as Record<string, unknown> | undefined) ?? {}) }
 
   if (path.startsWith('theme.')) {
     theme[path.slice('theme.'.length)] = value
@@ -158,6 +159,9 @@ export async function setAppearanceSetting(path: string, value: unknown): Promis
   } else if (path.startsWith('export.')) {
     exportPrefs[path.slice('export.'.length)] = value
     appearance.export = exportPrefs
+  } else if (path.startsWith('window.')) {
+    windowPrefs[path.slice('window.'.length)] = value
+    appearance.window = windowPrefs
   } else {
     appearance[path] = value
   }

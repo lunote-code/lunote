@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import '../App.css'
-import { I18nProvider, useI18n } from '../i18n'
+import { I18nProvider, type I18nBootstrap, useI18n } from '../i18n'
 import {
+  ensureLocaleRawLoaded,
   getEnMessagesSnapshot,
-  getLocaleMessagesSnapshot,
-  getLocaleRawSnapshot,
+  isUiLocaleId,
+  type UiLocaleId,
 } from '../i18n/localeRegistry'
 import { Icon } from '../design-system/icons/Icon'
 import {
@@ -31,12 +32,9 @@ const OVERFLOW_TABS = Array.from(
   (_, index) => `${QA_ROOT}/project-alpha/doc-${String(index + 1).padStart(2, '0')}-release-notes.md`,
 )
 
-const QA_BOOTSTRAP = {
-  mergedMessages: getLocaleMessagesSnapshot('en'),
-  enMessages: getEnMessagesSnapshot(),
-  rawLocale: getLocaleRawSnapshot('en'),
-  languageSetting: 'en' as const,
-  effectiveLocale: 'en' as const,
+function resolveQaLocale(): UiLocaleId {
+  const raw = new URLSearchParams(window.location.search).get('locale')
+  return raw && isUiLocaleId(raw) ? raw : 'en'
 }
 
 declare global {
@@ -52,7 +50,7 @@ declare global {
   }
 }
 
-function QaChromeVisualInner() {
+function QaChromeVisualInner({ locale }: { locale: UiLocaleId }) {
   const { t } = useI18n()
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>('dark')
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false)
@@ -69,11 +67,11 @@ function QaChromeVisualInner() {
   }, [])
 
   useEffect(() => {
-    markAppSettingsHydratedForTests({ ...DEFAULT_APP_SETTINGS, language: 'en' })
+    markAppSettingsHydratedForTests({ ...DEFAULT_APP_SETTINGS, language: locale })
     applyBootEarlyThemeFromLocalStorage()
     applyInitialThemeFromSettings()
     setTheme('dark')
-  }, [setTheme])
+  }, [locale, setTheme])
 
   useEffect(() => {
     window.__QA_CHROME_VISUAL__ = {
@@ -106,6 +104,7 @@ function QaChromeVisualInner() {
     <div className="qa-chrome-visual-root">
       <div className="qa-chrome-visual-controls">
         <p data-testid="qa-ready">Chrome visual QA</p>
+        <p data-testid="qa-locale">locale={locale}</p>
         <p data-testid="qa-theme-mode">{themeMode}</p>
         <button type="button" data-testid="set-theme-light" onClick={() => setTheme('light')}>
           Light theme
@@ -223,9 +222,40 @@ function QaChromeVisualInner() {
 }
 
 export function QaChromeVisualPlayground() {
+  const locale = resolveQaLocale()
+  const [bootstrap, setBootstrap] = useState<I18nBootstrap | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const enMessages = getEnMessagesSnapshot()
+      const rawLocale = locale === 'en' ? enMessages : await ensureLocaleRawLoaded(locale)
+      if (cancelled) return
+      setBootstrap({
+        mergedMessages: locale === 'en' ? enMessages : { ...enMessages, ...rawLocale },
+        enMessages,
+        rawLocale,
+        languageSetting: locale,
+        effectiveLocale: locale,
+      })
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [locale])
+
+  if (!bootstrap) {
+    return (
+      <div className="qa-chrome-visual-root">
+        <p data-testid="qa-ready">Chrome visual QA</p>
+        <p data-testid="qa-locale">locale={locale}</p>
+      </div>
+    )
+  }
+
   return (
-    <I18nProvider bootstrap={QA_BOOTSTRAP}>
-      <QaChromeVisualInner />
+    <I18nProvider bootstrap={bootstrap}>
+      <QaChromeVisualInner locale={locale} />
     </I18nProvider>
   )
 }

@@ -7,7 +7,6 @@ import {
   getGraphSnapshot,
   getDocumentMeta,
   refreshGraphViewIncremental,
-  setGraphViewport,
   subscribeGraphView,
 } from '../knowledgeRuntime'
 import { wikiLinkInnerTargetText } from '../knowledgeRuntime/wikiLinkParser'
@@ -15,7 +14,6 @@ import type { DocKey } from '../knowledgeRuntime/types'
 import {
   getGraphViewport,
   resetGraphViewportRuntime,
-  setGraphViewportIntent,
 } from './graphViewportRuntime'
 import {
   beginGraphUpdate,
@@ -39,9 +37,33 @@ import {
 } from './graphLayoutDependencyRuntime'
 import { isKnowledgeOSBooting, shouldDeferGraphForceLayout } from './knowledgeOSBoot'
 import { recordGraphLayoutRecompute } from './layout/graphViewportProfile'
-import type { NoteGraphEdge, NoteGraphNode, NoteGraphSnapshot } from './types'
+import {
+  DEFAULT_NOTE_GRAPH_DEPTH,
+  getNoteGraphDepthPreference,
+  normalizeNoteGraphDepth,
+} from './graphDepthPreference'
+import {
+  getNoteGraphFilterPreference,
+  type NoteGraphFilterPreference,
+} from './graphFilterPreference'
+import type { NoteGraphEdge, NoteGraphLimit, NoteGraphNode, NoteGraphSnapshot } from './types'
 
-const DEFAULT_DEPTH = 2
+export const NOTE_GRAPH_MAX_NODES = 120
+export const NOTE_GRAPH_MAX_EDGES = 200
+
+type NoteGraphTopology = Omit<NoteGraphSnapshot, 'viewport'>
+
+function buildGraphLimit(shownNodes: number, shownEdges: number, capped: boolean): NoteGraphLimit | null {
+  if (!capped) return null
+  return {
+    shownNodes,
+    shownEdges,
+    maxNodes: NOTE_GRAPH_MAX_NODES,
+    maxEdges: NOTE_GRAPH_MAX_EDGES,
+  }
+}
+
+const DEFAULT_DEPTH = DEFAULT_NOTE_GRAPH_DEPTH
 
 let topologyRootDocKey: DocKey | null = null
 let depth = DEFAULT_DEPTH
@@ -58,24 +80,12 @@ let lazyLayoutScheduled = false
 let cachedSubgraph: {
   center: DocKey
   depth: number
+  filterKey: string
   nodes: NoteGraphNode[]
   edges: NoteGraphEdge[]
   layoutKind: 'fallback' | 'force'
+  graphLimit: NoteGraphLimit | null
 } | null = null
-const loggedGraphRuntimeNodeKeys = new Set<string>()
-
-function isAgentLogEnabled(): boolean {
-  if (!import.meta.env.DEV) return false
-  const g = globalThis as { __KOS_AGENT_LOG__?: boolean }
-  if (g.__KOS_AGENT_LOG__ === true) return true
-  try {
-    return localStorage.getItem('kos.agentLog') === '1'
-  } catch {
-    return false
-  }
-}
-
-type NoteGraphTopology = Omit<NoteGraphSnapshot, 'viewport'>
 
 let lastTopology: NoteGraphTopology = {
   centerDocKey: null,
@@ -83,6 +93,7 @@ let lastTopology: NoteGraphTopology = {
   nodes: [],
   edges: [],
   revision: 0,
+  graphLimit: null,
 }
 
 const listeners = new Set<() => void>()
@@ -132,14 +143,38 @@ function graphNodeDisplayLabel(
   return pick(graphNode?.label) ?? pick(graphNode?.raw) ?? docKey.split('/').pop() ?? docKey
 }
 
+function graphFilterKey(filters: NoteGraphFilterPreference): string {
+  return `${filters.showUnresolved ? 'u1' : 'u0'}:${filters.showHeadingNodes ? 'h1' : 'h0'}:${filters.edgeDirection}`
+}
+
 function collectLocalSubgraph(
   root: DocKey,
   maxDepth: number,
-): { nodes: TopologyNode[]; edges: NoteGraphEdge[] } {
+  filters: NoteGraphFilterPreference,
+): { nodes: TopologyNode[]; edges: NoteGraphEdge[]; limitReached: boolean } {
   const graphNodeById = new Map(getGraphSnapshot().nodes.map((n) => [n.id, n]))
   const nodeMap = new Map<string, TopologyNode>()
   const edges: NoteGraphEdge[] = []
   const edgeSeen = new Set<string>()
+  const edgePairSeen = new Set<string>()
+  let limitReached = false
+
+  const tryAddEdge = (
+    edgeId: string,
+    from: string,
+    to: string,
+    kind: NoteGraphEdge['kind'],
+  ): void => {
+    if (limitReached || edges.length >= NOTE_GRAPH_MAX_EDGES) {
+      limitReached = true
+      return
+    }
+    const pairKey = `${from}\0${to}`
+    if (edgePairSeen.has(pairKey) || edgeSeen.has(edgeId)) return
+    edgePairSeen.add(pairKey)
+    edgeSeen.add(edgeId)
+    edges.push({ id: edgeId, from, to, kind })
+  }
 
   const addNode = (
     id: string,
@@ -148,6 +183,10 @@ function collectLocalSubgraph(
     label = docKey.split('/').pop() ?? docKey,
     heading?: string,
   ) => {
+    if (limitReached || nodeMap.size >= NOTE_GRAPH_MAX_NODES) {
+      limitReached = true
+      return
+    }
     if (nodeMap.has(id)) return
     nodeMap.set(id, {
       id,
@@ -159,72 +198,80 @@ function collectLocalSubgraph(
     })
   }
 
+  const includeOutgoing = filters.edgeDirection === 'all' || filters.edgeDirection === 'outgoing'
+  const includeIncoming = filters.edgeDirection === 'all' || filters.edgeDirection === 'incoming'
+
+  const visitExpanded = new Set<string>()
+
   const visit = (key: DocKey, d: number) => {
+    if (limitReached) return
     const pageId = `page:${key}`
-    if (nodeMap.has(pageId) || d > maxDepth) return
+    if (d > maxDepth) return
     if (!getDocumentMeta(key)) return
-    addNode(pageId, key, 'resolved')
-    for (const e of getOutgoingEdges(key)) {
-      const target = e.targetDocKey ?? nodeDocKeyFromId(e.to)
-      const targetStatus = e.targetStatus ?? 'resolved'
-      if (targetStatus === 'resolved' && !getDocumentMeta(target)) continue
-      const targetId = e.to
-      const displayLabel = graphNodeDisplayLabel(target, targetStatus, graphNodeById.get(targetId))
-      addNode(targetId, target, targetStatus, displayLabel)
-      const edgeId = `out:${key}:${target}`
-      if (!edgeSeen.has(edgeId)) {
-        edgeSeen.add(edgeId)
-        edges.push({
-          id: edgeId,
-          from: `page:${key}`,
-          to: targetId,
-          kind: e.kind === 'embed' ? 'embed' : 'link',
-        })
+    const visitKey = `${pageId}@${d}`
+    if (visitExpanded.has(visitKey)) return
+    visitExpanded.add(visitKey)
+    if (!nodeMap.has(pageId)) addNode(pageId, key, 'resolved')
+    if (includeOutgoing) {
+      for (const e of getOutgoingEdges(key)) {
+        const target = e.targetDocKey ?? nodeDocKeyFromId(e.to)
+        let targetStatus = e.targetStatus ?? 'resolved'
+        if (targetStatus === 'resolved' && !getDocumentMeta(target)) {
+          targetStatus = 'unresolved'
+        }
+        if (d + 1 > maxDepth) continue
+        if (targetStatus === 'unresolved' && !filters.showUnresolved) continue
+        const targetId = e.to
+        const displayLabel = graphNodeDisplayLabel(target, targetStatus, graphNodeById.get(targetId))
+        addNode(targetId, target, targetStatus, displayLabel)
+        tryAddEdge(
+          `out:${key}:${target}`,
+          `page:${key}`,
+          targetId,
+          e.kind === 'embed' ? 'embed' : 'link',
+        )
+        if (targetStatus === 'resolved' && d + 1 < maxDepth) visit(target, d + 1)
       }
-      if (targetStatus === 'resolved' && d < maxDepth) visit(target, d + 1)
     }
     //The heading links in the same document are visualized as separate nodes to avoid leaving only unresolved nodes in the subgraph.
-    for (const ref of getOutgoingLinkRefs(key)) {
-      if (ref.target.status !== 'resolved') continue
-      if (ref.target.docKey !== key) continue
-      const headingLabel = ref.heading ?? ref.target.label ?? ref.target.canonical
-      if (!headingLabel) continue
-      const headingSlug = canonicalizeWikiLinkText(headingLabel)
-      if (!headingSlug) continue
-      const headingId = `heading:${key}:${headingSlug}`
-      addNode(headingId, key, 'resolved', headingLabel, headingLabel)
-      const edgeId = `out-heading:${key}:${headingId}`
-      if (!edgeSeen.has(edgeId)) {
-        edgeSeen.add(edgeId)
-        edges.push({
-          id: edgeId,
-          from: `page:${key}`,
-          to: headingId,
-          kind: ref.kind === 'embed' ? 'embed' : 'link',
-        })
+    if (filters.showHeadingNodes && includeOutgoing) {
+      for (const ref of getOutgoingLinkRefs(key)) {
+        if (ref.target.status !== 'resolved') continue
+        if (ref.target.docKey !== key) continue
+        const headingLabel = ref.heading ?? ref.target.label ?? ref.target.canonical
+        if (!headingLabel) continue
+        const headingSlug = canonicalizeWikiLinkText(headingLabel)
+        if (!headingSlug) continue
+        const headingId = `heading:${key}:${headingSlug}`
+        addNode(headingId, key, 'resolved', headingLabel, headingLabel)
+        tryAddEdge(
+          `out-heading:${key}:${headingId}`,
+          `page:${key}`,
+          headingId,
+          ref.kind === 'embed' ? 'embed' : 'link',
+        )
       }
     }
-    for (const e of getIncomingEdges(key)) {
-      const source = e.sourceDocKey as DocKey
-      if (!getDocumentMeta(source)) continue
-      addNode(`page:${source}`, source, 'resolved')
-      const edgeId = `in:${source}:${key}`
-      if (!edgeSeen.has(edgeId)) {
-        edgeSeen.add(edgeId)
-        edges.push({
-          id: edgeId,
-          from: `page:${source}`,
-          to: `page:${key}`,
-          kind: e.kind === 'embed' ? 'embed' : 'link',
-        })
+    if (includeIncoming) {
+      for (const e of getIncomingEdges(key)) {
+        const source = e.sourceDocKey as DocKey
+        if (!getDocumentMeta(source)) continue
+        if (d + 1 > maxDepth) continue
+        addNode(`page:${source}`, source, 'resolved')
+        tryAddEdge(
+          `in:${source}:${key}`,
+          `page:${source}`,
+          `page:${key}`,
+          e.kind === 'embed' ? 'embed' : 'link',
+        )
+        if (d + 1 < maxDepth) visit(source, d + 1)
       }
-      if (d < maxDepth) visit(source, d + 1)
     }
   }
 
   visit(root, 0)
 
-  return { nodes: [...nodeMap.values()], edges }
+  return { nodes: [...nodeMap.values()], edges, limitReached }
 }
 
 function positionsToNodes(
@@ -234,17 +281,7 @@ function positionsToNodes(
 ): NoteGraphNode[] {
   const next = topoNodes.map((n) => {
     const p = positions.get(n.id) ?? { x: 0, y: 0 }
-    const node = { ...n, x: p.x, y: p.y }
-    const logKey = `${n.id}:${n.docKey}:${n.label}`
-    if (!loggedGraphRuntimeNodeKeys.has(logKey)) {
-      loggedGraphRuntimeNodeKeys.add(logKey)
-      if (isAgentLogEnabled()) {
-        // #region agent log
-        console.debug('[graph-runtime-node]', { nodeId: n.id, docKey: n.docKey, title: n.label })
-        // #endregion
-      }
-    }
-    return node
+    return { ...n, x: p.x, y: p.y }
   })
   if (prevNodes && prevNodes.length > 0) {
     markLayoutPhysicsIfNodePositionsChanged(prevNodes, next)
@@ -290,7 +327,8 @@ function runDeferredForceLayout(): void {
   if (cachedSubgraph.layoutKind === 'force') return
   if (
     cachedSubgraph.center !== topologyRootDocKey ||
-    cachedSubgraph.depth !== depth
+    cachedSubgraph.depth !== depth ||
+    cachedSubgraph.filterKey !== graphFilterKey(getNoteGraphFilterPreference())
   ) {
     return
   }
@@ -302,19 +340,23 @@ function runDeferredForceLayout(): void {
 
   try {
     recordGraphLayoutRecompute('computeGraphLayout')
-    const topo = collectLocalSubgraph(topologyRootDocKey, depth)
+    const filters = getNoteGraphFilterPreference()
+    const topo = collectLocalSubgraph(topologyRootDocKey, depth, filters)
     const nodes = applyForceLayout(
       topo.nodes,
       topo.edges,
       topologyRootDocKey,
       cachedSubgraph.nodes,
     )
+    const graphLimit = buildGraphLimit(nodes.length, topo.edges.length, topo.limitReached)
     cachedSubgraph = {
       center: topologyRootDocKey,
       depth,
+      filterKey: graphFilterKey(filters),
       nodes,
       edges: topo.edges,
       layoutKind: 'force',
+      graphLimit,
     }
     bumpGraphLayoutRevision()
     rebuildSnapshot()
@@ -350,24 +392,32 @@ function scheduleLazyGraphLayout(): void {
 function buildSubgraphWithLayout(
   center: DocKey,
   subgraphDepth: number,
-): { nodes: NoteGraphNode[]; edges: NoteGraphEdge[] } {
+): { nodes: NoteGraphNode[]; edges: NoteGraphEdge[]; graphLimit: NoteGraphLimit | null } {
   markGraphEdgeRecomputeScheduled()
-  const topo = collectLocalSubgraph(center, subgraphDepth)
+  const filters = getNoteGraphFilterPreference()
+  const filterKey = graphFilterKey(filters)
+  const topo = collectLocalSubgraph(center, subgraphDepth, filters)
   const useFallback = isKnowledgeOSBooting()
   const prevNodes =
-    cachedSubgraph?.center === center && cachedSubgraph.depth === subgraphDepth
+    cachedSubgraph?.center === center &&
+    cachedSubgraph.depth === subgraphDepth &&
+    cachedSubgraph.filterKey === filterKey
       ? cachedSubgraph.nodes
       : undefined
   const nodes = useFallback
     ? applyFallbackLayout(topo.nodes, prevNodes)
     : applyForceLayout(topo.nodes, topo.edges, center, prevNodes)
 
+  const graphLimit = buildGraphLimit(nodes.length, topo.edges.length, topo.limitReached)
+
   cachedSubgraph = {
     center,
     depth: subgraphDepth,
+    filterKey,
     nodes,
     edges: topo.edges,
     layoutKind: useFallback ? 'fallback' : 'force',
+    graphLimit,
   }
 
   if (useFallback || cachedSubgraph.layoutKind === 'fallback') {
@@ -376,24 +426,27 @@ function buildSubgraphWithLayout(
 
   bumpGraphLayoutRevision()
   clearGraphEdgeRecomputeScheduled()
-  if (isAgentLogEnabled()) {
-    // #region agent log
-    console.debug('[graph-runtime-rebuild]', { center, depth: subgraphDepth, nodeCount: nodes.length, edgeCount: topo.edges.length })
-    console.debug('[graph-runtime-node-count]', { center, nodeCount: nodes.length, edgeCount: topo.edges.length })
-    // #endregion
-  }
 
-  return { nodes, edges: topo.edges }
+  return { nodes, edges: topo.edges, graphLimit }
 }
 
-function getCachedSubgraph(): { nodes: NoteGraphNode[]; edges: NoteGraphEdge[] } {
-  if (!topologyRootDocKey) return { nodes: [], edges: [] }
+function getCachedSubgraph(): {
+  nodes: NoteGraphNode[]
+  edges: NoteGraphEdge[]
+  graphLimit: NoteGraphLimit | null
+} {
+  if (!topologyRootDocKey) return { nodes: [], edges: [], graphLimit: null }
   if (
     cachedSubgraph &&
     cachedSubgraph.center === topologyRootDocKey &&
-    cachedSubgraph.depth === depth
+    cachedSubgraph.depth === depth &&
+    cachedSubgraph.filterKey === graphFilterKey(getNoteGraphFilterPreference())
   ) {
-    return { nodes: cachedSubgraph.nodes, edges: cachedSubgraph.edges }
+    return {
+      nodes: cachedSubgraph.nodes,
+      edges: cachedSubgraph.edges,
+      graphLimit: cachedSubgraph.graphLimit,
+    }
   }
   return buildSubgraphWithLayout(topologyRootDocKey, depth)
 }
@@ -401,6 +454,11 @@ function getCachedSubgraph(): { nodes: NoteGraphNode[]; edges: NoteGraphEdge[] }
 function invalidateGraphDataCache(): void {
   cachedSubgraph = null
   bumpGraphLayoutRevision()
+}
+
+/** Drop cached subgraph after link graph / registry mutations (e.g. deleted target file). */
+export function invalidateNoteGraphSubgraphCache(): void {
+  invalidateGraphDataCache()
 }
 
 function rebuildSnapshot(): void {
@@ -414,11 +472,15 @@ function rebuildSnapshot(): void {
  */
 export function syncNoteGraphTopologyFromRoute(docKey: DocKey | null, options?: { depth?: number }): void {
   const prev = topologyRootDocKey
-  const depthChanged = options?.depth != null && options.depth !== depth
-  if (docKey === prev && !depthChanged) return
+  const filters = getNoteGraphFilterPreference()
+  const filterKey = graphFilterKey(filters)
+  const nextDepth = normalizeNoteGraphDepth(options?.depth ?? getNoteGraphDepthPreference())
+  const depthChanged = nextDepth !== depth
+  const filtersChanged = cachedSubgraph?.filterKey !== filterKey
+  if (docKey === prev && !depthChanged && !filtersChanged) return
 
   topologyRootDocKey = docKey
-  if (options?.depth != null) depth = options.depth
+  depth = nextDepth
   invalidateGraphDataCache()
 
   const ownsGraph = beginGraphUpdate()
@@ -435,7 +497,12 @@ export function syncNoteGraphTopologyFromRoute(docKey: DocKey | null, options?: 
       refreshGraphViewIncremental()
     }
 
-    if (!cachedSubgraph || cachedSubgraph.center !== docKey || cachedSubgraph.depth !== depth) {
+    if (
+      !cachedSubgraph ||
+      cachedSubgraph.center !== docKey ||
+      cachedSubgraph.depth !== depth ||
+      cachedSubgraph.filterKey !== filterKey
+    ) {
       buildSubgraphWithLayout(docKey, depth)
     }
 
@@ -451,11 +518,6 @@ export function syncNoteGraphTopologyFromRoute(docKey: DocKey | null, options?: 
       })
     }
   }
-}
-
-/** @deprecated using syncNoteGraphTopologyFromRoute*/
-export function setNoteGraphCenter(docKey: DocKey | null, options?: { depth?: number }): void {
-  syncNoteGraphTopologyFromRoute(docKey, options)
 }
 
 function docKeyFromNodeId(nodeId: string): DocKey | null {
@@ -517,17 +579,17 @@ export function getNoteGraphTopology(): Readonly<NoteGraphTopology> {
   try {
     if (!topologyRootDocKey) {
       const global = getGraphViewState()
-      const topoNodes: TopologyNode[] = global.nodes
-        .filter((n) => (n.kind === 'page' || n.kind === 'unresolved') && n.docKey)
-        .slice(0, 120)
-        .map((n) => ({
-          id: n.id,
-          docKey: n.docKey!,
-          label: n.label,
-          status: n.status ?? (n.kind === 'unresolved' ? 'unresolved' : 'resolved'),
-          navigable: (n.status ?? (n.kind === 'unresolved' ? 'unresolved' : 'resolved')) === 'resolved',
-        }))
-      const globalEdges = global.edges.slice(0, 200).map((e) => ({
+      const allNodes = global.nodes.filter(
+        (n) => (n.kind === 'page' || n.kind === 'unresolved') && n.docKey,
+      )
+      const topoNodes: TopologyNode[] = allNodes.slice(0, NOTE_GRAPH_MAX_NODES).map((n) => ({
+        id: n.id,
+        docKey: n.docKey!,
+        label: n.label,
+        status: n.status ?? (n.kind === 'unresolved' ? 'unresolved' : 'resolved'),
+        navigable: (n.status ?? (n.kind === 'unresolved' ? 'unresolved' : 'resolved')) === 'resolved',
+      }))
+      const globalEdges = global.edges.slice(0, NOTE_GRAPH_MAX_EDGES).map((e) => ({
         id: e.id,
         from: e.from,
         to: e.to,
@@ -536,27 +598,38 @@ export function getNoteGraphTopology(): Readonly<NoteGraphTopology> {
       const layoutNodes = shouldDeferGraphForceLayout()
         ? applyFallbackLayout(topoNodes)
         : applyForceLayout(topoNodes, globalEdges, null)
+      const graphLimit = buildGraphLimit(
+        layoutNodes.length,
+        globalEdges.length,
+        allNodes.length > topoNodes.length || global.edges.length > globalEdges.length,
+      )
       lastTopology = {
         centerDocKey: null,
         depth,
         nodes: layoutNodes,
         edges: globalEdges,
         revision: graphDataRevision,
+        graphLimit,
       }
       return lastTopology
     }
 
-    const { nodes, edges } =
+    const cached =
       graphInteracting && cachedSubgraph
-        ? { nodes: cachedSubgraph.nodes, edges: cachedSubgraph.edges }
+        ? {
+            nodes: cachedSubgraph.nodes,
+            edges: cachedSubgraph.edges,
+            graphLimit: cachedSubgraph.graphLimit,
+          }
         : getCachedSubgraph()
 
     lastTopology = {
       centerDocKey: topologyRootDocKey,
       depth,
-      nodes,
-      edges,
+      nodes: cached.nodes,
+      edges: cached.edges,
       revision: graphDataRevision,
+      graphLimit: cached.graphLimit,
     }
     return lastTopology
   } finally {
@@ -584,13 +657,6 @@ export function getVisibleGraphNodes(
   const maxX = (width - x + padding) / zoom
   const maxY = (height - y + padding) / zoom
   return topo.nodes.filter((n) => n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY)
-}
-
-/** @deprecated use setGraphViewportIntent*/
-export function setNoteGraphViewport(vp: { x: number; y: number; zoom: number }): void {
-  setGraphViewportIntent({ kind: 'set', viewport: vp })
-  setGraphViewport(vp)
-  rebuildSnapshot()
 }
 
 export function subscribeNoteGraph(listener: () => void): () => void {
@@ -622,12 +688,7 @@ export function resetNoteGraphRuntime(): void {
     nodes: [],
     edges: [],
     revision: 0,
-  }
-  loggedGraphRuntimeNodeKeys.clear()
-  if (isAgentLogEnabled()) {
-    // #region agent log
-    console.debug('[graph-runtime-reset]', { nodeCount: 0, edgeCount: 0 })
-    // #endregion
+    graphLimit: null,
   }
   resetGraphViewportRuntime()
   resetGraphInteractionGuard()

@@ -53,7 +53,7 @@ function syncKnowledgePanels(docKey: DocKey): void {
     setBacklinkPanelDocKey(docKey)
     refreshBacklinkPanel(docKey)
   }
-  syncNoteGraphTopologyFromRoute(docKey, { depth: 2 })
+  syncNoteGraphTopologyFromRoute(docKey)
 }
 
 function openEntry(entry: NavigationEntry, recordHistory: boolean): NavigationEntry {

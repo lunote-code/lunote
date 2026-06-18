@@ -1,0 +1,131 @@
+/**
+ * Sakura Breeze — external CSS theme
+ *
+ * Soft sakura pink and cream — light, airy, minimal.
+ * Layer: palette tokens + personality deltas only.
+ *
+ * Copy to ~/.luna/theme/style/sakura-breeze.css → Rescan → Preferences → Appearance → External CSS tab.
+ * Reference: docs/theme-example/SELECTORS.md
+ */
+
+html[data-theme='light'] {
+  --surface-app: #faf6f4;
+  --surface-panel: rgba(255, 252, 251, 0.94);
+  --surface-editor: #fffcfb;
+  --surface-preview: #fff9f8;
+  --surface-hover: rgba(219, 146, 167, 0.08);
+  --surface-elevated: #ffffff;
+  --text-primary: #3d3338;
+  --text-secondary: #6b5d64;
+  --text-muted: #9a8a90;
+  --text-tertiary: #9a8a90;
+  --border-subtle: rgba(61, 51, 56, 0.09);
+  --border-strong: rgba(61, 51, 56, 0.15);
+  --accent: #db92a7;
+  --link: #c96b8a;
+  --link-hover: #b05574;
+  --link-visited: #9b7eb8;
+  --focus-ring: rgba(219, 146, 167, 0.24);
+  --code-bg: #fff5f7;
+  --code-gutter-fg: #9a8a90;
+  --code-gutter-bg: #faf6f4;
+  --inline-code-bg: #fceef2;
+  --shadow-soft: 0 1px 3px rgba(219, 146, 167, 0.08);
+  --shadow-panel: 0 12px 36px rgba(219, 146, 167, 0.1);
+}
+
+html[data-theme='dark'] {
+  --surface-app: #1f181b;
+  --surface-panel: rgba(38, 30, 34, 0.96);
+  --surface-editor: #241c20;
+  --surface-preview: #1a1417;
+  --surface-hover: rgba(219, 146, 167, 0.12);
+  --surface-elevated: #2c2226;
+  --text-primary: #f0e4e8;
+  --text-secondary: #c4aeb6;
+  --text-muted: #8a7880;
+  --text-tertiary: #8a7880;
+  --border-subtle: rgba(240, 228, 232, 0.08);
+  --border-strong: rgba(240, 228, 232, 0.14);
+  --accent: #e8a4b8;
+  --link: #e8a4b8;
+  --link-hover: #f0b8c8;
+  --link-visited: #c9a8e0;
+  --focus-ring: rgba(232, 164, 184, 0.26);
+  --code-bg: #1a1417;
+  --code-gutter-fg: #8a7880;
+  --code-gutter-bg: #1f181b;
+  --inline-code-bg: #322830;
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.45);
+  --shadow-panel: 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+
+html[data-theme='light'] .workspace-root {
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 0%, rgba(219, 146, 167, 0.06), transparent 65%),
+    var(--surface-app);
+}
+
+.app-shell {
+  background: var(--surface-app);
+  transition: background-color 200ms ease;
+}
+
+.sidebar {
+  backdrop-filter: blur(12px);
+  border-right: 1px solid color-mix(in srgb, var(--accent) 12%, var(--border-subtle));
+  box-shadow: inset -1px 0 0 color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror,
+.markdown-preview-view {
+  letter-spacing: 0.02em;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l1 .pm-heading-content,
+.preview-pane.markdown-visual-editor .ProseMirror > h1,
+.markdown-preview-view h1 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: color-mix(in srgb, var(--accent) 70%, var(--text-primary));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l2 .pm-heading-content,
+.preview-pane.markdown-visual-editor .ProseMirror > h2,
+.markdown-preview-view h2 {
+  color: var(--accent);
+  font-weight: 550;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline,
+.markdown-preview-view a {
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--link) 40%, transparent);
+  border-bottom-left-radius: 2px;
+  border-bottom-right-radius: 2px;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline:hover,
+.markdown-preview-view a:hover {
+  border-bottom-color: var(--link-hover);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror > blockquote,
+.markdown-preview-view blockquote {
+  border-left: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface-editor));
+  border-radius: 0 14px 14px 0;
+  padding: 0.55em 1.1em;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror code:not(pre code),
+.markdown-preview-view code:not(pre code) {
+  border-radius: 6px;
+  padding: 0.14em 0.38em;
+  background: var(--inline-code-bg);
+}

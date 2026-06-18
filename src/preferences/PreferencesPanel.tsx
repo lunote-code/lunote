@@ -25,7 +25,6 @@ import {
   APPEARANCE_SECTION_TABS,
   EDITOR_SECTION_TABS,
   EXPORT_SECTION_TABS,
-  IMPORT_SECTION_TABS,
 } from './prefsSectionTabsMeta'
 import { createPreferencesSectionDecorators } from './preferencesSectionDecorators'
 import { PreferencesTabPanel } from './PreferencesTabPanel'
@@ -46,7 +45,7 @@ type Props = {
   onLater: () => void
 }
 
-const TABBED_SCHEMA_TABS = new Set<PrefsTabId>(['appearance', 'export', 'editor', 'import'])
+const TABBED_SCHEMA_TABS = new Set<PrefsTabId>(['appearance', 'export', 'editor'])
 
 export function PreferencesPanel({
   t,
@@ -141,9 +140,7 @@ export function PreferencesPanel({
         ? APPEARANCE_SECTION_TABS
         : activeTab === 'export'
           ? EXPORT_SECTION_TABS
-          : activeTab === 'editor'
-            ? EDITOR_SECTION_TABS
-            : IMPORT_SECTION_TABS
+          : EDITOR_SECTION_TABS
 
     return (
       <PreferencesTabPanel tabId={activeTab}>

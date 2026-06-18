@@ -8,6 +8,7 @@ export type KnowledgeInteractionHost = {
   openAbsolutePath: (absolutePath: string) => void
   clearEditorSelection: () => void
   focusEditor: () => void
+  insertWikiLinkAtCursor?: (target: { docKey: string; title?: string }) => boolean
   onHoverIdChange: (id: string | null) => void
   openSearchModal: () => void
   /** After the document is opened: wait for editor ready → resolve anchor → reveal (disable restore overwriting).*/

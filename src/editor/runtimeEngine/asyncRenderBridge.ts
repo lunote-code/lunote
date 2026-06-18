@@ -1,4 +1,5 @@
 import { sanitizeMermaidSvgHtml } from '../mermaid/mermaidSvgSanitize'
+import { mermaidRenderErrorMessage } from '../mermaid/mermaidSourceLint'
 import { resolveMermaidEditorColors } from '../markdown/mermaid/mermaidThemeBridge'
 import { buildMermaidInitializeOptions } from '../../theme/buildMermaidInitializeOptions'
 import { postProcessMermaidSvg } from '../../theme/postProcessMermaidSvg'
@@ -127,8 +128,12 @@ export async function renderMermaidSvg(
     if (signal?.aborted) return null
 
     const id = `luna-mmd-${blockId}-${Date.now()}`
-    const { svg, bindFunctions } = await mermaid.render(id, source)
-    return { kind: 'mermaid-svg' as const, svg, bindKey: id, bindFunctions }
+    try {
+      const { svg, bindFunctions } = await mermaid.render(id, source)
+      return { kind: 'mermaid-svg' as const, svg, bindKey: id, bindFunctions }
+    } catch (error) {
+      throw new Error(mermaidRenderErrorMessage(error))
+    }
   }, signal)
 
   recordAsyncLatency(performance.now() - t0)

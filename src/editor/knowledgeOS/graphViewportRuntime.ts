@@ -126,7 +126,7 @@ export function computeViewportCenterOnNode(
 
 /** @deprecated Test/compatibility only; use centerOn intent for production paths.*/
 export function computeDeterministicFitView(
-  nodes: GraphViewportNodeBounds[],
+  nodes: readonly GraphViewportNodeBounds[],
   width: number,
   height: number,
   padding = 48,
@@ -160,6 +160,31 @@ export function computeDeterministicFitView(
     y: -cy * zoom,
     zoom,
   }
+}
+
+export const GRAPH_ZOOM_STEP = 1.12
+
+export function fitGraphViewToNodes(
+  nodes: readonly GraphViewportNodeBounds[],
+  width: number,
+  height: number,
+  padding = 48,
+): GraphViewport {
+  if (nodes.length === 0 || width <= 0 || height <= 0) {
+    return resetGraphViewToDefault()
+  }
+  return setGraphViewportIntent({
+    kind: 'set',
+    viewport: computeDeterministicFitView(nodes, width, height, padding),
+  })
+}
+
+export function resetGraphViewToDefault(): GraphViewport {
+  return setGraphViewportIntent({ kind: 'reset' })
+}
+
+export function zoomGraphViewByFactor(factor: number): GraphViewport {
+  return setGraphViewportIntent({ kind: 'zoom', factor })
 }
 
 export function resetGraphViewportRuntime(): void {

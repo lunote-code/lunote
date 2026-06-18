@@ -118,38 +118,6 @@ export function setGraphViewport(viewport: { x: number; y: number; zoom: number 
   state.graphViewport = viewport
 }
 
-export function serializeWorkspaceSession(): string {
-  return JSON.stringify({
-    vaultId: state.vaultId,
-    tabs: [...state.tabs.values()],
-    panes: state.panes,
-    activePaneId: state.activePaneId,
-    history: state.history,
-    graphViewport: state.graphViewport,
-  })
-}
-
-export function restoreWorkspaceSession(json: string): void {
-  try {
-    const data = JSON.parse(json) as {
-      vaultId: string | null
-      tabs: WorkspaceTab[]
-      panes: WorkspacePane[]
-      activePaneId: string | null
-      history: AbsoluteDocPath[]
-      graphViewport: { x: number; y: number; zoom: number }
-    }
-    state.vaultId = data.vaultId
-    state.tabs = new Map(data.tabs.map((t) => [t.id, t]))
-    state.panes = data.panes
-    state.activePaneId = data.activePaneId
-    state.history = data.history
-    state.graphViewport = data.graphViewport
-  } catch {
-    /* ignore corrupt session */
-  }
-}
-
 export function resetWorkspaceRuntime(): void {
   state.vaultId = null
   state.tabs.clear()

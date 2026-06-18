@@ -53,7 +53,15 @@ declare global {
 }
 
 const QA_DOCUMENT_KEY = 'qa:mode-switch'
-const QA_MARKDOWN = '# Mode switch QA\n\nParagraph with **bold** and `code`.\n'
+const QA_MARKDOWN = `# Mode switch QA
+
+Paragraph with **bold** and \`code\`.
+
+\`\`\`mermaid
+flowchart LR
+  A --> B
+\`\`\`
+`
 
 const QA_BOOTSTRAP = {
   mergedMessages: getLocaleMessagesSnapshot('en'),

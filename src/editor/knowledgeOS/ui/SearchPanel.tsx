@@ -1,21 +1,44 @@
-import { forwardRef, useCallback, useEffect, useId, useState, type RefObject } from 'react'
+import { forwardRef, useCallback, useEffect, useId, useMemo, useState, type RefObject } from 'react'
 
 import { EmptyState } from '../../../design-system/EmptyState'
 import { Icon } from '../../../design-system/icons'
+import { getBacklinksForDoc, getDocumentMeta } from '../../knowledgeRuntime'
 import type { SearchHit } from '../../knowledgeRuntime/types'
 import { runKnowledgeSearch } from '../knowledgeSearchRuntime'
 import { useSearchSlice } from './useKnowledgeOSSlice'
 import { dispatchKnowledgeNavigateHit } from './interactionTransaction'
 import { useI18n } from '../../../i18n'
+import { getKnowledgeInteractionHost } from './knowledgeInteractionHost'
 
 type Props = {
   query: string
   onQueryChange: (q: string) => void
   autoFocus?: boolean
   onHitOpened?: () => void
+  onTagNavigate?: (tag: string) => void
+  onOpenGraph?: () => void
   /** When false, input is rendered in the rail/sidebar header; bind keyboard via externalInputRef. */
   showInput?: boolean
   externalInputRef?: RefObject<HTMLInputElement | null>
+}
+
+type SearchGroupKey = SearchHit['matchKind']
+
+const SEARCH_GROUP_ORDER: SearchGroupKey[] = ['title', 'content', 'tag', 'backlink']
+
+function groupHits(hits: SearchHit[]): Array<{ kind: SearchGroupKey; hits: SearchHit[] }> {
+  const grouped = new Map<SearchGroupKey, SearchHit[]>()
+  for (const hit of hits) {
+    const group = grouped.get(hit.matchKind) ?? []
+    group.push(hit)
+    grouped.set(hit.matchKind, group)
+  }
+  return SEARCH_GROUP_ORDER
+    .map((kind) => {
+      const groupHitsForKind = grouped.get(kind) ?? []
+      return groupHitsForKind.length > 0 ? { kind, hits: groupHitsForKind } : null
+    })
+    .filter(Boolean) as Array<{ kind: SearchGroupKey; hits: SearchHit[] }>
 }
 
 function isComposingKeyEvent(e: KeyboardEvent | React.KeyboardEvent<HTMLInputElement>): boolean {
@@ -23,7 +46,7 @@ function isComposingKeyEvent(e: KeyboardEvent | React.KeyboardEvent<HTMLInputEle
 }
 
 export const SearchPanel = forwardRef<HTMLInputElement, Props>(function SearchPanel(
-  { query, onQueryChange, autoFocus, onHitOpened, showInput = true, externalInputRef },
+  { query, onQueryChange, autoFocus, onHitOpened, onTagNavigate, onOpenGraph, showInput = true, externalInputRef },
   inputRef,
 ) {
   const { t } = useI18n()
@@ -61,6 +84,8 @@ export const SearchPanel = forwardRef<HTMLInputElement, Props>(function SearchPa
     !queryPending && debounced.trim() && query.trim() && snap.query === debounced.trim()
       ? snap.hits
       : []
+  const groupedHits = useMemo(() => groupHits(hits), [hits])
+  const canInsertWikiLink = Boolean(getKnowledgeInteractionHost()?.insertWikiLinkAtCursor)
   const highlightedIndex = hoverIndex >= 0 ? hoverIndex : activeIndex
   const activeOptionId = hits.length > 0 ? `${listboxId}-option-${highlightedIndex}` : undefined
   const showLoading =
@@ -89,6 +114,26 @@ export const SearchPanel = forwardRef<HTMLInputElement, Props>(function SearchPa
       onHitOpened?.()
     },
     [onHitOpened],
+  )
+
+  const insertWikiLink = useCallback(
+    (hit: SearchHit) => {
+      const inserted = getKnowledgeInteractionHost()?.insertWikiLinkAtCursor?.({
+        docKey: hit.docKey,
+        title: hit.title,
+      })
+      if (inserted) onHitOpened?.()
+    },
+    [onHitOpened],
+  )
+
+  const openHitGraph = useCallback(
+    (hit: SearchHit) => {
+      dispatchKnowledgeNavigateHit('search', hit)
+      onOpenGraph?.()
+      onHitOpened?.()
+    },
+    [onHitOpened, onOpenGraph],
   )
 
   const onInputKeyDown = useCallback(
@@ -170,24 +215,94 @@ export const SearchPanel = forwardRef<HTMLInputElement, Props>(function SearchPa
     />
   ) : null
 
-  const hitList = hits.map((hit, idx) => {
-    const shared = {
-      type: 'button' as const,
-      id: `${listboxId}-option-${idx}`,
-      role: 'option' as const,
-      'aria-selected': idx === highlightedIndex,
-      'data-active': idx === highlightedIndex ? ('true' as const) : undefined,
-      onMouseEnter: () => setHoverIndex(idx),
-      onClick: () => openHit(hit),
-    }
+  let globalHitIndex = -1
+  const hitList = groupedHits.map((group) => {
+    const groupLabel =
+      group.kind === 'title'
+        ? t('knowledge.search.group.title')
+        : group.kind === 'content'
+          ? t('knowledge.search.group.content')
+          : group.kind === 'tag'
+            ? t('knowledge.search.group.tag')
+            : t('knowledge.search.group.backlink')
 
     return (
-      <li key={hit.docKey} role="presentation">
-        <button {...shared} className="kos-link-btn kos-search-hit">
-          <strong>{hit.title}</strong>
-          {hit.snippet ? <span className="kos-search-snippet">{hit.snippet}</span> : null}
-          <span className="kos-search-score">{Math.round(hit.score)}</span>
-        </button>
+      <li key={group.kind} className="kos-search-group" role="presentation">
+        <div className="kos-search-group-heading">
+          <span>{groupLabel}</span>
+          <span className="kos-panel-muted">{group.hits.length}</span>
+        </div>
+        <ul className="kos-search-group-list" role="presentation">
+          {group.hits.map((hit) => {
+            globalHitIndex += 1
+            const idx = globalHitIndex
+            const meta = getDocumentMeta(hit.docKey)
+            const tags = meta?.outboundTags?.slice(0, 4) ?? []
+            const hiddenTagCount = Math.max(0, (meta?.outboundTags?.length ?? 0) - tags.length)
+            const backlinkCount = getBacklinksForDoc(hit.docKey).length
+            const shared = {
+              type: 'button' as const,
+              id: `${listboxId}-option-${idx}`,
+              role: 'option' as const,
+              'aria-selected': idx === highlightedIndex,
+              'data-active': idx === highlightedIndex ? ('true' as const) : undefined,
+              onMouseEnter: () => setHoverIndex(idx),
+              onClick: () => openHit(hit),
+            }
+
+            return (
+              <li key={`${group.kind}-${hit.docKey}`} role="presentation">
+                <div className="kos-search-hit-card">
+                  <button {...shared} className="kos-link-btn kos-search-hit">
+                    <strong>{hit.title}</strong>
+                    {hit.snippet ? <span className="kos-search-snippet">{hit.snippet}</span> : null}
+                    <span className="kos-search-hit-meta">
+                      <span className="kos-search-hit-backlinks">
+                        {t('knowledge.search.result.backlinks', { count: backlinkCount })}
+                      </span>
+                    </span>
+                  </button>
+                  {tags.length > 0 ? (
+                    <div className="kos-search-hit-tags">
+                      {tags.map((tag) => (
+                        <button
+                          key={`${hit.docKey}-${tag}`}
+                          type="button"
+                          className="kos-search-hit-tag"
+                          onClick={() => onTagNavigate?.(tag)}
+                        >
+                          #{tag}
+                        </button>
+                      ))}
+                      {hiddenTagCount > 0 ? (
+                        <span className="kos-panel-muted">
+                          {t('knowledge.search.result.moreTags', { count: hiddenTagCount })}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <div className="kos-search-hit-actions">
+                    <button
+                      type="button"
+                      className="kos-search-hit-action"
+                      disabled={!canInsertWikiLink}
+                      onClick={() => insertWikiLink(hit)}
+                    >
+                      {t('knowledge.search.action.insertLink')}
+                    </button>
+                    <button
+                      type="button"
+                      className="kos-search-hit-action"
+                      onClick={() => openHitGraph(hit)}
+                    >
+                      {t('knowledge.search.action.openGraph')}
+                    </button>
+                  </div>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
       </li>
     )
   })

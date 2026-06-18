@@ -11,9 +11,11 @@ export type KnowledgeRailTab = 'backlinks' | 'graph' | 'tags' | 'frontmatter' | 
 type Props = {
   activeDocKey: string | null
   tab: KnowledgeRailTab
+  focusedTag?: string | null
+  onTagNavigate?: (tag: string) => void
 }
 
-export function KnowledgeTabs({ activeDocKey, tab }: Props) {
+export function KnowledgeTabs({ activeDocKey, tab, focusedTag = null, onTagNavigate }: Props) {
   const tabRootRef = useRef<HTMLDivElement>(null)
   const tabPanelRef = useRef<HTMLDivElement>(null)
   useTabSurfaceLayout(tab, tabRootRef, tabPanelRef)
@@ -41,15 +43,15 @@ export function KnowledgeTabs({ activeDocKey, tab }: Props) {
           aria-labelledby={tabLabelId}
         >
           {tab === 'backlinks' ? (
-            <BacklinkPanel docKey={activeDocKey} />
+            <BacklinkPanel key={activeDocKey ?? 'none'} docKey={activeDocKey} />
           ) : tab === 'graph' ? (
-            <GraphPanel centerDocKey={activeDocKey} />
+            <GraphPanel key={activeDocKey ?? 'none'} centerDocKey={activeDocKey} />
           ) : tab === 'tags' ? (
-            <TagsPanel />
+            <TagsPanel focusTag={focusedTag} />
           ) : tab === 'frontmatter' ? (
-            <FrontmatterPanel docKey={activeDocKey} />
+            <FrontmatterPanel key={activeDocKey ?? 'none'} docKey={activeDocKey} onTagNavigate={onTagNavigate} />
           ) : (
-            <EmbedsPanel docKey={activeDocKey} />
+            <EmbedsPanel key={activeDocKey ?? 'none'} docKey={activeDocKey} />
           )}
         </div>
       </div>

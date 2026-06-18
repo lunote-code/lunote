@@ -142,8 +142,10 @@
 .sidebar-workspace-onboarding {
   width: 100%;
   margin-top: 8px;
-  padding-top: 12px;
-  border-top: var(--hairline) solid var(--border-subtle);
+  padding: 12px;
+  border: var(--hairline) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-raised, var(--surface-primary)) 88%, transparent);
 }
 
 .sidebar-workspace-onboarding-label {
@@ -155,12 +157,33 @@
   color: var(--text-muted);
 }
 
+.sidebar-workspace-onboarding-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
 .sidebar-workspace-onboarding-steps {
   margin: 0 0 8px;
   padding-left: 18px;
   font-size: 12px;
   line-height: 1.55;
   color: var(--text-secondary);
+}
+
+.sidebar-workspace-onboarding-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.sidebar-workspace-onboarding-actions .luna-empty-state-btn-secondary {
+  width: 100%;
+  text-align: left;
+  justify-content: flex-start;
 }
 
 .sidebar-workspace-onboarding-dismiss {

@@ -10,6 +10,7 @@ import { importMarkdownViaDialog, listWorkspaceTree } from '../platform/tauri/wo
 import { refreshWorkspaceIndex } from '../app/workspace/workspaceIndexCoordinator'
 import { isTauri } from '@tauri-apps/api/core'
 import { createManualSnapshotForDocument } from '../documentHistory/historyService'
+import { humanizeExportError } from '../export/exportUserFacingError'
 
 type AppActionHandler = (m: AppMenuContext, ui: AppMenuUiDeps) => Promise<boolean>
 
@@ -302,7 +303,7 @@ const FILE_APP_ACTIONS: Record<string, AppActionHandler> = {
       m.setStatus(m.t('app.status.exported'))
     } catch (error) {
       m.setStatus(
-        m.t('app.status.exportFailed', { message: error instanceof Error ? error.message : String(error) }),
+        m.t('app.status.exportFailed', { message: humanizeExportError(error, m.t) }),
       )
     }
     return true

@@ -20,6 +20,7 @@ import {
 } from '../../editor/editorMutationBridge'
 import { imageAltFromFileName, pickLocalImageFiles } from '../../editor/lunaInsertImagePicker'
 import { pasteFromNavigatorClipboard } from '../../editor/pasteFromNavigatorClipboard'
+import { takeLastPasteIssue } from '../../editor/pasteIssueReporter'
 import {
   codeBlockCmCutSelection,
   codeBlockCmSelectedText,
@@ -239,7 +240,7 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
           sourceViewRef: editorViewRef,
           mainPaneMode: mainPaneModeRef.current,
         })
-        if (!ok) setStatus(t('app.status.clipboardReadFailed'))
+        if (!ok && !takeLastPasteIssue()) setStatus(t('app.status.clipboardReadFailed'))
       } catch {
         setStatus(t('app.status.clipboardReadFailed'))
       }

@@ -59,6 +59,8 @@ declare global {
       getActivePath: () => string
       getOpenTabs: () => string[]
       isSidebarVisible: () => boolean
+      getMainPaneMode: () => 'visual' | 'source'
+      isKnowledgeRailVisible: () => boolean
       openFolder: () => void
       createNewNote: () => void
       toggleSidebar: () => void
@@ -99,6 +101,8 @@ function QaFirstRunInner() {
   const [openedTabs, setOpenedTabs] = useState<string[]>([])
   const [activePath, setActivePath] = useState('')
   const [sidebarVisible, setSidebarVisible] = useState(true)
+  const [mainPaneMode, setMainPaneMode] = useState<'visual' | 'source'>('visual')
+  const [knowledgeRailVisible, setKnowledgeRailVisible] = useState(false)
   const [searchText, setSearchText] = useState('')
   const [sidebarListMode, setSidebarListMode] = useState<'files' | 'outline'>('files')
   const [sidebarFileView, setSidebarFileView] = useState<'tree' | 'list'>('tree')
@@ -202,6 +206,8 @@ function QaFirstRunInner() {
       getActivePath: () => activePathRef.current,
       getOpenTabs: () => [...openedTabsRef.current],
       isSidebarVisible: () => sidebarVisibleRef.current,
+      getMainPaneMode: () => mainPaneMode,
+      isKnowledgeRailVisible: () => knowledgeRailVisible,
       openFolder,
       createNewNote,
       toggleSidebar,
@@ -210,7 +216,7 @@ function QaFirstRunInner() {
     return () => {
       delete window.__QA_FIRST_RUN__
     }
-  }, [createNewNote, openFolder, toggleSidebar])
+  }, [createNewNote, knowledgeRailVisible, mainPaneMode, openFolder, toggleSidebar])
 
   const workspaceMenuPopStyle: CSSProperties | null = workspaceMenuOpen
     ? {
@@ -233,6 +239,8 @@ function QaFirstRunInner() {
         <p data-testid="qa-active-path">{activePath}</p>
         <p data-testid="qa-open-tabs">{openedTabs.join('|')}</p>
         <p data-testid="qa-sidebar-visible">{sidebarVisible ? 'yes' : 'no'}</p>
+        <p data-testid="qa-main-pane-mode">{mainPaneMode}</p>
+        <p data-testid="qa-knowledge-rail-visible">{knowledgeRailVisible ? 'yes' : 'no'}</p>
       </div>
 
       <div
@@ -244,6 +252,12 @@ function QaFirstRunInner() {
             t={t}
             rootDir={rootDir}
             activePath={activePath}
+            mainPaneMode={mainPaneMode}
+            knowledgeRailVisible={knowledgeRailVisible}
+            onOpenKnowledgePanel={() => setKnowledgeRailVisible(true)}
+            onToggleMainPaneMode={() =>
+              setMainPaneMode((mode) => (mode === 'visual' ? 'source' : 'visual'))
+            }
             searchText={searchText}
             setSearchText={setSearchText}
             isSidebarFiltering={Boolean(searchText.trim())}
@@ -253,7 +267,6 @@ function QaFirstRunInner() {
             dragOverTarget={null}
             setDragOverTarget={() => undefined}
             onSidebarBlankContextMenu={() => undefined}
-            dispatchOpenDocument={() => undefined}
             onSidebarFileContextMenu={() => undefined}
             outlineHeadings={[]}
             activeOutlineId={null}

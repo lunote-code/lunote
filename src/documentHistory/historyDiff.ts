@@ -1,3 +1,5 @@
+import { attachDocumentFrontmatter } from '../editor/documentFrontmatterStore'
+
 export type DocumentHistoryDiffKind = 'same' | 'current' | 'snapshot' | 'both'
 
 export type DocumentHistoryDiffRow = {
@@ -9,6 +11,35 @@ export type DocumentHistoryDiffRow = {
 
 function splitLines(text: string): string[] {
   return text.replace(/\r\n/g, '\n').split('\n')
+}
+
+/** Merge detached YAML/tags into the live editor body before history compare. */
+export function normalizeDocumentMarkdownForHistoryCompare(
+  path: string,
+  markdown: string,
+  side: 'current' | 'snapshot',
+): string {
+  const normalized = markdown.replace(/\r\n/g, '\n')
+  if (!path || side === 'snapshot') return normalized
+  return attachDocumentFrontmatter(path, normalized).replace(/\r\n/g, '\n')
+}
+
+export function documentHistoryContentEquals(path: string, current: string, snapshot: string): boolean {
+  return (
+    normalizeDocumentMarkdownForHistoryCompare(path, current, 'current') ===
+    normalizeDocumentMarkdownForHistoryCompare(path, snapshot, 'snapshot')
+  )
+}
+
+export function buildDocumentHistoryDiffRowsForPath(
+  path: string,
+  current: string,
+  snapshot: string,
+): DocumentHistoryDiffRow[] {
+  return buildDocumentHistoryDiffRows(
+    normalizeDocumentMarkdownForHistoryCompare(path, current, 'current'),
+    normalizeDocumentMarkdownForHistoryCompare(path, snapshot, 'snapshot'),
+  )
 }
 
 export function buildDocumentHistoryDiffRows(current: string, snapshot: string): DocumentHistoryDiffRow[] {

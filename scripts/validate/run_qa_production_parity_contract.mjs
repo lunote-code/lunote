@@ -45,6 +45,7 @@ function testMainQaRoutesRegistered() {
     'workspace-sidebar-selection',
     'first-run',
     'knowledge',
+    'app-knowledge',
     'document-editor',
     'startup',
   ]) {

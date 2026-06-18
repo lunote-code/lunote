@@ -26,7 +26,6 @@ import {
   onKnowledgeOSWorkspaceClosing,
   openNoteInWorkspace,
   registerVaultFileAdapter,
-  getKnowledgeWorkspaceSnapshot,
 } from '../index'
 import { enqueueRenameLinkPropagation } from '../noteLifecycleRuntime'
 import type { AbsoluteDocPath, SearchHit, WikiLinkTarget } from '../../knowledgeRuntime/types'
@@ -171,25 +170,19 @@ export function navigateWikiLink(
   return true
 }
 
-/** workspace restore: Prioritize Luna snapshot tabs; no longer roll back Knowledge sessions when openTabs (containing []) are explicitly passed in*/
+/** workspace restore: Luna snapshot tabs are the sole source of open tab paths */
 export function getWorkspaceRestorePlan(
   treeHas: (path: string) => boolean,
-  lunaOpenTabs?: readonly string[] | null,
+  lunaOpenTabs: readonly string[],
 ): {
   tabPaths: string[]
   activePath: string | null
 } {
-  if (lunaOpenTabs !== undefined && lunaOpenTabs !== null) {
-    const lunaTabs = lunaOpenTabs.filter(treeHas)
-    return {
-      tabPaths: lunaTabs,
-      activePath: lunaTabs[lunaTabs.length - 1] ?? null,
-    }
+  const lunaTabs = lunaOpenTabs.filter(treeHas)
+  return {
+    tabPaths: lunaTabs,
+    activePath: lunaTabs[lunaTabs.length - 1] ?? null,
   }
-  const tabPaths = restoreKnowledgeTabsFromRuntime().filter(treeHas)
-  const active = restoreKnowledgeActivePath()
-  const activePath = active && treeHas(active) ? active : tabPaths[0] ?? null
-  return { tabPaths, activePath }
 }
 
 export function openSearchHit(hit: SearchHit, openPath: (absolutePath: string) => void): void {
@@ -201,13 +194,3 @@ export function persistKnowledgeWorkspace(rootDir: string): void {
   persistKnowledgeUILayout(vaultIdFromRoot(rootDir))
 }
 
-export function restoreKnowledgeTabsFromRuntime(): string[] {
-  const snap = getKnowledgeWorkspaceSnapshot()
-  return snap.tabs.map((t) => t.absolutePath).filter(Boolean)
-}
-
-export function restoreKnowledgeActivePath(): string | null {
-  const snap = getKnowledgeWorkspaceSnapshot()
-  const active = snap.tabs.find((t) => t.active)
-  return active?.absolutePath ?? null
-}

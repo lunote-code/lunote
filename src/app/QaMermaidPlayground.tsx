@@ -10,12 +10,14 @@ import { EditorOpenReason } from '../editor/editorOpenReason'
 import { markAppSettingsHydratedForTests } from '../settings/appSettingsStore'
 import { DEFAULT_APP_SETTINGS } from '../settings/appSettingsTypes'
 
-const QA_INITIAL_MARKDOWN = `# Mermaid QA
+const MERMAID_WITH_TRAILING_PARAGRAPH = `# Mermaid QA
 
 \`\`\`mermaid
 flowchart LR
   A --> B
 \`\`\`
+
+After block.
 `
 
 declare global {
@@ -28,6 +30,11 @@ declare global {
       svgText: () => string
       hasSvg: () => boolean
       hasConsoleErrors: () => boolean
+      isRendering: () => boolean
+      renderErrorText: () => string
+      deleteMermaidBlock: () => boolean
+      focusCursorAfterMermaidBlock: () => boolean
+      mermaidBlockCount: () => number
     }
   }
 }
@@ -48,11 +55,13 @@ function queryMermaidShell(): HTMLElement | null {
 }
 
 function QaMermaidInner() {
-  markAppSettingsHydratedForTests(QA_APP_SETTINGS)
+  useEffect(() => {
+    markAppSettingsHydratedForTests(QA_APP_SETTINGS)
+  }, [])
 
   const editorRef = useRef<TiptapMarkdownEditorHandle>(null)
   const [docKey, setDocKey] = useState(`${QA_DOCUMENT_KEY}:0`)
-  const [markdown, setMarkdown] = useState(QA_INITIAL_MARKDOWN)
+  const [markdown, setMarkdown] = useState(MERMAID_WITH_TRAILING_PARAGRAPH)
   const [status, setStatus] = useState('booting')
   const consoleErrorsRef = useRef<string[]>([])
 
@@ -82,6 +91,36 @@ function QaMermaidInner() {
         document.querySelector('.qa-mermaid-shell .pm-mermaid-svg-host svg')?.textContent?.trim() ?? '',
       hasSvg: () => Boolean(document.querySelector('.qa-mermaid-shell .pm-mermaid-svg-host svg')),
       hasConsoleErrors: () => consoleErrorsRef.current.length > 0,
+      isRendering: () => Boolean(document.querySelector('.qa-mermaid-shell .pm-mermaid-loading')),
+      renderErrorText: () =>
+        document.querySelector('.qa-mermaid-shell .pm-mermaid-error')?.textContent?.trim() ?? '',
+      mermaidBlockCount: () =>
+        document.querySelectorAll('.qa-mermaid-shell .code-block--mermaid').length,
+      deleteMermaidBlock: () => {
+        const editor = editorRef.current?.getEditor()
+        if (!editor) return false
+        let targetPos: number | null = null
+        editor.state.doc.descendants((node, pos) => {
+          if (node.type.name === 'mermaidBlock' && targetPos == null) targetPos = pos
+        })
+        if (targetPos == null) return false
+        return editor.chain().focus().setNodeSelection(targetPos).deleteSelection().run()
+      },
+      focusCursorAfterMermaidBlock: () => {
+        const editor = editorRef.current?.getEditor()
+        if (!editor) return false
+        let targetPos: number | null = null
+        editor.state.doc.descendants((node, pos) => {
+          if (node.type.name === 'mermaidBlock' && targetPos == null) targetPos = pos
+        })
+        if (targetPos == null) return false
+        const node = editor.state.doc.nodeAt(targetPos)
+        if (!node) return false
+        const after = targetPos + node.nodeSize
+        const $after = editor.state.doc.resolve(after)
+        const selectionPos = $after.nodeAfter?.isTextblock ? after + 1 : after
+        return editor.chain().focus().setTextSelection(selectionPos).run()
+      },
     }
     setStatus('ready')
     return () => {

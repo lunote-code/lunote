@@ -49,17 +49,6 @@ function markLinkGraphIndexMutated(): void {
   linkGraphIndexRevision += 1
 }
 
-function isAgentLogEnabled(): boolean {
-  if (!import.meta.env.DEV) return false
-  const g = globalThis as { __KOS_AGENT_LOG__?: boolean }
-  if (g.__KOS_AGENT_LOG__ === true) return true
-  try {
-    return localStorage.getItem('kos.agentLog') === '1'
-  } catch {
-    return false
-  }
-}
-
 function linkRefKey(ref: LinkRef): string {
   return `${ref.sourceDocKey}|${ref.targetDocKey}|${ref.start}|${ref.end}|${ref.raw}`
 }
@@ -137,14 +126,12 @@ export function linkRefsFromParsedWikiLinks(
   links: readonly ParsedWikiLink[],
 ): LinkRef[] {
   const refs: LinkRef[] = []
-  const agentLogEnabled = isAgentLogEnabled()
   for (const l of links) {
     const implicitHeadingTarget =
       !l.target.heading && !l.target.blockId
         ? resolveHeadingTarget(l.target.docKey)
         : null
     const resolvedTarget = resolveWikiLinkTarget(l.target.docKey)
-    const resolvedDocKey = resolvedTarget.status === 'resolved' ? resolvedTarget.docKey : null
     const canonicalTarget = canonicalizeWikiLinkText(l.target.docKey)
     const displayTarget =
       l.target.alias?.trim() || wikiLinkInnerTargetText(l.raw, l.target.docKey)
@@ -157,18 +144,6 @@ export function linkRefsFromParsedWikiLinks(
       raw: displayTarget,
       canonical: canonicalTarget,
       label: displayTarget,
-    }
-    if (!resolvedDocKey && agentLogEnabled) {
-      const reason = 'unresolved_registry_document'
-      // #region agent log
-      console.debug('[graph-node-marked-unresolved]', { raw: l.raw, targetRaw: l.target.docKey, canonicalTarget, resolved: false, reason })
-      // #endregion
-    }
-    if (resolvedDocKey && agentLogEnabled) {
-      const generatedSlug = canonicalTarget
-      // #region agent log
-      console.debug('[graph-node-created]', { traceId: null, sourceDoc: sourceDocKey, targetRaw: l.target.docKey, canonicalTarget, resolvedDocKey, generatedNodeId: `page:${resolvedDocKey}`, generatedSlug, finalDocKey: resolvedDocKey, raw: l.raw })
-      // #endregion
     }
     refs.push({
       sourceDocKey,

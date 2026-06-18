@@ -6,6 +6,7 @@ const baseURL = `http://localhost:${PORT}`
 export default defineConfig({
   testDir: './scripts/test',
   testMatch: '**/*.spec.ts',
+  testIgnore: process.env.PLAYWRIGHT_SKIP_MEMORY === '1' ? ['**/document-editor/memory.spec.ts'] : [],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

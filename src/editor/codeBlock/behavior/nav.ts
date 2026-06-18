@@ -1,6 +1,6 @@
 import { Extension, type Editor } from '@tiptap/core'
 import type { ResolvedPos } from '@tiptap/pm/model'
-import { Selection } from '@tiptap/pm/state'
+import { Selection, TextSelection } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
 
 import { codeBlockNodeAt } from '../behavior/selection'
@@ -9,6 +9,7 @@ import { isCodeBlockCmFocused } from '../cm/codeBlockCmFocus'
 import { enterCodeBlockCmAtDocPos } from '../cm/codeBlockCmPmDelegate'
 import { ensurePmEditableForCodeBlockInteraction } from '../cm/codeBlockCmPmFocusLock'
 import { isPosInsideCodeSpecBlock } from '../../lunaCodeContext'
+import { isEmptyParagraphNode } from '../../lunaImageParagraphUtils'
 
 /** The starting position of the `codeBlock` node in the document where the current selection is located (`nodeBefore` side)*/
 export function codeBlockStartDocPos($from: ResolvedPos): number | null {
@@ -121,6 +122,14 @@ export function exitCodeBlockBackward(editor: Editor, blockStart: number): boole
     $at = doc.resolve(blockStart)
   } catch {
     return false
+  }
+  const nodeBefore = $at.nodeBefore
+  if (nodeBefore && isEmptyParagraphNode(nodeBefore)) {
+    const pos = blockStart - nodeBefore.nodeSize + 1
+    const tr = state.tr.setSelection(TextSelection.create(doc, pos)).scrollIntoView()
+    editor.view.dispatch(tr)
+    editor.view.focus()
+    return true
   }
   const sel = Selection.near($at, -1)
   const tr = state.tr.setSelection(sel).scrollIntoView()

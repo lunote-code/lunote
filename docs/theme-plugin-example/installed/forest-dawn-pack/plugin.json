@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 2,
+  "id": "forest-dawn-pack",
+  "name": "Forest Dawn Pack",
+  "version": "1.0.0",
+  "entry": null,
+  "pluginType": "theme-pack",
+  "capabilities": [
+    "theme.style"
+  ],
+  "platforms": [
+    "desktop",
+    "web"
+  ],
+  "requiresRestart": false,
+  "experimental": false,
+  "minAppVersion": "0.6.0",
+  "maxAppVersion": null,
+  "permissions": {
+    "theme": {
+      "register": true
+    }
+  },
+  "contributes": {
+    "theme": {
+      "style": [
+        {
+          "file": "theme/style/forest-dawn-pack.css",
+          "label": "Forest Dawn",
+          "description": "Forest-inspired light/dark palette with gradient accents."
+        }
+      ],
+      "snippets": [],
+      "tokens": [],
+      "defaultEnable": {
+        "style": false
+      }
+    },
+    "commands": [],
+    "preferencesSections": [],
+    "panels": []
+  }
+}

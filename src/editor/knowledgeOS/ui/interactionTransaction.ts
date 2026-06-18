@@ -99,17 +99,6 @@ type BacklinkClickNavigatePayload = {
 
 type ClickNavigatePayload = GraphClickNavigatePayload | BacklinkClickNavigatePayload
 
-function isAgentLogEnabled(): boolean {
-  if (!import.meta.env.DEV) return false
-  const g = globalThis as { __KOS_AGENT_LOG__?: boolean }
-  if (g.__KOS_AGENT_LOG__ === true) return true
-  try {
-    return localStorage.getItem('kos.agentLog') === '1'
-  } catch {
-    return false
-  }
-}
-
 function mapSource(source: InteractionSource): InteractionIntentSource {
   return source === 'command' ? 'cmdk' : source
 }
@@ -172,11 +161,6 @@ export function dispatchKnowledgeNavigate(
   if ('intent' in targetOrPayload) {
     const { intent } = targetOrPayload
     const traceId = targetOrPayload.traceId ?? `nav-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    if (isAgentLogEnabled()) {
-      // #region agent log
-      console.debug('[navigation-intent]', { traceId, docKey: source === 'graph' ? (targetOrPayload as GraphClickNavigatePayload).hit?.docKey ?? null : source === 'backlink' ? (targetOrPayload as BacklinkClickNavigatePayload).target.docKey ?? null : null, resolvedPath: null, root: null, eventType: null, commandType: null, source, allowDispatch: intent.allowDispatch, reason: intent.reason })
-      // #endregion
-    }
     if (!intent.allowDispatch) return false
 
     const target =
@@ -187,11 +171,6 @@ export function dispatchKnowledgeNavigate(
         }, 'graph')
         : (targetOrPayload as BacklinkClickNavigatePayload).target
     assertNavigationAuthority(target)
-    if (isAgentLogEnabled()) {
-      // #region agent log
-      console.debug('[navigation-intent-emitted]', { traceId, source, docKey: target.docKey, heading: target.heading ?? null, blockId: target.blockId ?? null, intentType: intent.type, reason: intent.reason })
-      // #endregion
-    }
 
     const navEvent = source === 'graph'
       ? dispatchGraphFocusNavigation(target.docKey, {

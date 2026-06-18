@@ -173,17 +173,6 @@ function logDirtyProbe(
   })
 }
 
-function isAgentLogEnabled(): boolean {
-  if (!import.meta.env.DEV) return false
-  const g = globalThis as { __KOS_AGENT_LOG__?: boolean }
-  if (g.__KOS_AGENT_LOG__ === true) return true
-  try {
-    return localStorage.getItem('kos.agentLog') === '1'
-  } catch {
-    return false
-  }
-}
-
 function devQuickHash(text: string): string {
   let h = 2166136261
   for (let i = 0; i < text.length; i += 1) {
@@ -483,14 +472,6 @@ export function applyActiveDocumentContentImmediately(
 }
 
 async function dispatchDocumentCommandInner(command: DocumentCommand): Promise<string | void> {
-  if (command.type === 'OPEN_DOCUMENT' || command.type === 'OPEN_DOCUMENT_IN_TAB' || command.type === 'OPEN_DOCUMENT_REVEAL') {
-    const traceId = command.traceId ?? `kernel-${Date.now()}`
-    if (isAgentLogEnabled()) {
-      // #region agent log
-      console.debug('[kernel-open]', { traceId, docKey: null, resolvedPath: command.path, root: command.root, eventType: null, commandType: command.type, source: command.source ?? null, hasCapabilities: Boolean(capabilities) })
-      // #endregion
-    }
-  }
   if (!capabilities) {
     throw new Error('DocumentRuntimeKernel has no registered capabilities')
   }
@@ -499,76 +480,62 @@ async function dispatchDocumentCommandInner(command: DocumentCommand): Promise<s
     case 'OPEN_DOCUMENT': {
       const traceId = command.traceId ?? `kernel-${Date.now()}`
       const rootChanged = Boolean(command.root) && command.root !== snapshot.rootDir
-      try {
-        const content = await capabilities.readDocument(command.root, command.path)
-        capabilities.setActiveDocument(command.path, content)
-        capabilities.onDocumentOpened?.(command.root, command.path, content)
-        capabilities.onAfterOpen?.(command.path, content)
-        if (rootChanged) clearSavedContent()
-        setSavedContent(command.path, content)
-        const nextDirtyByPath = rootChanged
-          ? {}
-          : dirtyFlagForPath(command.path, content, snapshot.dirtyByPath)
-        logDirtyProbe('open-document', {
-          path: command.path,
-          content,
-          source: command.source,
-          nextDirtyByPath,
-          extra: {
-            commandType: command.type,
-            root: command.root,
-            rootChanged,
-          },
-        })
-        setKernelSnapshot({
-          rootDir: command.root,
-          activePath: command.path,
-          content,
-          dirtyByPath: nextDirtyByPath,
-        })
-        publishDocumentEvent({
-          type: 'DocumentOpened',
+      const content = await capabilities.readDocument(command.root, command.path)
+      capabilities.setActiveDocument(command.path, content)
+      capabilities.onDocumentOpened?.(command.root, command.path, content)
+      capabilities.onAfterOpen?.(command.path, content)
+      if (rootChanged) clearSavedContent()
+      setSavedContent(command.path, content)
+      const nextDirtyByPath = rootChanged
+        ? {}
+        : dirtyFlagForPath(command.path, content, snapshot.dirtyByPath)
+      logDirtyProbe('open-document', {
+        path: command.path,
+        content,
+        source: command.source,
+        nextDirtyByPath,
+        extra: {
+          commandType: command.type,
           root: command.root,
-          path: command.path,
-          content,
-          source: command.source,
-          timestamp: documentEventTimestamp(),
-        })
-        if (isAgentLogEnabled()) {
-          // #region agent log
-          console.debug('[kernel-open-success]', { traceId, docKey: null, resolvedPath: command.path, root: command.root, eventType: null, commandType: command.type, source: command.source ?? null, contentLength: content.length, activePath: snapshot.activePath })
-          // #endregion
-        }
-        if (isTabNavLogEnabled()) {
-          logTabNav('kernel-set-active', {
-            commandType: command.type,
-            source: command.source ?? null,
-            traceId,
-            ...snapshotDocumentBodyMeta(command.path, content),
-            root: command.root,
-          })
-        }
-        checkBlankContentSuspect('kernel-open-document', command.path, content, {
+          rootChanged,
+        },
+      })
+      setKernelSnapshot({
+        rootDir: command.root,
+        activePath: command.path,
+        content,
+        dirtyByPath: nextDirtyByPath,
+      })
+      publishDocumentEvent({
+        type: 'DocumentOpened',
+        root: command.root,
+        path: command.path,
+        content,
+        source: command.source,
+        timestamp: documentEventTimestamp(),
+      })
+      if (isTabNavLogEnabled()) {
+        logTabNav('kernel-set-active', {
+          commandType: command.type,
           source: command.source ?? null,
           traceId,
-          commandType: command.type,
+          ...snapshotDocumentBodyMeta(command.path, content),
+          root: command.root,
         })
-        return content
-      } catch (error) {
-        if (isAgentLogEnabled()) {
-          // #region agent log
-          console.debug('[kernel-open-failed]', { traceId, docKey: null, resolvedPath: command.path, root: command.root, eventType: null, commandType: command.type, source: command.source ?? null, error: error instanceof Error ? error.message : String(error) })
-          // #endregion
-        }
-        throw error
       }
+      checkBlankContentSuspect('kernel-open-document', command.path, content, {
+        source: command.source ?? null,
+        traceId,
+        commandType: command.type,
+      })
+      return content
     }
 
     case 'OPEN_DOCUMENT_REVEAL': {
       const content = pathsEqual(snapshot.activePath, command.path)
         ? snapshot.content
         : await dispatchDocumentCommandInner({
-            type: 'OPEN_DOCUMENT',
+            type: 'OPEN_DOCUMENT_IN_TAB',
             root: command.root,
             path: command.path,
             source: command.source,
@@ -586,11 +553,6 @@ async function dispatchDocumentCommandInner(command: DocumentCommand): Promise<s
         traceId: command.traceId,
         timestamp: documentEventTimestamp(),
       })
-      if (isAgentLogEnabled()) {
-        // #region agent log
-        console.debug('[document-reveal-requested]', { traceId: command.traceId ?? null, docKey: command.docKey ?? null, resolvedPath: command.path, root: command.root, eventType: 'DocumentRevealRequested', commandType: command.type, heading: command.heading ?? null, blockId: command.blockId ?? null })
-        // #endregion
-      }
       return content
     }
 

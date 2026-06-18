@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 2,
+  "id": "ocean-glass-pack",
+  "version": "1.0.0",
+  "manifest": {
+    "schemaVersion": 2,
+    "id": "ocean-glass-pack",
+    "name": "Ocean Glass Pack",
+    "version": "1.0.0",
+    "entry": null,
+    "pluginType": "theme-pack",
+    "capabilities": [
+      "theme.token"
+    ],
+    "platforms": [
+      "desktop",
+      "web"
+    ],
+    "requiresRestart": false,
+    "experimental": false,
+    "minAppVersion": "0.6.0",
+    "maxAppVersion": null,
+    "permissions": {
+      "theme": {
+        "register": true
+      }
+    },
+    "contributes": {
+      "theme": {
+        "style": [],
+        "snippets": [],
+        "tokens": [
+          {
+            "file": "theme/tokens/ocean-glass-pack.json",
+            "label": "Ocean Glass Tokens",
+            "description": "Light JSON palette with cool cyan primary accents."
+          }
+        ],
+        "defaultEnable": {}
+      },
+      "commands": [],
+      "preferencesSections": [],
+      "panels": []
+    }
+  },
+  "files": [
+    {
+      "path": "plugin.json",
+      "content": "{\n  \"schemaVersion\": 2,\n  \"id\": \"ocean-glass-pack\",\n  \"name\": \"Ocean Glass Pack\",\n  \"version\": \"1.0.0\",\n  \"entry\": null,\n  \"pluginType\": \"theme-pack\",\n  \"capabilities\": [\n    \"theme.token\"\n  ],\n  \"platforms\": [\n    \"desktop\",\n    \"web\"\n  ],\n  \"requiresRestart\": false,\n  \"experimental\": false,\n  \"minAppVersion\": \"0.6.0\",\n  \"maxAppVersion\": null,\n  \"permissions\": {\n    \"theme\": {\n      \"register\": true\n    }\n  },\n  \"contributes\": {\n    \"theme\": {\n      \"style\": [],\n      \"snippets\": [],\n      \"tokens\": [\n        {\n          \"file\": \"theme/tokens/ocean-glass-pack.json\",\n          \"label\": \"Ocean Glass Tokens\",\n          \"description\": \"Light JSON palette with cool cyan primary accents.\"\n        }\n      ],\n      \"defaultEnable\": {}\n    },\n    \"commands\": [],\n    \"preferencesSections\": [],\n    \"panels\": []\n  }\n}\n"
+    },
+    {
+      "path": "theme/tokens/ocean-glass-pack.json",
+      "content": "{\n  \"id\": \"ocean-glass\",\n  \"name\": \"Ocean Glass\",\n  \"label\": \"Ocean Glass\",\n  \"family\": \"ocean-glass\",\n  \"variant\": \"light\",\n  \"colors\": {\n    \"background\": \"#f0f9ff\",\n    \"foreground\": \"#0c1929\",\n    \"primary\": \"#0891b2\",\n    \"border\": \"rgba(12, 25, 41, 0.09)\",\n    \"muted\": \"#5b7a8c\"\n  },\n  \"radius\": {\n    \"card\": 16,\n    \"control\": 11\n  },\n  \"spacing\": {\n    \"row\": 15,\n    \"section\": 26\n  }\n}\n"
+    }
+  ]
+}

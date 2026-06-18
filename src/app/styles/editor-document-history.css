@@ -25,6 +25,11 @@
   padding: 10px 6px 10px 12px;
 }
 
+.app-dialog-backdrop.document-history-backdrop {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .document-history-header {
   display: flex;
   align-items: flex-start;

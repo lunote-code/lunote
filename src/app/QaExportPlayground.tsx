@@ -26,6 +26,7 @@ import {
 } from './qaExportBinaryAnalysis'
 import { markAppSettingsHydratedForTests } from '../settings/appSettingsStore'
 import { DEFAULT_APP_SETTINGS } from '../settings/appSettingsTypes'
+import { normalizeExportPageBreakMode, normalizeExportPresetId, normalizeExportTocMode } from '../export/exportPreset'
 
 type ExportHtmlFormat = 'styled' | 'plain' | 'pdf'
 
@@ -55,6 +56,11 @@ declare global {
         rootClasses: string
       }
       hasConsoleErrors: () => boolean
+      setExportSettings: (settings: {
+        preset?: string
+        tocMode?: string
+        pageBreakMode?: string
+      }) => void
     }
   }
 }
@@ -91,8 +97,6 @@ function extractStyleBlock(doc: Document): string {
 }
 
 function QaExportInner() {
-  markAppSettingsHydratedForTests(QA_APP_SETTINGS)
-
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [status, setStatus] = useState('booting')
   const consoleErrorsRef = useRef<string[]>([])
@@ -200,6 +204,26 @@ function QaExportInner() {
     }
   }, [])
 
+  const setExportSettings = useCallback((settings: { preset?: string; tocMode?: string; pageBreakMode?: string }) => {
+    const baseAppearance = (QA_APP_SETTINGS.appearance ?? DEFAULT_APP_SETTINGS.appearance)!
+    markAppSettingsHydratedForTests({
+      ...QA_APP_SETTINGS,
+      appearance: {
+        ...baseAppearance,
+        export: {
+          ...baseAppearance.export,
+          preset: normalizeExportPresetId(settings.preset),
+          tocMode: normalizeExportTocMode(settings.tocMode),
+          pageBreakMode: normalizeExportPageBreakMode(settings.pageBreakMode),
+        },
+      },
+    })
+  }, [])
+
+  useEffect(() => {
+    markAppSettingsHydratedForTests(QA_APP_SETTINGS)
+  }, [])
+
   useEffect(() => {
     const onError = (event: ErrorEvent) => {
       consoleErrorsRef.current.push(event.message)
@@ -222,12 +246,13 @@ function QaExportInner() {
       previewComputedStyle,
       analyzeHtml,
       hasConsoleErrors: () => consoleErrorsRef.current.length > 0,
+      setExportSettings,
     }
     setStatus('ready')
     return () => {
       delete window.__QA_EXPORT__
     }
-  }, [analyzeHtml, buildHtml, buildPngBase64, buildRasterHtml, buildWordBase64, countInPreview, mountPreview, previewComputedStyle])
+  }, [analyzeHtml, buildHtml, buildPngBase64, buildRasterHtml, buildWordBase64, countInPreview, mountPreview, previewComputedStyle, setExportSettings])
 
   return (
     <div style={{ padding: 24, background: '#0f1115', minHeight: '100vh' }}>

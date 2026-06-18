@@ -11,6 +11,8 @@ import {
   type MouseEvent as ReactMouseEvent,
   type SetStateAction,
 } from 'react'
+import { isTauri } from '@tauri-apps/api/core'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { EditorView } from '@codemirror/view'
 import { EditorSelection } from '@codemirror/state'
 import '../App.css'
@@ -41,6 +43,7 @@ import {
   mergeRecentFilePath,
   readRecentFilesFromStorage,
 } from '../lib/recentFilesStorage'
+import { hasAnyDirtyDocument, listDirtyDocumentPaths } from '../lib/documentDirty'
 import { isValidRecentFilePath, pathsEqual, relativePathUnderRoot } from '../lib/workspacePathUtils'
 import { useAppStatus } from './hooks/useAppStatus'
 import { useLargeDocPerformanceHint } from './hooks/useLargeDocPerformanceHint'
@@ -80,6 +83,7 @@ import {
   shouldOpenDailyNoteOnStartup,
 } from '../templates/dailyNoteService'
 import { useQuickCapture } from './hooks/useQuickCapture'
+import { raiseMainWindow } from '../platform/tauri/raiseMainWindow'
 import { ensureDefaultTemplateFiles } from '../templates/templateService'
 import { AppSidebarPanel } from './components/AppSidebarPanel'
 import { AppEditorMain } from './components/AppEditorMain'
@@ -91,7 +95,7 @@ import {
 import type { AppMenuContext, AppMenuUiDeps, PaletteCommandDef } from '../menu'
 import { setActiveTransactionDoc } from '../menu/commandTransaction'
 import { setInputRouterDocId } from '../vm/inputRouter'
-import { initEditorMutationBridge } from '../editor/editorMutationBridge'
+import { bridgeReplaceSelection, initEditorMutationBridge } from '../editor/editorMutationBridge'
 import { handleVerticalResizeKeyDown } from '../lib/verticalResizeKeyboard'
 import { useI18n } from '../i18n'
 import '../editor/knowledgeOS/ui/knowledgePanels.css'
@@ -111,16 +115,18 @@ import { beginNavigationReveal } from '../editor/knowledgeOS/editorNavigationRea
 import { applyDocumentFrontmatterUpdate } from './document/applyDocumentFrontmatter'
 import { setTabBody } from './document/tabBodiesStore'
 import { readDocument } from '../io/documentIO'
+import { dispatchDocumentCommand, isDocumentContentDirty } from '../documentRuntime/documentKernel'
 import { registerKnowledgeInteractionHost } from '../editor/knowledgeOS/ui/knowledgeInteractionHost'
 import type { WikiLinkEditorHandlers } from '../editor/knowledgeOS/ui/cmWikiLinkExtension'
 import { persistKnowledgeWorkspace } from '../editor/knowledgeOS/ui/knowledgeAppIntegration'
 import {
-  activateWorkspaceTab,
-  getKnowledgeWorkspaceSnapshot,
-  initKnowledgeOS,
-  openNoteInWorkspace,
+  refreshBacklinkPanel,
+  requestOsRevision,
   setBacklinkPanelDocKey,
+  syncKnowledgeWorkspaceTabsFromLuna,
+  syncNoteGraphTopologyFromRoute,
 } from '../editor/knowledgeOS'
+import { setPendingGraphCenter } from '../editor/knowledgeOS/graphNavigationRuntime'
 import type { WikiLinkTarget } from '../editor/knowledgeRuntime/types'
 import { normalizeAssetStorageConfig } from '../assets/assetStoragePolicy'
 import type { AssetStorageConfig } from '../assets/assetStoragePolicy'
@@ -128,6 +134,7 @@ import { getAppSettingsSnapshot, subscribeAppSettings } from '../settings/appSet
 import { buildEditorFontFamilyCss, isEditorMonoFont } from '../settings-runtime/editorFontPresets'
 import { normalizeEditorFontSize } from '../settings-runtime/editorTypography'
 import { normalizeEditorColumnWidth } from '../settings-runtime/editorColumnWidth'
+import { flushLunaWorkspaceSnapshotWrites } from '../lunaPersistence'
 import {
   getDocumentRuntimeSnapshot,
   subscribeDocumentRuntime,
@@ -374,10 +381,6 @@ function App() {
     return unregisterLunaSurfaceDispatch
   }, [dispatchEditorSurface])
 
-  useEffect(() => {
-    initKnowledgeOS()
-  }, [])
-
   const mainWithRailRef = useRef<HTMLElement | null>(null)
 
   const isLargeDoc = content.length >= LARGE_DOC_THRESHOLD
@@ -554,6 +557,7 @@ function App() {
     toggleDir,
     workspaceRestoringRef,
     pendingRestoreEventIdRef,
+    workspaceSyncTick,
   } = useWorkspaceLoader({
     t,
     activePath,
@@ -578,6 +582,12 @@ function App() {
 
   useEffect(() => {
     setBacklinkPanelDocKey(activeDocKey)
+    if (activeDocKey) {
+      refreshBacklinkPanel(activeDocKey)
+      setPendingGraphCenter(activeDocKey, `page:${activeDocKey}`)
+    }
+    syncNoteGraphTopologyFromRoute(activeDocKey)
+    requestOsRevision()
   }, [activeDocKey])
 
   const knowledgeRailOpen = Boolean(rootDir && !focusMode && knowledgeRailVisible)
@@ -890,8 +900,12 @@ function App() {
 
   const clearWorkspaceFileSelectionRef = useRef<(() => void) | null>(null)
   const dispatchOpenDocumentRef = useRef<(root: string, path: string, reason?: string) => Promise<void>>(async () => {})
+  const dispatchOpenDocumentInTabRef = useRef<(root: string, path: string, reason?: string) => Promise<void>>(async () => {})
   const dispatchOpenDocument = useCallback(async (root: string, path: string, reason?: string) => {
     await dispatchOpenDocumentRef.current(root, path, reason)
+  }, [])
+  const dispatchOpenDocumentInTabViaRef = useCallback(async (root: string, path: string, reason?: string) => {
+    await dispatchOpenDocumentInTabRef.current(root, path, reason)
   }, [])
 
   const {
@@ -971,7 +985,7 @@ function App() {
     setDragOverTarget,
     setEditorDocMenu,
     setFileContextMenu,
-    dispatchOpenDocument,
+    dispatchOpenDocumentInTab: dispatchOpenDocumentInTabViaRef,
     handleMoveFileToFolder,
     toggleDir,
     setExpandedDirs,
@@ -1061,6 +1075,68 @@ function App() {
     documentHistoryOpen: documentHistoryDialog != null,
   })
   dispatchOpenDocumentRef.current = dispatchOpenDocumentImpl
+  dispatchOpenDocumentInTabRef.current = dispatchOpenDocumentInTab
+
+  const quitAppSafely = useCallback(async () => {
+    await flushLunaWorkspaceSnapshotWrites().catch(() => undefined)
+
+    const visual = visualEditorRef.current
+    const mayHaveUnflushedVisualEdits =
+      mainPaneModeRef.current === 'visual' &&
+      Boolean(visual?.hasUserEditedSinceDocumentLoad())
+
+    if (mainPaneModeRef.current === 'visual' && visual && mayHaveUnflushedVisualEdits) {
+      let body: string
+      try {
+        body = visual.flushPendingMarkdownSync(true, false)
+      } catch (error) {
+        setStatus(
+          t('app.status.saveFailed', {
+            message: error instanceof Error ? error.message : String(error),
+          }),
+        )
+        return
+      }
+      const path = sessionGuardRef.current.activePath || activePathRef.current
+      if (path && isDocumentContentDirty(path, body)) {
+        contentRef.current = body
+        bufferBodiesRef.current[path] = body
+        await dispatchDocumentCommand({
+          type: 'DOCUMENT_CONTENT_CHANGED',
+          path,
+          content: body,
+          source: 'app-quit-flush',
+        }).catch(() => undefined)
+      }
+    }
+
+    if (hasAnyDirtyDocument()) {
+      try {
+        if (isTauri()) await raiseMainWindow()
+        const dirtyCount = listDirtyDocumentPaths().length
+        const choice = await promptUnsavedChanges({
+          title: t('menu.native.app.quit'),
+          message:
+            dirtyCount > 1
+              ? t('app.unsaved.quitMessageMany', { count: dirtyCount })
+              : t('app.unsaved.quitMessage'),
+          saveLabel: t('app.unsaved.saveAll'),
+          discardLabel: t('app.unsaved.quitWithoutSaving'),
+          cancelLabel: t('app.unsaved.cancel'),
+        })
+        if (choice === 'cancel') return
+        if (choice === 'save') {
+          const saved = await saveAllDirtyDocumentsRef.current?.()
+          if (!saved) return
+        }
+      } catch {
+        return
+      }
+    }
+
+    if (isTauri()) await getCurrentWindow().destroy()
+    else window.close()
+  }, [activePathRef, bufferBodiesRef, contentRef, mainPaneModeRef, promptUnsavedChanges, sessionGuardRef, setStatus, t, visualEditorRef])
 
   const createNewNote = useCallback(async () => {
     if (!rootDir) {
@@ -1209,6 +1285,7 @@ function App() {
     pendingSourceModeAnchorRef,
     resetModeSwitchEditorBootstrap,
     closeTab,
+    quitApp: quitAppSafely,
   })
 
   useQuickCapture({
@@ -1282,6 +1359,20 @@ function App() {
     v.dispatch({ selection: EditorSelection.cursor(head) })
   }, [mainPaneMode])
 
+  const insertWikiLinkAtCursor = useCallback((target: { docKey: string; title?: string }) => {
+    const docKey = target.docKey.trim()
+    if (!docKey) return false
+    const title = target.title?.trim() ?? ''
+    const insert =
+      title && title !== docKey
+        ? `[[${docKey}|${title}]]`
+        : `[[${docKey}]]`
+    focusActiveEditor()
+    bridgeReplaceSelection(insert)
+    focusActiveEditor()
+    return true
+  }, [focusActiveEditor])
+
   useEffect(() => {
     registerKnowledgeInteractionHost({
       getRootDir: () => rootDir,
@@ -1291,6 +1382,7 @@ function App() {
       },
       clearEditorSelection: clearEditorSelectionForNavigation,
       focusEditor: focusActiveEditor,
+      insertWikiLinkAtCursor,
       onHoverIdChange: syncWikiHoverId,
       openSearchModal: openKnowledgeSearchModal,
       revealNavigationAnchor,
@@ -1313,6 +1405,7 @@ function App() {
     dispatchOpenDocumentInTab,
     clearEditorSelectionForNavigation,
     focusActiveEditor,
+    insertWikiLinkAtCursor,
     syncWikiHoverId,
     revealNavigationAnchor,
     openKnowledgeSearchModal,
@@ -1422,16 +1515,9 @@ function App() {
 
   useEffect(() => {
     if (!rootDir || workspaceRestoringRef.current) return
-    for (const p of openedTabs) {
-      if (!isBufferTabId(p)) {
-        openNoteInWorkspace(p, absolutePathToDocKeyOs(p, rootDir))
-      }
-    }
-    const ws = getKnowledgeWorkspaceSnapshot()
-    const match = ws.tabs.find((t) => pathsEqual(t.absolutePath, activePath))
-    if (match) activateWorkspaceTab(match.id)
+    syncKnowledgeWorkspaceTabsFromLuna(rootDir, openedTabs, activePath, isBufferTabId)
     persistKnowledgeWorkspace(rootDir)
-  }, [rootDir, openedTabs, activePath, knowledgeRailVisible, workspaceRestoringRef])
+  }, [rootDir, openedTabs, activePath, knowledgeRailVisible, workspaceSyncTick])
 
   useEffect(() => {
     localStorage.setItem('knowledgeRailVisible', knowledgeRailVisible ? '1' : '0')
@@ -1530,6 +1616,7 @@ function App() {
       onCreateSnapshot: onDocumentHistoryCreateSnapshot,
       onConfirmDelete: onDocumentHistoryConfirmDelete,
       onDeleteAll: onDocumentHistoryDeleteAll,
+      flushEditorToMemory: () => flushEditorToMemoryRef.current(),
     }),
     [
       closeDocumentHistoryDialog,
@@ -1569,6 +1656,10 @@ function App() {
           t={t}
           rootDir={rootDir}
           activePath={activePath}
+            mainPaneMode={mainPaneMode}
+            knowledgeRailVisible={knowledgeRailVisible}
+            onOpenKnowledgePanel={() => setKnowledgeRailVisible(true)}
+            onToggleMainPaneMode={() => toggleMainPaneMode()}
           searchText={searchText}
           setSearchText={setSearchText}
           isSidebarFiltering={isSidebarFiltering}
@@ -1578,7 +1669,6 @@ function App() {
           dragOverTarget={dragOverTarget}
           setDragOverTarget={setDragOverTarget}
           onSidebarBlankContextMenu={onSidebarBlankContextMenu}
-          dispatchOpenDocument={dispatchOpenDocument}
           onSidebarFileContextMenu={onSidebarFileContextMenu}
           outlineHeadings={outlineHeadings}
           activeOutlineId={activeOutlineId}

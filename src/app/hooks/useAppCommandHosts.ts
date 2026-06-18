@@ -1,6 +1,4 @@
 import { useMemo, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
-import { getCurrentWindow } from '@tauri-apps/api/window'
-import { isTauri } from '@tauri-apps/api/core'
 
 import { getBridgeEditorContext } from '../../editor/editorMutationBridge'
 import type { AppMenuContext, AppMenuFileTreeNode, AppMenuUiDeps } from '../../menu'
@@ -183,6 +181,7 @@ export type AppCommandHostsDeps = {
   pendingSourceModeAnchorRef: MutableRefObject<SourceModeEnterAnchor | null>
   resetModeSwitchEditorBootstrap: () => void
   closeTab: (path: string) => void
+  quitApp: () => void | Promise<void>
 }
 
 export function useAppCommandHosts({
@@ -243,6 +242,7 @@ export function useAppCommandHosts({
   pendingSourceModeAnchorRef,
   resetModeSwitchEditorBootstrap,
   closeTab,
+  quitApp,
 }: AppCommandHostsDeps): void {
   const menuContext = useMemo(
     (): AppMenuContext => ({
@@ -353,8 +353,7 @@ export function useAppCommandHosts({
         closeTab(path)
       },
       quitApp: () => {
-        if (isTauri()) void getCurrentWindow().close()
-        else window.close()
+        void quitApp()
       },
     }),
     [
@@ -374,6 +373,7 @@ export function useAppCommandHosts({
       pendingSourceModeAnchorRef,
       resetModeSwitchEditorBootstrap,
       closeTab,
+      quitApp,
     ],
   )
 

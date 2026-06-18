@@ -61,28 +61,6 @@ export const TEMPLATES_SECTION_TABS: PrefsSectionTabsDefinition = {
   ],
 }
 
-export const PLUGINS_SECTION_TABS: PrefsSectionTabsDefinition = {
-  prefsTab: 'plugins',
-  storageKey: 'luna.prefs.pluginsSectionTab',
-  tabsAriaLabelKey: 'settings.plugins.tabsLabel',
-  defaultTabId: 'browse',
-  tabs: [
-    { id: 'browse', labelKey: 'settings.plugins.tabBrowse' },
-    { id: 'installed', labelKey: 'settings.plugins.tabInstalled' },
-  ],
-}
-
-export const IMPORT_SECTION_TABS: PrefsSectionTabsDefinition = {
-  prefsTab: 'import',
-  storageKey: 'luna.prefs.importSectionTab',
-  tabsAriaLabelKey: 'prefs.import.tabs.label',
-  defaultTabId: 'general',
-  tabs: [
-    { id: 'general', groupId: 'import.general', labelKey: 'settings.assets.storageMode.label' },
-    { id: 'paths', groupId: 'import.paths', labelKey: 'settings.assets.pathsTab' },
-  ],
-}
-
 export const THEME_FILE_FILTER_TABS: PrefsSectionTabsDefinition = {
   prefsTab: 'appearance',
   storageKey: 'luna.prefs.themeFileFilterTab',
@@ -98,7 +76,6 @@ const TABBED_SCHEMA_SECTIONS: Partial<Record<PrefsTabId, PrefsSectionTabsDefinit
   appearance: APPEARANCE_SECTION_TABS,
   export: EXPORT_SECTION_TABS,
   editor: EDITOR_SECTION_TABS,
-  import: IMPORT_SECTION_TABS,
 }
 
 export function getPrefsSectionTabsDefinition(prefsTab: PrefsTabId): PrefsSectionTabsDefinition | undefined {

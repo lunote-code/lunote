@@ -18,6 +18,7 @@ import {
 } from '../../markdownExport'
 import { buildPdfExportHtml } from '../../export/pdfExportHtml'
 import { downloadBinaryBlob, markdownToPdfBase64, markdownToPngBase64 } from '../../export/renderedDocumentExport'
+import { humanizeExportError } from '../../export/exportUserFacingError'
 import { rewriteExportHtmlMediaSources } from '../export/htmlMedia'
 import { exportBinaryPayload, exportNotePayload } from '../../lib/tauriScopedInvoke'
 import {
@@ -288,7 +289,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               setStatus(t('app.status.exportedWord'), 'success')
             }
           } catch (e) {
-            setStatus(t('app.status.exportFailed', { message: e instanceof Error ? e.message : String(e) }), 'error')
+            setStatus(t('app.status.exportFailed', { message: humanizeExportError(e, t) }), 'error')
           }
     },
     [activePath, bufferTabLabels, contentRef, isDark, mainPaneMode, rootDir, setStatus, suppressMarkdownSerdeRef, t, visualEditorRef],
@@ -708,12 +709,12 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
         setStatus(t('app.status.printContentTooLarge'), 'warning')
         return
       }
-      const message = error instanceof Error ? error.message : String(error)
-      if (/not allowed|denied|permission|forbidden|allow-print/i.test(message)) {
+      const rawMessage = error instanceof Error ? error.message : String(error)
+      if (/not allowed|denied|permission|forbidden|allow-print/i.test(rawMessage)) {
         setStatus(t('app.status.printPermissionRequired'), 'warning')
         return
       }
-      setStatus(t('app.status.exportFailed', { message }), 'error')
+      setStatus(t('app.status.exportFailed', { message: humanizeExportError(error, t) }), 'error')
     }
   }, [
     activePath,

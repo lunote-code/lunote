@@ -1,7 +1,23 @@
 import type { FrozenStructuralIR } from './modeSwitchStructuralIR'
 
-const IR_ROW_KEYS = new Set([
+/** Canonical-first frozen row shape (`FrozenGeometryRow`); `bindingResolution` is optional. */
+const IR_ROW_ALLOWED_KEYS = new Set([
   'blockIndex',
+  'rowId',
+  'rowKey',
+  'blockPath',
+  'blockType',
+  'bindingResolution',
+  'cmStart',
+  'cmEnd',
+  'pmStart',
+  'pmEnd',
+  'semanticExtent',
+  'semanticSlices',
+])
+const IR_ROW_REQUIRED_KEYS = new Set([
+  'blockIndex',
+  'rowId',
   'rowKey',
   'blockPath',
   'blockType',
@@ -32,10 +48,17 @@ export function assertFrozenKernelContract(args: { frozenStructuralIR: FrozenStr
   for (let i = 0; i < ir.blocks.length; i += 1) {
     const row = ir.blocks[i] as unknown as Record<string, unknown>
     const keys = Object.keys(row)
-    if (keys.length !== IR_ROW_KEYS.size || keys.some((k) => !IR_ROW_KEYS.has(k))) {
+    const illegalKeys = keys.filter((k) => !IR_ROW_ALLOWED_KEYS.has(k))
+    const missingKeys = [...IR_ROW_REQUIRED_KEYS].filter((k) => !keys.includes(k))
+    if (illegalKeys.length > 0 || missingKeys.length > 0) {
       ok = false
-       
-      console.error('[kernel-contract] IR row has illegal keys', { index: i, keys })
+
+      console.error('[kernel-contract] IR row has illegal keys', {
+        index: i,
+        keys,
+        illegalKeys,
+        missingKeys,
+      })
       break
     }
   }

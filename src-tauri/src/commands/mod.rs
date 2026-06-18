@@ -7,7 +7,7 @@ use crate::{
   app_settings::{self, AppSettings},
   core::{files, path_safety, search, security},
   luna_paths,
-  AppState, RecentMenuPaths, ThemeMenuCssNames,
+  AppState, CloseToTrayState, RecentMenuPaths, ThemeMenuCssNames,
 };
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
@@ -580,6 +580,16 @@ pub fn sync_theme_css_menu(app: AppHandle, payload: SyncThemeCssMenuPayload) -> 
 /// The command is retained to be compatible with front-end calls; the in-app menu maintains the full-screen check state by the front-end itself.
 #[tauri::command]
 pub fn sync_view_fullscreen_menu_checked(_app: AppHandle, _checked: bool) -> Result<(), String> {
+  Ok(())
+}
+
+#[tauri::command]
+pub fn set_close_to_tray_ready(state: State<CloseToTrayState>, ready: bool) -> Result<(), String> {
+  let mut guard = state
+    .0
+    .lock()
+    .map_err(|_| "Failed to update close-to-tray state".to_string())?;
+  *guard = ready;
   Ok(())
 }
 

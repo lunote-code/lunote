@@ -30,11 +30,19 @@ export function hitGraphNodeAtEvent(
   }
 }
 
-export function navigateGraphNodeFromHit(
-  e: MouseEvent,
-  hit: NoteGraphNode | null,
-  agentLogEnabled: boolean,
-): void {
+export function noteGraphNodeAsHit(n: NoteGraphNode): NoteGraphNode {
+  return {
+    ...n,
+    docKey: normalizeDocKeyForNavigation(n.docKey),
+    heading: n.id.startsWith('heading:') ? n.label : undefined,
+  }
+}
+
+export function navigateGraphNodeFromRenderedNode(e: MouseEvent, n: NoteGraphNode): void {
+  navigateGraphNodeFromHit(e, noteGraphNodeAsHit(n))
+}
+
+export function navigateGraphNodeFromHit(e: MouseEvent, hit: NoteGraphNode | null): void {
   const traceId = `nav-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const intent = resolveClickIntent({
     type: 'graph',
@@ -47,15 +55,5 @@ export function navigateGraphNodeFromHit(
       nodeStatus: hit?.status,
     },
   })
-  if (agentLogEnabled && hit) {
-    console.debug('[graph-node-click]', {
-      traceId,
-      nodeId: hit.id,
-      docKey: hit.docKey,
-      label: hit.label,
-      status: hit.status,
-      navigable: hit.navigable,
-    })
-  }
   dispatchKnowledgeNavigate('graph', { intent, hit, traceId })
 }

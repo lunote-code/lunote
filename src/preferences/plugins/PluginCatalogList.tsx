@@ -23,12 +23,19 @@ import type {
   PluginCatalogIndexEntry,
 } from '../../plugins/pluginTypes'
 import { PreferencesNotice } from '../PreferencesNotice'
+import { PreferencesInfoCallout } from '../PreferencesInfoCallout'
 import { PluginCatalogCard } from './PluginCatalogCard'
 import { PluginCatalogDetailPanel } from './PluginCatalogDetailPanel'
-import { PluginCatalogFeaturedSection } from './PluginCatalogFeaturedSection'
-import { PluginCategoryFilter } from './PluginCategoryFilter'
+import { PluginCategoryFilter, PLUGIN_FILTER_INSTALLED } from './PluginCategoryFilter'
 import { PluginInstallConfirmDialog } from './PluginInstallConfirmDialog'
-import { listPluginPermissionLabels, pluginHasExplicitIcon } from './pluginCatalogUiHelpers'
+import {
+  evaluatePluginCompatibility,
+  listPluginPermissionLabels,
+  pluginHasExplicitIcon,
+  resolvePluginMaxAppVersion,
+  resolvePluginMinAppVersion,
+  type PluginCompatibility,
+} from './pluginCatalogUiHelpers'
 import { sortPluginCatalogRows, type PluginSortMode } from './pluginCatalogSort'
 import {
   persistPluginSortMode,
@@ -37,14 +44,10 @@ import {
 } from './PluginSortSelect'
 import { usePluginDetailOverlay } from './usePluginDetailOverlay'
 
-export type PluginListTab = 'browse' | 'installed'
-
 type Props = {
   t: TranslateFn
   effectiveLocale: UiLocaleId
   searchQuery?: string
-  activeTab: PluginListTab
-  onUpdatesAvailableCountChange?: (count: number) => void
 }
 
 type CatalogRow = PluginCatalogIndexEntry & {
@@ -59,6 +62,29 @@ type InstallConfirmState = {
 
 type UninstallConfirmState = {
   row: CatalogRow
+}
+
+type OperationNotice = {
+  message: string
+}
+
+const EARLY_ACCESS_DISMISS_KEY = 'luna.prefs.pluginsEarlyAccessDismissed'
+const OPERATION_NOTICE_DISMISS_MS = 4000
+
+function readEarlyAccessDismissed(): boolean {
+  try {
+    return localStorage.getItem(EARLY_ACCESS_DISMISS_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function persistEarlyAccessDismissed(): void {
+  try {
+    localStorage.setItem(EARLY_ACCESS_DISMISS_KEY, '1')
+  } catch {
+    /* ignore */
+  }
 }
 
 function normalizeSearchQuery(query: string): string {
@@ -90,12 +116,34 @@ function rowMatchesQuery(row: CatalogRow, query: string, effectiveLocale: UiLoca
   )
 }
 
+function resolveCompatibilityForRow(row: CatalogRow): PluginCompatibility {
+  const detail = row.detail ?? null
+  const minAppVersion = resolvePluginMinAppVersion(row.minAppVersion, detail, row.latestVersion)
+  const maxAppVersion = resolvePluginMaxAppVersion(row.maxAppVersion, detail, row.latestVersion)
+  return evaluatePluginCompatibility(minAppVersion, maxAppVersion)
+}
+
+function humanizePluginOperationError(cause: unknown, t: TranslateFn): string {
+  const rawMessage = cause instanceof Error ? cause.message : String(cause)
+  if (/Plugin package URL is missing/i.test(rawMessage)) {
+    return t('settings.plugins.installPackageMissing')
+  }
+  if (/Plugin package request failed/i.test(rawMessage)) {
+    return t('settings.plugins.installRequestFailed')
+  }
+  if (/Plugin detail request failed/i.test(rawMessage)) {
+    return t('settings.plugins.detailUnavailable')
+  }
+  if (/Plugin catalog URL is not configured/i.test(rawMessage)) {
+    return t('settings.plugins.catalogNotConfigured')
+  }
+  return rawMessage
+}
+
 export function PluginCatalogList({
   t,
   effectiveLocale,
   searchQuery: globalSearchQuery = '',
-  activeTab,
-  onUpdatesAvailableCountChange,
 }: Props) {
   const [rows, setRows] = useState<CatalogRow[]>([])
   const [categories, setCategories] = useState<Record<string, LocalizedString>>({})
@@ -103,8 +151,9 @@ export function PluginCatalogList({
   const [catalogError, setCatalogError] = useState<string | null>(null)
   const [detailError, setDetailError] = useState<string | null>(null)
   const [operationError, setOperationError] = useState<string | null>(null)
+  const [operationNotice, setOperationNotice] = useState<OperationNotice | null>(null)
   const [localSearchQuery, setLocalSearchQuery] = useState('')
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
+  const [selectedFilterId, setSelectedFilterId] = useState<string | null>(null)
   const [sortMode, setSortMode] = useState<PluginSortMode>(() => readInitialPluginSortMode())
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedDetail, setSelectedDetail] = useState<PluginCatalogDetail | null>(null)
@@ -117,6 +166,7 @@ export function PluginCatalogList({
   const [bulkUpdating, setBulkUpdating] = useState(false)
   const [installedRevision, setInstalledRevision] = useState(0)
   const [brokenIconIds, setBrokenIconIds] = useState<Set<string>>(() => new Set())
+  const [earlyAccessDismissed, setEarlyAccessDismissed] = useState(() => readEarlyAccessDismissed())
   const detailOverlay = usePluginDetailOverlay()
   const detailPanelRef = useRef<HTMLElement | null>(null)
 
@@ -138,19 +188,25 @@ export function PluginCatalogList({
         Object.fromEntries((index.categories ?? []).map((entry) => [entry.id, entry.label])),
       )
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause)
+      const message = humanizePluginOperationError(cause, t)
       setCatalogError(message)
       setRows([])
       setCategories({})
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void loadCatalog()
     void refreshInstalled()
   }, [loadCatalog, refreshInstalled])
+
+  useEffect(() => {
+    if (!operationNotice) return
+    const timer = window.setTimeout(() => setOperationNotice(null), OPERATION_NOTICE_DISMISS_MS)
+    return () => window.clearTimeout(timer)
+  }, [operationNotice])
 
   const installedRecords = useMemo(() => {
     void installedRevision
@@ -185,9 +241,7 @@ export function PluginCatalogList({
     [installedRecords, isUpdateAvailableForRow, rowById],
   )
 
-  useEffect(() => {
-    onUpdatesAvailableCountChange?.(updatesAvailableCount)
-  }, [onUpdatesAvailableCountChange, updatesAvailableCount])
+  const isInstalledFilter = selectedFilterId === PLUGIN_FILTER_INSTALLED
 
   const installedRows = useMemo(() => {
     return installedRecords.map((record) => rowById.get(record.id) ?? buildInstalledFallbackRow(record, t))
@@ -206,14 +260,14 @@ export function PluginCatalogList({
 
   const sourceRows = isGlobalSearching
     ? mergedSearchRows
-    : activeTab === 'installed'
+    : isInstalledFilter
       ? installedRows
       : rows
 
   const categoryFilteredRows = useMemo(() => {
-    if (!selectedCategoryId || isGlobalSearching || activeTab !== 'browse') return sourceRows
-    return sourceRows.filter((row) => row.category === selectedCategoryId)
-  }, [activeTab, isGlobalSearching, selectedCategoryId, sourceRows])
+    if (isGlobalSearching || isInstalledFilter || !selectedFilterId) return sourceRows
+    return sourceRows.filter((row) => row.category === selectedFilterId)
+  }, [isGlobalSearching, isInstalledFilter, selectedFilterId, sourceRows])
 
   const updatableRows = useMemo(() => {
     return installedRecords
@@ -222,27 +276,15 @@ export function PluginCatalogList({
   }, [installedRecords, isUpdateAvailableForRow, rowById])
 
   const sortedRows = useMemo(() => {
-    if (activeTab !== 'browse' || isGlobalSearching) return categoryFilteredRows
+    if (isInstalledFilter || isGlobalSearching) return categoryFilteredRows
     return sortPluginCatalogRows(categoryFilteredRows, sortMode)
-  }, [activeTab, categoryFilteredRows, isGlobalSearching, sortMode])
+  }, [categoryFilteredRows, isGlobalSearching, isInstalledFilter, sortMode])
 
   const filteredRows = useMemo(() => {
     const query = normalizeSearchQuery(effectiveSearchQuery)
     if (!query) return sortedRows
     return sortedRows.filter((row) => rowMatchesQuery(row, query, effectiveLocale))
   }, [effectiveLocale, effectiveSearchQuery, sortedRows])
-
-  const showFeaturedSection =
-    activeTab === 'browse' && !isGlobalSearching && !loading && !catalogError
-  const featuredRows = useMemo(
-    () => (showFeaturedSection ? filteredRows.filter((row) => row.featured) : []),
-    [filteredRows, showFeaturedSection],
-  )
-  const gridRows = useMemo(() => {
-    if (!showFeaturedSection || featuredRows.length === 0) return filteredRows
-    const featuredIds = new Set(featuredRows.map((row) => row.id))
-    return filteredRows.filter((row) => !featuredIds.has(row.id))
-  }, [featuredRows, filteredRows, showFeaturedSection])
 
   const selectedRow = useMemo(() => {
     if (!selectedId) return null
@@ -269,13 +311,13 @@ export function PluginCatalogList({
         current.map((entry) => (entry.id === row.id ? { ...entry, detail } : entry)),
       )
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause)
+      const message = humanizePluginOperationError(cause, t)
       setDetailError(message)
       setSelectedDetail(null)
     } finally {
       setDetailLoading(false)
     }
-  }, [])
+  }, [t])
 
   const openDetail = useCallback(
     (row: CatalogRow) => {
@@ -308,11 +350,11 @@ export function PluginCatalogList({
 
   useEffect(() => {
     closeDetail()
-  }, [activeTab, closeDetail])
+  }, [selectedFilterId, closeDetail])
 
   useEffect(() => {
-    setSelectedCategoryId(null)
-  }, [activeTab, isGlobalSearching])
+    if (isGlobalSearching) setSelectedFilterId(null)
+  }, [isGlobalSearching])
 
   const resolveDetailForRow = useCallback(
     async (row: CatalogRow): Promise<PluginCatalogDetail> => {
@@ -330,60 +372,80 @@ export function PluginCatalogList({
   )
 
   const runInstall = useCallback(
-    async (row: CatalogRow, detail: PluginCatalogDetail) => {
+    async (row: CatalogRow, detail: PluginCatalogDetail, isUpdate: boolean) => {
       setInstallingId(row.id)
       setOperationError(null)
+      setOperationNotice(null)
       try {
         await installPluginFromCatalogDetail(detail)
         await refreshInstalled()
         setSelectedDetail(detail)
+        setOperationNotice({
+          message: t(isUpdate ? 'settings.plugins.updateSuccess' : 'settings.plugins.installSuccess', {
+            name: row.name,
+          }),
+        })
       } catch (cause) {
-        const message = cause instanceof Error ? cause.message : String(cause)
+        const message = humanizePluginOperationError(cause, t)
         setOperationError(message)
       } finally {
         setInstallingId(null)
       }
     },
-    [refreshInstalled],
+    [refreshInstalled, t],
   )
 
   const requestInstall = useCallback(
     async (row: CatalogRow, isUpdate: boolean) => {
       setOperationError(null)
+      setOperationNotice(null)
       try {
         const detail = await resolveDetailForRow(row)
+        const compatibility = resolveCompatibilityForRow({ ...row, detail })
+        if (compatibility !== 'compatible') {
+          const minAppVersion = resolvePluginMinAppVersion(row.minAppVersion, detail, row.latestVersion)
+          const maxAppVersion = resolvePluginMaxAppVersion(row.maxAppVersion, detail, row.latestVersion)
+          setOperationError(
+            compatibility === 'appTooOld'
+              ? t('settings.plugins.compatibilityAppTooOld', { version: minAppVersion ?? '' })
+              : t('settings.plugins.compatibilityAppTooNew', { version: maxAppVersion ?? '' }),
+          )
+          return
+        }
         setInstallConfirm({ row, detail, isUpdate })
       } catch (cause) {
-        const message = cause instanceof Error ? cause.message : String(cause)
+        const message = humanizePluginOperationError(cause, t)
         setOperationError(message)
       }
     },
-    [resolveDetailForRow],
+    [resolveDetailForRow, t],
   )
 
   const confirmInstall = useCallback(async () => {
     if (!installConfirm) return
     const pending = installConfirm
     setInstallConfirm(null)
-    await runInstall(pending.row, pending.detail)
+    await runInstall(pending.row, pending.detail, pending.isUpdate)
   }, [installConfirm, runInstall])
 
   const runUninstall = useCallback(
     async (row: CatalogRow) => {
       setUninstallingId(row.id)
       setOperationError(null)
+      setOperationNotice(null)
       try {
         await uninstallPlugin(row.id)
         await refreshInstalled()
         if (selectedId === row.id) closeDetail()
+        setOperationNotice({ message: t('settings.plugins.uninstallSuccess', { name: row.name }) })
       } catch (cause) {
-        const message = cause instanceof Error ? cause.message : String(cause)
+        const message = humanizePluginOperationError(cause, t)
         setOperationError(message)
       } finally {
         setUninstallingId(null)
       }
     },
-    [closeDetail, refreshInstalled, selectedId],
+    [closeDetail, refreshInstalled, selectedId, t],
   )
 
   const requestUninstall = useCallback((row: CatalogRow) => {
@@ -402,19 +464,23 @@ export function PluginCatalogList({
     setUpdateAllConfirmOpen(false)
     setBulkUpdating(true)
     setOperationError(null)
+    setOperationNotice(null)
     try {
       for (const row of updatableRows) {
         const detail = await resolveDetailForRow(row)
         await installPluginFromCatalogDetail(detail)
       }
       await refreshInstalled()
+      setOperationNotice({
+        message: t('settings.plugins.updateAllSuccess', { count: String(updatableRows.length) }),
+      })
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause)
+      const message = humanizePluginOperationError(cause, t)
       setOperationError(message)
     } finally {
       setBulkUpdating(false)
     }
-  }, [refreshInstalled, resolveDetailForRow, updatableRows])
+  }, [refreshInstalled, resolveDetailForRow, t, updatableRows])
 
   const markIconBroken = useCallback((pluginId: string, row: CatalogRow) => {
     if (!pluginHasExplicitIcon(row)) return
@@ -437,12 +503,14 @@ export function PluginCatalogList({
       const updateAvailable = isUpdateAvailableForRow(row)
       const installing = installingId === row.id
       const uninstalling = uninstallingId === row.id
+      const compatibility = resolveCompatibilityForRow(row)
       return {
         installed,
         installedVersion: installedVersionById.get(row.id),
         updateAvailable,
         installing,
         uninstalling,
+        compatibility,
         selected: selectedId === row.id,
         iconBroken: brokenIconIds.has(row.id),
         onOpenDetail: () => openDetail(row),
@@ -470,18 +538,18 @@ export function PluginCatalogList({
   const emptyMessage = useMemo(() => {
     const query = normalizeSearchQuery(effectiveSearchQuery)
     if (query) return t('settings.plugins.emptySearch')
-    if (selectedCategoryId && activeTab === 'browse' && !isGlobalSearching) {
+    if (selectedFilterId && !isInstalledFilter && !isGlobalSearching) {
       return t('settings.plugins.emptyCategory')
     }
-    if (activeTab === 'installed') return t('settings.plugins.installedEmpty')
+    if (isInstalledFilter) return t('settings.plugins.installedEmpty')
     return t('settings.plugins.emptyCatalog')
-  }, [activeTab, effectiveSearchQuery, isGlobalSearching, selectedCategoryId, t])
+  }, [effectiveSearchQuery, isGlobalSearching, isInstalledFilter, selectedFilterId, t])
 
   const confirmPermissionLabels = installConfirm
     ? listPluginPermissionLabels(installConfirm.detail.permissions, t)
     : []
 
-  const panelId = `prefs-plugins-panel-${isGlobalSearching ? 'search' : activeTab}`
+  const panelId = `prefs-plugins-panel-${isGlobalSearching ? 'search' : selectedFilterId ?? 'all'}`
   const showEmptyState = !loading && !catalogError && filteredRows.length === 0
   const showDetailBackdrop = selectedRow != null && detailOverlay
 
@@ -501,53 +569,67 @@ export function PluginCatalogList({
       <div
         id={panelId}
         role="region"
-        aria-labelledby={isGlobalSearching ? undefined : `prefs-plugins-tab-${activeTab}`}
+        aria-label={t('settings.plugins.panelLabel')}
         className="prefs-plugin-panel"
       >
-        <div className="prefs-plugin-toolbar">
-          <SettingsInput
-            type="search"
-            className="prefs-plugin-search"
-            value={isGlobalSearching ? globalSearchQuery : localSearchQuery}
-            placeholder={t('settings.plugins.searchPlaceholder')}
-            aria-label={t('settings.plugins.searchPlaceholder')}
-            readOnly={isGlobalSearching}
-            onChange={(event) => setLocalSearchQuery(event.target.value)}
-          />
-          {activeTab === 'browse' && !isGlobalSearching ? (
-            <>
-              <PluginSortSelect t={t} value={sortMode} onChange={handleSortModeChange} />
-              <SettingsButton
-                variant="ghost"
-                className="prefs-plugin-action-btn"
-                onClick={() => void loadCatalog()}
-                disabled={loading}
-              >
-                <Icon name="refresh" size="sm" className={loading ? 'luna-spin' : undefined} />
-                {t('settings.plugins.refresh')}
-              </SettingsButton>
-            </>
-          ) : null}
-          {activeTab === 'installed' && !isGlobalSearching ? (
-            <SettingsButton
-              variant="ghost"
-              className="prefs-plugin-action-btn"
-              onClick={() => void refreshInstalled()}
-            >
-              <Icon name="refresh" size="sm" />
-              {t('settings.plugins.refreshInstalled')}
-            </SettingsButton>
-          ) : null}
-        </div>
+        {!isGlobalSearching ? (
+          <div className="prefs-plugin-browse-controls">
+            <PluginCategoryFilter
+              t={t}
+              effectiveLocale={effectiveLocale}
+              categories={categories}
+              activeFilterId={selectedFilterId}
+              updatesAvailableCount={updatesAvailableCount}
+              onFilterChange={setSelectedFilterId}
+            />
+            <div className="prefs-plugin-controls-trailing">
+              {!isInstalledFilter ? (
+                <PluginSortSelect t={t} value={sortMode} onChange={handleSortModeChange} compact />
+              ) : null}
+              <SettingsInput
+                type="search"
+                className="prefs-plugin-search"
+                value={localSearchQuery}
+                placeholder={t('settings.plugins.searchPlaceholder')}
+                aria-label={t('settings.plugins.searchPlaceholder')}
+                onChange={(event) => setLocalSearchQuery(event.target.value)}
+              />
+              {!isInstalledFilter ? (
+                <SettingsButton
+                  variant="ghost"
+                  className="prefs-plugin-action-btn prefs-plugin-action-btn--icon prefs-plugin-refresh-btn"
+                  aria-label={t('settings.plugins.refresh')}
+                  title={t('settings.plugins.refresh')}
+                  onClick={() => void loadCatalog()}
+                  disabled={loading}
+                >
+                  <Icon name="refresh" size="sm" className={loading ? 'luna-spin' : undefined} />
+                </SettingsButton>
+              ) : (
+                <SettingsButton
+                  variant="ghost"
+                  className="prefs-plugin-action-btn prefs-plugin-action-btn--icon prefs-plugin-refresh-btn"
+                  aria-label={t('settings.plugins.refreshInstalled')}
+                  title={t('settings.plugins.refreshInstalled')}
+                  onClick={() => void refreshInstalled()}
+                >
+                  <Icon name="refresh" size="sm" />
+                </SettingsButton>
+              )}
+            </div>
+          </div>
+        ) : null}
 
-        {activeTab === 'browse' && !isGlobalSearching && Object.keys(categories).length > 0 ? (
-          <PluginCategoryFilter
-            t={t}
-            effectiveLocale={effectiveLocale}
-            categories={categories}
-            activeCategoryId={selectedCategoryId}
-            onCategoryChange={setSelectedCategoryId}
-          />
+        {!isInstalledFilter && !isGlobalSearching && !earlyAccessDismissed ? (
+          <PreferencesInfoCallout
+            dismissLabel={t('settings.plugins.earlyAccessDismiss')}
+            onDismiss={() => {
+              persistEarlyAccessDismissed()
+              setEarlyAccessDismissed(true)
+            }}
+          >
+            {t('settings.plugins.earlyAccessNotice')}
+          </PreferencesInfoCallout>
         ) : null}
 
         {!isGlobalSearching && updatesAvailableCount > 0 ? (
@@ -567,7 +649,7 @@ export function PluginCatalogList({
           </div>
         ) : null}
 
-        {loading && activeTab === 'browse' && !isGlobalSearching ? (
+        {loading && !isInstalledFilter && !isGlobalSearching ? (
           <PreferencesNotice tone="status" role="status" ariaLive="polite">
             {t('settings.plugins.loading')}
           </PreferencesNotice>
@@ -591,6 +673,12 @@ export function PluginCatalogList({
           </PreferencesNotice>
         ) : null}
 
+        {operationNotice ? (
+          <PreferencesNotice tone="status" role="status" ariaLive="polite">
+            {operationNotice.message}
+          </PreferencesNotice>
+        ) : null}
+
         {showEmptyState ? (
           <div className="prefs-plugin-inline-notice">
             <PreferencesNotice tone="muted" role="status">
@@ -604,11 +692,11 @@ export function PluginCatalogList({
               >
                 {t('settings.plugins.clearSearch')}
               </SettingsButton>
-            ) : selectedCategoryId ? (
+            ) : selectedFilterId ? (
               <SettingsButton
                 variant="ghost"
                 className="prefs-plugin-action-btn"
-                onClick={() => setSelectedCategoryId(null)}
+                onClick={() => setSelectedFilterId(null)}
               >
                 {t('settings.plugins.categoryAll')}
               </SettingsButton>
@@ -618,18 +706,8 @@ export function PluginCatalogList({
 
         <div className="prefs-plugin-layout">
           <div className="prefs-plugin-main">
-            <PluginCatalogFeaturedSection
-              t={t}
-              rows={featuredRows}
-              effectiveLocale={effectiveLocale}
-              categories={categories}
-              cardPropsForRow={cardPropsForRow}
-            />
-            {featuredRows.length > 0 && gridRows.length > 0 ? (
-              <h4 className="prefs-plugin-section-title">{t('settings.plugins.allPluginsSection')}</h4>
-            ) : null}
             <div className="prefs-plugin-grid">
-              {gridRows.map((row) => (
+              {filteredRows.map((row) => (
                 <PluginCatalogCard
                   key={row.id}
                   row={row}
@@ -655,6 +733,7 @@ export function PluginCatalogList({
               installedVersion={installedVersionById.get(selectedRow.id)}
               installing={installingId === selectedRow.id}
               uninstalling={uninstallingId === selectedRow.id}
+              compatibility={resolveCompatibilityForRow(selectedRow)}
               overlayMode={detailOverlay}
               t={t}
               onClose={closeDetail}

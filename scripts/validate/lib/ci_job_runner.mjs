@@ -49,3 +49,8 @@ export function runCargo(args) {
     env: { CARGO_TARGET_DIR: path.join(ROOT, 'src-tauri', 'target') },
   })
 }
+
+/** Mirrors GitHub CI install step (.github/workflows/ci.yml). */
+export function runNpmCi() {
+  runStep('npm ci', 'npm', ['ci'])
+}

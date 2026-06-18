@@ -77,7 +77,10 @@ export function isCaretBeforeImageInImageOnlyParagraph($from: ResolvedPos): bool
 }
 
 export function isEmptyParagraphNode(node: PMNode): boolean {
-  return node.type.name === 'paragraph' && node.content.size === 0
+  if (node.type.name !== 'paragraph') return false
+  if (node.content.size === 0) return true
+  if (node.childCount === 1 && node.firstChild?.type.name === 'hardBreak') return true
+  return false
 }
 
 /** PM position immediately after the image atom inside an image-only paragraph. */

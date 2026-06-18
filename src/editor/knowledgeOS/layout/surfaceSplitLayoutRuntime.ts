@@ -8,7 +8,7 @@ import { bumpLiveKernelTick, getCurrentOSKernelTick } from '../osKernelClock'
 export const SURFACE_SPLITTER_WIDTH_PX = 4
 export const SURFACE_RAIL_MIN_PX = 260
 export const SURFACE_RAIL_MAX_PX = 560
-export const SURFACE_RAIL_DEFAULT_PX = 300
+export const SURFACE_RAIL_DEFAULT_PX = 380
 
 const STORAGE_KEY = 'knowledgeSurfaceSplitRatio'
 const DEFAULT_RATIO = SURFACE_RAIL_DEFAULT_PX / 1000

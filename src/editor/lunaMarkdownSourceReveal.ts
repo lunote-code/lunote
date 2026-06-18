@@ -165,7 +165,8 @@ function expandMarkedTextRange(
   return { from, to }
 }
 
-function resolveInlineMarkRevealRange(doc: PMNode, pos: number): { from: number; to: number } | null {
+/** Whether double-click at `pos` should reveal inline Markdown (bold, italic, etc.). */
+export function resolveInlineMarkRevealRange(doc: PMNode, pos: number): { from: number; to: number } | null {
   const $pos = doc.resolve(pos)
   if (isPosInsideCodeSpecBlock($pos)) return null
 

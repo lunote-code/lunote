@@ -57,9 +57,13 @@ export type AppSettingsState = {
       autosaveScope?: 'allDirty' | 'activeOnly'
     }
     export?: {
-      preset?: 'print-a4' | 'compact-a4' | 'letter'
+      preset?: 'print-a4' | 'compact-a4' | 'share-wide' | 'letter'
       tocMode?: 'marker-only' | 'always' | 'off'
       pageBreakMode?: 'avoid-blocks' | 'flow'
+    }
+    window?: {
+      /** When enabled, closing the main window hides it and keeps the app running in the background. */
+      closeToTrayEnabled?: boolean
     }
   } & Record<string, unknown>
 }
@@ -80,6 +84,9 @@ export const DEFAULT_APP_SETTINGS: AppSettingsState = {
       preset: 'print-a4',
       tocMode: 'marker-only',
       pageBreakMode: 'avoid-blocks',
+    },
+    window: {
+      closeToTrayEnabled: true,
     },
     editor: {
       autosaveEnabled: true,

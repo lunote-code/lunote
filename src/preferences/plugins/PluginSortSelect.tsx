@@ -25,24 +25,34 @@ type Props = {
   t: TranslateFn
   value: PluginSortMode
   onChange: (mode: PluginSortMode) => void
+  compact?: boolean
 }
 
-export function PluginSortSelect({ t, value, onChange }: Props) {
+export function PluginSortSelect({ t, value, onChange, compact = false }: Props) {
+  const select = (
+    <select
+      className="prefs-plugin-sort-select"
+      value={value}
+      aria-label={t('settings.plugins.sortLabel')}
+      title={t('settings.plugins.sortLabel')}
+      onChange={(event) => onChange(event.target.value as PluginSortMode)}
+    >
+      {SORT_MODES.map((mode) => (
+        <option key={mode} value={mode}>
+          {t(SORT_LABEL_KEYS[mode])}
+        </option>
+      ))}
+    </select>
+  )
+
+  if (compact) {
+    return <div className="prefs-plugin-sort prefs-plugin-sort--compact">{select}</div>
+  }
+
   return (
     <label className="prefs-plugin-sort">
       <span className="prefs-plugin-sort-label">{t('settings.plugins.sortLabel')}</span>
-      <select
-        className="prefs-plugin-sort-select"
-        value={value}
-        aria-label={t('settings.plugins.sortLabel')}
-        onChange={(event) => onChange(event.target.value as PluginSortMode)}
-      >
-        {SORT_MODES.map((mode) => (
-          <option key={mode} value={mode}>
-            {t(SORT_LABEL_KEYS[mode])}
-          </option>
-        ))}
-      </select>
+      {select}
     </label>
   )
 }

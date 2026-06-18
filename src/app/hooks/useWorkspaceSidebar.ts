@@ -12,8 +12,10 @@ import {
 } from 'react'
 
 import type { TranslateFn } from '../../i18n'
-import { setWikiLinkSuggestPathProvider } from '../../editor/lunaWikiLinkSuggest'
+import { setWikiLinkSuggestPathProvider, setWikiLinkSuggestTemplatesFolderProvider } from '../../editor/lunaWikiLinkSuggest'
+import { isWorkspaceTemplateDocKey } from '../../templates/templatePathMatch'
 import { pathInList, pathsEqual } from '../../lib/workspacePathUtils'
+import { readWorkspaceConfig } from '../../workspace/workspaceConfig'
 import { isBufferTabId } from '../workspace/constants'
 import {
   collectDirPaths,
@@ -56,7 +58,7 @@ export type WorkspaceSidebarDeps = {
   setDragOverTarget: Dispatch<SetStateAction<WorkspaceDragTarget | null>>
   setEditorDocMenu: Dispatch<SetStateAction<EditorDocMenuState | null>>
   setFileContextMenu: Dispatch<SetStateAction<FileContextMenuState | null>>
-  dispatchOpenDocument: (root: string, path: string, reason?: string) => Promise<void>
+  dispatchOpenDocumentInTab: (root: string, path: string, reason?: string) => Promise<void>
   handleMoveFileToFolder: (sourcePath: string | string[], destDir: string, isDirectory?: boolean) => Promise<void>
   toggleDir: (path: string) => void
   setExpandedDirs: Dispatch<SetStateAction<Set<string>>>
@@ -81,7 +83,7 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
     setDragOverTarget,
     setEditorDocMenu,
     setFileContextMenu,
-    dispatchOpenDocument,
+    dispatchOpenDocumentInTab,
     handleMoveFileToFolder,
     toggleDir,
     setExpandedDirs,
@@ -136,17 +138,40 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
   useEffect(() => {
     if (!rootDir) {
       setWikiLinkSuggestPathProvider(null)
+      setWikiLinkSuggestTemplatesFolderProvider(null)
       return
     }
+
+    const templatesFoldersRef = { current: ['Templates'] as string[] }
+    let cancelled = false
+
+    void readWorkspaceConfig(rootDir).then((config) => {
+      if (cancelled) return
+      const folder = (config.templates?.folder ?? 'Templates')
+        .replace(/\\/g, '/')
+        .replace(/^\/+|\/+$/g, '')
+        .trim()
+      templatesFoldersRef.current = folder ? [folder] : ['Templates']
+    })
+
+    setWikiLinkSuggestTemplatesFolderProvider(() => templatesFoldersRef.current)
     setWikiLinkSuggestPathProvider(() =>
       flatWorkspaceFiles
         .filter((f) => /\.md$/iu.test(f.relativePath))
+        .filter((f) => !isWorkspaceTemplateDocKey(
+          f.relativePath.replace(/\.md$/iu, ''),
+          templatesFoldersRef.current,
+        ))
         .map((f) => ({
           docKey: f.relativePath.replace(/\.md$/iu, ''),
           title: f.label.replace(/\.md$/iu, ''),
         })),
     )
-    return () => setWikiLinkSuggestPathProvider(null)
+    return () => {
+      cancelled = true
+      setWikiLinkSuggestPathProvider(null)
+      setWikiLinkSuggestTemplatesFolderProvider(null)
+    }
   }, [flatWorkspaceFiles, rootDir])
 
   const sortedFlatWorkspaceFiles = useMemo(() => {
@@ -282,7 +307,7 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
       lastSidebarOpenRef.current = { path, at: now }
       void (async () => {
         try {
-          await dispatchOpenDocument(root, path)
+          await dispatchOpenDocumentInTab(root, path, 'sidebar-file-click')
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
           const display = /20\s*MB|exceeds.*limit/i.test(message)
@@ -292,7 +317,7 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
         }
       })()
     },
-    [dispatchOpenDocument, rootDirRef, setStatus, t],
+    [dispatchOpenDocumentInTab, rootDirRef, setStatus, t],
   )
 
   handleMoveFileToFolderRef.current = handleMoveFileToFolder

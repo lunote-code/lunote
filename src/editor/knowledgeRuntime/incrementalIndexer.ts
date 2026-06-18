@@ -181,7 +181,7 @@ async function indexSingleDocument(job: PendingJob): Promise<void> {
     outboundTags: allTags,
     indexedAt: performance.now(),
     contentHash: hashContent(job.content),
-    bodySample: job.content.slice(0, 2000),
+    bodySample: parsed.body.slice(0, 2000),
   }
 
   registerDocumentMeta(meta)
@@ -208,7 +208,7 @@ async function indexSingleDocument(job: PendingJob): Promise<void> {
     job.absolutePath,
     title,
     allTags,
-    job.content,
+    parsed.body,
   )
 
   emitKnowledgeEvent('index-updated', {

@@ -35,7 +35,7 @@ function expectEqual<T>(actual: T, expected: T, label: string): void {
 const MODE_SWITCH_CONTRACT_CASES: readonly ModeSwitchContractCase[] = Object.freeze([
   {
     id: 'geometry-kind-mapping',
-    description: '几何分类应稳定覆盖 fence / collapsed / zero-payload / container / textblock',
+    description: 'Geometry classification must stably cover fence / collapsed / zero-payload / container / textblock',
     run: () => {
       expectEqual(getModeSwitchBlockGeometryKind('codeBlock'), 'atomic_fence', 'codeBlock geometry')
       expectEqual(getModeSwitchBlockGeometryKind('mermaidBlock'), 'collapsed_atom_carrier', 'mermaid geometry')
@@ -54,7 +54,7 @@ const MODE_SWITCH_CONTRACT_CASES: readonly ModeSwitchContractCase[] = Object.fre
   },
   {
     id: 'explicit-atomic-leaf-boundary',
-    description: 'leaf-row 原子收口只由 geometry 控制，普通 textblock 不应被误判为 atomic',
+    description: 'Leaf-row atomic boundaries are geometry-only; plain textblocks must not be misclassified as atomic',
     run: () => {
       expectEqual(isModeSwitchExplicitAtomicLeafType('codeBlock'), true, 'codeBlock atomic leaf')
       expectEqual(isModeSwitchExplicitAtomicLeafType('table'), true, 'table atomic leaf')
@@ -65,7 +65,7 @@ const MODE_SWITCH_CONTRACT_CASES: readonly ModeSwitchContractCase[] = Object.fre
   },
   {
     id: 'editing-policy-separate-from-geometry',
-    description: '编辑策略与 freeze geometry 必须保持解耦，不能互相直接推导',
+    description: 'Editing policy and freeze geometry must stay decoupled; neither may be derived from the other',
     run: () => {
       const codeBlock = getBlockEditingPolicy('codeBlock')
       expectEqual(getModeSwitchBlockGeometryKind('codeBlock'), 'atomic_fence', 'codeBlock geometry')
@@ -94,7 +94,7 @@ const MODE_SWITCH_CONTRACT_CASES: readonly ModeSwitchContractCase[] = Object.fre
   },
   {
     id: 'frozen-row-lookup-separate-from-rowkey-encoding',
-    description: 'projection 消费层应通过稳定结构字段定位 IR row，而不是依赖 rowKey 编码细节',
+    description: 'Projection consumers must locate IR rows via stable structural fields, not rowKey encoding details',
     run: () => {
       const ir = Object.freeze({
         canonicalFingerprint: 'test',
@@ -137,7 +137,7 @@ const MODE_SWITCH_CONTRACT_CASES: readonly ModeSwitchContractCase[] = Object.fre
   },
   {
     id: 'atomic-ancestor-preferred-over-inner-textblock',
-    description: '位于 table 等 atomic container 内部时，层级锚点应返回原子祖先而不是单元格里的 paragraph',
+    description: 'Inside atomic containers such as tables, hierarchical anchors must return the atomic ancestor, not the cell paragraph',
     run: () => {
       const schema = getOutlineParseSchema()
       const doc = canonicalMarkdownSemantics.parse('| A | B |\n| --- | --- |\n| C | D |\n', schema)
@@ -151,7 +151,7 @@ const MODE_SWITCH_CONTRACT_CASES: readonly ModeSwitchContractCase[] = Object.fre
   },
   {
     id: 'shared-prefix-stripper-stays-canonical',
-    description: 'structured 前缀剥离应由共享 helper 决定，避免 bodyFrom 与 tokenizer 漂移',
+    description: 'Structured prefix stripping must use the shared helper so bodyFrom and the tokenizer cannot drift',
     run: () => {
       expectEqual(
         structuredLineBodyMinIndexInSeg('> > - [ ] task child', {
@@ -174,7 +174,7 @@ const MODE_SWITCH_CONTRACT_CASES: readonly ModeSwitchContractCase[] = Object.fre
   },
   {
     id: 'callout-lift-preserves-inline-semantics',
-    description: 'callout 提升不能把首段 link / math / emoji 等 inline 语义压平成纯文本',
+    description: 'Callout lift must preserve first-paragraph link / math / emoji inline semantics instead of flattening to plain text',
     run: () => {
       const schema = getOutlineParseSchema()
       const doc = canonicalMarkdownSemantics.parse(
@@ -203,7 +203,7 @@ const MODE_SWITCH_CONTRACT_CASES: readonly ModeSwitchContractCase[] = Object.fre
   },
   {
     id: 'callout-lift-preserves-leading-blank-quote-lines',
-    description: 'callout 提升后必须保留 marker 后连续空引用行，避免打开即脏和行数漂移',
+    description: 'After callout lift, consecutive blank quote lines after the marker must remain to avoid open-as-dirty and line-count drift',
     run: () => {
       const schema = getOutlineParseSchema()
       const markdown = '> [!NOTE]\n>\n>\n> Note Callout\n'
@@ -224,7 +224,7 @@ const MODE_SWITCH_CONTRACT_CASES: readonly ModeSwitchContractCase[] = Object.fre
   },
   {
     id: 'collapsed-atom-pm-projection-stays-within-row',
-    description: 'collapsed atom carrier 的 PM 投影必须钳在当前 row 内，不能越界到相邻 block',
+    description: 'Collapsed atom carrier PM projection must stay within the current row and must not spill into adjacent blocks',
     run: () => {
       const projected = projectAlongRow(
         Object.freeze({
@@ -260,7 +260,7 @@ const MODE_SWITCH_CONTRACT_CASES: readonly ModeSwitchContractCase[] = Object.fre
   {
     id: 'pending-ref-lifecycle',
     description:
-      'pendingSourceModeAnchorRef 仅在 source→visual prepare 消费；CM view ready 不得清空（否则 Cmd+/ 往返丢失 snapshot）',
+      'pendingSourceModeAnchorRef is consumed only during source→visual prepare; CM view ready must not clear it (otherwise Cmd+/ round-trips lose the snapshot)',
     run: () => {
       const anchor: SourceModeEnterAnchor = Object.freeze({
         documentKey: 'contract:pending-ref',

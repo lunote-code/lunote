@@ -77,6 +77,27 @@ export function isValidRecentFilePath(path: unknown): path is string {
   return true
 }
 
+const REMOTE_WORKSPACE_MARKERS = [
+  'onedrive',
+  'dropbox',
+  'icloud',
+  'google drive',
+  'nextcloud',
+  'box sync',
+  'synologydrive',
+  'mega',
+] as const
+
+/** Heuristic: network mounts and common cloud-sync folders may not emit reliable FS watch events. */
+export function isLikelyRemoteWorkspaceRoot(rootDir: string): boolean {
+  const normalized = normPath(rootDir)
+  if (!normalized) return false
+  const lower = normalized.toLowerCase()
+  if (lower.startsWith('//')) return true
+  if (/^\/mnt(\/|$)/.test(lower) || /^\/media(\/|$)/.test(lower)) return true
+  return REMOTE_WORKSPACE_MARKERS.some((marker) => lower.includes(marker))
+}
+
 export function sanitizeRecentFilePaths(list: readonly unknown[]): string[] {
   const out: string[] = []
   for (const item of list) {

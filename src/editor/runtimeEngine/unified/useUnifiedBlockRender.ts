@@ -46,6 +46,7 @@ import { clearRuntimeSurface, patchRuntimeSurface } from './runtimeSurface'
 import { getBlockLifecycle } from '../virtualBlockViewport'
 import type { BlockParseResult } from '../incrementalParser'
 import { debugMermaid } from '../../mermaid/mermaidDebug'
+import { mermaidRenderErrorMessage } from '../../mermaid/mermaidSourceLint'
 
 registerBuiltinBlockRenderers()
 
@@ -142,6 +143,7 @@ export function useUnifiedBlockRender(options: UseUnifiedBlockRenderOptions): Us
 
   const commitCachedOutput = useCallback(
     (output: Extract<BlockRenderOutput, { kind: 'html' }>, renderKey: string) => {
+      if (!hostRef.current?.isConnected) return
       const liveHost = getRenderHost(blockId, hostRef.current)
       liveHost.swapContent(output)
       measureBlockSurface(blockId, hostRef.current)
@@ -270,16 +272,27 @@ export function useUnifiedBlockRender(options: UseUnifiedBlockRenderOptions): Us
         setError(null)
         patchRuntimeSurface(blockId, { busy: true, error: null, blockType, lifecycle: 'visible' })
 
-        const output = await enqueueAsyncBlockRender(
-          blockType,
-          {
-            blockId,
-            source,
-            generation: myGen,
-            priority: renderPriority,
-          },
-          signal,
-        )
+        let output: Awaited<ReturnType<typeof enqueueAsyncBlockRender>>
+        try {
+          output = await enqueueAsyncBlockRender(
+            blockType,
+            {
+              blockId,
+              source,
+              generation: myGen,
+              priority: renderPriority,
+            },
+            signal,
+          )
+        } catch (error) {
+          if (signal.aborted || generationRef.current !== myGen) return
+          const message = mermaidRenderErrorMessage(error)
+          setError(message)
+          host.clear()
+          setBusy(false)
+          patchRuntimeSurface(blockId, { busy: false, error: message, blockType })
+          return
+        }
 
         if (signal.aborted || generationRef.current !== myGen) return
 
@@ -330,6 +343,7 @@ export function useUnifiedBlockRender(options: UseUnifiedBlockRenderOptions): Us
           generation: myGen,
           run: async () => {
             if (generationRef.current !== myGen) return
+            if (!hostRef.current?.isConnected) return
             if (blockType === 'mermaid') {
               debugMermaid('render_commit', {
                 blockId,

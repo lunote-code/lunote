@@ -23,7 +23,7 @@
 
 <h3 align="center">
   <a href="#preview">Screenshot</a> &nbsp;|&nbsp;
-  <a href="#overview">Panoramica</a> &nbsp;|&nbsp;
+  <a href="#overview">Cos'è Lunote</a> &nbsp;|&nbsp;
   <a href="#capabilities">Funzioni</a> &nbsp;|&nbsp;
   <a href="#download">Download</a> &nbsp;|&nbsp;
   <a href="#development">Sviluppo</a> &nbsp;|&nbsp;
@@ -63,7 +63,7 @@
 </p>
 
 <p align="center">
-  <a href="#preview">Screenshot</a> · <a href="#overview">Panoramica</a> · <a href="#capabilities">Funzioni</a> · <a href="#download">Download</a> · <a href="#quick-start">Avvio rapido</a> · <a href="#user-guide">Guida</a> · <a href="#faq">FAQ</a>
+  <a href="#preview">Screenshot</a> · <a href="#overview">Cos'è Lunote</a> · <a href="#capabilities">Funzioni</a> · <a href="#download">Download</a> · <a href="#quick-start">Avvio rapido</a> · <a href="#user-guide">Guida</a> · <a href="#faq">FAQ</a>
 </p>
 
 <!-- readme-demo-gif -->
@@ -97,9 +97,9 @@
 <!-- readme-body-start -->
 <a id="overview"></a>
 
-## Panoramica
+## Cos'è Lunote
 
-Apri una cartella di **file `.md`** e scrivi. Lunote aggiunge `[[wiki link]]`, backlink e grafo—**senza account; pack temi opzionali in Preferenze → Plugin**.
+Lunote è un'app di note Markdown **local-first** per macOS, Windows e Linux. Apri una cartella di **file `.md`** come workspace per scrivere, collegare note con `[[wiki link]]` ed esplorare backlink e grafo della conoscenza—**senza account**; pack temi opzionali in **Preferenze → Plugin**.
 
 - Apri una **cartella `.md`**
 - **Visuale e sorgente** con una scorciatoia
@@ -116,9 +116,9 @@ Apri una cartella di **file `.md`** e scrivi. Lunote aggiunge `[[wiki link]]`, b
 
 <a id="capabilities"></a>
 
-## Funzioni
+## Funzioni principali
 
-Scegli il tuo flusso—tutto quanto segue è nell'app:
+Scegli il tuo flusso—queste funzioni sono integrate in Lunote:
 
 ### Scrivere
 
@@ -225,6 +225,27 @@ Usi Typora o Obsidian? Lunote è per chi vuole **scrittura comoda e wiki link in
 | **Wiki link e grafo** | Limitato | Forte (spesso plugin) | Forte, integrato |
 | **Plugin per iniziare** | Pochi | Molti | **Opzionali** (catalogo) |
 
+<a id="why-lunote"></a>
+
+## Perché Lunote
+
+- **I tuoi file**: `.md` normali nelle cartelle che controlli.
+- **Un'app sola**: scrittura comoda, wiki link e grafo integrati—pack opzionali.
+
+---
+
+<a id="typora-vs-obsidian-vs-lunote"></a>
+
+## Confronto
+
+Usi Typora o Obsidian? Lunote è per chi vuole **scrittura comoda e wiki link in un'app desktop**, con catalogo temi opzionale.
+
+| | Typora | Obsidian | Lunote |
+|---|---|---|---|
+| **Scrittura** | Eccellente | Buona | Eccellente, integrata |
+| **Wiki link e grafo** | Limitato | Forte (spesso plugin) | Forte, integrato |
+| **Plugin per iniziare** | Pochi | Molti | **Opzionali** (catalogo) |
+
 <a id="user-guide"></a>
 
 ## Guida (inglese)
@@ -237,60 +258,6 @@ Guide pratiche in inglese (temi, scorciatoie ed elenco completo dei comandi **`/
 - [Indice guida](guide/README.md) — all guide pages
 
 ---
-
-<a id="development"></a>
-
-## Sviluppo
-
-Compilare Lunote da soli:
-
-- **Prerequisiti:** Node.js, Rust e tooling [Tauri](https://tauri.app/)
-- **Dev:** `npm install` poi `npm run tauri:dev`
-- **Build:** `npm run tauri:bundle` (o `tauri:bundle:dmg` / `msi` / `deb`)
-- **Documentazione:** [Indice documentazione](README.md) · [Packaging](packaging-strategy.md) · [Script](../scripts/README.md)
-
-Domande? [Apri un issue](https://github.com/lunote-code/lunote/issues). PR benvenute.
-
----
-
-<a id="contribution"></a>
-
-## Contribuire
-
-Prima di una pull request:
-
-- Leggere [Script e manutenzione](../scripts/README.md) (locale e release)
-- Eseguire `npm run lint` e i test pertinenti per editor o export
-- Allineare i testi nei [README localizzati](README.md)
-
-Idee: [Discussions](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
-
-<a id="development"></a>
-
-## Sviluppo
-
-Compilare Lunote da soli:
-
-- **Prerequisiti:** Node.js, Rust e tooling [Tauri](https://tauri.app/)
-- **Dev:** `npm install` poi `npm run tauri:dev`
-- **Build:** `npm run tauri:bundle` (o `tauri:bundle:dmg` / `msi` / `deb`)
-- **Documentazione:** [Indice documentazione](README.md) · [Packaging](packaging-strategy.md) · [Script](../scripts/README.md)
-
-Domande? [Apri un issue](https://github.com/lunote-code/lunote/issues). PR benvenute.
-
----
-
-<a id="contribution"></a>
-
-## Contribuire
-
-Prima di una pull request:
-
-- Leggere [Script e manutenzione](../scripts/README.md) (locale e release)
-- Eseguire `npm run lint` e i test pertinenti per editor o export
-- Allineare i testi nei [README localizzati](README.md)
-
-Idee: [Discussions](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
 
 <a id="development"></a>
 

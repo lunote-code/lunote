@@ -23,6 +23,10 @@ export type AppSidebarPanelProps = {
   t: TranslateFn
   rootDir: string
   activePath: string
+  mainPaneMode?: 'visual' | 'source'
+  knowledgeRailVisible?: boolean
+  onOpenKnowledgePanel?: () => void
+  onToggleMainPaneMode?: () => void
   searchText: string
   setSearchText: Dispatch<SetStateAction<string>>
   isSidebarFiltering: boolean
@@ -32,7 +36,6 @@ export type AppSidebarPanelProps = {
   dragOverTarget: WorkspaceDragTarget | null
   setDragOverTarget: Dispatch<SetStateAction<WorkspaceDragTarget | null>>
   onSidebarBlankContextMenu: (e: MouseEvent) => void
-  dispatchOpenDocument: (root: string, path: string, reason?: string) => void | Promise<void>
   onSidebarFileContextMenu: (e: MouseEvent, path: string) => void
   outlineHeadings: TocHeading[]
   activeOutlineId: string | null
@@ -77,6 +80,10 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
     t,
     rootDir,
     activePath,
+    mainPaneMode = 'visual',
+    knowledgeRailVisible = false,
+    onOpenKnowledgePanel,
+    onToggleMainPaneMode,
     searchText,
     setSearchText,
     isSidebarFiltering,
@@ -267,7 +274,17 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
               ) : sidebarListMode === 'outline' && !activePath ? (
                 <p className="file-list-empty">{t('app.sidebar.empty.openNoteOutline')}</p>
               ) : fileTree.length === 0 ? (
-                <p className="file-list-empty">{t('app.sidebar.empty.dirEmpty')}</p>
+                <>
+                  <p className="file-list-empty">{t('app.sidebar.empty.dirEmpty')}</p>
+                  <SidebarWorkspaceOnboarding
+                    t={t}
+                    workspaceReady
+                    mainPaneMode={mainPaneMode}
+                    knowledgeRailVisible={knowledgeRailVisible}
+                    onOpenKnowledgePanel={onOpenKnowledgePanel}
+                    onToggleMainPaneMode={onToggleMainPaneMode}
+                  />
+                </>
               ) : (
                 <>
                   {draggingWorkspaceFile && sidebarFileView === 'list' && workspaceFolderNodes.length > 0 ? (
@@ -339,7 +356,14 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
                     />
                   )}
                   {!isSidebarFiltering && sidebarListMode === 'files' ? (
-                    <SidebarWorkspaceOnboarding t={t} />
+                    <SidebarWorkspaceOnboarding
+                      t={t}
+                      workspaceReady
+                      mainPaneMode={mainPaneMode}
+                      knowledgeRailVisible={knowledgeRailVisible}
+                      onOpenKnowledgePanel={onOpenKnowledgePanel}
+                      onToggleMainPaneMode={onToggleMainPaneMode}
+                    />
                   ) : null}
                 </>
               )}

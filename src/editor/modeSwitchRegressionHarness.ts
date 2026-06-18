@@ -267,10 +267,10 @@ function modeSwitchRegressionHistoryPresetCommand(stage: string, note: string): 
 function evaluateModeSwitchP2GateSummaries(summary: ModeSwitchP2GateInput): readonly ModeSwitchP2GateSummary[] {
   const metricsRationale: string[] = []
   const quality = summary.qualityMetrics
-  if (summary.results.length === 0) metricsRationale.push('缺少 regression case，无法形成可比较指标。')
-  if (!Number.isFinite(quality.roundTripStrictRate)) metricsRationale.push('roundTripStrictRate 不可用。')
-  if (!Number.isFinite(summary.hardFailRate)) metricsRationale.push('hardFailRate 不可用。')
-  if (summary.totalStageCount <= 0) metricsRationale.push('stage 总数为 0，指标无效。')
+  if (summary.results.length === 0) metricsRationale.push('No regression cases; comparable metrics cannot be formed.')
+  if (!Number.isFinite(quality.roundTripStrictRate)) metricsRationale.push('roundTripStrictRate is unavailable.')
+  if (!Number.isFinite(summary.hardFailRate)) metricsRationale.push('hardFailRate is unavailable.')
+  if (summary.totalStageCount <= 0) metricsRationale.push('Total stage count is 0; metrics are invalid.')
   const metricsSummary = Object.freeze({
     stage: 'metrics' as const,
     status: (metricsRationale.length === 0 ? 'ready' : 'pending') as 'ready' | 'pending',
@@ -287,12 +287,12 @@ function evaluateModeSwitchP2GateSummaries(summary: ModeSwitchP2GateInput): read
   })
 
   const decisionRationale: string[] = []
-  if (metricsSummary.status !== 'ready') decisionRationale.push('metrics 阶段尚未就绪。')
-  if (summary.hardFailCount > 0) decisionRationale.push('仍有 hard fail。')
-  if (summary.commandHardFailCount > 0) decisionRationale.push('仍有 command hard fail。')
-  if (summary.mismatchCount > 0) decisionRationale.push('仍存在 regression mismatch。')
+  if (metricsSummary.status !== 'ready') decisionRationale.push('Metrics stage is not ready yet.')
+  if (summary.hardFailCount > 0) decisionRationale.push('Hard fails remain.')
+  if (summary.commandHardFailCount > 0) decisionRationale.push('Command hard fails remain.')
+  if (summary.mismatchCount > 0) decisionRationale.push('Regression mismatches remain.')
   if (summary.lookupResolutionCounts.block_index > 0 || summary.lookupResolutionCounts.missing > 0) {
-    decisionRationale.push('row lookup 还存在 block_index / missing 回退。')
+    decisionRationale.push('Row lookup still falls back to block_index / missing.')
   }
   const decisionReady = decisionRationale.length === 0
   const decisionSummary = Object.freeze({
@@ -826,29 +826,29 @@ function evaluateModeSwitchArchitectureDecision(input: {
 }): ModeSwitchArchitectureDecision {
   const rationale: string[] = []
   if (input.hardFailRate > 0) {
-    rationale.push('仍存在 hard fail，说明结构桥还没有完全稳定。')
+    rationale.push('Hard fails remain, so the structural bridge is not fully stable yet.')
   }
   if (input.commandHardFailCount > 0) {
-    rationale.push('命令语义仍有 hard fail，说明局部 source island 路径还不够稳。')
+    rationale.push('Command semantics still have hard fails; the local source-island path is not stable enough.')
   }
   if (input.restoreDistanceCounts.unrelated > 0) {
-    rationale.push('恢复结果出现 unrelated block，说明结构锚点还不足以支撑当前切换质量。')
+    rationale.push('Restore landed on an unrelated block; structural anchors are insufficient for current switch quality.')
   }
   if (input.restoreDistanceCounts.nearby_block > 0) {
-    rationale.push('恢复结果里仍有 nearby block，说明还依赖保守邻近回退。')
+    rationale.push('Restore still hits nearby blocks, indicating reliance on conservative neighbor fallback.')
   }
   if (input.lookupResolutionCounts.block_index > 0 || input.lookupResolutionCounts.missing > 0) {
-    rationale.push('运行时行定位已经出现 block_index / missing 回退，说明冻结结构身份还不够稳。')
+    rationale.push('Runtime row lookup already falls back to block_index / missing; frozen structural identity is not stable enough.')
   }
   if (input.mismatchCount > 0) {
-    rationale.push('回归期望与实际仍有偏差，暂不适合扩大架构重构范围。')
+    rationale.push('Regression expectations still diverge from actual results; broader architecture refactors should wait.')
   }
   if (rationale.length === 0) {
     return Object.freeze({
       recommendation: 'stay_dual_editor_with_islands',
       rationale: Object.freeze([
-        '当前没有 hard fail 或命令级失败，说明双编辑器 + source island 方案仍然成立。',
-        '恢复距离保持在同 leaf row / 同 block path 范围内，暂时不需要急着推进更深层单引擎收敛。',
+        'No hard fails or command-level failures; the dual-editor + source-island approach still holds.',
+        'Restore distance stays within the same leaf row / block path; no rush to push deeper single-engine convergence.',
       ]),
     })
   }

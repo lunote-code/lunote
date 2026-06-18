@@ -74,9 +74,10 @@ docs/adr/
 # --- Scripts: local only (published list → scripts/README.md § Published) ---
 scripts/maintenance/
 scripts/test/
-scripts/test/run-*.mjs
-scripts/test/mode-switch-regression-baseline.json
-scripts/test/mode-switch-regression-history.json
+scripts/test/run-all-tests.mjs
+scripts/test/run-case/run-*.mjs
+scripts/test/mode-switch/regression-baseline.json
+scripts/test/mode-switch/regression-history.json
 scripts/test/test-results/
 scripts/test/playwright-report/
 scripts/locale/apply_*.py

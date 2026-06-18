@@ -112,7 +112,7 @@ function QaWorkspaceSidebarSelectionInner() {
     })
   }, [])
 
-  const dispatchOpenDocument = useCallback(async (root: string, path: string) => {
+  const dispatchOpenDocumentInTab = useCallback(async (root: string, path: string) => {
     if (root !== QA_ROOT) return
     setOpenedTabs((tabs) => (tabs.some((item) => pathsEqual(item, path)) ? tabs : [...tabs, path]))
     setActivePath(path)
@@ -149,7 +149,7 @@ function QaWorkspaceSidebarSelectionInner() {
     setDragOverTarget,
     setEditorDocMenu,
     setFileContextMenu,
-    dispatchOpenDocument,
+    dispatchOpenDocumentInTab,
     handleMoveFileToFolder: async () => undefined,
     toggleDir,
     setExpandedDirs,
@@ -245,7 +245,6 @@ function QaWorkspaceSidebarSelectionInner() {
           dragOverTarget={dragOverTarget}
           setDragOverTarget={setDragOverTarget}
           onSidebarBlankContextMenu={onSidebarBlankContextMenu}
-          dispatchOpenDocument={dispatchOpenDocument}
           onSidebarFileContextMenu={onSidebarFileContextMenu}
           outlineHeadings={[]}
           activeOutlineId={null}

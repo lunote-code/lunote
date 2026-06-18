@@ -98,6 +98,50 @@ function testAppHideShowCrossPlatform() {
   assert(source.includes('show_all_application(app)'), 'app-show-all handler must call show_all_application')
 }
 
+function testTrayReadinessGuardsCloseToTray() {
+  const quickCapture = read('src/platform/tauri/quickCapture.ts')
+  assert(quickCapture.includes('syncCloseToTrayRuntime(true)'), 'quickCapture must mark tray ready after install')
+  assert(quickCapture.includes('syncCloseToTrayRuntime(false)'), 'quickCapture must clear tray ready on failure/teardown')
+
+  const bootstrap = read('src/app/hooks/useAppBootstrap.ts')
+  assert(bootstrap.includes('hideMainWindowToBackground'), 'window close must hide to background when enabled')
+  assert(bootstrap.includes('isCloseToTrayAvailable()'), 'window close must consult close-to-tray availability')
+  assert(
+    bootstrap.includes('hideToBackground) {\n          event.preventDefault()'),
+    'window close must preventDefault synchronously before await when hide-to-tray is enabled',
+  )
+
+  const backend = read('src-tauri/src/lib.rs')
+  assert(backend.includes('CloseToTrayState'), 'backend must track close-to-tray readiness state')
+  assert(
+    backend.includes('close_to_tray_allowed'),
+    'backend close handler must gate hide-to-tray through close_to_tray_allowed',
+  )
+  assert(
+    quickCapture.includes('isMacDesktopPlatform()'),
+    'macOS must allow hide-to-tray without requiring tray icon readiness',
+  )
+}
+
+function testRaiseMainWindowTargetsMainLabel() {
+  const source = read('src/platform/tauri/raiseMainWindow.ts')
+  assert(source.includes("WebviewWindow.getByLabel('main')"), 'raiseMainWindow must target the main window label')
+  const singleInstance = read('src/app/singleInstance.ts')
+  assert(singleInstance.includes('raiseMainWindow()'), 'single-instance restore must reuse main-window raise helper')
+}
+
+function testPlatformShortcutHintsResolvedAtTranslateTime() {
+  const provider = read('src/i18n/provider.tsx')
+  assert(
+    provider.includes('resolvePlatformShortcutHintText(text)'),
+    'i18n provider must normalize Cmd/Ctrl style shortcut copy by current platform',
+  )
+  const helper = read('src/i18n/platformShortcutHint.ts')
+  assert(helper.includes('Cmd/Ctrl'), 'shortcut hint helper must collapse Cmd/Ctrl tokens')
+  assert(helper.includes('⌘/Ctrl'), 'shortcut hint helper must collapse symbol shortcut tokens')
+  assert(helper.includes("token: '(⌘/)'"), 'shortcut hint helper must collapse (⌘/) toolbar tokens')
+}
+
 function testUiLocaleParityContractExists() {
   const pkg = read('package.json')
   assert(pkg.includes('validate:ui-locale-parity'), 'package.json must define validate:ui-locale-parity')
@@ -108,13 +152,24 @@ function testUiLocaleParityContractExists() {
   assert(ci.includes('validate:ui-locale-parity'), 'verify:ci checks must run ui locale parity contract')
 }
 
+function testVerifyCiMirrorsNpmCi() {
+  const verify = read('scripts/validate/verify_github_ci.mjs')
+  assert(verify.includes('runNpmCi()'), 'verify:ci must run npm ci before build/locale jobs')
+  const runner = read('scripts/validate/lib/ci_job_runner.mjs')
+  assert(runner.includes("runStep('npm ci', 'npm', ['ci'])"), 'ci_job_runner must define runNpmCi helper')
+}
+
 const tests = [
   ['playwright scope and modKey', testPlaywrightScopeAndModKey],
   ['ci build job', testCiBuildJob],
+  ['verify:ci mirrors npm ci', testVerifyCiMirrorsNpmCi],
   ['mac-menu-boot pipeline', testMacMenuBootPipeline],
   ['contract tests use published paths only', testContractTestsUsePublishedPathsOnly],
   ['workspace watch path normalization', testWorkspaceWatchNormalizesSeparators],
   ['app-hide/show cross-platform', testAppHideShowCrossPlatform],
+  ['tray readiness guards close-to-tray', testTrayReadinessGuardsCloseToTray],
+  ['raise main window targets main label', testRaiseMainWindowTargetsMainLabel],
+  ['platform shortcut hints resolved', testPlatformShortcutHintsResolvedAtTranslateTime],
   ['ui locale parity contract wiring', testUiLocaleParityContractExists],
 ]
 

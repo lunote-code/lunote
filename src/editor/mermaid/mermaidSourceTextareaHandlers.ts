@@ -141,14 +141,16 @@ function onPaste(
   options?: Pick<MermaidTextareaNativeHandlersOptions, 'onValueChange' | 'onDomAuthority'>,
 ): void {
   const { onValueChange, onDomAuthority } = options ?? {}
-  const ctx = validateInputFocusForEvent(e)
-  if (!ctx || isTextareaComposing(ctx.textarea)) return
+  const ta =
+    e.target instanceof HTMLTextAreaElement && e.target.dataset.mermaidBlockId
+      ? e.target
+      : null
+  if (!ta || isTextareaComposing(ta)) return
 
   e.preventDefault()
   e.stopPropagation()
 
   const plain = e.clipboardData?.getData('text/plain') ?? ''
-  const ta = ctx.textarea
   const start = ta.selectionStart
   const end = ta.selectionEnd
   const next = ta.value.slice(0, start) + plain + ta.value.slice(end)

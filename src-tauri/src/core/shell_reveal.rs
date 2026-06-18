@@ -64,11 +64,17 @@ fn try_dbus_file_manager_show_items(file_uri: &str) -> bool {
   )
 }
 
+#[cfg(any(test, all(unix, not(target_os = "macos"))))]
+fn fallback_open_target(path: &Path) -> Result<&Path, String> {
+  if path.is_dir() {
+    return Ok(path);
+  }
+  path.parent().ok_or_else(|| "Invalid path".to_string())
+}
+
 #[cfg(all(unix, not(target_os = "macos")))]
-fn open_parent_directory(path: &Path) -> Result<(), String> {
-  let dir = path
-    .parent()
-    .ok_or_else(|| "Invalid path".to_string())?;
+fn open_fallback_target(path: &Path) -> Result<(), String> {
+  let dir = fallback_open_target(path)?;
   Command::new("xdg-open")
     .arg(dir)
     .spawn()
@@ -98,7 +104,7 @@ pub fn reveal_path_in_file_manager(resolved: &Path) -> Result<(), String> {
     }
   }
 
-  open_parent_directory(resolved)
+  open_fallback_target(resolved)
 }
 
 #[cfg(test)]
@@ -122,5 +128,21 @@ mod tests {
     std::fs::write(&file, "# test").expect("write temp file");
     let uri = path_to_file_uri(&file).expect("file uri");
     assert!(!uri.contains('\\'));
+  }
+
+  #[test]
+  fn fallback_target_opens_parent_for_files() {
+    let file = std::env::temp_dir().join("lunote-reveal-parent-test.md");
+    std::fs::write(&file, "# test").expect("write temp file");
+    let target = fallback_open_target(&file).expect("fallback target");
+    assert_eq!(target, file.parent().expect("file parent"));
+  }
+
+  #[test]
+  fn fallback_target_opens_directory_itself() {
+    let dir = std::env::temp_dir().join("lunote-reveal-dir-test");
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    let target = fallback_open_target(&dir).expect("fallback target");
+    assert_eq!(target, dir.as_path());
   }
 }

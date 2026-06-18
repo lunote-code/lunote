@@ -7,12 +7,14 @@ import type { UiLocaleId } from '../../i18n/localeRegistry'
 import { pickLocalizedText } from '../../plugins/pluginLocalizedText'
 import type { LocalizedString, PluginCatalogDetail, PluginCatalogIndexEntry } from '../../plugins/pluginTypes'
 import {
-  evaluatePluginCompatibility,
+  type PluginCompatibility,
+  formatPluginImpactScope,
   formatPluginCapabilityLabel,
   formatPluginPackageSize,
   formatPluginPlatformLabels,
   formatPluginTypeLabel,
   listPluginPermissionLabels,
+  resolvePluginSourceLabel,
   resolveLatestPackageSize,
   resolvePluginCategoryLabel,
   resolvePluginChangelogText,
@@ -37,6 +39,7 @@ type Props = {
   installedVersion?: string
   installing: boolean
   uninstalling: boolean
+  compatibility: PluginCompatibility
   overlayMode?: boolean
   t: TranslateFn
   onClose: () => void
@@ -64,6 +67,7 @@ export function PluginCatalogDetailPanel({
   installedVersion,
   installing,
   uninstalling,
+  compatibility,
   overlayMode = false,
   t,
   onClose,
@@ -97,13 +101,19 @@ export function PluginCatalogDetailPanel({
   const platforms = formatPluginPlatformLabels(detail?.platforms ?? row.platforms, t)
   const minAppVersion = resolvePluginMinAppVersion(row.minAppVersion, detail, row.latestVersion)
   const maxAppVersion = resolvePluginMaxAppVersion(row.maxAppVersion, detail, row.latestVersion)
-  const compatibility = evaluatePluginCompatibility(minAppVersion, maxAppVersion)
   const packageSize = formatPluginPackageSize(
     resolveLatestPackageSize(detail, row.latestVersion),
     t,
   )
   const changelogText = resolvePluginChangelogText(detail?.changelog, displayVersion, effectiveLocale)
   const license = detail?.license?.trim()
+  const impactScope = formatPluginImpactScope(
+    row.pluginType ?? detail?.pluginType,
+    row.capabilities ?? detail?.capabilities,
+    t,
+  )
+  const sourceLabel = resolvePluginSourceLabel()
+  const compatibilityBlocked = compatibility !== 'compatible'
 
   return (
     <aside
@@ -190,8 +200,14 @@ export function PluginCatalogDetailPanel({
             </div>
           ) : null}
 
-          {experimental || requiresRestart ? (
+          {installed || updateAvailable || experimental || requiresRestart ? (
             <div className="prefs-plugin-detail-badges">
+              {installed ? (
+                <span className="prefs-plugin-badge prefs-plugin-badge--muted">{t('settings.plugins.installed')}</span>
+              ) : null}
+              {updateAvailable ? (
+                <span className="prefs-plugin-badge prefs-plugin-badge--update">{t('settings.plugins.updateAvailable')}</span>
+              ) : null}
               {experimental ? (
                 <span className="prefs-plugin-badge prefs-plugin-badge--update">{t('settings.plugins.experimental')}</span>
               ) : null}
@@ -214,7 +230,7 @@ export function PluginCatalogDetailPanel({
               <SettingsButton
                 variant="ghost"
                 className="prefs-plugin-detail-action prefs-plugin-detail-action--primary"
-                disabled={installing}
+                disabled={installing || compatibilityBlocked}
                 onClick={() => void onRequestUpdate()}
               >
                 <Icon name="refresh" size="sm" tone="accent" className={installing ? 'luna-spin' : undefined} />
@@ -234,7 +250,7 @@ export function PluginCatalogDetailPanel({
               <SettingsButton
                 variant="ghost"
                 className="prefs-plugin-detail-action prefs-plugin-detail-action--primary"
-                disabled={installing}
+                disabled={installing || compatibilityBlocked}
                 onClick={() => void onRequestInstall()}
               >
                 <Icon
@@ -263,8 +279,20 @@ export function PluginCatalogDetailPanel({
             </div>
           ) : null}
 
-          {!detailLoading && !detailError && (platforms.length > 0 || license || packageSize || minAppVersion) ? (
+          {!detailLoading && !detailError && (platforms.length > 0 || license || packageSize || minAppVersion || impactScope || sourceLabel) ? (
             <div className="prefs-plugin-detail-info">
+              {sourceLabel ? (
+                <p className="prefs-plugin-detail-info-row">
+                  <span className="prefs-plugin-detail-info-label">{t('settings.plugins.source')}</span>
+                  <span>{sourceLabel}</span>
+                </p>
+              ) : null}
+              {impactScope ? (
+                <p className="prefs-plugin-detail-info-row">
+                  <span className="prefs-plugin-detail-info-label">{t('settings.plugins.impactScope')}</span>
+                  <span>{impactScope}</span>
+                </p>
+              ) : null}
               {platforms.length > 0 ? (
                 <p className="prefs-plugin-detail-info-row">
                   <span className="prefs-plugin-detail-info-label">{t('settings.plugins.platforms')}</span>

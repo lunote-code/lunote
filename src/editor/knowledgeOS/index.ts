@@ -39,14 +39,12 @@ export {
 } from './backlinkPanelRuntime'
 
 export {
-  setNoteGraphCenter,
   syncNoteGraphTopologyFromRoute,
   resolveRouteCenterNode,
   flushDeferredGraphLayout,
   getNoteGraphTopology,
   getNoteGraphSnapshot,
   getVisibleGraphNodes,
-  setNoteGraphViewport,
   subscribeNoteGraph,
   resetNoteGraphRuntime,
 } from './noteGraphRuntime'
@@ -110,13 +108,12 @@ export {
 export {
   openKnowledgeWorkspace,
   openNoteInWorkspace,
+  syncKnowledgeWorkspaceTabsFromLuna,
   activateWorkspaceTab,
   closeWorkspaceTab,
   getKnowledgeWorkspaceSnapshot,
   subscribeKnowledgeWorkspace,
-  persistWorkspaceSession,
   persistKnowledgeUILayout,
-  restoreWorkspaceSessionFromStorage,
   restoreKnowledgeUILayoutFromStorage,
   resetKnowledgeWorkspaceRuntime,
 } from './knowledgeWorkspaceRuntime'

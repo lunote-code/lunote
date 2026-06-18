@@ -15,6 +15,7 @@
   backface-visibility: hidden;
   container-type: inline-size;
   container-name: kos-rail;
+  cursor: default;
 }
 
 .kos-right-rail.kos-right-rail--split-dragging,
@@ -305,6 +306,7 @@
   font-size: 12px;
   color: var(--text-muted);
   margin: 0;
+  cursor: default;
 }
 
 .kos-panel-loading {
@@ -328,6 +330,7 @@
   letter-spacing: 0.04em;
   color: var(--text-muted);
   margin: 0 0 8px;
+  cursor: default;
 }
 
 .kos-section-title-row {
@@ -360,12 +363,14 @@
   color: var(--text-primary);
   padding: 6px 8px;
   border-radius: 6px;
-  cursor: pointer;
+  cursor: default;
   font-size: 13px;
 }
 
-.kos-link-btn:hover {
+.kos-link-btn:hover:not(:disabled),
+.kos-link-btn:focus-visible:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 10%, var(--surface-panel));
+  cursor: pointer;
 }
 
 .kos-backlink-source {
@@ -375,6 +380,7 @@
 .kos-backlink-snippet code {
   font-size: 11px;
   color: var(--text-muted);
+  cursor: inherit;
 }
 
 .kos-backlink-items {
@@ -408,8 +414,8 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px;
+  gap: 6px;
+  padding: 8px 10px 10px;
   box-sizing: border-box;
 }
 
@@ -423,8 +429,475 @@
   opacity: 0.92;
 }
 
-.kos-graph-hint {
+.kos-graph-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.kos-graph-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 4.5rem;
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kos-graph-toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+.kos-graph-segment {
+  display: inline-flex;
+  flex-shrink: 0;
+  border: var(--hairline) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface-panel);
+}
+
+.kos-graph-segment-btn {
+  border: none;
+  border-right: var(--hairline) solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.2;
+  padding: 4px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.kos-graph-segment-btn:last-child {
+  border-right: none;
+}
+
+.kos-graph-segment-btn:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text-primary);
+}
+
+.kos-graph-segment-btn.is-active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.kos-graph-segment-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.kos-graph-depth-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.kos-graph-depth-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.kos-graph-depth-select {
+  width: 2.6rem;
+  min-width: 2.6rem;
+  padding: 3px 4px;
+  border-radius: var(--radius-sm);
+  border: var(--hairline) solid var(--border-subtle);
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.kos-graph-depth-select:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.kos-graph-filter-menu-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  border: var(--hairline) solid var(--border-subtle);
+  background: var(--surface-panel);
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.2;
+  padding: 4px 7px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.kos-graph-filter-menu-trigger:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text-primary);
+}
+
+.kos-graph-filter-menu-trigger.is-active,
+.kos-graph-filter-menu-trigger[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+  color: var(--text-primary);
+}
+
+.kos-graph-filter-menu-trigger:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.kos-graph-filter-menu-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 78%, var(--surface-panel));
+  color: var(--surface-panel);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.kos-graph-filter-menu-panel {
+  position: fixed;
+  z-index: var(--z-overlay-surface-popover, 40);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 200px;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 6px;
+  border-radius: var(--reveal-popover-radius, 10px);
+  border: var(--hairline) solid
+    var(--reveal-popover-border, color-mix(in srgb, var(--border-subtle) 82%, transparent));
+  background: var(--reveal-popover-bg, color-mix(in srgb, var(--surface-panel) 76%, var(--surface-editor)));
+  box-shadow: var(
+    --reveal-popover-shadow,
+    0 10px 28px color-mix(in srgb, var(--text-primary) 10%, transparent),
+    0 2px 6px color-mix(in srgb, var(--text-primary) 7%, transparent)
+  );
+}
+
+.kos-graph-filter-menu-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
+  border-radius: var(--reveal-field-radius, 8px);
+  padding: 7px var(--reveal-field-pad-x, 10px);
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.kos-graph-filter-menu-item:hover {
+  background: var(--reveal-list-item-bg-active, color-mix(in srgb, var(--accent) 14%, transparent));
+}
+
+.kos-graph-filter-menu-item.is-active {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-weight: 600;
+}
+
+.kos-graph-filter-menu-item:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: -2px;
+}
+
+.kos-graph-more-menu-trigger,
+.kos-graph-filter-menu-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  border: var(--hairline) solid var(--border-subtle);
+  background: var(--surface-panel);
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.2;
+  padding: 4px 7px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.kos-graph-more-menu-trigger:hover,
+.kos-graph-filter-menu-trigger:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text-primary);
+}
+
+.kos-graph-more-menu-trigger.is-active,
+.kos-graph-more-menu-trigger[aria-expanded='true'],
+.kos-graph-filter-menu-trigger.is-active,
+.kos-graph-filter-menu-trigger[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+  color: var(--text-primary);
+}
+
+.kos-graph-more-menu-trigger:focus-visible,
+.kos-graph-filter-menu-trigger:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.kos-graph-more-menu-panel,
+.kos-graph-filter-menu-panel {
+  position: fixed;
+  z-index: var(--z-overlay-surface-popover, 40);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 200px;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 6px;
+  border-radius: var(--reveal-popover-radius, 10px);
+  border: var(--hairline) solid
+    var(--reveal-popover-border, color-mix(in srgb, var(--border-subtle) 82%, transparent));
+  background: var(--reveal-popover-bg, color-mix(in srgb, var(--surface-panel) 76%, var(--surface-editor)));
+  box-shadow: var(
+    --reveal-popover-shadow,
+    0 10px 28px color-mix(in srgb, var(--text-primary) 10%, transparent),
+    0 2px 6px color-mix(in srgb, var(--text-primary) 7%, transparent)
+  );
+}
+
+.kos-graph-more-menu-depth {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px var(--reveal-field-pad-x, 10px);
+}
+
+.kos-graph-viewport-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  border: var(--hairline) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-panel);
+  padding: 1px;
+}
+
+.kos-graph-icon-btn,
+.kos-graph-text-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: calc(var(--radius-sm) - 1px);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.kos-graph-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+}
+
+.kos-graph-text-btn {
+  font-size: 10px;
+  line-height: 1.2;
+  padding: 4px 5px;
+  white-space: nowrap;
+}
+
+.kos-graph-icon-btn:hover,
+.kos-graph-text-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text-primary);
+}
+
+.kos-graph-icon-btn:focus-visible,
+.kos-graph-text-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: -1px;
+}
+
+.kos-graph-zoom-label {
+  min-width: 2rem;
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.kos-graph-viewport-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-panel));
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.kos-graph-viewport-hint-action,
+.kos-graph-viewport-hint-dismiss {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.kos-graph-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 120);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-editor);
+}
+
+.kos-graph-fullscreen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: var(--hairline) solid var(--border-subtle);
+}
+
+.kos-graph-fullscreen-title {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.kos-graph-fullscreen-close {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.kos-graph-fullscreen-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.kos-graph-panel.kos-graph-panel--fullscreen,
+.kos-graph-fullscreen-body .kos-graph-panel {
+  height: 100%;
+}
+
+.kos-rail-width-hint {
+  position: fixed;
+  z-index: var(--z-overlay-surface-popover, 40);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: max-content;
+  min-width: 200px;
+  max-width: min(240px, calc(100vw - 24px));
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: var(--hairline) solid var(--border-subtle);
+  background: var(--surface-panel);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--text-primary) 8%, transparent);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  pointer-events: auto;
+  white-space: normal;
+}
+
+.kos-rail-width-hint-text {
+  display: block;
+}
+
+.kos-rail-width-hint-dismiss {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 0;
+  pointer-events: auto;
+}
+
+.kos-rail-width-hint-dismiss:hover {
+  text-decoration: underline;
+}
+
+.kos-rail-width-hint-dismiss:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.kos-surface-split-divider {
+  position: relative;
+}
+
+.kos-graph-panel--fullscreen .kos-graph-toolbar-controls {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.kos-graph-limit-notice {
+  flex-shrink: 0;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-muted, var(--surface-panel)) 88%, transparent);
+  border: var(--hairline) solid var(--border-subtle);
 }
 
 .kos-graph-interaction-hint {
@@ -468,6 +941,9 @@
   width: 100%;
   position: relative;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  cursor: default;
 }
 
 .kos-graph-svg {
@@ -479,6 +955,16 @@
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-user-drag: none;
+  cursor: grab;
+}
+
+.kos-graph-svg.is-panning {
+  cursor: grabbing;
+}
+
+.kos-graph-svg.is-panning .kos-graph-node--navigable {
+  cursor: grabbing;
 }
 
 .kos-graph-edge {
@@ -498,6 +984,13 @@
 .kos-graph-node--navigable {
   pointer-events: all;
   cursor: pointer;
+  -webkit-user-drag: none;
+}
+
+.kos-graph-node--navigable .kos-graph-node-dot,
+.kos-graph-node--navigable .kos-graph-node-label {
+  cursor: pointer;
+  -webkit-user-drag: none;
 }
 
 .kos-graph-node--center .kos-graph-node-dot {
@@ -596,7 +1089,41 @@
 .kos-search-hit {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+}
+
+.kos-search-hit-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 0 10px;
+}
+
+.kos-search-group + .kos-search-group {
+  margin-top: 12px;
+}
+
+.kos-search-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 6px;
+  padding: 0 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.kos-search-group-list {
+  display: flex;
+  flex-direction: column;
   gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 /* hover / focus: overlay-app.css */
@@ -606,10 +1133,59 @@
   color: var(--text-muted);
 }
 
-.kos-search-score {
-  font-size: 10px;
+.kos-search-hit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
   color: var(--text-muted);
-  align-self: flex-end;
+}
+
+.kos-search-hit-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 10px;
+}
+
+.kos-search-hit-tag {
+  padding: 2px 8px;
+  border: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text-primary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.kos-search-hit-tag:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.kos-search-hit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 10px;
+}
+
+.kos-search-hit-action {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.kos-search-hit-action:hover {
+  text-decoration: underline;
+}
+
+.kos-search-hit-action:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+  text-decoration: none;
 }
 
 .kos-tags-panel,
@@ -703,6 +1279,7 @@
 .kos-frontmatter-inline {
   font-size: 11px;
   color: var(--text-muted);
+  cursor: default;
 }
 
 .kos-frontmatter-chips {
@@ -724,6 +1301,25 @@
 
 .kos-tag-chip--editable {
   padding-right: 2px;
+}
+
+.kos-tag-chip-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.kos-tag-chip.kos-tag-chip-label {
+  padding: 2px 6px;
+}
+
+.kos-tag-chip-label:disabled {
+  cursor: default;
 }
 
 .kos-tag-chip-remove {
@@ -878,6 +1474,7 @@
 .kos-embed-meta code {
   font-size: 11px;
   color: var(--text-muted);
+  cursor: default;
 }
 
 .kos-embed-snippet {
@@ -885,6 +1482,7 @@
   font-size: 12px;
   color: var(--text-muted);
   line-height: 1.4;
+  cursor: default;
 }
 
 .kos-hover-card {

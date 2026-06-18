@@ -72,6 +72,13 @@ export type NoteGraphEdge = {
   kind: 'link' | 'embed'
 }
 
+export type NoteGraphLimit = {
+  shownNodes: number
+  shownEdges: number
+  maxNodes: number
+  maxEdges: number
+}
+
 export type NoteGraphSnapshot = {
   centerDocKey: DocKey | null
   depth: number
@@ -79,6 +86,8 @@ export type NoteGraphSnapshot = {
   edges: NoteGraphEdge[]
   viewport: { x: number; y: number; zoom: number }
   revision: number
+  /** Set when the graph was capped for performance. */
+  graphLimit?: NoteGraphLimit | null
 }
 
 export type KnowledgeSearchSnapshot = {

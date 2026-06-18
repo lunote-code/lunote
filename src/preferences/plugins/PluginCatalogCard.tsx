@@ -5,7 +5,10 @@ import type { UiLocaleId } from '../../i18n/localeRegistry'
 import { pickLocalizedText } from '../../plugins/pluginLocalizedText'
 import type { LocalizedString, PluginCatalogIndexEntry } from '../../plugins/pluginTypes'
 import { PluginCatalogIcon } from './PluginCatalogIcon'
-import { pluginHasExplicitIcon, resolvePluginCategoryLabel } from './pluginCatalogUiHelpers'
+import {
+  type PluginCompatibility,
+  pluginHasExplicitIcon,
+} from './pluginCatalogUiHelpers'
 import { PluginVerifiedMark } from './PluginVerifiedMark'
 
 type Props = {
@@ -17,6 +20,7 @@ type Props = {
   updateAvailable: boolean
   installing: boolean
   uninstalling: boolean
+  compatibility: PluginCompatibility
   selected: boolean
   iconBroken: boolean
   t: TranslateFn
@@ -30,12 +34,13 @@ type Props = {
 export function PluginCatalogCard({
   row,
   effectiveLocale,
-  categories,
+  categories: _categories,
   installed,
-  installedVersion,
+  installedVersion: _installedVersion,
   updateAvailable,
   installing,
   uninstalling,
+  compatibility,
   selected,
   iconBroken,
   t,
@@ -46,10 +51,8 @@ export function PluginCatalogCard({
   onIconError,
 }: Props) {
   const tagline = pickLocalizedText(row.tagline, effectiveLocale)
-  const categoryLabel = resolvePluginCategoryLabel(row.category, categories, effectiveLocale, t)
-  const displayVersion =
-    updateAvailable || !installed ? row.latestVersion : (installedVersion ?? row.latestVersion)
   const showExplicitIcon = pluginHasExplicitIcon(row)
+  const compatibilityBlocked = compatibility !== 'compatible'
 
   return (
     <SettingsCard
@@ -72,22 +75,24 @@ export function PluginCatalogCard({
           <div className="prefs-plugin-card-title-row">
             <h3 className="prefs-plugin-card-title">{row.name}</h3>
             {row.verified ? <PluginVerifiedMark t={t} /> : null}
-            {updateAvailable ? (
-              <span className="prefs-plugin-badge prefs-plugin-badge--update">{t('settings.plugins.updateAvailable')}</span>
-            ) : null}
           </div>
+          {installed || updateAvailable || compatibilityBlocked || row.requiresRestart ? (
+            <div className="prefs-plugin-card-badges">
+              {installed ? (
+                <span className="prefs-plugin-badge prefs-plugin-badge--muted">{t('settings.plugins.installed')}</span>
+              ) : null}
+              {updateAvailable ? (
+                <span className="prefs-plugin-badge prefs-plugin-badge--update">{t('settings.plugins.updateAvailable')}</span>
+              ) : null}
+              {compatibilityBlocked ? (
+                <span className="prefs-plugin-badge prefs-plugin-badge--danger">{t('settings.plugins.incompatible')}</span>
+              ) : null}
+              {row.requiresRestart ? (
+                <span className="prefs-plugin-badge prefs-plugin-badge--muted">{t('settings.plugins.requiresRestart')}</span>
+              ) : null}
+            </div>
+          ) : null}
           <p className="prefs-plugin-card-tagline">{tagline}</p>
-          <p className="prefs-plugin-card-meta">
-            <span>{row.author}</span>
-            <span className="prefs-plugin-card-meta-sep" aria-hidden="true">
-              ·
-            </span>
-            <span>v{displayVersion}</span>
-            <span className="prefs-plugin-card-meta-sep" aria-hidden="true">
-              ·
-            </span>
-            <span>{categoryLabel}</span>
-          </p>
         </div>
       </button>
 
@@ -96,7 +101,7 @@ export function PluginCatalogCard({
           <SettingsButton
             variant="ghost"
             className="prefs-plugin-action-btn prefs-plugin-action-btn--install"
-            disabled={installing}
+            disabled={installing || compatibilityBlocked}
             onClick={() => void onRequestUpdate()}
           >
             <Icon name="refresh" size="sm" tone="accent" className={installing ? 'luna-spin' : undefined} />
@@ -116,7 +121,7 @@ export function PluginCatalogCard({
           <SettingsButton
             variant="ghost"
             className="prefs-plugin-action-btn prefs-plugin-action-btn--install"
-            disabled={installing}
+            disabled={installing || compatibilityBlocked}
             onClick={() => void onRequestInstall()}
           >
             <Icon

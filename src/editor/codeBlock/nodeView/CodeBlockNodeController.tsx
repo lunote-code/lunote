@@ -1343,7 +1343,6 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
         logFoldStep('fold-step-operation-clear', { nextFolded: next })
         if (!next) {
           requestAnimationFrame(() => {
-            applyCmSelectionOffset(0)
             scheduleFocusCm()
             logFoldStep('fold-step-unfold-focus', { nextFolded: next })
           })

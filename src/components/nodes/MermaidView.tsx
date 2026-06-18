@@ -4,6 +4,11 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from '
 import { CodeBlockShell } from '../codeBlock/CodeBlockShell'
 import { ensureMermaidBlockIdAtPos } from '../../editor/extensions/MermaidNode'
 import { getBlockMode, useCodeBlock, useCodeBlockMode } from '../../editor/codeBlockRuntime'
+import {
+  isMermaidSourceEmpty,
+  MERMAID_FLOWCHART_TEMPLATE,
+  MERMAID_MINDMAP_TEMPLATE,
+} from '../../editor/mermaid/mermaidTemplates'
 import { switchMermaidActiveBlock } from '../../editor/mermaid/mermaidSourceBlockSwitch'
 import { debugMermaid } from '../../editor/mermaid/mermaidDebug'
 import { isMermaidDocumentEditable } from '../../editor/mermaid/mermaidSourceInputFocus'
@@ -66,6 +71,7 @@ export const MermaidView = memo(function MermaidView(props: ReactNodeViewProps) 
     updateBlockPos,
     setActiveTab,
     flushBlock,
+    removeBlock,
   } = useMermaidSourceSession()
 
   const pos = typeof getPos === 'function' ? getPos() : null
@@ -79,11 +85,13 @@ export const MermaidView = memo(function MermaidView(props: ReactNodeViewProps) 
   )
   const blockType: BlockRendererType = parseResult.kind === 'mindmap' ? 'mindmap' : 'mermaid'
 
+  const isEmptySource = isMermaidSourceEmpty(previewDraft)
+
   const { busy, error: renderErr, hostRef, wrapRef } = useUnifiedBlockRender({
     blockId,
     blockType,
     source: previewDraft,
-    enabled: Boolean(blockId),
+    enabled: Boolean(blockId) && !isEmptySource,
     isEditMode,
     priority: isActiveBlock ? 'interaction' : 'visible',
   })
@@ -99,16 +107,30 @@ export const MermaidView = memo(function MermaidView(props: ReactNodeViewProps) 
     blockType,
   })
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (blockId) return
-    const p = typeof getPos === 'function' ? getPos() : null
-    if (p == null) return
-    debugMermaid('ensure_block_id_on_mount', {
-      pos: p,
-      sourceLength: source.length,
+    let cancelled = false
+    runAfterReactCommit(() => {
+      if (cancelled || editor.isDestroyed) return
+      const p = typeof getPos === 'function' ? getPos() : null
+      if (p == null) return
+      debugMermaid('ensure_block_id_on_mount', {
+        pos: p,
+        sourceLength: source.length,
+      })
+      ensureMermaidBlockIdAtPos(editor, p, node.attrs as { blockId?: string | null; source?: string })
     })
-    ensureMermaidBlockIdAtPos(editor, p, node.attrs as { blockId?: string | null; source?: string })
+    return () => {
+      cancelled = true
+    }
   }, [blockId, editor, getPos, node.attrs, source.length])
+
+  useEffect(() => {
+    const id = blockId
+    return () => {
+      if (id) removeBlock(id)
+    }
+  }, [blockId, removeBlock])
 
   useEffect(() => {
     if (!blockId || pos == null) return
@@ -200,6 +222,22 @@ export const MermaidView = memo(function MermaidView(props: ReactNodeViewProps) 
     }
   }, [blockId, flushBlock, editor, activeBlockId, mode, setActiveTab])
 
+  const insertExampleTemplate = useCallback(
+    (template: string) => {
+      const p = typeof getPos === 'function' ? getPos() : null
+      if (p == null || !editor.isEditable) return
+      editor
+        .chain()
+        .focus()
+        .command(({ tr }) => {
+          tr.setNodeMarkup(p, undefined, { ...node.attrs, source: template })
+          return true
+        })
+        .run()
+    },
+    [editor, getPos, node.attrs],
+  )
+
   const fallbackCode = (
     <pre className="pm-mermaid-fallback">
       <code>{`mermaid\n${previewDraft}`}</code>
@@ -207,6 +245,14 @@ export const MermaidView = memo(function MermaidView(props: ReactNodeViewProps) 
   )
 
   const typeLabel = blockType === 'mindmap' ? 'Mindmap' : 'Mermaid'
+
+  const displayRenderError = useMemo(() => {
+    if (!renderErr) return null
+    if (renderErr === 'MERMAID_ERROR_NOT_DIAGRAM') {
+      return t('editor.mermaid.invalidSource')
+    }
+    return renderErr
+  }, [renderErr, t])
 
   return (
     <NodeViewWrapper
@@ -244,12 +290,35 @@ export const MermaidView = memo(function MermaidView(props: ReactNodeViewProps) 
             className={`pm-mermaid-preview mermaid-preview mermaid code-block-preview ${RUNTIME_SURFACE_CLASS.preview}`}
             data-mermaid-preview-pane=""
           >
+            {isEmptySource ? (
+              <div className="pm-mermaid-empty" data-testid="pm-mermaid-empty">
+                <p className="pm-mermaid-empty-hint">{t('editor.mermaid.emptyHint')}</p>
+                <div className="pm-mermaid-empty-actions">
+                  <button
+                    type="button"
+                    className="pm-mermaid-empty-btn"
+                    data-testid="pm-mermaid-insert-flowchart"
+                    onClick={() => insertExampleTemplate(MERMAID_FLOWCHART_TEMPLATE)}
+                  >
+                    {t('editor.mermaid.insertFlowchartExample')}
+                  </button>
+                  <button
+                    type="button"
+                    className="pm-mermaid-empty-btn"
+                    data-testid="pm-mermaid-insert-mindmap"
+                    onClick={() => insertExampleTemplate(MERMAID_MINDMAP_TEMPLATE)}
+                  >
+                    {t('editor.mermaid.insertMindmapExample')}
+                  </button>
+                </div>
+              </div>
+            ) : null}
             {busy ? (
               <div className={`pm-mermaid-loading ${RUNTIME_SURFACE_CLASS.loading}`}>{t('editor.mermaid.rendering')}</div>
             ) : null}
             {renderErr ? (
               <div className={`pm-mermaid-error ${RUNTIME_SURFACE_CLASS.error}`} role="alert">
-                <strong>{typeLabel}</strong>：{renderErr}
+                <strong>{typeLabel}</strong>：{displayRenderError}
                 {showToolbar ? (
                   <button type="button" className="pm-mermaid-error-back" onClick={goSource}>
                     {t('editor.mermaid.editSource')}

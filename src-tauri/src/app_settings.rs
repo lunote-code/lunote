@@ -91,6 +91,18 @@ impl Default for AppSettings {
   }
 }
 
+impl AppSettings {
+  pub fn close_to_tray_enabled(&self) -> bool {
+    self
+      .appearance
+      .as_ref()
+      .and_then(|appearance| appearance.get("window"))
+      .and_then(|window| window.get("closeToTrayEnabled"))
+      .and_then(|value| value.as_bool())
+      .unwrap_or(true)
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -112,6 +124,25 @@ mod tests {
         .and_then(|u| u.auto_check_enabled),
       Some(false)
     );
+  }
+
+  #[test]
+  fn defaults_close_to_tray_enabled_when_missing() {
+    let settings = AppSettings::default();
+    assert!(settings.close_to_tray_enabled());
+  }
+
+  #[test]
+  fn reads_close_to_tray_enabled_from_appearance_blob() {
+    let settings = AppSettings {
+      appearance: Some(serde_json::json!({
+        "window": {
+          "closeToTrayEnabled": false
+        }
+      })),
+      ..AppSettings::default()
+    };
+    assert!(!settings.close_to_tray_enabled());
   }
 }
 

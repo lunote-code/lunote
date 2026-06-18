@@ -257,7 +257,6 @@ function QaPluginCatalogMediaInner() {
           dragOverTarget={null}
           setDragOverTarget={() => undefined}
           onSidebarBlankContextMenu={() => undefined}
-          dispatchOpenDocument={() => undefined}
           onSidebarFileContextMenu={() => undefined}
           outlineHeadings={[]}
           activeOutlineId={null}

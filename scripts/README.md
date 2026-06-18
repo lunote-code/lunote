@@ -130,8 +130,9 @@ Required by [`.github/workflows/ci.yml`](../.github/workflows/ci.yml), [release]
 | Pattern / path | Purpose |
 |----------------|---------|
 | `scripts/maintenance/` | README/i18n maintainer scripts + `data/` |
-| `scripts/test/` | Playwright E2E specs; `run-*.mjs` legacy harness (gitignored) |
-| `scripts/test/run-*.mjs` | Invoked via `npm run test:*` / `regression:*` |
+| `scripts/test/` | Playwright E2E specs; `run-case/run-*.mjs` harness (gitignored) |
+| `scripts/test/run-all-tests.mjs` | Full suite entry (`npm test`) |
+| `scripts/test/run-case/run-*.mjs` | Invoked via `npm run test:*` / `regression:*` |
 | `scripts/locale/apply_*.py` | One-off corpus merge utilities |
 | `scripts/locale_corpus/data/` | Maintainer batch JSON |
 | `scripts/**/__pycache__/`, `scripts/**/*.pyc` | Python bytecode |

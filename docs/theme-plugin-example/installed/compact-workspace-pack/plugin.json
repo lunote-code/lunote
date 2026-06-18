@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 2,
+  "id": "compact-workspace-pack",
+  "name": "Compact Workspace Pack",
+  "version": "1.0.0",
+  "entry": null,
+  "pluginType": "ui-snippet",
+  "capabilities": ["theme.snippet"],
+  "platforms": ["desktop", "web"],
+  "requiresRestart": false,
+  "experimental": false,
+  "minAppVersion": "0.6.0",
+  "maxAppVersion": null,
+  "permissions": {
+    "theme": {
+      "register": true
+    }
+  },
+  "contributes": {
+    "theme": {
+      "style": [],
+      "snippets": [
+        {
+          "file": "theme/snippets/compact-sidebar-pack.css",
+          "id": "compact-sidebar-pack",
+          "label": "Compact Sidebar Pack",
+          "description": "Tighter workspace sidebar rows for large vaults.",
+          "defaultEnabled": true
+        }
+      ],
+      "tokens": [],
+      "defaultEnable": {
+        "snippets": ["compact-sidebar-pack"]
+      }
+    },
+    "commands": [],
+    "preferencesSections": [],
+    "panels": []
+  }
+}

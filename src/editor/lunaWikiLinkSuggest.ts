@@ -1,4 +1,5 @@
 import { listDocumentMetas } from './knowledgeRuntime'
+import { isWorkspaceTemplateDocKey } from '../templates/templatePathMatch'
 
 export const WIKI_SUGGEST_EMPTY_ID = '__wiki_suggest_empty__'
 
@@ -8,12 +9,24 @@ export type WikiLinkSuggestPathCandidate = {
 }
 
 let pathCandidatesProvider: (() => WikiLinkSuggestPathCandidate[]) | null = null
+let templatesFolderProvider: (() => readonly string[]) | null = null
 
 /** Workspace file tree fallback (the .md path can still be prompted when the knowledge base index is not completed)*/
 export function setWikiLinkSuggestPathProvider(
   provider: (() => WikiLinkSuggestPathCandidate[]) | null,
 ): void {
   pathCandidatesProvider = provider
+}
+
+/** Workspace templates folder(s) used to exclude template files from [[ link suggestions. */
+export function setWikiLinkSuggestTemplatesFolderProvider(
+  provider: (() => readonly string[]) | null,
+): void {
+  templatesFolderProvider = provider
+}
+
+function shouldExcludeWikiLinkCandidate(docKey: string): boolean {
+  return isWorkspaceTemplateDocKey(docKey, templatesFolderProvider?.() ?? [])
 }
 
 export type WikiLinkSuggestMatch = {
@@ -94,6 +107,7 @@ function collectRegistryCandidates(
   const items: WikiLinkSuggestItem[] = []
   for (const meta of listDocumentMetas()) {
     if (excludeDocKey && meta.docKey === excludeDocKey) continue
+    if (shouldExcludeWikiLinkCandidate(meta.docKey)) continue
     const score = scoreWikiCandidate(query, meta.title, meta.docKey)
     if (score <= 0) continue
     items.push({
@@ -112,6 +126,7 @@ function collectPathFallbackCandidates(query: string): WikiLinkSuggestItem[] {
   if (!provider) return []
   const items: WikiLinkSuggestItem[] = []
   for (const candidate of provider()) {
+    if (shouldExcludeWikiLinkCandidate(candidate.docKey)) continue
     const score = scoreWikiCandidate(query, candidate.title, candidate.docKey)
     if (score <= 0) continue
     items.push({

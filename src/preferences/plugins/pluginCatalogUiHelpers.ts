@@ -1,7 +1,10 @@
 import type { TranslateFn } from '../../i18n'
 import type { UiLocaleId } from '../../i18n/localeRegistry'
 import { APP_VERSION } from '../../app/workspace/constants'
-import { resolvePluginCatalogUrl } from '../../plugins/pluginConstants'
+import {
+  formatPluginCatalogSourceLabel,
+  resolvePluginCatalogUrl,
+} from '../../plugins/pluginConstants'
 import { pickLocalizedText } from '../../plugins/pluginLocalizedText'
 import type {
   LocalizedString,
@@ -194,4 +197,25 @@ export function collectPluginCatalogScreenshots(
   const banner = detail?.media?.banner?.trim()
   if (!banner || screenshots.some((shot) => shot.url === banner)) return screenshots
   return [{ url: banner }, ...screenshots]
+}
+
+export function resolvePluginSourceLabel(): string {
+  if (typeof window !== 'undefined') {
+    return formatPluginCatalogSourceLabel(window.location.origin)
+  }
+  return formatPluginCatalogSourceLabel()
+}
+
+export function formatPluginImpactScope(
+  pluginType: string | undefined,
+  capabilities: string[] | undefined,
+  t: TranslateFn,
+): string | null {
+  const labels = new Set<string>()
+  const typeLabel = formatPluginTypeLabel(pluginType, t)
+  if (typeLabel) labels.add(typeLabel)
+  for (const capability of capabilities ?? []) {
+    labels.add(formatPluginCapabilityLabel(capability, t))
+  }
+  return labels.size > 0 ? [...labels].join(', ') : null
 }

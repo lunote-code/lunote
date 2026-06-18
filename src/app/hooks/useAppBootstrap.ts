@@ -20,6 +20,7 @@ import {
   hydrateAppSettingsStore,
 } from '../../settings/appSettingsStore'
 import type { TiptapMarkdownEditorHandle } from '../../editor/TiptapMarkdownEditor'
+import { isCloseToTrayAvailable } from '../../platform/tauri/quickCapture'
 
 export type AppBootstrapDeps = {
   tRef: RefObject<TranslateFn>
@@ -43,6 +44,44 @@ export type AppBootstrapDeps = {
     discardLabel?: string
     cancelLabel?: string
   }) => Promise<'save' | 'discard' | 'cancel'>
+}
+
+const CLOSE_TO_TRAY_HINT_STORAGE_KEY = 'luna.window.closeToTrayHintShown'
+
+function shouldShowCloseToTrayHint(): boolean {
+  try {
+    return localStorage.getItem(CLOSE_TO_TRAY_HINT_STORAGE_KEY) !== '1'
+  } catch {
+    return true
+  }
+}
+
+function markCloseToTrayHintShown(): void {
+  try {
+    localStorage.setItem(CLOSE_TO_TRAY_HINT_STORAGE_KEY, '1')
+  } catch {
+    // ignore
+  }
+}
+
+function isCloseToTrayEnabled(): boolean {
+  return getAppSettingsSnapshot().appearance?.window?.closeToTrayEnabled !== false
+}
+
+async function hideMainWindowToBackground(
+  event: { preventDefault: () => void },
+  setStatus: (msg: string) => void,
+  t: TranslateFn,
+): Promise<boolean> {
+  if (!isCloseToTrayEnabled() || !isCloseToTrayAvailable()) return false
+  // Must run synchronously before any await — otherwise the window may finish closing.
+  event.preventDefault()
+  await getCurrentWindow().hide().catch(() => undefined)
+  if (shouldShowCloseToTrayHint()) {
+    markCloseToTrayHintShown()
+    setStatus(t('app.status.windowHiddenToTray'))
+  }
+  return true
 }
 
 export function useAppBootstrap(deps: AppBootstrapDeps) {
@@ -190,15 +229,16 @@ export function useAppBootstrap(deps: AppBootstrapDeps) {
     let unlisten: (() => void) | undefined
     void (async () => {
       const off = await getCurrentWindow().onCloseRequested(async (event) => {
+        const hideToBackground = isCloseToTrayEnabled() && isCloseToTrayAvailable()
+        if (hideToBackground) {
+          event.preventDefault()
+        }
+
         await flushLunaWorkspaceSnapshotWrites().catch(() => undefined)
         const visual = visualEditorRef.current
         const mayHaveUnflushedVisualEdits =
           mainPaneModeRef.current === 'visual' &&
           Boolean(visual?.hasUserEditedSinceDocumentLoad())
-
-        if (!hasAnyDirtyDocument() && !mayHaveUnflushedVisualEdits) {
-          return
-        }
 
         if (mainPaneModeRef.current === 'visual' && visual && mayHaveUnflushedVisualEdits) {
           let body: string
@@ -227,7 +267,13 @@ export function useAppBootstrap(deps: AppBootstrapDeps) {
             }).catch(() => undefined)
           }
         }
+
+        if (await hideMainWindowToBackground(event, setStatus, tRef.current)) {
+          return
+        }
+
         if (!hasAnyDirtyDocument()) return
+
         event.preventDefault()
         try {
           const dirtyCount = listDirtyDocumentPaths().length

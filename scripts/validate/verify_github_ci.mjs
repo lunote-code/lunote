@@ -14,6 +14,7 @@
 import {
   npmRun,
   runCargo,
+  runNpmCi,
   runStep,
 } from './lib/ci_job_runner.mjs'
 import { runLocalePipelineFull } from './lib/locale_pipeline_steps.mjs'
@@ -29,6 +30,7 @@ function assertCargoAvailable() {
 function runBuildJob() {
   console.log('\n=== CI job: build (.github/workflows/ci.yml) ===')
 
+  runNpmCi()
   assertCargoAvailable()
   npmRun('build')
   runCargo(['build', '--manifest-path', 'src-tauri/Cargo.toml'])
@@ -39,6 +41,7 @@ function runBuildJob() {
 function runLocaleCheckJob() {
   console.log('\n=== CI job: locale-check (.github/workflows/ci.yml) ===')
 
+  runNpmCi()
   runLocalePipelineFull()
 
   console.log('\nverify:ci — locale-check job passed.')
@@ -54,6 +57,7 @@ function runChecksJob() {
   npmRun('validate:tauri-ipc-contract')
   npmRun('validate:emoji-picker-i18n')
   npmRun('validate:ui-locale-parity')
+  npmRun('validate:shortcut-hint-locale')
   npmRun('validate:git-publish-paths')
   npmRun('validate:mac-menu-assets')
   npmRun('validate:app-icons')

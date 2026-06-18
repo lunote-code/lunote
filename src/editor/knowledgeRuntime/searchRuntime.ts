@@ -9,6 +9,7 @@ type SearchIndexEntry = {
   title: string
   titleLower: string
   tags: string[]
+  tagsLower: string[]
   bodySample: string
 }
 
@@ -28,7 +29,8 @@ export function upsertSearchIndexEntry(
     absolutePath,
     title,
     titleLower: title.toLowerCase(),
-    tags: tags.map((t) => t.toLowerCase()),
+    tags,
+    tagsLower: tags.map((t) => t.toLowerCase()),
     bodySample: bodySample.slice(0, 2000),
   })
 }
@@ -56,16 +58,27 @@ function runSearchSync(query: string, limit: number): SearchHit[] {
   for (const entry of searchIndex.values()) {
     const titleScore = fuzzyScore(entry.titleLower, query)
     const bodyScore = fuzzyScore(entry.bodySample, query) * 0.5
-    const tagScore = entry.tags.some((t) => t.includes(query.toLowerCase())) ? 40 : 0
+    const tagQuery = query.toLowerCase()
+    const matchingTags = entry.tags.filter((_, index) => entry.tagsLower[index]?.includes(tagQuery))
+    const tagScore = matchingTags.length > 0 ? 40 : 0
     const score = Math.max(titleScore, bodyScore, tagScore)
     if (score <= 0) continue
+    const matchKind =
+      score === tagScore && tagScore > titleScore && tagScore > bodyScore
+        ? 'tag'
+        : titleScore >= bodyScore
+          ? 'title'
+          : 'content'
     hits.push({
       docKey: entry.docKey,
       absolutePath: entry.absolutePath,
       title: entry.title,
       score,
-      snippet: entry.bodySample.slice(0, 120),
-      matchKind: titleScore >= bodyScore ? 'title' : 'content',
+      snippet:
+        matchKind === 'tag'
+          ? matchingTags.slice(0, 3).map((tag) => `#${tag}`).join(' ')
+          : entry.bodySample.slice(0, 120),
+      matchKind,
     })
   }
   hits.sort((a, b) => b.score - a.score)

@@ -3,6 +3,7 @@ import { memo, useMemo } from 'react'
 import { mindmapEdgePath } from '../../editor/mindmap/edgePath'
 import { layoutMindmapTree } from '../../editor/mindmap/layoutMindmap'
 import { parseMindmapSource } from '../../editor/mindmap/parseMindmap'
+import { mindmapNodeShapeMarkup } from '../../editor/mindmap/renderMindmapNode'
 import { mindmapTheme } from '../../theme/mindmapTheme'
 
 function levelColor(level: number): { fill: string; stroke: string; text: string } {
@@ -68,26 +69,11 @@ export const MindmapPreview = memo(function MindmapPreview({ source }: MindmapPr
             const c = levelColor(n.level)
             return (
               <g key={n.id} className="mindmap-node pm-mindmap-node" transform={`translate(${n.x}, ${n.y})`}>
-                <rect
-                  width={n.width}
-                  height={n.height}
-                  rx={mindmapTheme.borderRadius}
-                  ry={mindmapTheme.borderRadius}
-                  fill={c.fill}
-                  stroke={c.stroke}
-                  strokeWidth={1}
+                <g
+                  dangerouslySetInnerHTML={{
+                    __html: mindmapNodeShapeMarkup(n, c),
+                  }}
                 />
-                <text
-                  x={n.width / 2}
-                  y={n.height / 2}
-                  dominantBaseline="middle"
-                  textAnchor="middle"
-                  fill={c.text}
-                  fontSize={mindmapTheme.fontSize}
-                  fontFamily={mindmapTheme.fontFamily}
-                >
-                  {n.label}
-                </text>
               </g>
             )
           })}

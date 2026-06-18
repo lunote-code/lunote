@@ -26,6 +26,7 @@ export function KnowledgeRightRail({
 }: Props) {
   const { t } = useI18n()
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const [focusedTag, setFocusedTag] = useState<string | null>(null)
   const [tab, setTab] = useState<KnowledgeRailTab>(() => {
     const saved = typeof window !== 'undefined' ? window.localStorage.getItem('knowledgeRailTab') : null
     return saved === 'graph' || saved === 'tags' || saved === 'frontmatter' || saved === 'embeds' ? saved : 'backlinks'
@@ -79,6 +80,16 @@ export function KnowledgeRightRail({
   const openSearch = () => {
     onSearchQueryChange('')
     onSearchOpenChange(true)
+  }
+
+  const openTagWorkspace = (tag: string) => {
+    setFocusedTag(tag)
+    setTab('tags')
+    closeSearch()
+  }
+
+  const openGraphWorkspace = () => {
+    setTab('graph')
   }
 
   if (!visible) return null
@@ -201,10 +212,17 @@ export function KnowledgeRightRail({
               query={searchQuery}
               onQueryChange={onSearchQueryChange}
               onHitOpened={closeSearch}
+              onTagNavigate={openTagWorkspace}
+              onOpenGraph={openGraphWorkspace}
             />
           </div>
         ) : (
-          <KnowledgeTabs activeDocKey={activeDocKey} tab={tab} />
+          <KnowledgeTabs
+            activeDocKey={activeDocKey}
+            tab={tab}
+            focusedTag={focusedTag}
+            onTagNavigate={openTagWorkspace}
+          />
         )}
       </div>
     </aside>

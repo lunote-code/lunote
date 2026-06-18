@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useI18n } from '../../../i18n'
 import { handleVerticalResizeKeyDown } from '../../../lib/verticalResizeKeyboard'
 import {
@@ -5,6 +6,7 @@ import {
   SURFACE_RAIL_MIN_PX,
   getSurfaceSplitLayout,
 } from '../layout/surfaceSplitLayoutRuntime'
+import { KnowledgeRailWidthHint } from './KnowledgeRailWidthHint'
 
 const RAIL_WIDTH_STEP = 16
 
@@ -16,9 +18,11 @@ type Props = {
 export function KnowledgeSurfaceSplitHandle({ onPointerDown, onRailWidthChange }: Props) {
   const { t } = useI18n()
   const layout = getSurfaceSplitLayout()
+  const dividerRef = useRef<HTMLDivElement>(null)
 
   return (
     <div
+      ref={dividerRef}
       className="kos-surface-split-divider resize-handle resize-handle-knowledge"
       role="separator"
       aria-orientation="vertical"
@@ -37,6 +41,8 @@ export function KnowledgeSurfaceSplitHandle({ onPointerDown, onRailWidthChange }
           onChange: onRailWidthChange,
         })
       }}
-    />
+    >
+      <KnowledgeRailWidthHint visible anchorRef={dividerRef} />
+    </div>
   )
 }

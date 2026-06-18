@@ -3,7 +3,7 @@ import { listen } from '@tauri-apps/api/event'
 import { isTauri } from '@tauri-apps/api/core'
 
 import type { TranslateFn } from '../../i18n'
-import { pathsEqual } from '../../lib/workspacePathUtils'
+import { pathsEqual, isLikelyRemoteWorkspaceRoot, pathCompareKey } from '../../lib/workspacePathUtils'
 import { isPathDirty } from '../../lib/documentDirty'
 import { deleteTabBody, setTabBody } from '../document/tabBodiesStore'
 import { dispatchDocumentCommand, getDocumentRuntimeSnapshot, getDocumentSavedContent } from '../../documentRuntime/documentKernel'
@@ -50,6 +50,19 @@ export function useWorkspaceExternalSync({
   workspaceRestoringRef,
 }: WorkspaceExternalSyncParams) {
   const refreshFileTreeDebouncedRef = useRef<number | null>(null)
+  const remoteSyncHintShownRef = useRef<Set<string>>(new Set())
+
+  const maybeShowRemoteSyncHint = useCallback(
+    (root: string) => {
+      const trimmed = root.trim()
+      if (!trimmed || !isLikelyRemoteWorkspaceRoot(trimmed)) return
+      const key = pathCompareKey(trimmed)
+      if (remoteSyncHintShownRef.current.has(key)) return
+      remoteSyncHintShownRef.current.add(key)
+      setStatus(t('app.status.workspaceRemoteSyncHint'), 'info')
+    },
+    [setStatus, t],
+  )
 
   const markExternalDiskDrift = useCallback(
     (path: string) => {
@@ -175,7 +188,15 @@ export function useWorkspaceExternalSync({
     const watchedRoot = rootDir
     let cancelled = false
     let unlisten: (() => void) | undefined
-    void watchWorkspace(watchedRoot).catch(() => undefined)
+    void watchWorkspace(watchedRoot)
+      .then(() => {
+        if (cancelled) return
+        maybeShowRemoteSyncHint(watchedRoot)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setStatus(t('app.status.workspaceWatchUnavailable'), 'warning')
+      })
     void listen<{ root?: string }>('workspace-changed', (event) => {
       if (cancelled) return
       const changedRoot = event.payload?.root?.trim()
@@ -197,7 +218,7 @@ export function useWorkspaceExternalSync({
         window.clearTimeout(refreshFileTreeDebouncedRef.current)
       }
     }
-  }, [rootDir, scheduleExternalWorkspaceRefresh, workspaceRestoringRef])
+  }, [rootDir, scheduleExternalWorkspaceRefresh, workspaceRestoringRef, maybeShowRemoteSyncHint, setStatus, t])
 
   useEffect(() => {
     if (!rootDir.trim()) return

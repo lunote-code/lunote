@@ -23,7 +23,7 @@
 
 <h3 align="center">
   <a href="#preview">截圖</a> &nbsp;|&nbsp;
-  <a href="#overview">是什麼</a> &nbsp;|&nbsp;
+  <a href="#overview">什麼是 Lunote</a> &nbsp;|&nbsp;
   <a href="#capabilities">功能</a> &nbsp;|&nbsp;
   <a href="#download">下載</a> &nbsp;|&nbsp;
   <a href="#development">开發</a> &nbsp;|&nbsp;
@@ -63,7 +63,7 @@
 </p>
 
 <p align="center">
-  <a href="#preview">截圖</a> · <a href="#overview">是什麼</a> · <a href="#capabilities">功能</a> · <a href="#download">下載</a> · <a href="#quick-start">快速開始</a> · <a href="#user-guide">使用指南</a> · <a href="#faq">FAQ</a>
+  <a href="#preview">截圖</a> · <a href="#overview">什麼是 Lunote</a> · <a href="#capabilities">功能</a> · <a href="#download">下載</a> · <a href="#quick-start">快速開始</a> · <a href="#user-guide">使用指南</a> · <a href="#faq">FAQ</a>
 </p>
 
 <!-- readme-demo-gif -->
@@ -97,9 +97,9 @@
 <!-- readme-body-start -->
 <a id="overview"></a>
 
-## 这是什麼
+## 什麼是 Lunote
 
-開啟 **`.md` 資料夾**就能寫。內建 `[[雙向連結]]`、反向連結與知識圖譜——**無需帳號；可在偏好設定 → 外掛浏覽主題包**.
+Lunote 是一款**本地優先**的 Markdown 筆記應用程式，支持 macOS、Windows 與 Linux。将任意 **`.md` 資料夾**作為工作區開啟，即可寫作、用 `[[雙向連結]]` 串聯筆記，並查看反向連結與知識圖譜——**無需帳號**；需要更多外观时，可在**偏好設定 → 外掛**浏覽主題包。
 
 - 把任意 **`.md` 資料夾**当作工作區開啟
 - **可視化與原始碼**一键切換（`Cmd+/` / `Ctrl+/`）
@@ -116,9 +116,9 @@
 
 <a id="capabilities"></a>
 
-## 功能
+## 核心功能
 
-按你的场景選用——以下能力均开箱即用：
+按你的场景選用——以下為 Lunote 开箱即用的能力：
 
 ### 寫作
 
@@ -225,6 +225,26 @@
 | **雙向連結與圖譜** | 較弱 | 強（常靠外掛） | 強，內建 |
 | **上手要不要外掛** | 很少 | 經常要 | **可選**（主題目錄） |
 
+<a id="why-lunote"></a>
+
+## 為什麼用 Lunote
+
+- **檔案在你手裡**：筆記就是你自己資料夾裡的 `.md`。
+- **一個應用程式搞定**：寫作順手，雙向連結和圖譜內建，需要時還可安裝主題包。
+
+---
+
+<a id="typora-vs-obsidian-vs-lunote"></a>
+
+## 和其他工具比
+
+正在用 Typora 或 Obsidian？Lunote 適合想要**順手寫作 + 內建雙向連結圖譜**的人；需要更多外观时再浏覽外掛目錄。
+
+| | Typora | Obsidian | Lunote |
+|---|---|---|---|
+| **寫作體驗** | 很好 | 不錯 | 很好，內建 |
+| **雙向連結與圖譜** | 較弱 | 強（常靠外掛） | 強，內建 |
+| **上手要不要外掛** | 很少 | 經常要 | **可選**（主題目錄） |
 
 ---
 
@@ -243,84 +263,30 @@
 
 <a id="development"></a>
 
-## 开發
+## 開發
 
-自行构建 Lunote：
+自行構建 Lunote：
 
-- **環境：** Node.js、Rust 與 [Tauri](https://tauri.app/) 平臺依賴
-- **开發：** `npm install` 后执行 `npm run tauri:dev`
-- **打包：** `npm run tauri:bundle`（或 `tauri:bundle:dmg` / `msi` / `deb`）
-- **文件：** [文件索引](README.md) · [打包說明](packaging-strategy.md) · [脚本說明](../scripts/README.md)
+- **環境:** Node.js、Rust 與 [Tauri](https://tauri.app/) 平臺依賴
+- **開發:** `npm install` 後執行 `npm run tauri:dev`
+- **打包:** `npm run tauri:bundle`（或 `tauri:bundle:dmg` / `msi` / `deb`）
+- **文件:** [文件索引](README.md) · [打包說明](packaging-strategy.md) · [腳本說明](../scripts/README.md)
 
-问題反饋：[提 Issue](https://github.com/lunote-code/lunote/issues)，歡迎 PR。
-
----
-
-<a id="contribution"></a>
-
-## 参與贡献
-
-提交 PR 前建议：
-
-- 閱讀 [脚本與維護](../scripts/README.md) 了解多語言與發布流程
-- 修改編輯器或匯出相关代码时運行 `npm run lint` 與相关测試
-- 調整產品文案时同步 [多語言 README](README.md)
-
-想法與遷移经驗：[討論区](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
-
-<a id="development"></a>
-
-## 开發
-
-自行构建 Lunote：
-
-- **環境：** Node.js、Rust 與 [Tauri](https://tauri.app/) 平臺依賴
-- **开發：** `npm install` 后执行 `npm run tauri:dev`
-- **打包：** `npm run tauri:bundle`（或 `tauri:bundle:dmg` / `msi` / `deb`）
-- **文件：** [文件索引](README.md) · [打包說明](packaging-strategy.md) · [脚本說明](../scripts/README.md)
-
-问題反饋：[提 Issue](https://github.com/lunote-code/lunote/issues)，歡迎 PR。
+問題反饋：[提 Issue](https://github.com/lunote-code/lunote/issues)，歡迎 PR。
 
 ---
 
 <a id="contribution"></a>
 
-## 参與贡献
+## 參與貢獻
 
-提交 PR 前建议：
+提交 PR 前建議：
 
-- 閱讀 [脚本與維護](../scripts/README.md) 了解多語言與發布流程
-- 修改編輯器或匯出相关代码时運行 `npm run lint` 與相关测試
-- 調整產品文案时同步 [多語言 README](README.md)
+- 閱讀 [腳本與維護](../scripts/README.md) 了解多語言與發布流程
+- 修改編輯器或匯出相關程式碼時執行 `npm run lint` 與相關測試
+- 調整產品文案時同步 [多語言 README](README.md)
 
-想法與遷移经驗：[討論区](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
-
-<a id="development"></a>
-
-## 开發
-
-自行构建 Lunote：
-
-- **環境：** Node.js、Rust 與 [Tauri](https://tauri.app/) 平臺依賴
-- **开發：** `npm install` 后执行 `npm run tauri:dev`
-- **打包：** `npm run tauri:bundle`（或 `tauri:bundle:dmg` / `msi` / `deb`）
-- **文件：** [文件索引](README.md) · [打包說明](packaging-strategy.md) · [脚本說明](../scripts/README.md)
-
-问題反饋：[提 Issue](https://github.com/lunote-code/lunote/issues)，歡迎 PR。
-
----
-
-<a id="contribution"></a>
-
-## 参與贡献
-
-提交 PR 前建议：
-
-- 閱讀 [脚本與維護](../scripts/README.md) 了解多語言與發布流程
-- 修改編輯器或匯出相关代码时運行 `npm run lint` 與相关测試
-- 調整產品文案时同步 [多語言 README](README.md)
-
-想法與遷移经驗：[討論区](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
+想法與遷移經驗：[討論區](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
 
 <a id="faq"></a>
 
@@ -348,8 +314,8 @@
 
 <a id="license"></a>
 
-## 許可證
+## 授權條款
 
-開源軟體。条款見倉庫中的許可證檔案。
+開源軟體。條款見倉庫中的授權文件。
 
 ---

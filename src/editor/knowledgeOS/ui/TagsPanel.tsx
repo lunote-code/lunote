@@ -1,16 +1,26 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { EmptyState } from '../../../design-system/EmptyState'
 import { getDocumentMeta, getDocumentsByTag, listAllTags } from '../../knowledgeRuntime'
 import { asMetadataResolvedTarget, dispatchKnowledgeNavigate } from './interactionTransaction'
 import { useOsRevision } from './useKnowledgeOSSlice'
 import { useI18n } from '../../../i18n'
 
-export function TagsPanel() {
+type Props = {
+  focusTag?: string | null
+}
+
+export function TagsPanel({ focusTag = null }: Props) {
   const { t } = useI18n()
   const revision = useOsRevision()
   void revision
   const [query, setQuery] = useState('')
   const [activeTag, setActiveTag] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!focusTag) return
+    setQuery(focusTag)
+    setActiveTag(focusTag)
+  }, [focusTag])
 
   const tags = useMemo(() => {
     void revision

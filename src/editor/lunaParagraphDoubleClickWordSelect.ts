@@ -4,6 +4,8 @@ import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { TextSelection } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
 
+import { resolveInlineMarkRevealRange } from './lunaMarkdownSourceReveal'
+
 const PLUGIN_KEY = new PluginKey('lunaParagraphDoubleClickWordSelect')
 
 const WORD_CHAR = /[\p{L}\p{N}_]/u
@@ -172,10 +174,23 @@ function resolveDoubleClickProbePos(doc: PMNode, view: EditorView, event: MouseE
 
 function shouldSkipDoubleClickWordSelectTarget(target: HTMLElement | null): boolean {
   if (target?.closest('.pm-code-block-wrap, [data-luna-code-block-wrap]')) return true
-  if (target?.closest('.pm-heading-block, .pm-footnote-def-wrap, .pm-link-reference-def')) {
+  if (
+    target?.closest(
+      'blockquote, .pm-heading-block, .pm-footnote-def-wrap, .pm-link-reference-def',
+    )
+  ) {
     return true
   }
   return false
+}
+
+function shouldDeferToMarkdownSourceReveal(view: EditorView, event: MouseEvent): boolean {
+  const coords = view.posAtCoords({ left: event.clientX, top: event.clientY })
+  const pos = coords?.pos
+  if (pos != null && resolveInlineMarkRevealRange(view.state.doc, pos)) return true
+  const probePos = resolveDoubleClickProbePos(view.state.doc, view, event)
+  if (probePos == null) return false
+  return resolveInlineMarkRevealRange(view.state.doc, probePos) != null
 }
 
 /**
@@ -186,6 +201,7 @@ function handleParagraphDoubleClickWordSelect(view: EditorView, event: MouseEven
   if (view.composing) return false
   const target = event.target as HTMLElement | null
   if (shouldSkipDoubleClickWordSelectTarget(target)) return false
+  if (shouldDeferToMarkdownSourceReveal(view, event)) return false
 
   const probePos = resolveDoubleClickProbePos(view.state.doc, view, event)
   if (probePos == null) return false

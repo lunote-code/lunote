@@ -10,6 +10,7 @@ import { useI18n } from '../../../i18n'
 
 type Props = {
   docKey: string | null
+  onTagNavigate?: (tag: string) => void
 }
 
 function renderFrontmatterValue(key: string, value: unknown): ReactNode {
@@ -34,7 +35,30 @@ function renderFrontmatterValue(key: string, value: unknown): ReactNode {
   return String(value)
 }
 
-export function FrontmatterPanel({ docKey }: Props) {
+function renderTagButtons(tags: string[], onTagNavigate?: (tag: string) => void): ReactNode {
+  return (
+    <span className="kos-frontmatter-chips">
+      {tags.map((tag) =>
+        onTagNavigate ? (
+          <button
+            key={tag}
+            type="button"
+            className="kos-tag-chip kos-tag-chip-label"
+            onClick={() => onTagNavigate(tag)}
+          >
+            {tag}
+          </button>
+        ) : (
+          <span key={tag} className="kos-tag-chip">
+            {tag}
+          </span>
+        ),
+      )}
+    </span>
+  )
+}
+
+export function FrontmatterPanel({ docKey, onTagNavigate }: Props) {
   const { t } = useI18n()
   const [busy, setBusy] = useState(false)
   const { fields: frontmatter } = useDocumentFrontmatter(docKey)
@@ -218,13 +242,14 @@ export function FrontmatterPanel({ docKey }: Props) {
             docKey={docKey}
             chips={tags}
             disabled={busy}
+            onChipClick={onTagNavigate}
             onAdd={onAddTag}
             onRemove={onRemoveTag}
           />
         ) : (
           <div className="kos-frontmatter-value">
             {tags.length > 0 ? (
-              renderFrontmatterValue('tags', tags)
+              renderTagButtons(tags, onTagNavigate)
             ) : (
               <span className="kos-panel-muted">{t('knowledge.frontmatter.tagsEmpty')}</span>
             )}

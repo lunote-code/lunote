@@ -4,9 +4,10 @@ import {
   getLocaleMessagesSnapshot,
   type UiLocaleId,
 } from '../i18n/localeRegistry'
+import { resolvePlatformShortcutHintText } from '../i18n/platformShortcutHint'
 import { resolveEffectiveUiLocale } from '../i18n/resolveLocale'
 import { getAppSettingsSnapshot } from '../settings/appSettingsStore'
-import { getDesktopPlatform, type DesktopPlatform } from './desktopPlatform'
+import { getDesktopPlatformForHints, type DesktopPlatform } from './desktopPlatform'
 
 /** i18n keys for system emoji panel shortcuts (platform-specific copy). */
 export const EMOJI_PANEL_HINT_KEYS = {
@@ -16,7 +17,9 @@ export const EMOJI_PANEL_HINT_KEYS = {
   generic: 'app.ext.emojiPanelHint.generic',
 } as const
 
-export function resolveEmojiPanelHintKey(platform: DesktopPlatform = getDesktopPlatform()): string {
+export function resolveEmojiPanelHintKey(
+  platform: DesktopPlatform | 'mac' | 'win' | 'linux' = getDesktopPlatformForHints(),
+): string {
   switch (platform) {
     case 'mac':
       return EMOJI_PANEL_HINT_KEYS.mac
@@ -25,7 +28,7 @@ export function resolveEmojiPanelHintKey(platform: DesktopPlatform = getDesktopP
     case 'linux':
       return EMOJI_PANEL_HINT_KEYS.linux
     default:
-      return EMOJI_PANEL_HINT_KEYS.generic
+      return EMOJI_PANEL_HINT_KEYS.linux
   }
 }
 
@@ -35,7 +38,9 @@ function resolveUiLocale(): UiLocaleId {
 }
 
 /** Localized hint for the built-in emoji picker footer (system panel shortcuts). */
-export function readEmojiPanelHint(platform: DesktopPlatform = getDesktopPlatform()): string {
+export function readEmojiPanelHint(
+  platform: DesktopPlatform | 'mac' | 'win' | 'linux' = getDesktopPlatformForHints(),
+): string {
   const locale = resolveUiLocale()
   const en = getEnMessagesSnapshot()
   let messages = en
@@ -46,5 +51,5 @@ export function readEmojiPanelHint(platform: DesktopPlatform = getDesktopPlatfor
   }
   const key = resolveEmojiPanelHintKey(platform)
   const template = messages[key] ?? en[key] ?? messages[EMOJI_PANEL_HINT_KEYS.generic] ?? en[EMOJI_PANEL_HINT_KEYS.generic] ?? ''
-  return formatMessage(template, {})
+  return resolvePlatformShortcutHintText(formatMessage(template, {}))
 }

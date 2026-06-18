@@ -57,6 +57,54 @@ jobs:
           run-validation: "true"
           check-git-clean: "true"
 
+  test-contracts:
+    name: Contract harnesses
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node and Rust
+        uses: ./.github/actions/setup-node-rust
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run contract harnesses
+        run: npm run test:contracts
+
+      - name: QA production parity
+        run: npm run validate:qa-parity
+
+      - name: Desktop Playwright matrix contract
+        run: node scripts/test/run-case/run-desktop-playwright-matrix-contract-tests.mjs
+
+  playwright-smoke:
+    name: Playwright smoke · knowledge & mermaid
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node and Rust
+        uses: ./.github/actions/setup-node-rust
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+
+      - name: Knowledge graph smoke
+        run: PLAYWRIGHT_BROWSERS_PATH=0 npx playwright test scripts/test/knowledge/knowledge-graph-interaction.spec.ts scripts/test/knowledge/knowledge.spec.ts --grep "graph"
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: '0'
+
+      - name: Mermaid smoke
+        run: PLAYWRIGHT_BROWSERS_PATH=0 npm run test:mermaid
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: '0'
+
   # Cross-platform compile smoke — mirrors release targets (see release-build.yml):
   #   Linux deb · Windows x86_64 + ARM64 · macOS arm64
   build-matrix:

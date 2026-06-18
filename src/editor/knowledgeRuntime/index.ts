@@ -198,8 +198,6 @@ export {
   getActiveTab,
   getWorkspaceState,
   setGraphViewport as setWorkspaceGraphViewport,
-  serializeWorkspaceSession,
-  restoreWorkspaceSession,
   resetWorkspaceRuntime,
 } from './workspaceRuntime'
 export type { WorkspaceTab, WorkspacePane, WorkspaceState } from './workspaceRuntime'

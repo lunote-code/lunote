@@ -53,6 +53,7 @@ type Props = {
     ) => Promise<import('../../documentHistory/types').DocumentHistoryEntry | null> | import('../../documentHistory/types').DocumentHistoryEntry | null
     onConfirmDelete: (entry: import('../../documentHistory/types').DocumentHistoryEntry) => Promise<boolean> | boolean
     onDeleteAll: (context: DocumentHistoryDialogContext) => Promise<boolean> | boolean
+    flushEditorToMemory?: () => Promise<boolean>
   }
 }
 
@@ -130,6 +131,7 @@ export function AppDocumentOverlayPortals({
         onCreateSnapshot={documentHistoryState.onCreateSnapshot}
         onConfirmDeleteSnapshot={documentHistoryState.onConfirmDelete}
         onDeleteAllSnapshots={documentHistoryState.onDeleteAll}
+        flushEditorToMemory={documentHistoryState.flushEditorToMemory}
       />
     </>
   )

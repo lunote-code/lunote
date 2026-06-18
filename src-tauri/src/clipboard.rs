@@ -12,6 +12,12 @@ pub struct ClipboardImageDto {
   pub data_base64: String,
 }
 
+#[derive(Serialize)]
+pub struct ClipboardImageReadResult {
+  pub image: Option<ClipboardImageDto>,
+  pub issue: Option<String>,
+}
+
 const IMAGE_EXTS: &[&str] = &[
   "png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "tif", "heic", "heif",
 ];
@@ -28,9 +34,34 @@ pub fn read_text() -> Option<String> {
   Some(text)
 }
 
-pub fn read_image() -> Option<ClipboardImageDto> {
+enum FileListImageOutcome {
+  Image(ClipboardImageDto),
+  HeicUnsupported,
+  Missing,
+}
+
+pub fn read_image() -> ClipboardImageReadResult {
   //When Finder copies files, the raster on the pasteboard is often the system "JPG file icon", not the original image pixels.
-  read_image_from_file_list().or_else(read_raster_image)
+  match read_image_from_file_list() {
+    FileListImageOutcome::Image(dto) => ClipboardImageReadResult {
+      image: Some(dto),
+      issue: None,
+    },
+    FileListImageOutcome::HeicUnsupported => ClipboardImageReadResult {
+      image: None,
+      issue: Some("heic_unsupported".to_string()),
+    },
+    FileListImageOutcome::Missing => match read_raster_image() {
+      Some(dto) => ClipboardImageReadResult {
+        image: Some(dto),
+        issue: None,
+      },
+      None => ClipboardImageReadResult {
+        image: None,
+        issue: None,
+      },
+    },
+  }
 }
 
 fn read_raster_image() -> Option<ClipboardImageDto> {
@@ -40,15 +71,34 @@ fn read_raster_image() -> Option<ClipboardImageDto> {
   Some(encode_dto(png, "image/png"))
 }
 
-fn read_image_from_file_list() -> Option<ClipboardImageDto> {
-  let mut cb = Clipboard::new().ok()?;
-  let paths = cb.get().file_list().ok()?;
+fn read_image_from_file_list() -> FileListImageOutcome {
+  let mut cb = match Clipboard::new() {
+    Ok(cb) => cb,
+    Err(_) => return FileListImageOutcome::Missing,
+  };
+  let paths = match cb.get().file_list() {
+    Ok(paths) => paths,
+    Err(_) => return FileListImageOutcome::Missing,
+  };
   for path in paths {
-    if is_image_path(&path) {
-      return encode_image_file(&path);
+    if !is_image_path(&path) {
+      continue;
+    }
+    if let Some(dto) = encode_image_file(&path) {
+      return FileListImageOutcome::Image(dto);
+    }
+    if is_heic_path(&path) {
+      return FileListImageOutcome::HeicUnsupported;
     }
   }
-  None
+  FileListImageOutcome::Missing
+}
+
+fn is_heic_path(path: &Path) -> bool {
+  path
+    .extension()
+    .and_then(|ext| ext.to_str())
+    .is_some_and(|ext| ext.eq_ignore_ascii_case("heic") || ext.eq_ignore_ascii_case("heif"))
 }
 
 fn should_suppress_filename_text(cb: &mut Clipboard, text: &str) -> bool {
@@ -159,6 +209,24 @@ pub fn read_clipboard_text() -> Option<String> {
 }
 
 #[tauri::command]
-pub fn read_clipboard_image() -> Option<ClipboardImageDto> {
+pub fn read_clipboard_image() -> ClipboardImageReadResult {
   read_image()
+}
+
+#[cfg(test)]
+mod tests {
+  use super::{is_heic_path, is_image_path};
+  use std::path::Path;
+
+  #[test]
+  fn is_heic_path_matches_common_extensions() {
+    assert!(is_heic_path(Path::new("/tmp/photo.heic")));
+    assert!(is_heic_path(Path::new("/tmp/photo.HEIF")));
+    assert!(!is_heic_path(Path::new("/tmp/photo.jpg")));
+  }
+
+  #[test]
+  fn is_image_path_includes_heic() {
+    assert!(is_image_path(Path::new("/tmp/photo.heic")));
+  }
 }

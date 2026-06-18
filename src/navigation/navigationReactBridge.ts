@@ -21,27 +21,10 @@ export type NavigationUIProps = {
   error?: string
 }
 
-function isAgentLogEnabled(): boolean {
-  if (!import.meta.env.DEV) return false
-  const g = globalThis as { __KOS_AGENT_LOG__?: boolean }
-  if (g.__KOS_AGENT_LOG__ === true) return true
-  try {
-    return localStorage.getItem('kos.agentLog') === '1'
-  } catch {
-    return false
-  }
-}
-
 export function dispatchNavigationEvent(event: NavigationEvent): NavigationEvent {
   assertNavigationFactoryCaller()
   validateNavigationEvent(event)
   const appended = appendEvent(event)
-  const traceId = typeof appended.meta?.traceId === 'string' ? appended.meta.traceId : appended.id
-  if (isAgentLogEnabled()) {
-    // #region agent log
-    console.debug('[navigation-bridge]', { traceId, docKey: appended.docKey ?? null, resolvedPath: appended.path ?? null, root: null, eventType: appended.type, commandType: null, source: appended.source, eventId: appended.id })
-    // #endregion
-  }
   executeNavigationEvent(appended)
   return appended
 }

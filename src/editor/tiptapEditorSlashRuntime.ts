@@ -20,6 +20,11 @@ import {
 } from './tiptapSlashMenuModel'
 import type { TiptapEditorCommand } from './tiptapEditorTypes'
 import type { EphemeralCommandType } from './ephemeralFormatting'
+import { newMermaidBlockId } from './extensions/MermaidNode'
+import {
+  MERMAID_FLOWCHART_TEMPLATE,
+  MERMAID_MINDMAP_TEMPLATE,
+} from './mermaid/mermaidTemplates'
 
 type FocusNoScrollOption = { scrollIntoView: false }
 
@@ -152,7 +157,28 @@ export function createTiptapSlashCommands(args: CreateTiptapSlashCommandsArgs): 
             {
               type: 'mermaidBlock',
               attrs: {
-                source: 'graph TD\n  A[Start] --> B[End]',
+                blockId: newMermaidBlockId(),
+                source: MERMAID_FLOWCHART_TEMPLATE,
+              },
+            },
+            { type: 'paragraph' },
+          ])
+          .run(),
+    },
+    {
+      id: 'mindmap',
+      label: t('editor.slash.mindmap'),
+      aliases: ['mindmap', '思维导图', '脑图', '大纲图'],
+      run: (editor) =>
+        editor
+          .chain()
+          .focus(null, focusNoScroll)
+          .insertContent([
+            {
+              type: 'mermaidBlock',
+              attrs: {
+                blockId: newMermaidBlockId(),
+                source: MERMAID_MINDMAP_TEMPLATE,
               },
             },
             { type: 'paragraph' },

@@ -1,0 +1,27 @@
+/**
+ * Link accent — UI snippet
+ *
+ * Stronger link underline in visual editor and export preview.
+ * Built-in link colors come from --luna-link-inline-* tokens; this reinforces underline only.
+ *
+ * Copy to ~/.luna/theme/snippets/link-accent.css → Rescan → enable in UI snippets.
+ */
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline,
+.markdown-preview-view a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, var(--link) 45%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline:hover,
+.markdown-preview-view a:hover {
+  color: var(--link-hover);
+  text-decoration-color: color-mix(in srgb, var(--link-hover) 55%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline:visited,
+.markdown-preview-view a:visited {
+  color: var(--link-visited);
+}

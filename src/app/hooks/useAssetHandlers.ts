@@ -23,6 +23,7 @@ import { DEFAULT_ASSET_STORAGE_CONFIG } from '../../assets/assetStoragePolicy'
 import { workspaceIdFromRoot } from '../../lunaPersistence'
 import { savePastedImageAsset } from '../assets/imagePaste'
 import { applyDroppedFilesToEditor } from '../assets/droppedFilesImport'
+import { setPasteIssueReporter } from '../../editor/pasteIssueReporter'
 import { ensureWorkspaceAssetScope } from '../../platform/tauri/assetService'
 import type { EditorView } from '@codemirror/view'
 import type { TiptapMarkdownEditorHandle } from '../../editor/tiptapEditorTypes'
@@ -66,6 +67,15 @@ export function useAssetHandlers(deps: AssetHandlersDeps) {
   useEffect(() => {
     pasteCtxRef.current = { rootDir, activePath, assetStorage: assetStorageConfig }
   }, [rootDir, activePath, assetStorageConfig])
+
+  useEffect(() => {
+    setPasteIssueReporter((code) => {
+      if (code === 'heic_unsupported') {
+        setStatus(t('app.paste.imageHeicUnsupported'))
+      }
+    })
+    return () => setPasteIssueReporter(null)
+  }, [setStatus, t])
 
   const pasteImageIntoVisualEditor = useCallback(
     (file: File, mimeHint: string) =>

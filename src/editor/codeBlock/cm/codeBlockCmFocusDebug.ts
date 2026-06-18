@@ -105,10 +105,10 @@ export function enableCodeBlockCmFocusDebug(reload = true): void {
     loggingPaused = true
   }
   const fileHint = isLunaDebugFileSinkAvailable()
-    ? ` 日志写入 ${CODEBLOCK_CM_FOCUS_LOG_PATH}（已自动清空旧会话；Console 默认暂停，恢复：__lunaCodeBlockCmFocusResume()）。操作代码块后无需复制 Console，Agent 会直接读该文件。`
+    ? ` Logging to ${CODEBLOCK_CM_FOCUS_LOG_PATH} (previous session cleared; console paused by default — resume with __lunaCodeBlockCmFocusResume()). After editing code blocks, no need to copy console output; the agent reads this file directly.`
     : ''
   console.warn(
-    `${LOG_PREFIX} 已开启。${fileHint}${reload ? '页面将自动刷新…' : '请手动刷新页面。'}刷新后操作代码块（勿把命令贴进编辑器）。`,
+    `${LOG_PREFIX} enabled.${fileHint}${reload ? ' Page will reload…' : ' Reload the page manually.'} After reload, interact with code blocks (do not paste commands into the editor).`,
   )
   if (reload && typeof location !== 'undefined') location.reload()
 }
@@ -116,20 +116,20 @@ export function enableCodeBlockCmFocusDebug(reload = true): void {
 export function disableCodeBlockCmFocusDebug(): void {
   localStorage.removeItem(LS_KEY)
   loggingPaused = false
-  console.info(`${LOG_PREFIX} 已关闭（无需刷新，新日志立即停止）。`)
+  console.info(`${LOG_PREFIX} disabled (no reload needed; new logs stop immediately).`)
 }
 
 /** Pause console spam immediately; recent buffer still records for export. */
 export function pauseCodeBlockCmFocusDebugLogging(): void {
   loggingPaused = true
   console.info(
-    `${LOG_PREFIX} 日志已暂停。复制缓冲：copy(JSON.stringify(__lunaCodeBlockCmFocusLogs(), null, 2))；恢复：__lunaCodeBlockCmFocusResume()`,
+    `${LOG_PREFIX} logging paused. Copy buffer: copy(JSON.stringify(__lunaCodeBlockCmFocusLogs(), null, 2)); resume: __lunaCodeBlockCmFocusResume()`,
   )
 }
 
 export function resumeCodeBlockCmFocusDebugLogging(): void {
   loggingPaused = false
-  console.info(`${LOG_PREFIX} 日志已恢复。`)
+  console.info(`${LOG_PREFIX} logging resumed.`)
 }
 
 export function isCodeBlockCmFocusLoggingPaused(): boolean {
@@ -203,7 +203,7 @@ export function describePmSelection(pmView: PmEditorView | null | undefined): Re
 }
 
 export function describeCodeBlockWraps(): Record<string, unknown>[] {
-  return [...document.querySelectorAll<HTMLElement>('[data-luna-code-block-wrap]')].map((wrap) => {
+  return Array.from(document.querySelectorAll<HTMLElement>('[data-luna-code-block-wrap]')).map((wrap) => {
     const cmView = getCodeBlockCmViewInWrap(wrap)
     const classTokens = wrap.className ? String(wrap.className).split(/\s+/).filter(Boolean) : []
     return {
@@ -276,11 +276,11 @@ export function bootstrapCodeBlockCmFocusDebug(): void {
 
   const fileMode = isCodeBlockCmFocusFileLogEnabled()
   console.warn(
-    `${LOG_PREFIX} ✅ 调试已激活。` +
+    `${LOG_PREFIX} ✅ debug active.` +
       (fileMode
-        ? ` 日志写入 ${CODEBLOCK_CM_FOCUS_LOG_PATH}（Console 已暂停，恢复：__lunaCodeBlockCmFocusResume()）。`
-        : ` Console 过滤请输入前缀 "${LOG_PREFIX}"（带方括号）。`) +
-      ` 操作代码块后 Agent 读取 ${CODEBLOCK_CM_FOCUS_LOG_PATH}；快照：__lunaCodeBlockCmFocusDump()。`,
+        ? ` Logging to ${CODEBLOCK_CM_FOCUS_LOG_PATH} (console paused — resume with __lunaCodeBlockCmFocusResume()).`
+        : ` Filter console output with prefix "${LOG_PREFIX}" (brackets included).`) +
+      ` After code-block interaction the agent reads ${CODEBLOCK_CM_FOCUS_LOG_PATH}; snapshot: __lunaCodeBlockCmFocusDump().`,
   )
   if (fileMode) {
     void beginCodeBlockCmFocusFileSession()
@@ -338,9 +338,9 @@ function installCodeBlockCmFocusDebugGlobalsEarly(): void {
     logCount: recent.length,
     hint: isCodeBlockCmFocusDebug()
       ? isCodeBlockCmFocusFileLogEnabled()
-        ? `已开启：操作代码块后让 Agent 读取 ${CODEBLOCK_CM_FOCUS_LOG_PATH}`
-        : '已开启：点击代码块后执行 __lunaCodeBlockCmFocusDump()'
-      : `未开启：在 Console 粘贴执行 __lunaCodeBlockCmFocusEnable()（会自动刷新）`,
+        ? `Enabled: after code-block interaction let the agent read ${CODEBLOCK_CM_FOCUS_LOG_PATH}`
+        : 'Enabled: click a code block then run __lunaCodeBlockCmFocusDump()'
+      : `Disabled: paste __lunaCodeBlockCmFocusEnable() in the console (page reloads automatically)`,
   })
   w.__lunaCodeBlockCmFocusEnable = (reload = true) => enableCodeBlockCmFocusDebug(reload)
   w.__lunaCodeBlockCmFocusDisable = disableCodeBlockCmFocusDebug

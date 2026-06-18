@@ -20,15 +20,11 @@ function unresolvedKeyFromRaw(raw: string): string {
 export function resolveCanonicalIdentity(input: string): CanonicalDocIdentity {
   const raw = wikiLinkInnerTargetText(input.trim(), input.trim())
   if (raw.startsWith(UNRESOLVED_PREFIX)) {
-    const identity: CanonicalDocIdentity = {
+    return {
       docKey: raw,
       status: 'unresolved',
       raw: raw.slice(UNRESOLVED_PREFIX.length) || raw,
     }
-    // #region agent log
-    console.debug('[canonical-resolve]', { input, identity })
-    // #endregion
-    return identity
   }
   const normalized = normalizeWikiPath(raw)
   const canonical = canonicalizeWikiLinkText(normalized || raw)
@@ -41,13 +37,7 @@ export function resolveCanonicalIdentity(input: string): CanonicalDocIdentity {
     resolveDocKey(normalized) ??
     resolveDocKey(canonical) ??
     resolveDocKey(raw)
-  const identity: CanonicalDocIdentity = resolved
+  return resolved
     ? { docKey: resolved, status: 'resolved', raw }
     : { docKey: unresolvedKeyFromRaw(raw), status: 'unresolved', raw }
-
-  // #region agent log
-  console.debug('[canonical-resolve]', { input, identity })
-  // #endregion
-
-  return identity
 }

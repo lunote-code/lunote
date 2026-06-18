@@ -32,6 +32,21 @@ export const QA_PRODUCTION_PARITY_RULES: readonly QaProductionParityRule[] = [
     allowEditorStub: true,
   },
   {
+    route: 'app-knowledge',
+    playgroundFile: 'src/app/QaAppKnowledgeIntegrationPlayground.tsx',
+    requiredInPlayground: [
+      'AppSidebarPanel',
+      'KnowledgeRightRail',
+      'layout workspace-split mod-root',
+      'editor-body-surface',
+      'preview-pane',
+      'markdown-visual-editor',
+      'EditorTabBar',
+    ],
+    requiredProductionComponents: ['AppSidebarPanel', 'EditorTabBar', 'KnowledgeRightRail'],
+    allowEditorStub: true,
+  },
+  {
     route: 'knowledge',
     playgroundFile: 'src/app/QaKnowledgePlayground.tsx',
     requiredInPlayground: [

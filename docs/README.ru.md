@@ -23,7 +23,7 @@
 
 <h3 align="center">
   <a href="#preview">Скриншот</a> &nbsp;|&nbsp;
-  <a href="#overview">О проекте</a> &nbsp;|&nbsp;
+  <a href="#overview">Что такое Lunote</a> &nbsp;|&nbsp;
   <a href="#capabilities">Возможности</a> &nbsp;|&nbsp;
   <a href="#download">Скачать</a> &nbsp;|&nbsp;
   <a href="#development">Разработка</a> &nbsp;|&nbsp;
@@ -63,7 +63,7 @@
 </p>
 
 <p align="center">
-  <a href="#preview">Скриншот</a> · <a href="#overview">О проекте</a> · <a href="#capabilities">Возможности</a> · <a href="#download">Скачать</a> · <a href="#quick-start">Быстрый старт</a> · <a href="#user-guide">Руководство</a> · <a href="#faq">FAQ</a>
+  <a href="#preview">Скриншот</a> · <a href="#overview">Что такое Lunote</a> · <a href="#capabilities">Возможности</a> · <a href="#download">Скачать</a> · <a href="#quick-start">Быстрый старт</a> · <a href="#user-guide">Руководство</a> · <a href="#faq">FAQ</a>
 </p>
 
 <!-- readme-demo-gif -->
@@ -97,9 +97,9 @@
 <!-- readme-body-start -->
 <a id="overview"></a>
 
-## Обзор
+## Что такое Lunote
 
-Откройте папку с **файлами `.md`** и пишите. Lunote добавляет `[[wiki‑ссылки]]`, обратные ссылки и граф—**без аккаунта; тематические пакеты в Настройки → Плагины**.
+Lunote — **local-first** приложение для Markdown-заметок на macOS, Windows и Linux. Откройте папку с **файлами `.md`** как рабочую область: пишите, связывайте заметки через `[[wiki‑ссылки]]`, просматривайте обратные ссылки и граф знаний—**без аккаунта**; тематические пакеты доступны в **Настройки → Плагины**.
 
 - Откройте **папку `.md`** как workspace
 - **Визуальный и исходный** режим по горячей клавише
@@ -116,9 +116,9 @@
 
 <a id="capabilities"></a>
 
-## Возможности
+## Ключевые возможности
 
-Выберите свой сценарий—всё ниже уже в приложении:
+Выберите свой сценарий—эти функции уже встроены в Lunote:
 
 ### Письмо
 
@@ -225,6 +225,27 @@
 | **Wiki‑ссылки и граф** | Слабо | Сильно (часто плагины) | Сильно, встроено |
 | **Плагины для старта** | Мало | Много | **Опционально** (каталог) |
 
+<a id="why-lunote"></a>
+
+## Почему Lunote
+
+- **Ваши файлы**: обычные `.md` в ваших папках.
+- **Одно приложение**: удобное письмо, wiki‑ссылки и граф встроены—опциональные пакеты тем.
+
+---
+
+<a id="typora-vs-obsidian-vs-lunote"></a>
+
+## Сравнение
+
+Уже пользуетесь Typora или Obsidian? Lunote для тех, кому нужны **удобное письмо и wiki‑ссылки в одном десктоп‑приложении**, с опциональным каталогом тем.
+
+| | Typora | Obsidian | Lunote |
+|---|---|---|---|
+| **Письмо** | Отлично | Хорошо | Отлично, встроено |
+| **Wiki‑ссылки и граф** | Слабо | Сильно (часто плагины) | Сильно, встроено |
+| **Плагины для старта** | Мало | Много | **Опционально** (каталог) |
+
 <a id="user-guide"></a>
 
 ## Руководство (англ.)
@@ -237,60 +258,6 @@
 - [Оглавление](guide/README.md) — all guide pages
 
 ---
-
-<a id="development"></a>
-
-## Разработка
-
-Собрать Lunote самостоятельно:
-
-- **Требования:** Node.js, Rust и инструменты [Tauri](https://tauri.app/)
-- **Разработка:** `npm install`, затем `npm run tauri:dev`
-- **Сборка:** `npm run tauri:bundle` (или `tauri:bundle:dmg` / `msi` / `deb`)
-- **Документация:** [Указатель документации](README.md) · [Packaging](packaging-strategy.md) · [Скрипты](../scripts/README.md)
-
-Вопросы: [Issue](https://github.com/lunote-code/lunote/issues). PR приветствуются.
-
----
-
-<a id="contribution"></a>
-
-## Участие
-
-Перед pull request:
-
-- Прочитать [Скрипты и сопровождение](../scripts/README.md) (локали и релизы)
-- При изменениях редактора или экспорта — `npm run lint` и нужные тесты
-- Согласовывать тексты в [локализованных README](README.md)
-
-Идеи: [Discussions](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
-
-<a id="development"></a>
-
-## Разработка
-
-Собрать Lunote самостоятельно:
-
-- **Требования:** Node.js, Rust и инструменты [Tauri](https://tauri.app/)
-- **Разработка:** `npm install`, затем `npm run tauri:dev`
-- **Сборка:** `npm run tauri:bundle` (или `tauri:bundle:dmg` / `msi` / `deb`)
-- **Документация:** [Указатель документации](README.md) · [Packaging](packaging-strategy.md) · [Скрипты](../scripts/README.md)
-
-Вопросы: [Issue](https://github.com/lunote-code/lunote/issues). PR приветствуются.
-
----
-
-<a id="contribution"></a>
-
-## Участие
-
-Перед pull request:
-
-- Прочитать [Скрипты и сопровождение](../scripts/README.md) (локали и релизы)
-- При изменениях редактора или экспорта — `npm run lint` и нужные тесты
-- Согласовывать тексты в [локализованных README](README.md)
-
-Идеи: [Discussions](https://github.com/lunote-code/lunote/discussions) · [Issues](https://github.com/lunote-code/lunote/issues)
 
 <a id="development"></a>
 

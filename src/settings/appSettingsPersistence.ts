@@ -20,6 +20,7 @@ const LEGACY_WEB_STORAGE_KEY = 'CrossPlatNote:appSettings:v1'
 const WEB_STORAGE_KEY = 'Lunote:appSettings:v1'
 
 type EditorAppearance = NonNullable<NonNullable<AppSettingsState['appearance']>['editor']>
+type WindowAppearance = NonNullable<NonNullable<AppSettingsState['appearance']>['window']>
 
 function normalizeEditorAppearance(editor: Partial<EditorAppearance> | undefined) {
   const familyRaw = typeof editor?.fontFamily === 'string' ? editor.fontFamily.trim() : ''
@@ -47,6 +48,12 @@ function normalizeEditorAppearance(editor: Partial<EditorAppearance> | undefined
   }
 }
 
+function normalizeWindowAppearance(windowPrefs: Partial<WindowAppearance> | undefined) {
+  return {
+    closeToTrayEnabled: windowPrefs?.closeToTrayEnabled !== false,
+  }
+}
+
 export function normalizeAppSettingsState(settings: AppSettingsState): AppSettingsState {
   return {
     ...settings,
@@ -59,6 +66,7 @@ function normalizeAppearance(appearance: AppSettingsState['appearance']): AppSet
   const existingTheme = { ...(appearance?.theme ?? {}) }
   delete (existingTheme as Record<string, unknown>).cssCompatMode
   const existingEditor = normalizeEditorAppearance(appearance?.editor)
+  const existingWindow = normalizeWindowAppearance(appearance?.window)
   return {
     ...(appearance ?? {}),
     theme: {
@@ -66,6 +74,7 @@ function normalizeAppearance(appearance: AppSettingsState['appearance']): AppSet
       active: normalizeThemeVariant(existingTheme.active),
     },
     editor: existingEditor,
+    window: existingWindow,
   }
 }
 

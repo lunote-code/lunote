@@ -6,6 +6,7 @@ import { codeBlockNodeAt } from '../behavior/selection'
 import { normalizeCodeBlockText } from '../model/lineModel'
 
 import { CODE_BLOCK_CM_ORIGIN_META } from './codeBlockCmDefer'
+import { ensurePmEditableForCodeBlockInteraction } from './codeBlockCmPmFocusLock'
 
 export type ApplyCodeBlockTextFromCmOptions = {
   addToHistory?: boolean
@@ -152,14 +153,34 @@ export function replaceEmptyCodeBlockWithParagraph(editor: Editor, blockPos: num
   if (!tr) return false
   if (editor.isDestroyed) return false
   const caret = blockPos + 1
+
+  ensurePmEditableForCodeBlockInteraction(editor)
+  const active = document.activeElement
+  if (active instanceof HTMLElement && active.closest('.pm-code-block-cm')) {
+    active.blur()
+  }
+
   preserveProseMirrorScrollDuring(editor, () => {
     editor.view.dispatch(tr)
   })
-  try {
-    editor.chain().focus(undefined, { scrollIntoView: false }).setTextSelection(caret).run()
-  } catch {
-    /* ignore */
+
+  const focusPmAtCaret = () => {
+    if (editor.isDestroyed) return
+    try {
+      editor.chain().focus(undefined, { scrollIntoView: false }).setTextSelection(caret).run()
+    } catch {
+      /* ignore */
+    }
+    if (!editor.view.hasFocus?.()) {
+      editor.view.focus()
+    }
   }
+
+  focusPmAtCaret()
+  requestAnimationFrame(() => {
+    queueMicrotask(focusPmAtCaret)
+  })
+
   return true
 }
 

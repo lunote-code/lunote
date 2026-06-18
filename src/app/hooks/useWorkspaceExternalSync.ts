@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event'
 import { isTauri } from '@tauri-apps/api/core'
 
 import type { TranslateFn } from '../../i18n'
+import { normalizeLineEndings } from '../../lib/normalizeLineEndings'
 import { pathsEqual, isLikelyRemoteWorkspaceRoot, pathCompareKey } from '../../lib/workspacePathUtils'
 import { isPathDirty } from '../../lib/documentDirty'
 import { deleteTabBody, setTabBody } from '../document/tabBodiesStore'
@@ -93,7 +94,6 @@ export function useWorkspaceExternalSync({
     const generation = ++externalReloadGenerationRef.current
     const snap = getDocumentRuntimeSnapshot()
     const pathsToCheck = [...new Set([snap.activePath, ...snap.openedTabs].filter(Boolean))]
-    const normalizeLineEndings = (value: string) => value.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
     for (const path of pathsToCheck) {
       if (externalReloadGenerationRef.current !== generation) return
       if (!path || isBufferTabId(path)) continue

@@ -29,6 +29,8 @@ import { isModeSwitchFreezeError } from '../editor/modeSwitchFreezeFailure'
 import { VIEWPORT_DOCUMENT_NODE_ID, viewportAnchorEngine } from '../editor/viewportAnchorEngine'
 import { useSidebarOutlineHeadings } from './hooks/useSidebarOutlineHeadings'
 import type { TocHeading } from './components/DocumentOutlineBlock'
+import { computeDocumentContentStats } from './documentContentStats'
+import { parseFrontmatter } from '../editor/knowledgeRuntime/wikiLinkParser'
 import { canonicalMarkdownOutline } from '../markdown/canonicalMarkdownOutline'
 import {
   createInitialLunaEditorSurface,
@@ -414,14 +416,10 @@ function App() {
   }, [activePath, activeOutlineId])
 
   const contentStats = useMemo(() => {
-    const plain = content.replace(/\s+/g, '')
-    const headings = (content.match(/^#{1,6}\s+/gm) || []).length
-    return {
-      chars: plain.length,
-      lines: content.split('\n').length,
-      headings,
-    }
-  }, [content])
+    const surface =
+      mainPaneMode === 'visual' && activePath ? parseFrontmatter(content).body : content
+    return computeDocumentContentStats(surface)
+  }, [content, mainPaneMode, activePath])
 
   const panesRef = useRef<HTMLElement | null>(null)
   const outlineSpyCtxRef = useRef({ sidebarListMode: 'files' as 'files' | 'outline' })

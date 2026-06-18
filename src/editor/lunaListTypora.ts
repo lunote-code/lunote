@@ -1,6 +1,8 @@
 import { Extension } from '@tiptap/core'
 import { TextSelection } from '@tiptap/pm/state'
 
+import { selectionInTaskLikeList } from './markdownStructuralTransforms'
+
 /**
  * Press Enter for an empty **Normal** list item: Exit the list as a paragraph (Typora/Notion style).
  * Empty task items (taskItem) are not processed and handed over to the splitListItem of TaskItem so that Enter inherits `- [ ]`.
@@ -50,6 +52,7 @@ export const LunaListTypora = Extension.create({
         for (let d = $from.depth; d > 0; d -= 1) {
           const n = $from.node(d)
           if (n.type.name === 'listItem') {
+            if (selectionInTaskLikeList($from, state.schema)) return false
             return editor.commands.liftListItem('listItem')
           }
           //taskItem: Empty line Enter must be given to TaskItem's splitListItem to inherit `- [ ]` New line

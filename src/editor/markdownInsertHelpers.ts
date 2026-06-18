@@ -49,10 +49,22 @@ const OL_ITEM_RE = /^(\s*)(\d+)\.\s(.*)$/
 export const isMarkdownTaskLine = (s: string) => /^\s*-\s+\[[ xX]\]\s/.test(s)
 export const isMarkdownUlBulletLine = (s: string) => /^\s*-\s/.test(s) && !isMarkdownTaskLine(s)
 
+const TASK_LINE_PREFIX = '- [ ] '
+
 export const insertPrefixLine = (prefix: string) => (view: EditorView) => {
   const { from } = view.state.selection.main
   const line = view.state.doc.lineAt(from)
   const text = line.text
+
+  if ((prefix === '- [ ] ' || prefix === TASK_LINE_PREFIX) && isMarkdownTaskLine(text)) {
+    const indent = text.match(/^(\s*)/)?.[1] ?? ''
+    const insert = `\n${indent}- [ ] `
+    view.dispatch({
+      changes: { from: line.to, insert },
+      selection: EditorSelection.cursor(line.to + insert.length),
+    })
+    return true
+  }
 
   if (prefix === '- ' && isMarkdownUlBulletLine(text)) {
     const indent = text.match(/^(\s*)/)?.[1] ?? ''

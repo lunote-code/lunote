@@ -1,8 +1,9 @@
 import type { Node as PmNode } from '@tiptap/pm/model'
+import { normalizeLineEndings } from '../../../lib/normalizeLineEndings'
 
 /** Normalized code block body text (PM `textBetween` shape). */
 export function normalizeCodeBlockText(text: string): string {
-  return (text ?? '').replace(/\r\n/g, '\n')
+  return normalizeLineEndings(text ?? '')
 }
 
 /** Document line count — matches contenteditable `white-space: pre` (one row per `\n`). */

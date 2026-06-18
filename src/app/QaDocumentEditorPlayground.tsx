@@ -26,6 +26,7 @@ import type { TiptapEditorCommand } from '../editor/tiptapEditorTypes'
 import type { Editor } from '@tiptap/core'
 import { redoLastTransaction, setActiveTransactionDoc, undoLastTransaction } from '../menu/commandTransaction'
 import { setInputRouterDocId } from '../vm/inputRouter'
+import { computeDocumentContentStats } from './documentContentStats'
 
 const QA_WIKI_SUGGEST_FIXTURES = [
   { docKey: 'qa/note-a.md', title: 'Note A' },
@@ -46,6 +47,7 @@ declare global {
     __QA_DOCUMENT_EDITOR__?: {
       loadMarkdown: (markdown: string) => void
       getMarkdown: () => string
+      getContentStats: (markdown?: string) => { lines: number; chars: number; headings: number }
       countInEditor: (selector: string) => number
       editorPlainText: () => string
       hasConsoleErrors: () => boolean
@@ -504,14 +506,9 @@ function QaDocumentEditorInner() {
         })
       for (let index = 0; index < safeCount; index += 1) {
         const nextMarkdown = `# Document ${index}\n\nSequential open probe ${index}.\n`
-        setStatus('ready')
-        setDocKey(`${QA_DOCUMENT_KEY}:${index}`)
         setMarkdown(nextMarkdown)
         setTabBody(QA_DOC_PATH, nextMarkdown)
         liveOutlineByPathRef.current.delete(QA_DOC_PATH)
-        if ((index + 1) % 10 === 0) {
-          setLiveOutlineTick((tick) => tick + 1)
-        }
         await yieldToRenderer()
       }
       setLiveOutlineTick((tick) => tick + 1)
@@ -550,6 +547,8 @@ function QaDocumentEditorInner() {
     window.__QA_DOCUMENT_EDITOR__ = {
       loadMarkdown,
       getMarkdown: () => editorRef.current?.getMarkdown(true) ?? markdown,
+      getContentStats: (source?: string) =>
+        computeDocumentContentStats(source ?? editorRef.current?.getMarkdown(true) ?? markdown),
       countInEditor: (selector: string) =>
         document.querySelectorAll(`.qa-document-editor-shell .tiptap-editor-content ${selector}`).length,
       editorPlainText: () =>

@@ -1023,9 +1023,10 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
     boundary.clearAllTimers()
     boundary.suppressBlurForCm(400)
     dispatchSession({ type: 'exit-editing' })
+    cmViewRef.current?.contentDOM.blur()
     boundary.unlockPmIfLocked()
     return deleteEmptyCodeBlock(editor, pos)
-  }, [boundary, editor, getPos, node])
+  }, [boundary, dispatchSession, editor, getPos, node])
 
   const syncCmFromPmAfterHistory = useCallback(() => {
     const cmView = cmViewRef.current

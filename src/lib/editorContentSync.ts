@@ -6,15 +6,16 @@ import { getSourceModeIdentity } from '../editor/sourceModeIdentity'
 import { setSourceModeIdentity } from '../editor/sourceModeIdentity'
 import { applyActiveDocumentContentImmediately } from '../documentRuntime/documentKernel'
 import { pathsEqual } from './workspacePathUtils'
+import { normalizeLineEndings } from './normalizeLineEndings'
 
 function mergeDetachedFrontmatter(documentKey: string, markdown: string): string {
   if (!documentKey || documentKey === 'scratch') return markdown
   return attachDocumentFrontmatter(documentKey, markdown)
 }
 
-/** Ensure visual edit bodies are merged with cached YAML before writing to disk. */
+/** Ensure visual edit bodies are merged with cached YAML before writing to disk (LF line endings). */
 export function diskMarkdownForDocumentSave(path: string, markdown: string): string {
-  return mergeDetachedFrontmatter(path, markdown)
+  return normalizeLineEndings(mergeDetachedFrontmatter(path, markdown))
 }
 
 /** Split on-disk markdown into visual edit surface vs full source identity. */

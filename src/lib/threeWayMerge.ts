@@ -1,3 +1,5 @@
+import { normalizeLineEndings } from './normalizeLineEndings'
+
 export type ThreeWayLineKind = 'same' | 'local' | 'disk' | 'both'
 
 export type ThreeWayMergeRow = {
@@ -9,7 +11,7 @@ export type ThreeWayMergeRow = {
 }
 
 function splitLines(text: string): string[] {
-  return text.replace(/\r\n/g, '\n').split('\n')
+  return normalizeLineEndings(text).split('\n')
 }
 
 /**

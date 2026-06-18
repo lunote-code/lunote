@@ -4,6 +4,7 @@ import {
 } from './documentEventStream'
 import { enqueueDocumentCommand } from '../lib/saveQueue'
 import { pathsEqual } from '../lib/workspacePathUtils'
+import { normalizeLineEndings } from '../lib/normalizeLineEndings'
 import { resumeAutosaveForPath } from '../documentHistory/historyRestoreState'
 import type {
   DocumentCommand,
@@ -82,10 +83,6 @@ function pruneSavedContentForTabs(tabs: readonly string[]): void {
 
 function clearSavedContent(): void {
   savedContentByPath = {}
-}
-
-function normalizeLineEndings(value: string): string {
-  return value.replace(/\r\n?/gu, '\n')
 }
 
 function editorSurfaceForDirtyCompare(markdown: string): string {

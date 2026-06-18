@@ -1,4 +1,5 @@
 import { attachDocumentFrontmatter } from '../editor/documentFrontmatterStore'
+import { normalizeLineEndings } from '../lib/normalizeLineEndings'
 
 export type DocumentHistoryDiffKind = 'same' | 'current' | 'snapshot' | 'both'
 
@@ -10,7 +11,7 @@ export type DocumentHistoryDiffRow = {
 }
 
 function splitLines(text: string): string[] {
-  return text.replace(/\r\n/g, '\n').split('\n')
+  return normalizeLineEndings(text).split('\n')
 }
 
 /** Merge detached YAML/tags into the live editor body before history compare. */
@@ -19,9 +20,9 @@ export function normalizeDocumentMarkdownForHistoryCompare(
   markdown: string,
   side: 'current' | 'snapshot',
 ): string {
-  const normalized = markdown.replace(/\r\n/g, '\n')
+  const normalized = normalizeLineEndings(markdown)
   if (!path || side === 'snapshot') return normalized
-  return attachDocumentFrontmatter(path, normalized).replace(/\r\n/g, '\n')
+  return normalizeLineEndings(attachDocumentFrontmatter(path, normalized))
 }
 
 export function documentHistoryContentEquals(path: string, current: string, snapshot: string): boolean {

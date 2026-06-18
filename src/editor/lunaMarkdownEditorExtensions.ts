@@ -34,6 +34,7 @@ import { LunaImage } from './lunaImage'
 import { LunaImageParagraphGuard } from './lunaImageParagraphGuard'
 import { LunaBlockVerticalNav } from './lunaBlockVerticalNav'
 import { LunaListTypora } from './lunaListTypora'
+import { LunaTaskListEnter } from './lunaTaskListEnter'
 import { LunaTabInText } from './lunaTabInText'
 import { TocDirective } from './tocDirective'
 import { LunaSplitBlockParagraphDefault } from './lunaSplitBlockParagraphDefault'
@@ -136,6 +137,7 @@ export function createLunaMarkdownEditorExtensions(options: LunaMarkdownEditorEx
     LunaDefinitionDescription,
     LunaInlineHtmlMarkLiveLift,
     LunaListTypora,
+    LunaTaskListEnter,
     /** Tab: Indent the list/insert spaces in the text to prevent WebView from moving the focus to the beginning of the line*/
     LunaTabInText,
     LunaCodeBlock.configure({

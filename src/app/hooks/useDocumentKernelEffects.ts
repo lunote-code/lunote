@@ -16,6 +16,7 @@ import { installAssetProjection } from '../../documentRuntime/projections/assetP
 import { installKnowledgeGraphProjection } from '../../documentRuntime/projections/knowledgeGraphProjection'
 import { installPersistenceProjection } from '../../documentRuntime/projections/persistenceProjection'
 import { documentIO } from '../../io/documentIO'
+import { normalizeLineEndings } from '../../lib/normalizeLineEndings'
 import { installTabBodiesKernelSync } from '../document/tabBodiesStore'
 import { isBufferTabId } from '../workspace/constants'
 import { statNoteFile } from '../../platform/tauri/documentService'
@@ -95,10 +96,12 @@ export function useDocumentKernelEffects(deps: DocumentKernelEffectsDeps) {
         logModeSwitchState('DocumentRuntimeKernel:readNote')
         resetModeSwitchEditorBootstrap()
         bumpColdOpenGeneration()
-        return documentIO.readDocument(root, path)
+        const raw = await documentIO.readDocument(root, path)
+        return normalizeLineEndings(raw)
       },
       readDocumentForVerify: async (root, path) => {
-        return documentIO.readDocument(root, path)
+        const raw = await documentIO.readDocument(root, path)
+        return normalizeLineEndings(raw)
       },
       setActiveDocument: (path, markdown) => {
         const projected =

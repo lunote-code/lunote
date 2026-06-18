@@ -50,6 +50,7 @@ import {
   tryResolveBoundEditorMarkdown,
 } from '../../lib/editorContentSync'
 import { enqueueSave } from '../../lib/saveQueue'
+import { normalizeLineEndings } from '../../lib/normalizeLineEndings'
 import { moveItemInArray } from '../../lib/moveItemInArray'
 import {
   filterOutPath,
@@ -282,10 +283,6 @@ export function useTabNavigation(deps: TabNavigationDeps) {
     [bufferBodiesRef],
   )
 
-  const normalizeLineEndings = useCallback((value: string): string => {
-    return value.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-  }, [])
-
   const beginDocumentNavigation = useCallback(() => {
     documentNavigationInProgressRef.current = true
     setEditorDocumentLoading(true)
@@ -484,7 +481,6 @@ export function useTabNavigation(deps: TabNavigationDeps) {
     contentRef,
     isSuspiciousVisualFlushShrink,
     mainPaneMode,
-    normalizeLineEndings,
     persistEditorToTabStores,
     normalizeDocumentContentIfNeeded,
     captureTabEditorSession,

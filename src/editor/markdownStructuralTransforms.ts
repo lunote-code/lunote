@@ -1,4 +1,4 @@
-import { Fragment, type Node as ProseMirrorNode, type Schema } from 'prosemirror-model'
+import { Fragment, type Node as ProseMirrorNode, type ResolvedPos, type Schema } from 'prosemirror-model'
 import { Transform } from 'prosemirror-transform'
 
 const STANDALONE_TOC_LINE = /^\s*\[toc\]\s*$/iu
@@ -42,6 +42,41 @@ function stripTaskMarker(item: ProseMirrorNode, schema: Schema): TaskStrip | nul
   ]
   for (let i = 1; i < item.childCount; i += 1) children.push(transformTaskLists(item.child(i), schema))
   return { checked, node: schema.nodes.taskItem.create({ checked }, Fragment.fromArray(children)) }
+}
+
+/** Whether a bullet `listItem` still stores the GFM `[ ]` / `[x]` marker in paragraph text. */
+export function listItemHasTaskMarker(item: ProseMirrorNode, schema: Schema): boolean {
+  return stripTaskMarker(item, schema) !== null
+}
+
+export function selectionInTaskItem($from: ResolvedPos): boolean {
+  for (let d = $from.depth; d > 0; d -= 1) {
+    if ($from.node(d).type.name === 'taskItem') return true
+  }
+  return false
+}
+
+function bulletListLooksLikeTaskList(listNode: ProseMirrorNode, schema: Schema): boolean {
+  if (listNode.type.name !== 'bulletList' || listNode.childCount === 0) return false
+  for (let i = 0; i < listNode.childCount; i += 1) {
+    if (listItemHasTaskMarker(listNode.child(i), schema)) return true
+  }
+  return false
+}
+
+/** Task checkbox list in PM, including bullet lists awaiting live-lift promotion. */
+export function selectionInTaskLikeList($from: ResolvedPos, schema: Schema): boolean {
+  if (selectionInTaskItem($from)) return true
+  for (let d = $from.depth; d > 0; d -= 1) {
+    const node = $from.node(d)
+    if (node.type.name === 'listItem' && listItemHasTaskMarker(node, schema)) return true
+    if (node.type.name === 'bulletList' && bulletListLooksLikeTaskList(node, schema)) {
+      for (let e = d + 1; e <= $from.depth; e += 1) {
+        if ($from.node(e).type.name === 'listItem') return true
+      }
+    }
+  }
+  return false
 }
 
 function transformTaskLists(node: ProseMirrorNode, schema: Schema): ProseMirrorNode {

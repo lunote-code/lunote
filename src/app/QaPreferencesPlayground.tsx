@@ -22,7 +22,8 @@ import {
   hydrateAppSettingsStore,
   markAppSettingsHydratedForTests,
 } from '../settings/appSettingsStore'
-import { getSetting } from '../settings-runtime/settingsRuntime'
+import { getSetting, setSetting } from '../settings-runtime/settingsRuntime'
+import type { SettingsValue } from '../settings-runtime/settingsTypes'
 import {
   analyzeWindowThemeSyncHistory,
   getLastTauriWindowThemeSync,
@@ -38,7 +39,8 @@ declare global {
       open: (tab?: PrefsTabId) => void
       close: () => void
       isOpen: () => boolean
-      getSetting: (path: string) => unknown
+      getSetting: (path: string) => SettingsValue
+      setSetting: (path: string, value: SettingsValue) => Promise<void>
       readPersistedJson: () => string | null
       getThemeMode: () => 'light' | 'dark' | null
       getThemePreset: () => string | null
@@ -80,6 +82,7 @@ function QaPreferencesInner({ locale }: { locale: UiLocaleId }) {
         close: () => closePreferencesDialog(),
         isOpen: () => isPreferencesDialogOpen(),
         getSetting: (path) => getSetting(path),
+      setSetting: (path, value) => setSetting(path, value),
         readPersistedJson: () => {
           try {
             return localStorage.getItem(WEB_SETTINGS_KEY)
@@ -123,10 +126,10 @@ function QaPreferencesInner({ locale }: { locale: UiLocaleId }) {
   const workspaceRoot = '/qa-vault'
 
   return (
-    <div style={{ padding: 24, background: '#0f1115', minHeight: '100vh' }}>
+    <div style={{ padding: 24, background: 'var(--surface-app)', minHeight: '100vh' }}>
       <h1 data-testid="qa-ready">Preferences QA</h1>
       <p data-testid="qa-status">{status}</p>
-      <p data-testid="qa-locale" style={{ color: '#94a3b8' }}>
+      <p data-testid="qa-locale" style={{ color: 'var(--text-secondary)' }}>
         locale={locale}
       </p>
       <PreferencesDialog workspaceRoot={workspaceRoot} />
@@ -159,7 +162,7 @@ export function QaPreferencesPlayground() {
 
   if (!bootstrap) {
     return (
-      <div style={{ padding: 24, background: '#0f1115', minHeight: '100vh' }}>
+      <div style={{ padding: 24, background: 'var(--surface-app)', minHeight: '100vh' }}>
         <h1 data-testid="qa-ready">Preferences QA</h1>
         <p data-testid="qa-status">booting</p>
       </div>

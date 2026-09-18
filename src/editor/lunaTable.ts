@@ -15,6 +15,28 @@ export type LunaTableAlign = LunaCellTextAlign
 
 const PLUGIN_KEY = new PluginKey('lunaTableChrome')
 
+type TableToolbarLabels = {
+  structure: string
+  alignLeft: string
+  alignCenter: string
+  alignRight: string
+  delete: string
+}
+
+const DEFAULT_TABLE_TOOLBAR_LABELS: TableToolbarLabels = {
+  structure: 'Table structure (rows/cols)…',
+  alignLeft: 'Align current column left (text-align) · ⇧ whole table · ⌥ hover column · ⌥⇧ hover row',
+  alignCenter: 'Align current column center (text-align) · ⇧ whole table · ⌥ hover column · ⌥⇧ hover row',
+  alignRight: 'Align current column right (text-align) · ⇧ whole table · ⌥ hover column · ⌥⇧ hover row',
+  delete: 'Delete table',
+}
+
+let tableToolbarLabels: TableToolbarLabels = DEFAULT_TABLE_TOOLBAR_LABELS
+
+export function setTableToolbarLabels(labels: TableToolbarLabels | null): void {
+  tableToolbarLabels = labels ?? DEFAULT_TABLE_TOOLBAR_LABELS
+}
+
 function tiptapFromView(view: EditorView): Editor | null {
   let dom: HTMLElement | null = view.dom as HTMLElement
   while (dom) {
@@ -33,6 +55,13 @@ function clearTableActive(root: HTMLElement) {
  * Editing state: only activated when clicking "inside table `<table>`"; remains activated when clicking the toolbar/delete button of the activated table; click outside to cancel.
  * Use the toolbar "▦" to open the structural grid (change the row and column of the current table); still use `openLunaTableInsertPicker` for menu insertion.
  */
+function isTableEmbeddedMediaTarget(t: HTMLElement): boolean {
+  if (t.closest('.pm-image-node-root, .pm-image-card')) return true
+  if (t.tagName === 'IMG' && t.closest('.pm-luna-table-wrap table')) return true
+  if (t.closest('.pm-luna-html-inline-surface img, .pm-luna-html-block-surface img')) return true
+  return false
+}
+
 function lunaTableChromePlugin(): Plugin {
   return new Plugin({
     key: PLUGIN_KEY,
@@ -65,6 +94,10 @@ function lunaTableChromePlugin(): Plugin {
 
         const tableEl = wrap.querySelector('table')
         if (tableEl && tableEl.contains(t)) {
+          if (isTableEmbeddedMediaTarget(t)) {
+            emitLunaSurface({ type: 'SET_TABLE_CHROME', active: false })
+            return
+          }
           wrap.classList.add('pm-luna-table-wrap--active')
           emitLunaSurface({ type: 'SET_TABLE_CHROME', active: true })
         } else {
@@ -245,11 +278,11 @@ export class LunaTableView extends TableView {
       return b
     }
 
-    this.toolbar.appendChild(btn('▦', 'Table structure (rows/cols)…', () => this.openStructurePicker(), 'table-grid'))
+    this.toolbar.appendChild(btn('▦', tableToolbarLabels.structure, () => this.openStructurePicker(), 'table-grid'))
     this.toolbar.appendChild(
       btn(
         'L',
-        'Align current column left (text-align) · ⇧ whole table · ⌥ hover column · ⌥⇧ hover row',
+        tableToolbarLabels.alignLeft,
         (e) => this.setAlign('left', e),
         'align-left',
       ),
@@ -257,7 +290,7 @@ export class LunaTableView extends TableView {
     this.toolbar.appendChild(
       btn(
         'C',
-        'Align current column center (text-align) · ⇧ whole table · ⌥ hover column · ⌥⇧ hover row',
+        tableToolbarLabels.alignCenter,
         (e) => this.setAlign('center', e),
         'align-center',
       ),
@@ -265,7 +298,7 @@ export class LunaTableView extends TableView {
     this.toolbar.appendChild(
       btn(
         'R',
-        'Align current column right (text-align) · ⇧ whole table · ⌥ hover column · ⌥⇧ hover row',
+        tableToolbarLabels.alignRight,
         (e) => this.setAlign('right', e),
         'align-right',
       ),
@@ -274,8 +307,8 @@ export class LunaTableView extends TableView {
     const del = document.createElement('button')
     del.type = 'button'
     del.className = 'pm-luna-table-delete'
-    del.title = 'Delete table'
-    del.setAttribute('aria-label', 'Delete table')
+    del.title = tableToolbarLabels.delete
+    del.setAttribute('aria-label', tableToolbarLabels.delete)
     del.textContent = '🗑'
     del.addEventListener('mousedown', (e) => e.preventDefault())
     del.addEventListener('click', (e) => {
@@ -328,7 +361,23 @@ export class LunaTableView extends TableView {
     const tbody = this.contentDOM
     const onMove = (e: MouseEvent) => {
       const t = e.target as HTMLElement | null
+      if (t && isTableEmbeddedMediaTarget(t)) {
+        if (this.hoverLastRow !== -1 || this.hoverLastCol !== -1) {
+          this.hoverLastRow = -1
+          this.hoverLastCol = -1
+          clearRowColHoverClasses(tbody)
+        }
+        return
+      }
       const cell = t?.closest('td, th') as HTMLTableCellElement | null
+      if (cell?.querySelector('.pm-image-node-root, img.pm-image-block-img, .pm-luna-html-inline-surface img')) {
+        if (this.hoverLastRow !== -1 || this.hoverLastCol !== -1) {
+          this.hoverLastRow = -1
+          this.hoverLastCol = -1
+          clearRowColHoverClasses(tbody)
+        }
+        return
+      }
       if (!cell || !tbody.contains(cell)) {
         if (this.hoverLastRow !== -1 || this.hoverLastCol !== -1) {
           this.hoverLastRow = -1

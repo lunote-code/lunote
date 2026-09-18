@@ -86,12 +86,23 @@ function testPackagingDoc() {
   assert(text.includes('mac-menu-icons'), 'packaging-strategy: should document mac-menu-icons')
 }
 
+function testTauriDevtoolsDisabledForRelease() {
+  const conf = JSON.parse(read('src-tauri/tauri.conf.json'))
+  const main = conf.app?.windows?.find((window) => window.label === 'main')
+  assert(main, 'tauri.conf.json: main window missing')
+  assert(
+    main.devtools === false,
+    'tauri.conf.json: main window devtools must be false for release hardening',
+  )
+}
+
 const tests = [
   ['release.yml structure', testReleaseYml],
   ['release workflow publish job', testReleaseWorkflow],
   ['ci workflow guards', testCiWorkflow],
   ['root tsconfig references', testRootTsconfig],
   ['packaging-strategy doc', testPackagingDoc],
+  ['tauri devtools disabled for release', testTauriDevtoolsDisabledForRelease],
 ]
 
 let passed = 0

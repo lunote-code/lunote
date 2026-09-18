@@ -153,6 +153,29 @@ fn safe_workspace_id(workspace_id: &str) -> Result<String, String> {
   Ok(safe)
 }
 
+pub fn list_document_history_store_files(workspace_root: &str) -> Result<Vec<PathBuf>, String> {
+  let workspace_id = safe_workspace_id(workspace_root)?;
+  let dir = get_history_path()?.join(workspace_id);
+  if !dir.is_dir() {
+    return Ok(Vec::new());
+  }
+  let mut files = Vec::new();
+  let index = dir.join("index.json");
+  if index.is_file() {
+    files.push(index);
+  }
+  let snapshots = dir.join("snapshots");
+  if snapshots.is_dir() {
+    for entry in fs::read_dir(&snapshots).map_err(|e| format!("Failed to list history snapshots: {e}"))? {
+      let path = entry.map_err(|e| format!("Failed to read history snapshot entry: {e}"))?.path();
+      if path.is_file() {
+        files.push(path);
+      }
+    }
+  }
+  Ok(files)
+}
+
 pub fn workspace_file(workspace_id: &str) -> Result<PathBuf, String> {
   Ok(get_workspace_path()?.join(format!("{}.json", safe_workspace_id(workspace_id)?)))
 }
@@ -225,4 +248,57 @@ pub fn append_app_log(line: &str) -> Result<(), String> {
 
 pub fn append_crash_log(line: &str) -> Result<(), String> {
   append_log_line("crash.log", line)
+}
+
+pub fn get_ai_conversations_path() -> Result<PathBuf, String> {
+  Ok(get_cache_path()?.join("ai-conversations"))
+}
+
+fn ai_conversation_storage_id(doc_key: &str) -> Result<String, String> {
+  use std::collections::hash_map::DefaultHasher;
+  use std::hash::{Hash, Hasher};
+
+  let trimmed = doc_key.trim();
+  if trimmed.is_empty() {
+    return Err("docKey is empty".to_string());
+  }
+  let mut hasher = DefaultHasher::new();
+  trimmed.hash(&mut hasher);
+  Ok(format!("{:016x}", hasher.finish()))
+}
+
+pub fn ai_conversation_file(doc_key: &str) -> Result<PathBuf, String> {
+  let id = ai_conversation_storage_id(doc_key)?;
+  Ok(get_ai_conversations_path()?.join(format!("{id}.json")))
+}
+
+pub fn read_ai_conversation_snapshot(doc_key: &str) -> Result<Option<serde_json::Value>, String> {
+  ensure_luna_dirs()?;
+  let path = ai_conversation_file(doc_key)?;
+  if !path.is_file() {
+    return Ok(None);
+  }
+  let data = fs::read(&path).map_err(|e| e.to_string())?;
+  serde_json::from_slice(&data).map(Some).map_err(|e| e.to_string())
+}
+
+pub fn write_ai_conversation_snapshot(
+  doc_key: &str,
+  snapshot: &serde_json::Value,
+) -> Result<(), String> {
+  ensure_luna_dirs()?;
+  let dir = get_ai_conversations_path()?;
+  fs::create_dir_all(&dir).map_err(|e| format!("Failed to create AI conversations directory: {e}"))?;
+  let path = ai_conversation_file(doc_key)?;
+  let data = serde_json::to_vec_pretty(snapshot).map_err(|e| e.to_string())?;
+  crate::core::atomic_io::atomic_write(&path, &data).map_err(|e| e.to_string())
+}
+
+pub fn delete_ai_conversation_snapshot(doc_key: &str) -> Result<(), String> {
+  ensure_luna_dirs()?;
+  let path = ai_conversation_file(doc_key)?;
+  if !path.is_file() {
+    return Ok(());
+  }
+  fs::remove_file(&path).map_err(|e| e.to_string())
 }

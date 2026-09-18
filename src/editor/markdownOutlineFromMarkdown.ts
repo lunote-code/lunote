@@ -11,6 +11,7 @@ export function getOutlineParseSchema(): Schema {
   if (!cachedOutlineSchema) {
     const extensions = createLunaMarkdownEditorExtensions({
       resolveMediaSrc: (src) => src,
+      getMediaRenderScope: () => '',
       getNoteAssetContext: () => null,
     })
     cachedOutlineSchema = getSchema(extensions)

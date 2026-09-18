@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useI18n } from '../../../i18n'
 import {
   getHoverSurfaceSnapshot,
   hideHoverSurface,
@@ -9,12 +10,14 @@ import {
 } from '../../knowledgeSurfaceRuntime'
 import { getCachedPreview, resolvePreviewTarget } from '../../knowledgeInteractionRuntime'
 import type { WikiLinkTarget } from '../../knowledgeRuntime/types'
+import { resolveWikiTarget } from '../wikiLinkRuntime'
 
 type Props = {
   hoverId: string | null
 }
 
 export function KnowledgeHoverCard({ hoverId }: Props) {
+  const { t } = useI18n()
   const [, bump] = useState(0)
   useEffect(() => {
     ensureHoverSurfaceListening()
@@ -26,6 +29,7 @@ export function KnowledgeHoverCard({ hoverId }: Props) {
   if (!snap || snap.hoverPhase !== 'hover-visible' || !snap.target || !snap.anchor) return null
 
   const preview = getCachedPreview(resolvePreviewTarget(snap.target))
+  const unresolved = !resolveWikiTarget(snap.target).resolvedDocKey
   const { anchor } = snap
 
   return createPortal(
@@ -38,6 +42,7 @@ export function KnowledgeHoverCard({ hoverId }: Props) {
       onMouseLeave={() => hideHoverSurface(hoverId)}
     >
       <div className="kos-hover-title">{preview?.title ?? snap.target.docKey}</div>
+      {unresolved ? <div className="kos-hover-status">{t('knowledge.graph.legendUnresolved')}</div> : null}
       {preview?.plainSnippet ? (
         <p className="kos-hover-excerpt">{preview.plainSnippet}</p>
       ) : null}

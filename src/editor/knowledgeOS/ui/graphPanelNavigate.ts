@@ -1,8 +1,10 @@
 import type { MouseEvent } from 'react'
 import { normalizeDocKeyForNavigation } from '../../knowledgeRuntime'
 import { resolveClickIntent } from '../../navigation/clickIntentResolver'
+import type { DocKey } from '../../knowledgeRuntime/types'
 import type { NoteGraphNode } from '../types'
 import { findGraphNodeAtScreen, type GraphNodeSpatialIndex, type GraphViewportTransform } from '../layout/graphHitTest'
+import { resolveUnresolvedGraphNodeNavigation } from '../graphUnresolvedNavigation'
 import { dispatchKnowledgeNavigate } from './interactionTransaction'
 
 export function hitGraphNodeAtEvent(
@@ -38,11 +40,11 @@ export function noteGraphNodeAsHit(n: NoteGraphNode): NoteGraphNode {
   }
 }
 
-export function navigateGraphNodeFromRenderedNode(e: MouseEvent, n: NoteGraphNode): void {
-  navigateGraphNodeFromHit(e, noteGraphNodeAsHit(n))
-}
-
-export function navigateGraphNodeFromHit(e: MouseEvent, hit: NoteGraphNode | null): void {
+function dispatchGraphNavigateFromHit(
+  e: MouseEvent,
+  hit: NoteGraphNode,
+  preferredSourceDocKey?: DocKey | null,
+): void {
   const traceId = `nav-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const intent = resolveClickIntent({
     type: 'graph',
@@ -50,10 +52,44 @@ export function navigateGraphNodeFromHit(e: MouseEvent, hit: NoteGraphNode | nul
     uiDisabled: false,
     hitTestResult: hit,
     meta: {
-      nodeId: hit?.id,
-      nodeDocKey: hit?.docKey,
-      nodeStatus: hit?.status,
+      nodeId: hit.id,
+      nodeDocKey: hit.docKey,
+      nodeStatus: hit.status,
     },
   })
+  if (!intent.allowDispatch) return
+
+  if (hit.status === 'unresolved') {
+    const source = resolveUnresolvedGraphNodeNavigation(hit, preferredSourceDocKey)
+    if (!source) return
+    dispatchKnowledgeNavigate('graph', {
+      intent,
+      hit: {
+        docKey: source.docKey,
+        heading: source.heading,
+        linkBodyOffset: source.linkBodyOffset,
+      },
+      traceId,
+    })
+    return
+  }
+
   dispatchKnowledgeNavigate('graph', { intent, hit, traceId })
+}
+
+export function navigateGraphNodeFromRenderedNode(
+  e: MouseEvent,
+  n: NoteGraphNode,
+  preferredSourceDocKey?: DocKey | null,
+): void {
+  navigateGraphNodeFromHit(e, noteGraphNodeAsHit(n), preferredSourceDocKey)
+}
+
+export function navigateGraphNodeFromHit(
+  e: MouseEvent,
+  hit: NoteGraphNode | null,
+  preferredSourceDocKey?: DocKey | null,
+): void {
+  if (!hit) return
+  dispatchGraphNavigateFromHit(e, hit, preferredSourceDocKey)
 }

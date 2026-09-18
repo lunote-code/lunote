@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react'
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 
-import { EmptyState } from '../../design-system/EmptyState'
-import { Icon } from '../../design-system/icons'
 import type { TranslateFn } from '../../i18n'
-import { useFocusTrap } from '../../lib/useFocusTrap'
 import { formatCommandShortcutDisplay } from '../../menu'
 import { runWorkspaceSearch, type WorkspaceSearchIndexEntry } from '../search/workspaceSearch'
 import { safeSearchSnippetHtml } from '../search/searchSnippet'
 import type { SearchResult } from '../workspace/types'
+import {
+  WorkspaceOverlayPickerModal,
+  type WorkspaceOverlayPickerRow,
+} from './WorkspaceOverlayPickerModal'
 
 export type WorkspaceGlobalSearchModalProps = {
   open: boolean
@@ -16,33 +17,23 @@ export type WorkspaceGlobalSearchModalProps = {
   searchIndex: readonly WorkspaceSearchIndexEntry[]
   onQueryChange: (query: string) => void
   onClose: () => void
-  onOpenDocument: (root: string, path: string) => void | Promise<void>
+  onOpenDocument: (
+    root: string,
+    path: string,
+    options?: { searchQuery?: string; searchSnippetHtml?: string },
+  ) => void | Promise<void>
   inputRef?: RefObject<HTMLInputElement | null>
   t: TranslateFn
-}
-
-function isComposingKeyEvent(e: React.KeyboardEvent<HTMLInputElement>): boolean {
-  return e.nativeEvent.isComposing || e.key === 'Process'
 }
 
 export function WorkspaceGlobalSearchModal(props: WorkspaceGlobalSearchModalProps) {
   const { open, query, rootDir, searchIndex, onQueryChange, onClose, onOpenDocument, inputRef: inputRefProp, t } =
     props
-  const hintId = useId()
   const fallbackInputRef = useRef<HTMLInputElement | null>(null)
   const inputRef = inputRefProp ?? fallbackInputRef
-  const [dialogEl, setDialogEl] = useState<HTMLDivElement | null>(null)
   const [debouncedQuery, setDebouncedQuery] = useState(query)
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [hoverIndex, setHoverIndex] = useState(-1)
-  const listboxId = useId()
-
-  useFocusTrap(open, dialogEl, {
-    initialFocusRef: inputRef,
-    onEscape: onClose,
-  })
 
   const placeholder = useMemo(
     () =>
@@ -52,24 +43,15 @@ export function WorkspaceGlobalSearchModal(props: WorkspaceGlobalSearchModalProp
     [t],
   )
 
-  const queryPending = query.trim() !== debouncedQuery.trim()
-  const visibleResults = queryPending ? [] : results
-  const highlightedIndex = hoverIndex >= 0 ? hoverIndex : activeIndex
-  const activeOptionId =
-    visibleResults.length > 0 ? `${listboxId}-option-${highlightedIndex}` : undefined
-  const showLoading = loading || (queryPending && !!query.trim())
-  const showEmpty = debouncedQuery.trim() && !showLoading && visibleResults.length === 0
+  const footerHint = useMemo(
+    () =>
+      t('app.globalSearch.quickSwitcherHint', {
+        shortcut: formatCommandShortcutDisplay('view-quick-switcher'),
+      }),
+    [t],
+  )
 
-  useEffect(() => {
-    if (!open) return
-    setActiveIndex(0)
-    setHoverIndex(-1)
-    const frame = window.requestAnimationFrame(() => {
-      inputRef.current?.focus()
-      inputRef.current?.select()
-    })
-    return () => window.cancelAnimationFrame(frame)
-  }, [open])
+  const queryPending = query.trim() !== debouncedQuery.trim()
 
   useEffect(() => {
     if (!open) return
@@ -102,135 +84,67 @@ export function WorkspaceGlobalSearchModal(props: WorkspaceGlobalSearchModalProp
       if (cancelled) return
       setResults(hits)
       setLoading(false)
-      setActiveIndex(0)
-      setHoverIndex(-1)
     })()
     return () => {
       cancelled = true
     }
   }, [debouncedQuery, open, rootDir, searchIndex])
 
-  useEffect(() => {
-    if (!open || visibleResults.length === 0) return
-    const active = document.getElementById(`${listboxId}-option-${highlightedIndex}`)
-    active?.scrollIntoView({ block: 'nearest' })
-  }, [highlightedIndex, listboxId, open, visibleResults.length])
-
-  useEffect(() => {
-    if (visibleResults.length === 0) return
-    setActiveIndex((i) => Math.min(i, visibleResults.length - 1))
-  }, [visibleResults.length])
-
-  const openResult = useCallback(
-    (item: SearchResult) => {
-      if (!rootDir.trim()) return
-      void onOpenDocument(rootDir, item.path)
-      onClose()
-    },
-    [onClose, onOpenDocument, rootDir],
+  const visibleResults = useMemo(
+    () => (queryPending ? [] : results),
+    [queryPending, results],
   )
+  const rows = useMemo((): WorkspaceOverlayPickerRow[] => {
+    const relativePathFor = (path: string): string => {
+      const hit = searchIndex.find((entry) => entry.path === path)
+      return hit?.relativePath || hit?.sublabel || path
+    }
+    return visibleResults.map((item) => ({
+      key: item.path,
+      label: item.title,
+      hint: (
+        <span className="global-search-hint-stack">
+          <span className="global-search-path">{relativePathFor(item.path)}</span>
+          {item.snippet ? (
+            <span
+              className="global-search-snippet"
+              dangerouslySetInnerHTML={{ __html: safeSearchSnippetHtml(item.snippet) }}
+            />
+          ) : null}
+        </span>
+      ),
+    }))
+  }, [searchIndex, visibleResults])
 
-  const onInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (isComposingKeyEvent(e)) return
-    if (visibleResults.length === 0) return
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setHoverIndex(-1)
-      setActiveIndex((i) => Math.min(i + 1, visibleResults.length - 1))
-      return
-    }
-    if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setHoverIndex(-1)
-      setActiveIndex((i) => Math.max(i - 1, 0))
-      return
-    }
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      const hit = visibleResults[highlightedIndex]
-      if (hit) openResult(hit)
-    }
-  }
-
-  if (!open) return null
+  const showLoading = loading || (queryPending && !!query.trim())
+  const showEmpty = debouncedQuery.trim() && !showLoading && visibleResults.length === 0
+  const listState = showLoading ? 'loading' : showEmpty ? 'empty' : 'results'
 
   return (
-    <div className="command-palette-backdrop" role="presentation" onClick={onClose}>
-      <div
-        ref={setDialogEl}
-        className="command-palette global-search-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('app.globalSearch.aria')}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="global-search-header">
-          <p id={hintId} className="global-search-scope-hint">
-            {t('app.globalSearch.scopeHint')}
-          </p>
-          <input
-            ref={inputRef}
-            className="command-palette-input global-search-input"
-            role="combobox"
-            aria-expanded={visibleResults.length > 0}
-            aria-controls={listboxId}
-            aria-activedescendant={activeOptionId}
-            aria-autocomplete="list"
-            aria-describedby={hintId}
-            placeholder={placeholder}
-            value={query}
-            onChange={(e) => {
-              onQueryChange(e.target.value)
-              setActiveIndex(0)
-              setHoverIndex(-1)
-            }}
-            onKeyDown={onInputKeyDown}
-            aria-label={t('app.globalSearch.aria')}
-          />
-        </div>
-        <ul
-          id={listboxId}
-          className="command-palette-list luna-overlay-scroll"
-          role="listbox"
-          onMouseLeave={() => setHoverIndex(-1)}
-        >
-          {showLoading ? (
-            <li className="command-palette-empty command-palette-loading" key="loading" role="status" aria-live="polite">
-              <Icon name="refresh" size="sm" className="command-palette-loading-icon" tone="muted" />
-              <span>{t('app.globalSearch.searching')}</span>
-            </li>
-          ) : showEmpty ? (
-            <li className="command-palette-empty-item" key="empty">
-              <EmptyState variant="compact" icon="search" title={t('app.globalSearch.empty')} />
-            </li>
-          ) : (
-            visibleResults.map((item, idx) => (
-              <li key={item.path} role="presentation">
-                <button
-                  type="button"
-                  id={`${listboxId}-option-${idx}`}
-                  role="option"
-                  aria-selected={idx === highlightedIndex}
-                  className="command-palette-item"
-                  data-active={idx === highlightedIndex ? 'true' : undefined}
-                  onMouseEnter={() => setHoverIndex(idx)}
-                  onClick={() => openResult(item)}
-                >
-                  <span className="command-palette-item-row">
-                    <span className="command-palette-item-label">{item.title}</span>
-                  </span>
-                  {item.snippet ? (
-                    <span
-                      className="command-palette-item-hint global-search-snippet"
-                      dangerouslySetInnerHTML={{ __html: safeSearchSnippetHtml(item.snippet) }}
-                    />
-                  ) : null}
-                </button>
-              </li>
-            ))
-          )}
-        </ul>
-      </div>
-    </div>
+    <WorkspaceOverlayPickerModal
+      open={open}
+      query={query}
+      onQueryChange={onQueryChange}
+      onClose={onClose}
+      onActivate={(path) => {
+        if (!rootDir.trim()) return
+        const hit = visibleResults.find((item) => item.path === path)
+        void onOpenDocument(rootDir, path, {
+          searchQuery: debouncedQuery.trim(),
+          searchSnippetHtml: hit?.snippet,
+        })
+      }}
+      rows={rows}
+      listState={listState}
+      inputRef={inputRef}
+      ariaLabel={t('app.globalSearch.aria')}
+      scopeHint={t('app.globalSearch.scopeHint')}
+      footerHint={footerHint}
+      placeholder={placeholder}
+      testId="global-search-modal"
+      modalClassName="global-search-modal"
+      loadingLabel={t('app.globalSearch.searching')}
+      emptyTitle={t('app.globalSearch.empty')}
+    />
   )
 }

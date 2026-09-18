@@ -22,7 +22,31 @@ OUT_DIR = ROOT / "src" / "i18n" / "locales"
 
 META_PREFIX = "meta."
 # Keys that must appear in sparse locale files even when identical to en (runtime/contracts).
-ALWAYS_MATERIALIZE_KEYS = frozenset({"app.tabs.countLabel"})
+ALWAYS_MATERIALIZE_KEYS = frozenset({
+    "app.tabs.countLabel",
+    "editor.format.textColor.hexPlaceholder",
+    "knowledge.graph.resetZoomShort",
+    "settings.ai.baseUrl.placeholder",
+    "settings.ai.model.placeholder",
+    "settings.ai.provider.anthropic",
+    "settings.ai.provider.deepseek",
+    "settings.ai.provider.google",
+    "settings.ai.provider.lmstudio",
+    "settings.ai.provider.local",
+    "settings.ai.provider.ollama",
+    "settings.ai.provider.openai",
+    "settings.ai.provider.openrouter",
+    "settings.assets.absolutePath.placeholder",
+    "settings.editor.autosaveIntervalSec.placeholder",
+    "settings.editor.fontFamily.group.github",
+    "settings.plugins.incompatible",
+    "settings.plugins.platform.desktop",
+    "settings.plugins.screenshotCounter",
+    "settings.plugins.sizeBytes",
+    "settings.plugins.sizeKilobytes",
+    "settings.plugins.sizeMegabytes",
+    "settings.theme.github",
+})
 
 
 def load_flat(path: pathlib.Path) -> dict[str, str]:

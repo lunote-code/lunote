@@ -6,7 +6,7 @@ How [`.github/workflows/release.yml`](../.github/workflows/release.yml) builds i
 
 | Event | Behavior |
 |-------|----------|
-| Push tag `v*` (e.g. `v0.5.0`) | Full release pipeline on that tag |
+| Push tag `v*` (e.g. `v1.0.3`) | Full release pipeline on that tag |
 | `workflow_dispatch` | Manual run; set tag input; optional draft release |
 
 Before tagging:

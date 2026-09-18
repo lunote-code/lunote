@@ -62,6 +62,7 @@ function QaContextMenuInner() {
           setFileSortMode={() => undefined}
           createNewNote={() => setLastPick('workspace:newFile')}
           createNewNoteFromTemplate={() => setLastPick('workspace:newFromTemplate')}
+          createNewFolder={() => setLastPick('workspace:newFolder')}
           chooseFolder={() => setLastPick('workspace:openFolder')}
           refreshFileTree={() => setLastPick('workspace:refresh')}
           setStatus={(msg) => setLastPick(msg)}

@@ -2,6 +2,7 @@ import { logError } from '../lib/lunaLogger'
 import type { AppLanguageSetting } from '../settings/appSettingsTypes'
 import {
   getAppSettingsSnapshot,
+  setAiSetting,
   setAppearanceSetting,
   setAppLanguage,
   setAssetStorageConfig,
@@ -16,12 +17,29 @@ import {
   normalizeExportTocMode,
 } from '../export/exportPreset'
 import { normalizeThemeVariant } from '../theme-runtime/themeResolver'
+import { EXTERNAL_THEME_CSS_CLEAR_FIELDS } from '../theme-runtime/themeColorSource'
+import { isThemeColorSourceSentinelValue } from './themeColorSourceSettings'
 import { normalizeEditorFontSize, resolveEffectiveEditorFontSize } from './editorTypography'
 import {
   normalizeEditorColumnWidth,
   resolveEffectiveEditorColumnWidth,
 } from './editorColumnWidth'
 import { resolveEditorFormatToolbarEnabled } from './editorFormatToolbarEnabled'
+import {
+  resolveAiApiKey,
+  resolveAiConversationScope,
+  resolveAiProvider,
+} from './aiSettings'
+import {
+  resolveAiButtonEnabled,
+  resolveDocumentStatsEnabled,
+  resolveFocusButtonEnabled,
+  resolveFocusExitButtonEnabled,
+  resolveGlobalSearchButtonEnabled,
+  resolveGraphButtonEnabled,
+  resolveNoteCalendarButtonEnabled,
+  resolveToastNotificationsEnabled,
+} from './editorUiChrome'
 import { resolveEditorSpellcheckEnabled } from './editorSpellcheck'
 import type { SettingsValue } from './settingsTypes'
 
@@ -93,8 +111,45 @@ function readValue(path: string): SettingsValue {
       return snapshot.appearance?.editor?.autosaveScope === 'allDirty' ? 'allDirty' : 'activeOnly'
     case 'window.closeToTrayEnabled':
       return snapshot.appearance?.window?.closeToTrayEnabled !== false
+    case 'ui.focusButtonEnabled':
+      return resolveFocusButtonEnabled(snapshot.appearance?.ui)
+    case 'ui.graphButtonEnabled':
+      return resolveGraphButtonEnabled(snapshot.appearance?.ui)
+    case 'ui.aiButtonEnabled':
+      return resolveAiButtonEnabled(snapshot.appearance?.ui)
+    case 'ui.globalSearchButtonEnabled':
+    case 'ui.tabSwitcherButtonEnabled':
+      return resolveGlobalSearchButtonEnabled(snapshot.appearance?.ui)
+    case 'ui.noteCalendarButtonEnabled':
+      return resolveNoteCalendarButtonEnabled(snapshot.appearance?.ui)
+    case 'ui.focusExitButtonEnabled':
+      return resolveFocusExitButtonEnabled(snapshot.appearance?.ui)
+    case 'ui.documentStatsEnabled':
+      return resolveDocumentStatsEnabled(snapshot.appearance?.ui)
+    case 'ui.toastNotificationsEnabled':
+      return resolveToastNotificationsEnabled(snapshot.appearance?.ui)
     case 'updates.autoCheckEnabled':
       return snapshot.updates?.autoCheckEnabled !== false
+    case 'ai.provider':
+      return resolveAiProvider(snapshot)
+    case 'ai.apiKey':
+      return resolveAiApiKey(snapshot)
+    case 'ai.baseUrl':
+      return typeof snapshot.ai?.baseUrl === 'string' ? snapshot.ai.baseUrl : ''
+    case 'ai.model':
+      return typeof snapshot.ai?.model === 'string' ? snapshot.ai.model : ''
+    case 'ai.includeWorkspaceSearch':
+      return snapshot.ai?.includeWorkspaceSearch !== false
+    case 'ai.includeGraphNeighbors':
+      return snapshot.ai?.includeGraphNeighbors !== false
+    case 'ai.graphTwoHop':
+      return snapshot.ai?.graphTwoHop === true
+    case 'ai.preferMentionContextOnly':
+      return snapshot.ai?.preferMentionContextOnly === true
+    case 'ai.systemPrompt':
+      return typeof snapshot.ai?.systemPrompt === 'string' ? snapshot.ai.systemPrompt : ''
+    case 'ai.conversationScope':
+      return resolveAiConversationScope(snapshot)
     default:
       return undefined
   }
@@ -131,15 +186,33 @@ async function writeValue(path: string, value: SettingsValue): Promise<void> {
       console.info('[app-settings] set language done', { language })
       return
     }
-    case 'theme.active':
+    case 'theme.active': {
+      if (isThemeColorSourceSentinelValue(String(value))) return
       await setAppearanceSetting('theme.active', normalizeThemeVariant(value))
+      for (const [field, cleared] of Object.entries(EXTERNAL_THEME_CSS_CLEAR_FIELDS)) {
+        await setAppearanceSetting(`theme.${field}`, cleared)
+      }
       return
-    case 'theme.cssFile':
-      await setAppearanceSetting('theme.cssFile', typeof value === 'string' ? value.trim() : '')
+    }
+    case 'theme.cssFile': {
+      if (isThemeColorSourceSentinelValue(String(value))) return
+      const trimmed = typeof value === 'string' ? value.trim() : ''
+      await setAppearanceSetting('theme.cssFile', trimmed)
+      if (!trimmed) {
+        await setAppearanceSetting('theme.cssContent', '')
+        await setAppearanceSetting('theme.cssImportFile', '')
+      }
       return
-    case 'theme.cssContent':
-      await setAppearanceSetting('theme.cssContent', typeof value === 'string' ? value : '')
+    }
+    case 'theme.cssContent': {
+      const content = typeof value === 'string' ? value : ''
+      await setAppearanceSetting('theme.cssContent', content)
+      if (!content.trim()) {
+        await setAppearanceSetting('theme.cssFile', '')
+        await setAppearanceSetting('theme.cssImportFile', '')
+      }
       return
+    }
     case 'theme.cssImportFile':
       await setAppearanceSetting('theme.cssImportFile', typeof value === 'string' ? value : '')
       return
@@ -225,8 +298,66 @@ async function writeValue(path: string, value: SettingsValue): Promise<void> {
     case 'window.closeToTrayEnabled':
       await setAppearanceSetting('window.closeToTrayEnabled', Boolean(value))
       return
+    case 'ui.focusButtonEnabled':
+      await setAppearanceSetting('ui.focusButtonEnabled', Boolean(value))
+      return
+    case 'ui.graphButtonEnabled':
+      await setAppearanceSetting('ui.graphButtonEnabled', Boolean(value))
+      return
+    case 'ui.aiButtonEnabled':
+      await setAppearanceSetting('ui.aiButtonEnabled', Boolean(value))
+      return
+    case 'ui.globalSearchButtonEnabled':
+    case 'ui.tabSwitcherButtonEnabled':
+      await setAppearanceSetting('ui.globalSearchButtonEnabled', Boolean(value))
+      return
+    case 'ui.noteCalendarButtonEnabled':
+      await setAppearanceSetting('ui.noteCalendarButtonEnabled', Boolean(value))
+      return
+    case 'ui.focusExitButtonEnabled':
+      await setAppearanceSetting('ui.focusExitButtonEnabled', Boolean(value))
+      return
+    case 'ui.documentStatsEnabled':
+      await setAppearanceSetting('ui.documentStatsEnabled', Boolean(value))
+      return
+    case 'ui.toastNotificationsEnabled':
+      await setAppearanceSetting('ui.toastNotificationsEnabled', Boolean(value))
+      return
     case 'updates.autoCheckEnabled':
       await setUpdatesSetting('autoCheckEnabled', Boolean(value))
+      return
+    case 'ai.provider':
+      await setAiSetting('provider', String(value))
+      return
+    case 'ai.apiKey':
+      await setAiSetting('apiKey', String(value))
+      return
+    case 'ai.baseUrl':
+      await setAiSetting('baseUrl', String(value))
+      return
+    case 'ai.model':
+      await setAiSetting('model', String(value))
+      return
+    case 'ai.includeWorkspaceSearch':
+      await setAiSetting('includeWorkspaceSearch', Boolean(value))
+      return
+    case 'ai.includeGraphNeighbors':
+      await setAiSetting('includeGraphNeighbors', Boolean(value))
+      return
+    case 'ai.graphTwoHop':
+      await setAiSetting('graphTwoHop', Boolean(value))
+      return
+    case 'ai.preferMentionContextOnly':
+      await setAiSetting('preferMentionContextOnly', Boolean(value))
+      return
+    case 'ai.systemPrompt':
+      await setAiSetting('systemPrompt', String(value))
+      return
+    case 'ai.conversationScope':
+      await setAiSetting(
+        'conversationScope',
+        value === 'global' ? 'global' : 'per-note',
+      )
       return
     default:
       return

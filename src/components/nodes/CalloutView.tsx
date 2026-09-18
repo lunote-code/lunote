@@ -5,6 +5,7 @@ import { CALLOUT_KINDS, type CalloutKind } from '../../editor/lunaCallout'
 import { calloutHeaderVariants, calloutRootVariants } from './calloutCva'
 import { Icon, type SemanticIconName } from '../../design-system/icons'
 import './lunaCalloutCard.css'
+import { useI18n } from '../../i18n'
 import { getAppSettingsSnapshot, subscribeAppSettings } from '../../settings/appSettingsStore'
 import {
   EDITOR_SPELLCHECK_ENABLED_DEFAULT,
@@ -12,17 +13,6 @@ import {
 } from '../../settings-runtime/editorSpellcheck'
 
 const CALLOUT_SET = new Set<string>(CALLOUT_KINDS)
-
-const CALLOUT_LABEL: Record<CalloutKind, string> = {
-  note: 'Note',
-  tip: 'Tip',
-  success: 'Success',
-  important: 'Important',
-  caution: 'Caution',
-  warning: 'Warning',
-  info: 'Info',
-  danger: 'Danger',
-}
 
 const CALLOUT_ICON: Record<CalloutKind, SemanticIconName> = {
   note: 'callout-note',
@@ -41,10 +31,18 @@ function CalloutGlyph({ kind }: { kind: CalloutKind }) {
 
 export const CalloutView = memo(function CalloutView(props: ReactNodeViewProps) {
   const { node, updateAttributes, editor } = props
+  const { t } = useI18n()
   const raw = String(node.attrs.kind || 'note').toLowerCase()
   const kind: CalloutKind = CALLOUT_SET.has(raw) ? (raw as CalloutKind) : 'note'
   const collapsed = Boolean(node.attrs.collapsed)
   const editable = editor.isEditable
+  const kindLabel = t(`editor.callout.kind.${kind}`)
+  const headerAria = editable
+    ? t('editor.callout.headerAria', {
+        kind: kindLabel,
+        action: collapsed ? t('editor.callout.expand') : t('editor.callout.collapse'),
+      })
+    : undefined
   const spellcheckEnabled = useSyncExternalStore(
     subscribeAppSettings,
     () => resolveEditorSpellcheckEnabled(getAppSettingsSnapshot().appearance?.editor),
@@ -86,12 +84,12 @@ export const CalloutView = memo(function CalloutView(props: ReactNodeViewProps) 
         role={editable ? 'button' : undefined}
         tabIndex={editable ? 0 : undefined}
         aria-expanded={!collapsed}
-        aria-label={editable ? `${CALLOUT_LABEL[kind]}, ${collapsed ? 'expand' : 'collapse'}` : undefined}
+        aria-label={headerAria}
         onClick={editable ? toggleCollapsed : undefined}
         onKeyDown={editable ? onHeaderKeyDown : undefined}
       >
         <CalloutGlyph kind={kind} />
-        <span className="luna-callout-card__title">{CALLOUT_LABEL[kind]}</span>
+        <span className="luna-callout-card__title">{kindLabel}</span>
         {editable ? (
           <span className="luna-callout-card__chevron" aria-hidden>
             <Icon name={collapsed ? 'chevron-right' : 'chevron-down'} size="xs" stroke="strong" />

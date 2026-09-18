@@ -26,11 +26,12 @@ export async function pasteFromNavigatorClipboard(options: {
   const plainOnly = options.plainOnly ?? false
   const mode = options.mainPaneMode ?? 'visual'
 
+  const textPreview = await readNavigatorClipboardText().catch(() => '')
+
   if (isNonEditorTextInputTarget()) {
-    return pasteIntoFocusedNativeTextInput()
+    return pasteIntoFocusedNativeTextInput(textPreview || undefined)
   }
 
-  const textPreview = await readNavigatorClipboardText().catch(() => '')
   let imagePreview: { file: File; mime: string } | null = null
   if (!plainOnly && !textPreview.trim() && options.onPasteImage) {
     imagePreview = await readNavigatorClipboardImageFile()
@@ -95,5 +96,6 @@ export async function pasteFromNavigatorClipboard(options: {
   const src = await options.onPasteImage(image.file, image.mime)
   if (!src) return false
   bridgeReplaceSelection(`![](${src})`)
+  if (fingerprint) recordSuccessfulPaste(fingerprint)
   return true
 }

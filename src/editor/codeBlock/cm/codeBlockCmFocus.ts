@@ -5,16 +5,21 @@ import type { EditorView } from '@codemirror/view'
 import type { CodeBlockInputPolicy } from '../boundary/codeBlockBoundaryPolicy'
 import { isCodeBlockCmEnabled } from './codeBlockCmFeature'
 import { suspendPmDomContentEditable } from './codeBlockCmPmFocusLock'
-import { runCodeBlockCmEnter } from './codeBlockCmKeyboard'
+import { runCodeBlockCmEnter, runCodeBlockCmTab } from './codeBlockCmKeyboard'
 
 /** Whether the active element is inside an embedded code-block CodeMirror editor. */
 export function isCodeBlockCmFocused(root: Document | ShadowRoot = document): boolean {
   const active = root.activeElement
-  if (!(active instanceof HTMLElement)) return false
-  return Boolean(
-    active.closest(
-      '.pm-code-block-cm .cm-editor, .pm-code-block-cm .cm-content, .pm-code-block-cm.cm-editor',
-    ),
+  if (
+    active instanceof HTMLElement &&
+    active.closest('.pm-code-block-cm .cm-editor, .pm-code-block-cm .cm-content, .pm-code-block-cm.cm-editor')
+  ) {
+    return true
+  }
+  return (
+    root.querySelector(
+      '.pm-code-block-cm .cm-editor.cm-focused:focus-within, .pm-code-block-cm.cm-editor.cm-focused:focus-within',
+    ) != null
   )
 }
 
@@ -205,4 +210,20 @@ export function runEnterInCodeBlockCmWrapWhenReady(wrap: HTMLElement | null, tab
   if (runEnterInCodeBlockCmWrap(wrap, tabSize)) return
   if (attempt >= 12) return
   requestAnimationFrame(() => runEnterInCodeBlockCmWrapWhenReady(wrap, tabSize, attempt + 1))
+}
+
+/** Run Tab indent in the embedded CM for a wrap (focus first if needed). */
+export function runTabInCodeBlockCmWrap(wrap: HTMLElement | null, tabSize = 4): boolean {
+  const view = getCodeBlockCmViewInWrap(wrap)
+  if (!view) return false
+  if (!view.hasFocus) focusCodeBlockCmView(view)
+  return runCodeBlockCmTab(view, tabSize)
+}
+
+/** Retry Tab until CM mounts (e.g. language chip Tab → enter editing). */
+export function runTabInCodeBlockCmWrapWhenReady(wrap: HTMLElement | null, tabSize = 4, attempt = 0): void {
+  if (!wrap) return
+  if (runTabInCodeBlockCmWrap(wrap, tabSize)) return
+  if (attempt >= 12) return
+  requestAnimationFrame(() => runTabInCodeBlockCmWrapWhenReady(wrap, tabSize, attempt + 1))
 }

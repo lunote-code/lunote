@@ -8,6 +8,26 @@ const GC = 8
 
 let activeCleanup: (() => void) | null = null
 
+type TablePickerLabels = {
+  insertTitle: string
+  insertHint: string
+  structureTitle: string
+  structureHint: string
+}
+
+const DEFAULT_TABLE_PICKER_LABELS: TablePickerLabels = {
+  insertTitle: 'Insert table',
+  insertHint: 'Hover to preview, click to insert',
+  structureTitle: 'Table structure',
+  structureHint: 'Hover to preview, click to apply size',
+}
+
+let tablePickerLabels: TablePickerLabels = DEFAULT_TABLE_PICKER_LABELS
+
+export function setTablePickerLabels(labels: TablePickerLabels | null): void {
+  tablePickerLabels = labels ?? DEFAULT_TABLE_PICKER_LABELS
+}
+
 function removePicker() {
   activeCleanup?.()
   activeCleanup = null
@@ -203,8 +223,8 @@ export function openLunaTableInsertPicker(editor: Editor): void {
   if (isCodeEditGuardActive(editor.state)) return
   mountLunaTableGridPicker({
     editor,
-    title: 'Insert table',
-    hint: 'Hover to preview, click to insert',
+    title: tablePickerLabels.insertTitle,
+    hint: tablePickerLabels.insertHint,
     initialRows: 3,
     initialCols: 3,
     onCommit(rows, cols) {
@@ -225,8 +245,8 @@ export function openLunaTableStructurePicker(
 ): void {
   mountLunaTableGridPicker({
     editor,
-    title: 'Table structure',
-    hint: 'Hover to preview, click to apply size',
+    title: tablePickerLabels.structureTitle,
+    hint: tablePickerLabels.structureHint,
     initialRows,
     initialCols,
     getAnchorRect,

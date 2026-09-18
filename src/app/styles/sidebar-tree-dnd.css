@@ -290,5 +290,5 @@ body.is-workspace-file-dragging .sidebar-scroll {
 }
 
 .note-item mark {
-  background: rgba(255, 208, 0, 0.35);
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
 }

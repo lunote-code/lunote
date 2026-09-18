@@ -44,6 +44,8 @@ const IMAGE_FILE_REF_RE = /\.(png|jpe?g|gif|webp|bmp|tiff?|heic|heif|svg)(\?.*)?
 export function isLikelyImageFileReference(text: string): boolean {
   const trimmed = text.trim()
   if (!trimmed || trimmed.includes('\n') || trimmed.includes('\r')) return false
+  // Remote image URLs are markdown/link text (e.g. ![alt](https://…/photo.jpg)), not Finder file refs.
+  if (/^https?:\/\//iu.test(trimmed)) return false
   if (IMAGE_FILE_REF_RE.test(trimmed)) return true
   if (/^file:\/\/\/.+\.(png|jpe?g|gif|webp|bmp|tiff?|heic|heif|svg)/iu.test(trimmed)) return true
   return false
@@ -345,8 +347,10 @@ async function insertResolvedImage(
   pmView: EditorView | null | undefined,
   cmView: CmEditorView | null | undefined,
   src: string,
+  lockedPmSelection?: { from: number; to: number },
 ): Promise<boolean> {
   if (pmView) {
+    restorePmSelectionIfDrifted(pmView, lockedPmSelection)
     await insertImageIntoPmView(pmView, src)
     return true
   }
@@ -355,6 +359,19 @@ async function insertResolvedImage(
     return true
   }
   return false
+}
+
+function restorePmSelectionIfDrifted(
+  pmView: EditorView,
+  locked: { from: number; to: number } | undefined,
+): void {
+  if (!locked) return
+  const { from, to } = pmView.state.selection
+  if (from === locked.from && to === locked.to) return
+  const docSize = pmView.state.doc.content.size
+  const safeFrom = Math.max(0, Math.min(locked.from, docSize))
+  const safeTo = Math.max(safeFrom, Math.min(locked.to, docSize))
+  pmView.dispatch(pmView.state.tr.setSelection(TextSelection.create(pmView.state.doc, safeFrom, safeTo)))
 }
 
 export async function applyWebviewPasteFallback(options: {
@@ -367,6 +384,8 @@ export async function applyWebviewPasteFallback(options: {
   onPasteImage?: WebviewPasteImageHandler
   /** When false (native paste event), skip navigator.clipboard.read/readText fallbacks that trigger the system Paste UI. */
   allowNavigatorClipboardRead?: boolean
+  /** PM selection captured synchronously at paste time — restored before insert when async work drifts caret. */
+  lockedPmSelection?: { from: number; to: number }
 }): Promise<boolean> {
   const { pmView, cmView, domImages = [], plainOnly = false, onPasteImage, prefetchedHtml } = options
   const allowNavigatorClipboardRead = options.allowNavigatorClipboardRead !== false
@@ -377,7 +396,7 @@ export async function applyWebviewPasteFallback(options: {
       const mime = file.type || 'image/png'
       const src = await onPasteImage(file, mime)
       if (!src) continue
-      if (await insertResolvedImage(pmView, cmView, src)) return true
+      if (await insertResolvedImage(pmView, cmView, src, options.lockedPmSelection)) return true
     }
   }
 
@@ -395,15 +414,17 @@ export async function applyWebviewPasteFallback(options: {
     }
   }
 
+  const prefetched = options.prefetchedText
   const text =
-    options.prefetchedText !== undefined
-      ? options.prefetchedText
-      : allowNavigatorClipboardRead
+    prefetched !== undefined && prefetched.length > 0
+      ? prefetched
+      : isTauri() || allowNavigatorClipboardRead
         ? await readNavigatorClipboardText()
-        : ''
+        : prefetched ?? ''
   if (text && shouldPasteClipboardText(text, plainOnly)) {
     if (pmView) {
       if (!plainOnly && insertMarkdownTableIntoPmView(pmView, text)) return true
+      restorePmSelectionIfDrifted(pmView, options.lockedPmSelection)
       const selectionBefore = {
         from: pmView.state.selection.from,
         to: pmView.state.selection.to,
@@ -438,7 +459,7 @@ export async function applyWebviewPasteFallback(options: {
     const image = await readClipboardImageForPaste(allowNavigatorClipboardRead)
     if (image) {
       const src = await onPasteImage(image.file, image.mime)
-      if (src && (await insertResolvedImage(pmView, cmView, src))) return true
+      if (src && (await insertResolvedImage(pmView, cmView, src, options.lockedPmSelection))) return true
     }
   }
 

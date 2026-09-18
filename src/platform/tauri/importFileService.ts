@@ -17,6 +17,7 @@ export async function pickImportFilesBase64(options: {
   title: string
   multiple?: boolean
   extensions?: string[]
+  filterName?: string
 }): Promise<PickedImportFile[]> {
   if (!isTauri()) return []
 
@@ -26,7 +27,9 @@ export async function pickImportFilesBase64(options: {
     title: options.title,
     multiple,
     directory: false,
-    ...(exts?.length ? { filters: [{ name: 'files', extensions: exts }] } : {}),
+    ...(exts?.length
+      ? { filters: [{ name: options.filterName ?? 'Files', extensions: exts }] }
+      : {}),
   })
   const paths = normalizeDialogPaths(selected)
   if (paths.length === 0) return []

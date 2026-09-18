@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import '../App.css'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { DocumentHistoryDialog } from './components/DocumentHistoryDialog'
 import { SaveConflictDialog } from './components/SaveConflictDialog'
 import type { DocumentHistoryEntry, DocumentHistorySnapshot } from '../documentHistory/types'
@@ -8,6 +9,11 @@ import type { DocumentHistoryEntry, DocumentHistorySnapshot } from '../documentH
 type HistoryStore = {
   entries: DocumentHistoryEntry[]
   snapshots: Record<string, DocumentHistorySnapshot>
+}
+
+type PendingHistoryConfirm = {
+  kind: 'delete-one' | 'delete-all'
+  resolve: (confirmed: boolean) => void
 }
 
 declare global {
@@ -75,6 +81,7 @@ const MESSAGES: Record<string, string> = {
   'app.history.allSnapshotsDeleted': '已删除 {count} 个快照。',
   'app.history.dialog.restoreSnapshot': '恢复快照',
   'app.history.dialog.loading': '正在加载快照…',
+  'app.history.dialog.loadingPreview': '正在加载预览…',
   'app.history.dialog.preview': '预览',
   'app.history.dialog.diff': '差异',
   'app.history.dialog.currentBody': '当前内容',
@@ -97,7 +104,8 @@ const MESSAGES: Record<string, string> = {
   'app.saveConflict.base': '上次保存',
   'app.saveConflict.local': '本地修改',
   'app.saveConflict.disk': '磁盘版本',
-  'app.saveConflict.mergeAria': '三方逐行差异',
+  'app.saveConflict.compareAria': '三方逐行差异',
+  'app.saveConflict.readOnlyHint': '只读对比。请在下方选择要保留的整版内容。',
   'app.saveConflict.cancel': '取消',
   'app.saveConflict.useDisk': '使用磁盘版本',
   'app.saveConflict.keepLocal': '保留本地并覆盖磁盘',
@@ -120,6 +128,16 @@ export function QaOverlayPlayground() {
   const [status, setStatus] = useState('ready')
   const [historyOpen, setHistoryOpen] = useState(false)
   const [saveConflictOpen, setSaveConflictOpen] = useState(false)
+  const [pendingHistoryConfirm, setPendingHistoryConfirm] = useState<PendingHistoryConfirm | null>(null)
+
+  const listDelayMs = Number.parseInt(
+    new URLSearchParams(window.location.search).get('historyListDelay') ?? '0',
+    10,
+  )
+  const previewDelayMs = Number.parseInt(
+    new URLSearchParams(window.location.search).get('historyPreviewDelay') ?? '0',
+    10,
+  )
 
   useEffect(() => {
     window.__QA_HISTORY_STORE__ = storeRef.current
@@ -130,8 +148,10 @@ export function QaOverlayPlayground() {
         const snapshotId = String(payload.snapshotId ?? '')
         switch (cmd) {
           case 'list_document_snapshots':
+            if (listDelayMs > 0) await new Promise((resolve) => window.setTimeout(resolve, listDelayMs))
             return [...storeRef.current.entries]
           case 'read_document_snapshot': {
+            if (previewDelayMs > 0) await new Promise((resolve) => window.setTimeout(resolve, previewDelayMs))
             const snapshot = storeRef.current.snapshots[snapshotId]
             if (!snapshot) throw new Error(`missing snapshot ${snapshotId}`)
             return snapshot
@@ -154,7 +174,7 @@ export function QaOverlayPlayground() {
         }
       },
     }
-  }, [])
+  }, [listDelayMs, previewDelayMs])
 
   const onCreateSnapshot = useCallback(async () => {
     snapshotSeedRef.current += 1
@@ -177,16 +197,31 @@ export function QaOverlayPlayground() {
     setStatus(`restored:${snapshotId}`)
   }, [])
 
-  const onConfirmDeleteSnapshot = useCallback(async () => true, [])
+  const requestHistoryConfirm = useCallback((kind: PendingHistoryConfirm['kind']) => {
+    return new Promise<boolean>((resolve) => {
+      setPendingHistoryConfirm({ kind, resolve })
+    })
+  }, [])
+
+  const settleHistoryConfirm = useCallback((confirmed: boolean) => {
+    setPendingHistoryConfirm((pending) => {
+      pending?.resolve(confirmed)
+      return null
+    })
+  }, [])
+
+  const onConfirmDeleteSnapshot = useCallback(async () => requestHistoryConfirm('delete-one'), [requestHistoryConfirm])
 
   const onDeleteAllSnapshots = useCallback(async () => {
     if (storeRef.current.entries.length === 0) return false
+    const confirmed = await requestHistoryConfirm('delete-all')
+    if (!confirmed) return false
     const count = storeRef.current.entries.length
     storeRef.current = { entries: [], snapshots: {} }
     window.__QA_HISTORY_STORE__ = storeRef.current
     setStatus(`deletedAll:${count}`)
     return true
-  }, [])
+  }, [requestHistoryConfirm])
 
   useEffect(() => {
     window.__QA_OVERLAY__ = {
@@ -229,6 +264,7 @@ export function QaOverlayPlayground() {
         open={historyOpen}
         rootDir={QA_ROOT}
         path={QA_PATH}
+        activePath={QA_PATH}
         onClose={() => {
           setHistoryOpen(false)
           setStatus((prev) => `${prev}|historyClosed`)
@@ -261,6 +297,25 @@ export function QaOverlayPlayground() {
           setSaveConflictOpen(false)
           setStatus('conflict:keepLocal')
         }}
+      />
+
+      <ConfirmDialog
+        open={pendingHistoryConfirm != null}
+        title={t('app.history.dialog.title')}
+        message={
+          pendingHistoryConfirm?.kind === 'delete-all'
+            ? t('app.history.dialog.deleteAllConfirm', { count: storeRef.current.entries.length })
+            : t('app.history.dialog.deleteConfirm')
+        }
+        confirmLabel={
+          pendingHistoryConfirm?.kind === 'delete-all'
+            ? t('app.history.dialog.deleteAll')
+            : t('ctx.file.delete')
+        }
+        cancelLabel={t('app.rename.cancel')}
+        variant="warning"
+        onConfirm={() => settleHistoryConfirm(true)}
+        onCancel={() => settleHistoryConfirm(false)}
       />
     </div>
   )

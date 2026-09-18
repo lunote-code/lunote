@@ -1,8 +1,10 @@
 import { useEffect, useId, useRef, useState, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 
 import type { TranslateFn } from '../../i18n'
 import type { PaletteCommandDef } from '../../menu'
 import { useFocusTrap } from '../../lib/useFocusTrap'
+import { bindOverlayScrollbarReveal } from '../overlayScrollbarReveal'
 
 type Props = {
   t: TranslateFn
@@ -44,16 +46,21 @@ export function AppCommandPaletteOverlay({
     active?.scrollIntoView({ block: 'nearest' })
   }, [index, open, paletteFiltered.length])
 
+  useEffect(() => {
+    if (!open || !commandPaletteListRef.current) return
+    return bindOverlayScrollbarReveal(commandPaletteListRef.current)
+  }, [open])
+
   const activeOptionId =
     paletteFiltered.length > 0 ? `${listboxId}-option-${index}` : undefined
 
   if (!open) return null
 
-  return (
+  const overlay = (
     <div
       className="command-palette-backdrop"
       role="presentation"
-      onMouseDown={onClose}
+      onClick={onClose}
     >
       <div
         ref={setDialogEl}
@@ -61,7 +68,7 @@ export function AppCommandPaletteOverlay({
         role="dialog"
         aria-modal="true"
         aria-label={t('app.commandPalette.aria')}
-        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         <input
           ref={inputRef}
@@ -71,7 +78,7 @@ export function AppCommandPaletteOverlay({
           aria-controls={listboxId}
           aria-activedescendant={activeOptionId}
           aria-autocomplete="list"
-          aria-label={t('app.commandPalette.placeholder')}
+          aria-label={t('app.commandPalette.inputLabel')}
           placeholder={t('app.commandPalette.placeholder')}
           value={query}
           onChange={(e) => {
@@ -84,9 +91,10 @@ export function AppCommandPaletteOverlay({
           id={listboxId}
           className="command-palette-list luna-overlay-scroll"
           role="listbox"
+          aria-label={t('app.commandPalette.listAria')}
         >
           {paletteFiltered.length === 0 ? (
-            <li className="command-palette-empty" key="empty" role="presentation">
+            <li className="command-palette-empty" key="empty" role="status" aria-live="polite">
               {t('commandPalette.empty')}
             </li>
           ) : (
@@ -117,4 +125,6 @@ export function AppCommandPaletteOverlay({
       </div>
     </div>
   )
+
+  return typeof document !== 'undefined' ? createPortal(overlay, document.body) : overlay
 }

@@ -101,17 +101,19 @@ function buildMarkdownTokensForRow(
   if (
     row.blockType === 'rawBlock' ||
     row.blockType === 'mermaidBlock' ||
+    row.blockType === 'drawingBlock' ||
     row.blockType === 'codeBlock' ||
     row.blockType === 'blockMath' ||
     row.blockType === 'linkReferenceDef' ||
-    row.blockType === 'tocDirective'
+    row.blockType === 'tocDirective' ||
+    row.blockType === 'wikiEmbed'
   ) {
     const kind: SemanticSliceKind =
       row.blockType === 'rawBlock' && row.source === 'html' ? 'html' : 'text'
-    const from = row.blockType === 'linkReferenceDef' || row.blockType === 'tocDirective'
+    const from = row.blockType === 'linkReferenceDef' || row.blockType === 'tocDirective' || row.blockType === 'wikiEmbed'
       ? row.markdownFrom
       : row.bodyFrom
-    const to = row.blockType === 'linkReferenceDef' || row.blockType === 'tocDirective'
+    const to = row.blockType === 'linkReferenceDef' || row.blockType === 'tocDirective' || row.blockType === 'wikiEmbed'
       ? row.markdownTo
       : row.bodyTo
     return wholeBodyTokens(canonicalBuffer, from, to, kind)

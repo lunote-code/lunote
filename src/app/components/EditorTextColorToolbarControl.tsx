@@ -11,6 +11,7 @@ import { readRecentTextColors, rememberTextColor } from '../../lib/editorTextCol
 import { Icon } from '../../design-system/icons'
 import { clampMenuElementPosition } from '../../lib/contextMenuPosition'
 import type { TranslateFn } from '../../i18n'
+import { useFocusTrap } from '../../lib/useFocusTrap'
 import { EditorHsvColorPicker } from './EditorHsvColorPicker'
 
 type Props = {
@@ -25,6 +26,7 @@ export function EditorTextColorToolbarControl({ t, disabled, onColorPick, onOpen
   const hexInputId = useId()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const [panelEl, setPanelEl] = useState<HTMLDivElement | null>(null)
   const committedColorRef = useRef<string | null>(null)
   const [open, setOpen] = useState(false)
   const [panelStyle, setPanelStyle] = useState<CSSProperties>({
@@ -76,6 +78,10 @@ export function EditorTextColorToolbarControl({ t, disabled, onColorPick, onOpen
     onOpenChange?.(open)
   }, [onOpenChange, open])
 
+  useFocusTrap(open, panelEl, {
+    onEscape: () => closePanel(true),
+  })
+
   useLayoutEffect(() => {
     if (!open) {
       setPanelStyle({ visibility: 'hidden', left: -9999, top: 0 })
@@ -126,14 +132,9 @@ export function EditorTextColorToolbarControl({ t, disabled, onColorPick, onOpen
       if (panelRef.current?.contains(target)) return
       closePanel(true)
     }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closePanel(true)
-    }
     document.addEventListener('mousedown', onDocMouseDown)
-    document.addEventListener('keydown', onKey, true)
     return () => {
       document.removeEventListener('mousedown', onDocMouseDown)
-      document.removeEventListener('keydown', onKey, true)
     }
   }, [open, closePanel])
 
@@ -181,6 +182,7 @@ export function EditorTextColorToolbarControl({ t, disabled, onColorPick, onOpen
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
+        onMouseDown={(event) => event.preventDefault()}
         onClick={() => {
           if (disabled) return
           setOpen((v) => !v)
@@ -195,9 +197,13 @@ export function EditorTextColorToolbarControl({ t, disabled, onColorPick, onOpen
         open &&
         createPortal(
           <div
-            ref={panelRef}
+            ref={(node) => {
+              panelRef.current = node
+              setPanelEl(node)
+            }}
             id={menuId}
             role="dialog"
+            aria-modal="true"
             className="editor-format-text-color-menu"
             aria-label={t('ctx.editor.textColorSubmenu')}
             style={panelStyle}
@@ -211,6 +217,7 @@ export function EditorTextColorToolbarControl({ t, disabled, onColorPick, onOpen
                   title={t(preset.labelKey)}
                   aria-label={t(preset.labelKey)}
                   style={{ '--swatch-color': preset.value } as CSSProperties}
+                  onMouseDown={(event) => event.preventDefault()}
                   onClick={() => pickImmediate(preset.value)}
                 />
               ))}
@@ -228,6 +235,7 @@ export function EditorTextColorToolbarControl({ t, disabled, onColorPick, onOpen
                       title={color}
                       aria-label={color}
                       style={{ '--swatch-color': color } as CSSProperties}
+                      onMouseDown={(event) => event.preventDefault()}
                       onClick={() => pickImmediate(color)}
                     />
                   ))}
@@ -258,12 +266,18 @@ export function EditorTextColorToolbarControl({ t, disabled, onColorPick, onOpen
             </div>
 
             <div className="editor-format-color-actions">
-              <button type="button" className="editor-format-color-action editor-format-color-action--primary" onClick={confirmDraft}>
+              <button
+                type="button"
+                className="editor-format-color-action editor-format-color-action--primary"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={confirmDraft}
+              >
                 {t('editor.format.textColor.confirm')}
               </button>
               <button
                 type="button"
                 className="editor-format-color-action"
+                onMouseDown={(event) => event.preventDefault()}
                 onClick={() => closePanel(true)}
               >
                 {t('editor.format.textColor.cancel')}
@@ -274,6 +288,7 @@ export function EditorTextColorToolbarControl({ t, disabled, onColorPick, onOpen
               type="button"
               className="editor-format-color-advanced-toggle"
               aria-expanded={showAdvanced}
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => setShowAdvanced((v) => !v)}
             >
               {t('editor.format.textColor.advanced')}
@@ -323,7 +338,12 @@ export function EditorTextColorToolbarControl({ t, disabled, onColorPick, onOpen
             ) : null}
 
             <div className="editor-format-color-sep" role="separator" />
-            <button type="button" className="editor-format-color-reset" onClick={() => pickImmediate(null)}>
+            <button
+              type="button"
+              className="editor-format-color-reset"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => pickImmediate(null)}
+            >
               {t('ctx.editor.textColorDefault')}
             </button>
           </div>,

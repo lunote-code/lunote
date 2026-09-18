@@ -90,6 +90,13 @@ function BootApp() {
 
   const handleAppReady = useCallback(() => {
     markBootPhase('app_chunk_ready')
+    const readyGapMs = measureBootSince('theme_applied', 'app_chunk_ready')
+    if (readyGapMs != null) {
+      logInfo('[PERF] boot_stage', {
+        stage: 'boot_ready_to_app_chunk_ready',
+        durationMs: Math.round(readyGapMs * 10) / 10,
+      })
+    }
     requestAnimationFrame(() => {
       setAppEntered(true)
       setBootShellExiting(true)

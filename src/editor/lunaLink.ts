@@ -3,6 +3,7 @@ import { mergeAttributes } from '@tiptap/core'
 import { isLunaAssetHref } from '../assets/markdownLinkTransformer'
 import { lunaAssetLinkClassForKind, type LunaAssetFileKind } from '../assets/lunaAssetFileKind'
 import { ensureLunaLinkifyProtocols } from './lunaLinkifyProtocols'
+import { resolveEditorUiMessage } from './resolveEditorUiMessage'
 
 /**
  * The DOM of the inline `link` mark is `<a href>`. Tiptap will not `window.open` when `openOnClick: false`,
@@ -10,7 +11,7 @@ import { ensureLunaLinkifyProtocols } from './lunaLinkifyProtocols'
  * (`TiptapMarkdownEditor`) `preventDefault` + check `link` mark, and only Cmd/Ctrl+Click
  * `openExternalUrlInSystemBrowser`。
  */
-const MAILTO_TOOLTIP = 'Send email'
+const MAILTO_TOOLTIP = () => resolveEditorUiMessage('editor.link.mailtoTooltip')
 
 function isMailtoHref(href: string | null | undefined): boolean {
   return typeof href === 'string' && /^mailto:/iu.test(href.trim())
@@ -85,7 +86,7 @@ export const LunaLink = Link.extend({
         {
           ...merged,
           class: nextClass,
-          title: merged.title != null && merged.title !== '' ? merged.title : MAILTO_TOOLTIP,
+          title: merged.title != null && merged.title !== '' ? merged.title : MAILTO_TOOLTIP(),
           'data-luna-mail': '1',
         },
         0,

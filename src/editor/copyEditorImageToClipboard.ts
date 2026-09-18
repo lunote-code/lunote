@@ -3,15 +3,10 @@ import type { Node as PmNode } from '@tiptap/pm/model'
 import { NodeSelection } from '@tiptap/pm/state'
 
 import {
-  filePathFromFileUrl,
-  isAbsoluteLocalMediaPath,
-  isBlockedMediaScheme,
-  isExternalOrDataSrc,
-  isFileMediaUrl,
-  resolveMarkdownMediaSrc,
-} from '../export/mediaSources'
-import { isPathUnderWorkspace, joinRelativePath, normPath, parentDirectoryOfFile, pathHasParentDirSegment } from '../lib/workspacePathUtils'
-import { readWorkspaceFileBase64 } from '../platform/tauri/documentService'
+  guessWorkspaceMediaMime,
+  readWorkspaceImageBlobPreferAsset,
+} from '../export/workspaceMediaBlob'
+import { resolveMarkdownMediaSrc } from '../export/mediaSources'
 import { isEmbeddedVideoSrc } from './lunaImage'
 
 export type ImageCopyTarget = {
@@ -87,52 +82,6 @@ export function getImageCopyTargetFromEditor(
   return found
 }
 
-function resolveWorkspaceImageFilePath(rootDir: string, notePath: string, src: string): string | null {
-  const trimmed = src.trim()
-  if (!trimmed || isBlockedMediaScheme(trimmed) || isEmbeddedVideoSrc(trimmed)) return null
-  if (isExternalOrDataSrc(trimmed) && !isFileMediaUrl(trimmed) && !trimmed.startsWith('data:')) {
-    return null
-  }
-
-  if (isFileMediaUrl(trimmed)) {
-    const absolute = filePathFromFileUrl(trimmed)
-    if (!absolute) return null
-    return isPathUnderWorkspace(rootDir, absolute) ? absolute : null
-  }
-
-  if (isAbsoluteLocalMediaPath(trimmed)) {
-    if (pathHasParentDirSegment(trimmed)) return null
-    const absolute = normPath(trimmed)
-    return isPathUnderWorkspace(rootDir, absolute) ? absolute : null
-  }
-
-  const rootNorm = normPath(rootDir)
-  const noteAbs = normPath(notePath).startsWith('/') || /^[A-Za-z]:\//u.test(notePath)
-    ? normPath(notePath)
-    : joinRelativePath(rootNorm, notePath)
-  if (!isPathUnderWorkspace(rootNorm, noteAbs)) return null
-  const absolute = joinRelativePath(parentDirectoryOfFile(noteAbs), trimmed.replace(/^\.\//u, ''))
-  return isPathUnderWorkspace(rootNorm, absolute) ? absolute : null
-}
-
-function guessImageMime(fileNameOrPath: string, blobType?: string): string {
-  if (blobType && blobType.startsWith('image/')) return blobType
-  const ext = (fileNameOrPath.split('.').pop() ?? '').toLowerCase()
-  if (ext === 'png') return 'image/png'
-  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg'
-  if (ext === 'gif') return 'image/gif'
-  if (ext === 'webp') return 'image/webp'
-  if (ext === 'svg') return 'image/svg+xml'
-  return 'image/png'
-}
-
-function base64ToBlob(base64: string, mime: string): Blob {
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
-  return new Blob([bytes], { type: mime })
-}
-
 function markdownImageSnippet(target: ImageCopyTarget): string {
   const alt = target.alt.replace(/\\/gu, '\\\\').replace(/\[/gu, '\\[').replace(/\]/gu, '\\]')
   const base = `![${alt}](${target.src})`
@@ -171,16 +120,8 @@ async function blobFromImageTarget(
   }
 
   if (ctx.rootDir && ctx.activePath) {
-    const workspacePath = resolveWorkspaceImageFilePath(ctx.rootDir, ctx.activePath, raw)
-    if (workspacePath) {
-      try {
-        const b64 = await readWorkspaceFileBase64(ctx.rootDir, workspacePath)
-        const mime = guessImageMime(workspacePath)
-        return base64ToBlob(b64, mime)
-      } catch {
-        return null
-      }
-    }
+    const blob = await readWorkspaceImageBlobPreferAsset(ctx.rootDir, ctx.activePath, raw)
+    if (blob) return blob
   }
 
   const displaySrc = resolveMarkdownMediaSrc(raw, ctx.activePath || null, {
@@ -199,7 +140,7 @@ async function blobFromImageTarget(
 }
 
 async function writeImageBlobToClipboard(blob: Blob, plainFallback: string): Promise<boolean> {
-  const mime = guessImageMime('', blob.type)
+  const mime = guessWorkspaceMediaMime('', blob.type)
   const normalized =
     blob.type && blob.type.startsWith('image/') ? blob : new Blob([await blob.arrayBuffer()], { type: mime })
 

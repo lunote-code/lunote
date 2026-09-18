@@ -1,15 +1,22 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 
 import type { TranslateFn } from '../../i18n'
+import { clearExternalDiskDriftInState } from '../../lib/externalDiskDriftState'
 import type { DocumentHistoryEntry } from '../../documentHistory/types'
 import { dispatchDocumentCommand } from '../../documentRuntime/documentKernel'
+import type { WorkspacePasswordPrompt } from '../../workspace/workspaceEncryptionRuntime'
 import type { SaveConflictState } from '../document/saveConflictState'
+import {
+  isSaveConflictPromptPending,
+  resolveSaveConflictPrompt,
+} from '../document/saveConflictPrompt'
 import type { DocumentHistoryDialogContext } from '../components/DocumentHistoryDialog'
 import type { AppStatusTone } from './useAppStatus'
 import {
   confirmDeleteFromDocumentHistory,
   createFromDocumentHistory,
   deleteAllFromDocumentHistory,
+  keepLocalEditsFromExternalDrift,
   keepLocalFromSaveConflict,
   restoreFromDocumentHistory,
   applyDiskFromSaveConflict,
@@ -23,6 +30,8 @@ export type HistoryDialogState = {
 type UseHistoryAndConflictOverlaysArgs = {
   t: TranslateFn
   rootDir: string
+  rootDirRef: React.MutableRefObject<string>
+  promptWorkspacePassword?: WorkspacePasswordPrompt
   saveConflict: SaveConflictState | null
   setSaveConflict: Dispatch<SetStateAction<SaveConflictState | null>>
   setDocumentHistoryDialog: Dispatch<SetStateAction<HistoryDialogState | null>>
@@ -31,6 +40,7 @@ type UseHistoryAndConflictOverlaysArgs = {
   markWorkspaceRefreshSuppressed: () => void
   setSavedAt: (value: string) => void
   setStatus: (message: string, toneOverride?: AppStatusTone) => void
+  setExternalDiskChangedPaths: Dispatch<SetStateAction<Set<string>>>
   confirmAppDialog: (opts: {
     title: string
     message: string
@@ -44,6 +54,8 @@ export function useHistoryAndConflictOverlays(args: UseHistoryAndConflictOverlay
   const {
     t,
     rootDir,
+    rootDirRef,
+    promptWorkspacePassword,
     saveConflict,
     setSaveConflict,
     setDocumentHistoryDialog,
@@ -52,8 +64,16 @@ export function useHistoryAndConflictOverlays(args: UseHistoryAndConflictOverlay
     markWorkspaceRefreshSuppressed,
     setSavedAt,
     setStatus,
+    setExternalDiskChangedPaths,
     confirmAppDialog,
   } = args
+
+  const clearExternalDiskDrift = useCallback(
+    (path: string) => {
+      setExternalDiskChangedPaths((prev) => clearExternalDiskDriftInState(prev, path))
+    },
+    [setExternalDiskChangedPaths],
+  )
 
   const openDocumentHistoryDialog = useCallback((dialogRoot: string, dialogPath: string) => {
     setDocumentHistoryDialog({ rootDir: dialogRoot, path: dialogPath })
@@ -72,6 +92,11 @@ export function useHistoryAndConflictOverlays(args: UseHistoryAndConflictOverlay
 
   const onSaveConflictCancel = useCallback(() => {
     if (saveConflictResolving) return
+    if (isSaveConflictPromptPending()) {
+      resolveSaveConflictPrompt('cancel')
+      setSaveConflict(null)
+      return
+    }
     setSaveConflict(null)
   }, [saveConflictResolving, setSaveConflict])
 
@@ -80,6 +105,7 @@ export function useHistoryAndConflictOverlays(args: UseHistoryAndConflictOverlay
       const conflict = saveConflictRef.current
       if (!conflict || !rootDir) {
         setStatus(t('app.saveConflict.missingContext'), 'error')
+        if (isSaveConflictPromptPending()) resolveSaveConflictPrompt('cancel')
         return
       }
       setSaveConflictResolving(true)
@@ -92,38 +118,55 @@ export function useHistoryAndConflictOverlays(args: UseHistoryAndConflictOverlay
           setStatus,
           t,
         })
-        if (ok) setSaveConflict(null)
+        if (ok) {
+          clearExternalDiskDrift(conflict.path)
+          if (isSaveConflictPromptPending()) resolveSaveConflictPrompt('disk')
+          setSaveConflict(null)
+        } else if (isSaveConflictPromptPending()) {
+          resolveSaveConflictPrompt('cancel')
+        }
       } finally {
         setSaveConflictResolving(false)
       }
     })()
-  }, [refreshActiveEditorAfterPathReload, rootDir, setSaveConflict, setStatus, t])
+  }, [clearExternalDiskDrift, refreshActiveEditorAfterPathReload, rootDir, setSaveConflict, setStatus, t])
 
   const onSaveConflictKeepLocal = useCallback(() => {
     void (async () => {
       const conflict = saveConflictRef.current
       if (!conflict || !rootDir) {
         setStatus(t('app.saveConflict.missingContext'), 'error')
+        if (isSaveConflictPromptPending()) resolveSaveConflictPrompt('cancel')
         return
       }
       setSaveConflictResolving(true)
       try {
-        const ok = await keepLocalFromSaveConflict({
-          conflict,
-          rootDir,
-          dispatchDocumentCommand,
-          markWorkspaceRefreshSuppressed,
-          setSavedAt,
-          refreshActiveEditorAfterPathReload,
-          setStatus,
-          t,
-        })
-        if (ok) setSaveConflict(null)
+        const ok =
+          conflict.sourceMode === 'external'
+            ? await keepLocalEditsFromExternalDrift({ conflict, setStatus, t })
+            : await keepLocalFromSaveConflict({
+                conflict,
+                rootDir,
+                getCurrentRootDir: () => rootDirRef.current,
+                promptWorkspacePassword,
+                markWorkspaceRefreshSuppressed,
+                setSavedAt,
+                refreshActiveEditorAfterPathReload,
+                setStatus,
+                t,
+              })
+        if (ok) {
+          clearExternalDiskDrift(conflict.path)
+          if (isSaveConflictPromptPending()) resolveSaveConflictPrompt('local')
+          setSaveConflict(null)
+        } else if (isSaveConflictPromptPending()) {
+          resolveSaveConflictPrompt('cancel')
+        }
       } finally {
         setSaveConflictResolving(false)
       }
     })()
-  }, [markWorkspaceRefreshSuppressed, refreshActiveEditorAfterPathReload, rootDir, setSaveConflict, setSavedAt, setStatus, t])
+  }, [clearExternalDiskDrift, markWorkspaceRefreshSuppressed, promptWorkspacePassword, refreshActiveEditorAfterPathReload, rootDir, rootDirRef, setSaveConflict, setSavedAt, setStatus, t])
 
   const onDocumentHistoryRestore = useCallback(
     async (snapshotId: string, context: DocumentHistoryDialogContext) =>
@@ -132,10 +175,11 @@ export function useHistoryAndConflictOverlays(args: UseHistoryAndConflictOverlay
         context,
         flushEditorToMemory,
         dispatchDocumentCommand,
+        refreshActiveEditorAfterPathReload,
         setStatus,
         t,
       }),
-    [flushEditorToMemory, setStatus, t],
+    [flushEditorToMemory, refreshActiveEditorAfterPathReload, setStatus, t],
   )
 
   const onDocumentHistoryCreateSnapshot = useCallback(

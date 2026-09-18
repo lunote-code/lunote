@@ -9,6 +9,20 @@ export type KnowledgeInteractionHost = {
   clearEditorSelection: () => void
   focusEditor: () => void
   insertWikiLinkAtCursor?: (target: { docKey: string; title?: string }) => boolean
+  /** Append an outbound wiki link from source note to target (graph drag-to-link). */
+  appendWikiLinkBetweenNotes?: (args: {
+    sourceDocKey: string
+    targetDocKey: string
+    targetTitle?: string
+  }) => Promise<boolean> | boolean
+  removeWikiLinkBetweenNotes?: (args: {
+    sourceDocKey: string
+    targetDocKey: string
+    heading?: string
+    kind?: 'link' | 'embed'
+    start?: number
+    end?: number
+  }) => Promise<boolean> | boolean
   onHoverIdChange: (id: string | null) => void
   openSearchModal: () => void
   /** After the document is opened: wait for editor ready → resolve anchor → reveal (disable restore overwriting).*/

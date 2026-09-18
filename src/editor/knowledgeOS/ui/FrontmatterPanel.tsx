@@ -1,5 +1,19 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type FocusEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react'
 import { EmptyState } from '../../../design-system/EmptyState'
+import {
+  captureAiRailScrollSnapshotForRestore,
+  preserveAiRailScrollDuring,
+  scheduleAiRailScrollRestoreAfterSideEffects,
+  syncAiRailScrollSnapshot,
+} from '../../ai/ui/aiRailScrollPreserve'
 import { extractAliases, extractTags, extractTitle } from '../../knowledgeRuntime/wikiLinkParser'
 import { noteTitleFromDocKey } from '../vaultRuntime'
 import { FrontmatterChipField } from './FrontmatterChipField'
@@ -7,6 +21,12 @@ import { FrontmatterSectionHeading } from './FrontmatterSectionHeading'
 import { getKnowledgeInteractionHost } from './knowledgeInteractionHost'
 import { useDocumentFrontmatter } from './useDocumentFrontmatter'
 import { useI18n } from '../../../i18n'
+
+function isTitleFieldEditingShortcut(event: KeyboardEvent<HTMLInputElement>): boolean {
+  if (!(event.metaKey || event.ctrlKey) || event.altKey) return false
+  const key = event.key.toLowerCase()
+  return key === 'a' || key === 'c' || key === 'x' || key === 'v' || key === 'z' || key === 's'
+}
 
 type Props = {
   docKey: string | null
@@ -70,7 +90,10 @@ export function FrontmatterPanel({ docKey, onTagNavigate }: Props) {
   const [titleDraft, setTitleDraft] = useState(yamlTitle)
 
   useEffect(() => {
-    setTitleDraft(yamlTitle)
+    preserveAiRailScrollDuring(() => {
+      setTitleDraft(yamlTitle)
+    })
+    scheduleAiRailScrollRestoreAfterSideEffects()
   }, [yamlTitle, docKey])
 
   const patchFrontmatter = useCallback(
@@ -78,11 +101,13 @@ export function FrontmatterPanel({ docKey, onTagNavigate }: Props) {
       if (!docKey) return
       const host = getKnowledgeInteractionHost()
       if (!host?.updateDocumentFrontmatter) return
+      captureAiRailScrollSnapshotForRestore()
       setBusy(true)
       try {
         await host.updateDocumentFrontmatter(docKey, updater)
       } finally {
         setBusy(false)
+        scheduleAiRailScrollRestoreAfterSideEffects()
       }
     },
     [docKey],
@@ -91,6 +116,7 @@ export function FrontmatterPanel({ docKey, onTagNavigate }: Props) {
   const commitTitle = useCallback(() => {
     const trimmed = titleDraft.trim()
     if (trimmed === yamlTitle.trim()) return
+    captureAiRailScrollSnapshotForRestore()
     void patchFrontmatter((current) => {
       const next = { ...current }
       if (trimmed) {
@@ -101,6 +127,41 @@ export function FrontmatterPanel({ docKey, onTagNavigate }: Props) {
       return next
     })
   }, [patchFrontmatter, titleDraft, yamlTitle])
+
+  const handleTitleFocus = useCallback((_event: FocusEvent<HTMLInputElement>) => {
+    preserveAiRailScrollDuring(() => {})
+  }, [])
+
+  const handleTitleBlur = useCallback(() => {
+    captureAiRailScrollSnapshotForRestore()
+    commitTitle()
+    scheduleAiRailScrollRestoreAfterSideEffects()
+    syncAiRailScrollSnapshot()
+  }, [commitTitle])
+
+  const handleTitleChange = useCallback((nextTitle: string) => {
+    preserveAiRailScrollDuring(() => {
+      setTitleDraft(nextTitle)
+    })
+    scheduleAiRailScrollRestoreAfterSideEffects()
+  }, [])
+
+  const handleTitleKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
+    if (isTitleFieldEditingShortcut(event)) {
+      event.stopPropagation()
+      preserveAiRailScrollDuring(() => {
+        if (event.key.toLowerCase() === 'a') {
+          event.preventDefault()
+          event.currentTarget.select()
+        }
+      })
+      scheduleAiRailScrollRestoreAfterSideEffects()
+      return
+    }
+    if (event.key === 'Enter') {
+      event.currentTarget.blur()
+    }
+  }, [])
 
   const setTags = useCallback(
     (nextTags: string[]) => {
@@ -208,13 +269,10 @@ export function FrontmatterPanel({ docKey, onTagNavigate }: Props) {
                 disabled={busy}
                 placeholder={titlePlaceholder}
                 aria-label={t('knowledge.frontmatter.titleField')}
-                onChange={(e) => setTitleDraft(e.target.value)}
-                onBlur={() => commitTitle()}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.currentTarget.blur()
-                  }
-                }}
+                onChange={(e) => handleTitleChange(e.target.value)}
+                onFocus={handleTitleFocus}
+                onBlur={handleTitleBlur}
+                onKeyDown={handleTitleKeyDown}
               />
             ) : (
               fallbackTitle

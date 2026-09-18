@@ -209,7 +209,7 @@ export const LunaCodeFenceGuard = Extension.create({
             }
             const currentLine = lines[currentLineIndex]
             const { removed } = removeOneIndentLevel(currentLine, tabSize)
-            if (removed === 0) return true
+            if (removed === 0) return false
             let lineStartPos = codeBlockStart
             for (let i = 0; i < currentLineIndex; i += 1) {
               lineStartPos += lines[i].length + 1
@@ -229,6 +229,7 @@ export const LunaCodeFenceGuard = Extension.create({
           const reverseIndentText = lines
             .map((line) => removeOneIndentLevel(line, tabSize).text)
             .join('\n')
+          if (reverseIndentText === text) return false
           tr.replaceWith(from, to, state.schema.text(reverseIndentText))
           return true
         })

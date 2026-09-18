@@ -8,12 +8,7 @@ div.markdown-export-root {
 
 body.markdown-export-root,
 div.markdown-export-root {
-  background: #ffffff;
-}
-
-body.markdown-export-root[data-theme='dark'],
-div.markdown-export-root[data-theme='dark'] {
-  background: #0d1117;
+  background: var(--surface-app, #ffffff);
 }
 
 .markdown-body.markdown-export-body {
@@ -163,7 +158,6 @@ div.markdown-export-root[data-theme='dark'] {
   padding: 0.12em 0.34em;
   border-radius: 4px;
   background: color-mix(in srgb, var(--code-bg, #f6f8fa) 92%, var(--surface-hover, #f3f4f6));
-  background-color: #f6f8fa;
   color: color-mix(in srgb, var(--text-primary, #24292f) 88%, var(--text-secondary, #57606a));
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 0.9em;
@@ -367,23 +361,23 @@ div.markdown-export-root[data-theme='dark'] .markdown-body .md-export-toc-item[d
   box-sizing: border-box;
   margin: 0.65rem 0;
   padding: 0.5rem 0.65rem;
-  border: 1px dashed rgba(128, 128, 128, 0.45);
+  border: 1px dashed color-mix(in srgb, var(--border-subtle, #808080) 70%, transparent);
   border-radius: 6px;
   white-space: pre-wrap;
   word-break: break-all;
-  background: rgba(128, 128, 128, 0.08);
+  background: color-mix(in srgb, var(--surface-hover, #808080) 50%, transparent);
 }
 
 .markdown-body .md-mark-highlight {
   padding: 0.05em 0.18em;
   border-radius: 0.2em;
-  background: #fff3a3;
+  background: color-mix(in srgb, var(--luna-color-warning, #ca8a04) 32%, transparent);
   color: inherit;
   font-weight: inherit;
 }
 
 body.markdown-export-root[data-theme='dark'] .markdown-body .md-mark-highlight {
-  background: rgba(187, 128, 9, 0.45);
+  background: color-mix(in srgb, var(--luna-color-warning, #ca8a04) 42%, transparent);
 }
 
 .markdown-body .md-callout {

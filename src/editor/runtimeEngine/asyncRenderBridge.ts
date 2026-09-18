@@ -132,7 +132,7 @@ export async function renderMermaidSvg(
       const { svg, bindFunctions } = await mermaid.render(id, source)
       return { kind: 'mermaid-svg' as const, svg, bindKey: id, bindFunctions }
     } catch (error) {
-      throw new Error(mermaidRenderErrorMessage(error))
+      throw new Error(mermaidRenderErrorMessage(error), { cause: error })
     }
   }, signal)
 

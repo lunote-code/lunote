@@ -169,7 +169,7 @@
   "app.titleBar.welcomeTitle": "Bienvenido a {app}",
   "app.titleBar.welcomeSubtitle": "Abre una carpeta para explorar y guardar notas",
   "app.titleBar.readySubtitle": "Crear o abrir una nota en este espacio",
-  "app.globalSearch.scopeHint": "Búsqueda de texto completo en todas las notas del espacio abierto.",
+  "app.globalSearch.scopeHint": "Búsqueda de texto completo en el espacio abierto.",
   "app.globalSearch.shortLabel": "Texto completo",
   "app.sidebar.recent.title": "Recientes",
   "app.sidebar.search.placeholder": "Filtrar nombres de archivo en este espacio…",

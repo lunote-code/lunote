@@ -3,6 +3,7 @@ import { useI18n } from '../../i18n'
 import { useContextMenuKeyboardNav } from '../../lib/useContextMenuKeyboardNav'
 import { useClampedMenuPosition } from '../../lib/useClampedMenuPosition'
 import type { EditorDocMenuPick, EditorDocMenuState } from '../workspace/contextMenuTypes'
+import { FileContextMenuItem } from './FileContextMenuItem'
 
 export function EditorDocumentContextMenu({
   state,
@@ -37,35 +38,42 @@ export function EditorDocumentContextMenu({
       onContextMenu={(e) => e.preventDefault()}
       onKeyDown={onKeyDown}
     >
-      <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('cut')}>
-        {t('ctx.editor.cut')}
-      </button>
-      <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('copy')}>
-        {t('ctx.editor.copy')}
-      </button>
-      <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('paste')}>
-        {t('ctx.editor.paste')}
-      </button>
+      <FileContextMenuItem icon="cut" label={t('ctx.editor.cut')} onClick={() => onPick('cut')} />
+      <FileContextMenuItem icon="copy" label={t('ctx.editor.copy')} onClick={() => onPick('copy')} />
+      <FileContextMenuItem icon="paste" label={t('ctx.editor.paste')} onClick={() => onPick('paste')} />
       <div className="file-ctx-sep" role="separator" />
-      <button type="button" role="menuitem" className="file-ctx-item" disabled={!diskFileReady} onClick={() => onPick('openTab')}>
-        {t('ctx.editor.openTab')}
-      </button>
-      <button type="button" role="menuitem" className="file-ctx-item" onClick={() => onPick('save')}>
-        {t('ctx.editor.save')}
-      </button>
-      <button type="button" role="menuitem" className="file-ctx-item" disabled={!diskFileReady} onClick={() => onPick('rename')}>
-        {t('ctx.editor.rename')}
-      </button>
-      <button type="button" role="menuitem" className="file-ctx-item" disabled={!diskFileReady} onClick={() => onPick('revert')}>
-        {t('ctx.editor.revert')}
-      </button>
+      <FileContextMenuItem
+        icon="tab-new"
+        label={t('ctx.editor.openTab')}
+        disabled={!diskFileReady}
+        onClick={() => onPick('openTab')}
+      />
+      <FileContextMenuItem icon="save" label={t('ctx.editor.save')} onClick={() => onPick('save')} />
+      <FileContextMenuItem
+        icon="rename"
+        label={t('ctx.editor.rename')}
+        disabled={!diskFileReady}
+        onClick={() => onPick('rename')}
+      />
+      <FileContextMenuItem
+        icon="refresh"
+        label={t('ctx.editor.revert')}
+        disabled={!diskFileReady}
+        onClick={() => onPick('revert')}
+      />
       <div className="file-ctx-sep" role="separator" />
-      <button type="button" role="menuitem" className="file-ctx-item" disabled={!diskFileReady} onClick={() => onPick('copyPath')}>
-        {t('ctx.editor.copyPath')}
-      </button>
-      <button type="button" role="menuitem" className="file-ctx-item" disabled={!canRevealInOs} onClick={() => onPick('reveal')}>
-        {t('ctx.editor.reveal')}
-      </button>
+      <FileContextMenuItem
+        icon="copy"
+        label={t('ctx.editor.copyPath')}
+        disabled={!diskFileReady}
+        onClick={() => onPick('copyPath')}
+      />
+      <FileContextMenuItem
+        icon="reveal"
+        label={t('ctx.editor.reveal')}
+        disabled={!canRevealInOs}
+        onClick={() => onPick('reveal')}
+      />
     </div>
   )
 }

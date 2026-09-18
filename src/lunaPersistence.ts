@@ -5,11 +5,17 @@ import {
   writeLunaWorkspace,
 } from './platform/tauri/persistenceService'
 
+export type LunaRecoveryDraftSnapshot = {
+  content: string
+  updatedAt: number
+}
+
 export type LunaWorkspaceSnapshot = {
   workspaceId: string
   rootDir: string
   activePath: string | null
   openTabs: string[]
+  recoveryDrafts?: Record<string, LunaRecoveryDraftSnapshot>
   graphViewport?: { x: number; y: number; zoom: number } | null
   lastNavigationTarget?: string | null
   updatedAt: number

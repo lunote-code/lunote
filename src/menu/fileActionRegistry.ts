@@ -3,7 +3,9 @@ import { open } from '@tauri-apps/plugin-dialog'
 import type { AppMenuContext, AppMenuFileTreeNode, AppMenuUiDeps } from './menu.types'
 import { exportNotePayload } from '../lib/tauriScopedInvoke'
 import { clearRecentFilesStorage } from '../lib/recentFilesStorage'
-import { ancestorDirPathsForFile, filterOutPath, isPathUnderWorkspace, isValidRecentFilePath, parentDirectoryOfFile } from '../lib/workspacePathUtils'
+import { clearRecentWorkspacesStorage } from '../lib/recentWorkspacesStorage'
+import { hasRecentMenuItems } from '../lib/recentMenuNodes'
+import { ancestorDirPathsForFile, filterOutPath, isPathUnderWorkspace, isValidRecentFilePath, isValidRecentWorkspacePath, parentDirectoryOfFile } from '../lib/workspacePathUtils'
 import { deleteNote, exportNote } from '../platform/tauri/documentService'
 import { revealInExplorer } from '../platform/tauri/platformShellService'
 import { importMarkdownViaDialog, listWorkspaceTree } from '../platform/tauri/workspaceService'
@@ -11,6 +13,12 @@ import { refreshWorkspaceIndex } from '../app/workspace/workspaceIndexCoordinato
 import { isTauri } from '@tauri-apps/api/core'
 import { createManualSnapshotForDocument } from '../documentHistory/historyService'
 import { humanizeExportError } from '../export/exportUserFacingError'
+import { fileDialogFilter } from '../lib/fileDialogFilters'
+import { getDocumentRuntimeSnapshot } from '../documentRuntime/documentKernel'
+import {
+  pickTabFallbackAfterDelete,
+  readFallbackTabBody,
+} from '../app/document/deleteActiveDocumentNavigation'
 
 type AppActionHandler = (m: AppMenuContext, ui: AppMenuUiDeps) => Promise<boolean>
 
@@ -31,11 +39,19 @@ function firstMarkdownInTree(nodes: AppMenuFileTreeNode[]): string | null {
 
 const FILE_APP_ACTIONS: Record<string, AppActionHandler> = {
   'file-recent-placeholder': async (m, ui) => {
-    const recentPath = m.recentFiles.find(isValidRecentFilePath)
-    if (!recentPath) {
+    const recentFile = m.recentFiles.find(isValidRecentFilePath)
+    const recentWorkspace = m.recentWorkspaces.find(isValidRecentWorkspacePath)
+    if (!recentFile && !recentWorkspace) {
       m.setStatus(m.t('menu.native.recentEmpty'))
       return true
     }
+    if (!recentFile && recentWorkspace) {
+      await m.loadNotes(recentWorkspace, null, [])
+      ui.setFocusMode(false)
+      ui.setSidebarVisible(true)
+      return true
+    }
+    const recentPath = recentFile!
     let targetRoot = m.rootDir
     let loadedWorkspace = false
     if (!targetRoot || !isPathUnderWorkspace(targetRoot, recentPath)) {
@@ -66,7 +82,7 @@ const FILE_APP_ACTIONS: Record<string, AppActionHandler> = {
     return true
   },
   'file-clear-recent': async (m) => {
-    if (!m.recentFiles.some(isValidRecentFilePath)) {
+    if (!hasRecentMenuItems(m.recentWorkspaces, m.recentFiles)) {
       m.setStatus(m.t('menu.native.recentEmpty'))
       return true
     }
@@ -77,6 +93,7 @@ const FILE_APP_ACTIONS: Record<string, AppActionHandler> = {
     })
     if (!confirmed) return true
     m.setRecentFiles(() => clearRecentFilesStorage())
+    m.setRecentWorkspaces(() => clearRecentWorkspacesStorage())
     m.setStatus(m.t('app.status.recentCleared'))
     return true
   },
@@ -113,10 +130,13 @@ const FILE_APP_ACTIONS: Record<string, AppActionHandler> = {
     })
     if (!confirmed) return true
     const deletedPath = m.activePath
+    const fallback = pickTabFallbackAfterDelete(getDocumentRuntimeSnapshot().openedTabs, deletedPath)
     await deleteNote(m.rootDir, deletedPath)
     await m.dispatchDocumentCommand({
       type: 'CLOSE_TAB',
       path: deletedPath,
+      fallbackPath: fallback,
+      fallbackContent: fallback ? readFallbackTabBody(fallback) : '',
       source: 'menu-delete',
     })
     m.setRecentFiles((prev) => {
@@ -126,26 +146,40 @@ const FILE_APP_ACTIONS: Record<string, AppActionHandler> = {
     })
     const tree = await listWorkspaceTree(m.rootDir)
     m.setFileTree(tree)
-    const next = firstMarkdownInTree(tree)
-    if (next) {
+    if (fallback) {
       m.setExpandedDirs((prev) => {
         const expanded = new Set(prev)
-        for (const dir of ancestorDirPathsForFile(m.rootDir, next)) expanded.add(dir)
+        for (const dir of ancestorDirPathsForFile(m.rootDir, fallback)) expanded.add(dir)
         return expanded
       })
       await m.dispatchDocumentCommand({
         type: 'OPEN_DOCUMENT',
         root: m.rootDir,
-        path: next,
-        source: 'menu-delete',
+        path: fallback,
+        source: 'menu-delete-fallback',
       })
     } else {
-      await m.dispatchDocumentCommand({
-        type: 'REPLACE_ACTIVE_DOCUMENT',
-        path: '',
-        content: ui.initialNoteContent,
-        source: 'menu-delete',
-      })
+      const next = firstMarkdownInTree(tree)
+      if (next) {
+        m.setExpandedDirs((prev) => {
+          const expanded = new Set(prev)
+          for (const dir of ancestorDirPathsForFile(m.rootDir, next)) expanded.add(dir)
+          return expanded
+        })
+        await m.dispatchDocumentCommand({
+          type: 'OPEN_DOCUMENT_IN_TAB',
+          root: m.rootDir,
+          path: next,
+          source: 'menu-delete',
+        })
+      } else {
+        await m.dispatchDocumentCommand({
+          type: 'REPLACE_ACTIVE_DOCUMENT',
+          path: '',
+          content: ui.initialNoteContent,
+          source: 'menu-delete',
+        })
+      }
     }
     await refreshWorkspaceIndex(m.rootDir)
     m.setStatus(m.t('app.menu.deleted'))
@@ -294,7 +328,7 @@ const FILE_APP_ACTIONS: Record<string, AppActionHandler> = {
       const out = await open({
         title: m.t('app.dialog.exportAs'),
         defaultPath: defaultName,
-        filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
+        filters: [fileDialogFilter(m.t, 'markdown', ['md', 'markdown'])],
         multiple: false,
         directory: false,
       })

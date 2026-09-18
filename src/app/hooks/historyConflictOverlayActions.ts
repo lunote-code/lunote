@@ -3,6 +3,17 @@ import { resumeAutosaveForPath } from '../../documentHistory/historyRestoreState
 import { deleteAllDocumentSnapshots, listDocumentSnapshots } from '../../documentHistory/historyRepository'
 import { createManualSnapshotForDocument, restoreSnapshotToEditor } from '../../documentHistory/historyService'
 import type { DocumentHistoryEntry } from '../../documentHistory/types'
+import { dispatchDocumentCommand } from '../../documentRuntime/documentKernel'
+import { isWorkspaceMigratingError } from '../../platform/tauri/workspaceEncryptionService'
+import {
+  StaleWorkspaceSaveAbortedError,
+  WorkspaceSaveUnlockCancelledError,
+  dispatchSaveDocumentWithEncryptionRetryWithDeps,
+  type EncryptedDocumentSaveDeps,
+  type EncryptedDocumentSaveOptions,
+} from '../../workspace/encryptedDocumentSave'
+import { formatWorkspaceEncryptionErrorMessage, shouldAbortStaleWorkspaceSave, shouldRetrySaveAfterWorkspaceUnlock } from '../../workspace/workspaceEncryptionErrors'
+import { ensureWorkspaceUnlocked, type WorkspacePasswordPrompt } from '../../workspace/workspaceEncryptionRuntime'
 import type { SaveConflictState } from '../document/saveConflictState'
 import type { DocumentHistoryDialogContext } from '../components/DocumentHistoryDialog'
 import type { AppStatusTone } from './useAppStatus'
@@ -41,27 +52,39 @@ export async function applyDiskFromSaveConflict(args: {
   }
 }
 
-export async function keepLocalFromSaveConflict(args: {
+/** External drift: dismiss conflict and keep unsaved editor content (no disk write). */
+export async function keepLocalEditsFromExternalDrift(args: {
+  conflict: SaveConflictState | null
+  setStatus: SetStatusFn
+  t: TranslateFn
+}): Promise<boolean> {
+  const { conflict, setStatus, t } = args
+  if (!conflict) return false
+  setStatus(t('app.status.externalFileChangedDirtyKept'), 'warning')
+  return true
+}
+
+export type KeepLocalFromSaveConflictArgs = {
   conflict: SaveConflictState | null
   rootDir: string
-  dispatchDocumentCommand: (command: {
-    type: 'SAVE_DOCUMENT'
-    root: string
-    path: string
-    content: string
-    source: 'save-conflict-force'
-    forceOverwrite: true
-  }) => Promise<unknown>
+  getCurrentRootDir?: () => string
+  promptWorkspacePassword?: WorkspacePasswordPrompt
   markWorkspaceRefreshSuppressed: () => void
   setSavedAt: (value: string) => void
   refreshActiveEditorAfterPathReload: (path: string) => void
   setStatus: SetStatusFn
   t: TranslateFn
-}): Promise<boolean> {
+}
+
+export async function keepLocalFromSaveConflictWithDeps(
+  args: KeepLocalFromSaveConflictArgs,
+  deps: EncryptedDocumentSaveDeps,
+): Promise<boolean> {
   const {
     conflict,
     rootDir,
-    dispatchDocumentCommand,
+    getCurrentRootDir,
+    promptWorkspacePassword,
     markWorkspaceRefreshSuppressed,
     setSavedAt,
     refreshActiveEditorAfterPathReload,
@@ -69,25 +92,61 @@ export async function keepLocalFromSaveConflict(args: {
     t,
   } = args
   if (!conflict || !rootDir) return false
+  const rootAtRequest = rootDir
+  const saveOptions: EncryptedDocumentSaveOptions = {
+    rootAtRequest,
+    getCurrentRootDir: getCurrentRootDir ?? (() => rootDir),
+    path: conflict.path,
+    content: conflict.local,
+    source: 'save-conflict-force',
+    allowUnlockRetry: true,
+    forceOverwrite: true,
+    promptWorkspacePassword,
+    t,
+  }
   try {
-    await dispatchDocumentCommand({
-      type: 'SAVE_DOCUMENT',
-      root: rootDir,
-      path: conflict.path,
-      content: conflict.local,
-      source: 'save-conflict-force',
-      forceOverwrite: true,
-    })
+    await dispatchSaveDocumentWithEncryptionRetryWithDeps(saveOptions, deps)
     markWorkspaceRefreshSuppressed()
     setSavedAt(new Date().toLocaleTimeString())
     refreshActiveEditorAfterPathReload(conflict.path)
     setStatus(t('app.status.saved'), 'success')
     return true
   } catch (error) {
+    if (error instanceof StaleWorkspaceSaveAbortedError) {
+      return false
+    }
+    if (error instanceof WorkspaceSaveUnlockCancelledError) {
+      setStatus(t('workspace.encryption.unlock.cancelled'), 'warning')
+      return false
+    }
+    const encryptionMessage = formatWorkspaceEncryptionErrorMessage(error, t)
+    if (encryptionMessage || isWorkspaceMigratingError(error)) {
+      setStatus(encryptionMessage ?? t('workspace.encryption.error.migrating'), 'warning')
+      return false
+    }
     const message = error instanceof Error ? error.message : String(error)
     setStatus(t('app.status.saveFailed', { message }), 'error')
     return false
   }
+}
+
+export async function keepLocalFromSaveConflict(args: KeepLocalFromSaveConflictArgs): Promise<boolean> {
+  return keepLocalFromSaveConflictWithDeps(args, {
+    dispatchSave: async ({ root, path, content, source, forceOverwrite, expectedModifiedSecs }) => {
+      await dispatchDocumentCommand({
+        type: 'SAVE_DOCUMENT',
+        root,
+        path,
+        content,
+        source,
+        forceOverwrite,
+        expectedModifiedSecs,
+      })
+    },
+    ensureUnlocked: ensureWorkspaceUnlocked,
+    shouldAbortStale: shouldAbortStaleWorkspaceSave,
+    shouldRetryUnlock: shouldRetrySaveAfterWorkspaceUnlock,
+  })
 }
 
 export async function restoreFromDocumentHistory(args: {
@@ -95,6 +154,7 @@ export async function restoreFromDocumentHistory(args: {
   context: DocumentHistoryDialogContext
   flushEditorToMemory: () => Promise<boolean>
   dispatchDocumentCommand: Parameters<typeof restoreSnapshotToEditor>[0]['dispatchDocumentCommand']
+  refreshActiveEditorAfterPathReload?: (path: string) => void
   setStatus: SetStatusFn
   t: TranslateFn
   restoreSnapshot?: typeof restoreSnapshotToEditor
@@ -104,6 +164,7 @@ export async function restoreFromDocumentHistory(args: {
     context,
     flushEditorToMemory,
     dispatchDocumentCommand,
+    refreshActiveEditorAfterPathReload,
     setStatus,
     t,
     restoreSnapshot = restoreSnapshotToEditor,
@@ -116,6 +177,7 @@ export async function restoreFromDocumentHistory(args: {
       flushEditorToMemory,
       dispatchDocumentCommand,
     })
+    refreshActiveEditorAfterPathReload?.(context.path)
     setStatus(t('app.history.restoredPendingSave'), 'warning')
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)

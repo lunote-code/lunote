@@ -1,5 +1,6 @@
 import type { Editor } from '@tiptap/core'
 import { TextSelection } from '@tiptap/pm/state'
+import { resolveEditorUiMessage } from './resolveEditorUiMessage'
 
 import { openLunaEmojiPicker } from './lunaEmojiPicker'
 import { openLunaTableInsertPicker } from './lunaTableInsertPicker'
@@ -17,6 +18,7 @@ import {
   isCommandAllowedWhileComposing,
 } from './visualOpFailure'
 import { toggleCodeBlockWithFocusAndLog } from './lunaCodeBlock'
+import { createDrawingBlockInsertContent } from './drawing/drawingBlockInsert'
 import { openExternalUrlInSystemBrowser } from './openExternalLink'
 import { bridgeRestoreLastNonEmptySelection } from './editorMutationBridge'
 import {
@@ -210,6 +212,10 @@ export function runTiptapCommand(editor: Editor, command: TiptapEditorCommand): 
           { type: 'paragraph' },
         ])
         .run()
+    case 'drawingBlock':
+      return chain
+        .insertContent([...createDrawingBlockInsertContent()])
+        .run()
     case 'copyCodeBlock': {
       const codeBlock = findAncestorCodeBlock()
       if (!codeBlock) return false
@@ -256,8 +262,11 @@ export function runTiptapCommand(editor: Editor, command: TiptapEditorCommand): 
     }
     case 'comment': {
       const { from, to, empty } = editor.state.selection
+      const placeholder = resolveEditorUiMessage('editor.htmlComment.placeholder')
       const body =
-        empty ? 'comment' : editor.state.doc.textBetween(from, to, '\n', '\n').trim() || 'comment'
+        empty
+          ? placeholder
+          : editor.state.doc.textBetween(from, to, '\n', '\n').trim() || placeholder
       const nodeType = editor.schema.nodes.rawInline
       if (!nodeType) return false
       const node = nodeType.create({ source: 'html', content: `<!-- ${body} -->` })
@@ -351,6 +360,13 @@ export function runTiptapCommand(editor: Editor, command: TiptapEditorCommand): 
       const commands = editor.commands as typeof editor.commands & { insertTocDirective?: () => boolean }
       if (typeof commands.insertTocDirective !== 'function') return false
       return commands.insertTocDirective()
+    }
+    case 'insertTocAtAppropriatePosition': {
+      const commands = editor.commands as typeof editor.commands & {
+        insertTocAtAppropriatePosition?: () => boolean
+      }
+      if (typeof commands.insertTocAtAppropriatePosition !== 'function') return false
+      return commands.insertTocAtAppropriatePosition()
     }
     case 'footnoteRef': {
       const label = (command.label ?? '1').trim() || '1'

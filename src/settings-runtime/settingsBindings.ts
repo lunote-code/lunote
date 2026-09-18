@@ -9,6 +9,13 @@ import { listThemes } from '../theme-runtime/themeRegistry'
 import { normalizeThemeVariant } from '../theme-runtime/themeResolver'
 import { listAvailableThemeExportStyles } from '../theme-runtime/themeExportStyleRuntime'
 import { listAvailableThemeStylesheets } from '../theme-runtime/themeStylesheetRuntime'
+import { resolveAiModelPresetOptions } from './aiSettings'
+import {
+  BUILTIN_THEME_DISABLED_SENTINEL,
+  EXTERNAL_THEME_DISABLED_SENTINEL,
+  isBuiltinThemeColorsActiveFromSettings,
+  isExternalThemeCssActiveFromSettings,
+} from './themeColorSourceSettings'
 
 export type SettingsActionHandler = (actionId: string, path: string) => void | Promise<void>
 
@@ -40,7 +47,9 @@ export function activeValueForSetting(path: string): string | undefined {
 }
 
 export function previewValueForSetting(path: string, value: string): void {
-  if (path === 'theme.active') setPreviewTheme(normalizeThemeVariant(value))
+  if (path === 'theme.active' && isBuiltinThemeColorsActiveFromSettings()) {
+    setPreviewTheme(normalizeThemeVariant(value))
+  }
 }
 
 export function clearPreviewForSetting(path: string): void {
@@ -63,12 +72,20 @@ export function resolveSettingOptions(
   effectiveLocale: UiLocaleId,
 ): readonly SettingsSelectOption<string>[] | undefined {
   if (item.path === 'theme.active') {
-    return listThemes().map((entry) => ({
+    const options: SettingsSelectOption<string>[] = listThemes().map((entry) => ({
       value: entry.id,
       label: entry.label,
       group: entry.group,
       description: entry.description ?? entry.id,
     }))
+    if (isExternalThemeCssActiveFromSettings()) {
+      options.unshift({
+        value: BUILTIN_THEME_DISABLED_SENTINEL,
+        label: t('settings.theme.builtin.inactiveOption'),
+        description: t('settings.theme.builtin.inactiveOptionDescription'),
+      })
+    }
+    return options
   }
 
   if (item.path === 'theme.exportCssFile') {
@@ -101,12 +118,19 @@ export function resolveSettingOptions(
   if (item.path === 'theme.cssFile') {
     const currentRawValue = bindValue(item.path)
     const currentValue = typeof currentRawValue === 'string' ? currentRawValue.trim() : ''
+    const builtinActive = isBuiltinThemeColorsActiveFromSettings()
     const options: SettingsSelectOption<string>[] = [
-      {
-        value: '',
-        label: t('settings.theme.cssFile.none'),
-        description: t('settings.theme.cssFile.noneDescription'),
-      },
+      builtinActive
+        ? {
+            value: EXTERNAL_THEME_DISABLED_SENTINEL,
+            label: t('settings.theme.externalCss.inactiveOption'),
+            description: t('settings.theme.externalCss.inactiveOptionDescription'),
+          }
+        : {
+            value: '',
+            label: t('settings.theme.cssFile.none'),
+            description: t('settings.theme.cssFile.noneDescription'),
+          },
       ...listAvailableThemeStylesheets().map((entry) => ({
         value: entry.name,
         label: entry.name,
@@ -120,6 +144,25 @@ export function resolveSettingOptions(
         label: currentValue,
         group: t('settings.theme.cssFile.missingGroup'),
         description: t('settings.theme.cssFile.missingDescription'),
+      })
+    }
+    return options
+  }
+
+  if (item.path === 'ai.model') {
+    const provider = bindValue('ai.provider')
+    const presets = resolveAiModelPresetOptions(provider)
+    const currentRaw = bindValue(item.path)
+    const currentValue = typeof currentRaw === 'string' ? currentRaw.trim() : ''
+    const options: SettingsSelectOption<string>[] = presets.map((model) => ({
+      value: model,
+      label: model,
+    }))
+    if (currentValue && !options.some((option) => option.value === currentValue)) {
+      options.unshift({
+        value: currentValue,
+        label: currentValue,
+        description: t('settings.ai.model.customValue'),
       })
     }
     return options

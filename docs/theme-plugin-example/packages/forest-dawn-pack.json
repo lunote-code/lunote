@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 2,
+  "id": "forest-dawn-pack",
+  "version": "1.0.0",
+  "manifest": {
+    "schemaVersion": 2,
+    "id": "forest-dawn-pack",
+    "name": "Forest Dawn Pack",
+    "version": "1.0.0",
+    "entry": null,
+    "pluginType": "theme-pack",
+    "capabilities": [
+      "theme.style"
+    ],
+    "platforms": [
+      "desktop",
+      "web"
+    ],
+    "requiresRestart": false,
+    "experimental": false,
+    "minAppVersion": "0.6.0",
+    "maxAppVersion": null,
+    "permissions": {
+      "theme": {
+        "register": true
+      }
+    },
+    "contributes": {
+      "theme": {
+        "style": [
+          {
+            "file": "theme/style/forest-dawn-pack.css",
+            "label": "Forest Dawn",
+            "description": "Forest-inspired light/dark palette with gradient accents."
+          }
+        ],
+        "snippets": [],
+        "tokens": [],
+        "defaultEnable": {
+          "style": false
+        }
+      },
+      "commands": [],
+      "preferencesSections": [],
+      "panels": []
+    }
+  },
+  "files": [
+    {
+      "path": "plugin.json",
+      "content": "{\n  \"schemaVersion\": 2,\n  \"id\": \"forest-dawn-pack\",\n  \"name\": \"Forest Dawn Pack\",\n  \"version\": \"1.0.0\",\n  \"entry\": null,\n  \"pluginType\": \"theme-pack\",\n  \"capabilities\": [\n    \"theme.style\"\n  ],\n  \"platforms\": [\n    \"desktop\",\n    \"web\"\n  ],\n  \"requiresRestart\": false,\n  \"experimental\": false,\n  \"minAppVersion\": \"0.6.0\",\n  \"maxAppVersion\": null,\n  \"permissions\": {\n    \"theme\": {\n      \"register\": true\n    }\n  },\n  \"contributes\": {\n    \"theme\": {\n      \"style\": [\n        {\n          \"file\": \"theme/style/forest-dawn-pack.css\",\n          \"label\": \"Forest Dawn\",\n          \"description\": \"Forest-inspired light/dark palette with gradient accents.\"\n        }\n      ],\n      \"snippets\": [],\n      \"tokens\": [],\n      \"defaultEnable\": {\n        \"style\": false\n      }\n    },\n    \"commands\": [],\n    \"preferencesSections\": [],\n    \"panels\": []\n  }\n}\n"
+    },
+    {
+      "path": "theme/style/forest-dawn-pack.css",
+      "content": "/**\n * Forest Dawn — external CSS theme\n *\n * Warm light theme with moss green and soft wood tones.\n * Layer: palette tokens + personality deltas only.\n *\n * Copy to ~/.luna/theme/style/forest-dawn.css → Rescan → Preferences → Appearance → External CSS tab.\n * Reference: docs/theme-example/SELECTORS.md\n */\n\nhtml[data-theme='light'] {\n  --surface-app: #eef3ea;\n  --surface-panel: rgba(252, 250, 245, 0.95);\n  --surface-editor: #fcfaf5;\n  --surface-preview: #f8f6f0;\n  --surface-hover: rgba(74, 103, 65, 0.07);\n  --surface-elevated: #ffffff;\n  --text-primary: #2c3328;\n  --text-secondary: #5a6354;\n  --text-muted: #8a9484;\n  --text-tertiary: #8a9484;\n  --border-subtle: rgba(44, 51, 40, 0.1);\n  --border-strong: rgba(44, 51, 40, 0.18);\n  --accent: #4a6741;\n  --link: #3d7a52;\n  --link-hover: #2f6240;\n  --link-visited: #6b7c3e;\n  --focus-ring: rgba(74, 103, 65, 0.22);\n  --code-bg: #f4f2eb;\n  --code-gutter-fg: #8a9484;\n  --code-gutter-bg: #eef3ea;\n  --inline-code-bg: #e8ede3;\n  --shadow-soft: 0 1px 2px rgba(44, 51, 40, 0.06);\n  --shadow-panel: 0 10px 32px rgba(44, 51, 40, 0.08);\n  --luna-callout-tip: #3d7a52;\n}\n\nhtml[data-theme='dark'] {\n  --surface-app: #1a2118;\n  --surface-panel: rgba(28, 36, 26, 0.96);\n  --surface-editor: #1e271c;\n  --surface-preview: #171d15;\n  --surface-hover: rgba(143, 188, 127, 0.1);\n  --surface-elevated: #243020;\n  --text-primary: #dce8d4;\n  --text-secondary: #a8b89e;\n  --text-muted: #6d7a66;\n  --text-tertiary: #6d7a66;\n  --border-subtle: rgba(220, 232, 212, 0.08);\n  --border-strong: rgba(220, 232, 212, 0.14);\n  --accent: #8fbc7f;\n  --link: #8fbc7f;\n  --link-hover: #a8d498;\n  --link-visited: #b8c97a;\n  --focus-ring: rgba(143, 188, 127, 0.24);\n  --code-bg: #171d15;\n  --code-gutter-fg: #6d7a66;\n  --code-gutter-bg: #1a2118;\n  --inline-code-bg: #2a3526;\n  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.45);\n  --shadow-panel: 0 12px 40px rgba(0, 0, 0, 0.52);\n  --luna-callout-tip: #8fbc7f;\n}\n\nhtml[data-theme='light'] .workspace-root {\n  background:\n    radial-gradient(ellipse 85% 55% at 50% -10%, rgba(74, 103, 65, 0.08), transparent 60%),\n    var(--surface-app);\n}\n\n.sidebar {\n  background: color-mix(in srgb, var(--surface-panel) 88%, var(--accent) 4%);\n  border-right: 1px solid color-mix(in srgb, var(--accent) 14%, var(--border-subtle));\n}\n\n.preview-pane.markdown-visual-editor .ProseMirror,\n.markdown-preview-view {\n  line-height: 1.78;\n}\n\n.preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l1 .pm-heading-content,\n.preview-pane.markdown-visual-editor .ProseMirror > h1,\n.markdown-preview-view h1 {\n  color: var(--accent);\n  font-weight: 600;\n  letter-spacing: -0.015em;\n}\n\n.preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l2 .pm-heading-content,\n.preview-pane.markdown-visual-editor .ProseMirror > h2,\n.markdown-preview-view h2 {\n  color: var(--accent);\n  font-weight: 600;\n  padding-left: 0.65em;\n  border-left: 3px solid color-mix(in srgb, var(--accent) 55%, transparent);\n}\n\n/* Themed HR — accent-tinted gradient */\n.preview-pane.markdown-visual-editor .ProseMirror hr,\n.markdown-preview-view hr {\n  background: linear-gradient(\n    90deg,\n    transparent,\n    color-mix(in srgb, var(--accent) 35%, transparent),\n    transparent\n  );\n}\n\n.preview-pane.markdown-visual-editor .ProseMirror > blockquote,\n.markdown-preview-view blockquote {\n  border-left: 3px solid var(--accent);\n  background: color-mix(in srgb, var(--accent) 6%, var(--surface-editor));\n  border-radius: 0 10px 10px 0;\n  padding: 0.5em 1em;\n  color: var(--text-secondary);\n}\n"
+    }
+  ]
+}

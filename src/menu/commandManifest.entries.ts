@@ -64,6 +64,10 @@ export const COMMAND_MANIFEST_LIST: readonly CommandManifestEntry[] = Object.fre
     group: 'file',
     ui: M({ palette: true, paletteKeywords: ['daily', 'journal', '日记', '明天'] }),
   }),
+  def('daily-note-calendar-open', 'menu.view.noteCalendar', {
+    group: 'view',
+    ui: M({ palette: true, paletteKeywords: ['calendar', 'daily', 'journal', '日历', '笔记日历'] }),
+  }),
   def('template-edit-default', 'menu.file.templateDefault', {
     group: 'file',
     ui: M({ palette: true, paletteKeywords: ['template', '模板', 'default', '默认'] }),
@@ -80,7 +84,7 @@ export const COMMAND_MANIFEST_LIST: readonly CommandManifestEntry[] = Object.fre
     group: 'file',
     ui: M({ palette: true, paletteKeywords: ['template', '模板', 'settings', '设置', 'preferences'] }),
   }),
-  def('file-open-file', 'menu.file.openFile', { accelerator: 'Mod+o' }),
+  def('file-open-file', 'menu.file.openFile', { accelerator: 'Mod+Shift+o' }),
   def('open-folder', 'menu.file.openFolder', { ui: M({ palette: true, paletteKeywords: ['folder', 'workspace', '打开', '文件夹'] }) }),
   def('file-recent-placeholder', 'menu.file.recent'),
   def('file-clear-recent', 'menu.file.clearRecent', {
@@ -167,6 +171,7 @@ export const COMMAND_MANIFEST_LIST: readonly CommandManifestEntry[] = Object.fre
   def('para-table-row-above', 'menu.para.table.rowUp'),
   def('para-table-row-below', 'menu.para.table.rowDown'),
   def('para-math-block', 'menu.para.math', { accelerator: 'Mod+Shift+m', group: 'insert' }),
+  def('para-drawing-canvas', 'menu.para.drawing', { group: 'insert' }),
   def('para-insert-code-block', 'menu.para.code', { accelerator: 'Mod+Shift+k', group: 'insert' }),
   def('para-code-copy', 'menu.para.codeTools.copy'),
   def('para-code-tools-indent-selection', 'menu.para.codeTools.indentSel'),
@@ -215,8 +220,12 @@ export const COMMAND_MANIFEST_LIST: readonly CommandManifestEntry[] = Object.fre
   }),
   def('fmt-comment', 'menu.fmt.comment'),
   def('fmt-link', 'menu.fmt.link', { accelerator: 'Mod+k', ui: M({ toolbar: true, toolbarSlot: 'editor-format' }) }),
+  def('fmt-toc', 'menu.para.toc', {
+    ui: M({ toolbar: true, toolbarSlot: 'editor-format', menu: false, palette: false }),
+  }),
   def('toolbar-callout', 'menu.toolbar.callout', {
     group: 'insert',
+    // Toolbar dropdown anchor only — handled by EditorCalloutToolbarDropdown, not command runtime.
     runtime: 'noop',
     ui: M({
       toolbar: true,
@@ -299,6 +308,39 @@ export const COMMAND_MANIFEST_LIST: readonly CommandManifestEntry[] = Object.fre
     action: 'view-search',
     ui: M({ palette: true, paletteKeywords: ['search', '搜索', 'find', '全局'] }),
   }),
+  def('view-knowledge-search', 'knowledge.rail.search', {
+    group: 'view',
+    action: 'view-knowledge-search',
+    ui: M({
+      menu: false,
+      palette: true,
+      paletteHint: 'knowledge.search.scopeHint',
+      paletteKeywords: ['knowledge', 'graph', 'backlinks', 'tags', '知识', '图谱', '反向链接', '标签', '搜索'],
+    }),
+  }),
+  def('view-quick-switcher', 'menu.view.quickSwitcher', {
+    accelerator: 'Mod+o',
+    action: 'view-quick-switcher',
+    ui: M({ palette: true, paletteKeywords: ['quick', 'switcher', 'open', 'file', '跳转', '切换'] }),
+  }),
+  def('view-tab-switcher', 'menu.view.tabSwitcher', {
+    accelerator: 'Mod+Shift+e',
+    action: 'view-tab-switcher',
+    ui: M({ palette: true, paletteKeywords: ['tab', 'switch', '标签', '切换', 'mru'] }),
+  }),
+  def('view-ai-panel', 'menu.view.aiPanel', {
+    accelerator: 'Mod+Shift+a',
+    action: 'view-ai-panel',
+    ui: M({ palette: true, paletteKeywords: ['ai', 'assistant', '助手', '人工智能'] }),
+  }),
+  def('view-ai-ask-selection', 'menu.view.aiAskSelection', {
+    action: 'view-ai-ask-selection',
+    ui: M({ palette: true, paletteKeywords: ['ai', 'selection', '选区', '助手', 'ask'] }),
+  }),
+  def('view-ai-edit-selection', 'menu.view.aiEditSelection', {
+    action: 'view-ai-edit-selection',
+    ui: M({ palette: true, paletteKeywords: ['ai', 'selection', 'edit', '选区', '改写', 'replace'] }),
+  }),
   def('view-word-count', 'menu.view.wordCount'),
   def('view-fullscreen', 'menu.view.fullscreen', { accelerator: 'F11', runtime: 'menu' }),
   def('view-live-preview', 'menu.view.livePreview', {
@@ -316,6 +358,9 @@ export const COMMAND_MANIFEST_LIST: readonly CommandManifestEntry[] = Object.fre
 
   def('help-shortcuts', 'menu.native.help.shortcuts', {
     ui: M({ palette: true, paletteKeywords: ['shortcuts', 'keyboard', '快捷键'] }),
+  }),
+  def('help-reset-onboarding', 'menu.native.help.resetOnboarding', {
+    ui: M({ palette: true, paletteKeywords: ['onboarding', 'tutorial', 'guide', '新手', '引导'] }),
   }),
   def('help-about', 'menu.native.help.about', {
     ui: M({ palette: true, paletteKeywords: ['about', '关于'] }),

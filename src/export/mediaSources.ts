@@ -5,6 +5,7 @@ import {
   normPath,
   parentDirectoryOfFile,
   pathHasParentDirSegment,
+  resolvePathRelativeToDirectory,
 } from '../lib/workspacePathUtils'
 
 export type MediaSourceResolveOptions = {
@@ -61,20 +62,6 @@ function parentDir(path: string): string {
   return parentDirectoryOfFile(path.replace(/\\/g, '/'))
 }
 
-function joinPath(baseDir: string, relativePath: string): string {
-  const normalized = relativePath.replace(/\\/g, '/').replace(/^\.\//u, '')
-  if (normalized.startsWith('/')) return normalized
-  const parts = `${baseDir}/${normalized}`.replace(/\\/g, '/').split('/')
-  const out: string[] = []
-  for (const part of parts) {
-    if (!part || part === '.') continue
-    if (part === '..') out.pop()
-    else out.push(part)
-  }
-  const prefix = baseDir.startsWith('/') ? '/' : ''
-  return `${prefix}${out.join('/')}`
-}
-
 function fileUrl(path: string): string {
   const normalized = path.replace(/\\/g, '/')
   const prefix = normalized.startsWith('/') ? 'file://' : 'file:///'
@@ -115,22 +102,25 @@ export function resolveMarkdownMediaSrc(
     return resolveToDisplayUrl(normPath(raw), opts)
   }
 
-  if (isExternalOrDataSrc(raw) || !sourcePath || pathHasParentDirSegment(raw)) return raw
+  if (isExternalOrDataSrc(raw) || !sourcePath) return raw
 
   const rootNorm = opts.rootDir ? normPath(opts.rootDir) : null
-  let absolute: string
+  const noteNorm = normPath(sourcePath)
+  let noteBaseDir: string
   if (rootNorm) {
-    const notePath = normPath(sourcePath)
     const noteAbs =
-      notePath.startsWith('/') || /^[A-Za-z]:\//u.test(notePath)
-        ? notePath
-        : joinRelativePath(rootNorm, notePath)
+      noteNorm.startsWith('/') || /^[A-Za-z]:\//u.test(noteNorm)
+        ? noteNorm
+        : joinRelativePath(rootNorm, noteNorm)
     if (!isPathUnderWorkspace(rootNorm, noteAbs)) return raw
-    absolute = joinRelativePath(parentDirectoryOfFile(noteAbs), raw)
-    if (!isPathUnderWorkspace(rootNorm, absolute)) return raw
+    noteBaseDir = parentDirectoryOfFile(noteAbs)
   } else {
-    absolute = joinPath(parentDir(sourcePath), raw)
+    if (pathHasParentDirSegment(noteNorm)) return raw
+    noteBaseDir = parentDir(sourcePath)
   }
+
+  const absolute = resolvePathRelativeToDirectory(noteBaseDir, raw)
+  if (rootNorm && !isPathUnderWorkspace(rootNorm, absolute)) return raw
 
   return resolveToDisplayUrl(absolute, opts)
 }

@@ -4,9 +4,22 @@ import { isTauri } from '@tauri-apps/api/core'
 
 import type { TranslateFn } from '../../i18n'
 import { normalizeLineEndings } from '../../lib/normalizeLineEndings'
-import { pathsEqual, isLikelyRemoteWorkspaceRoot, pathCompareKey } from '../../lib/workspacePathUtils'
+import { clearExternalDiskDriftInState } from '../../lib/externalDiskDriftState'
+import {
+  captureFileStatGeneration,
+  isFileStatGenerationStale,
+} from '../../lib/fileStatGeneration'
+import {
+  pathsEqual,
+  isLikelyRemoteWorkspaceRoot,
+  pathCompareKey,
+  getPathKeyedRecordValue,
+  setPathKeyedRecordValue,
+} from '../../lib/workspacePathUtils'
 import { isPathDirty } from '../../lib/documentDirty'
-import { deleteTabBody, setTabBody } from '../document/tabBodiesStore'
+import { deleteTabBody, getTabBody } from '../document/tabBodiesStore'
+import { promptExternalDriftConflict } from '../document/saveConflictPrompt'
+import type { SaveConflictState } from '../document/saveConflictState'
 import { dispatchDocumentCommand, getDocumentRuntimeSnapshot, getDocumentSavedContent } from '../../documentRuntime/documentKernel'
 import { readNote, statNoteFile } from '../../platform/tauri/documentService'
 import { isBufferTabId } from '../workspace/constants'
@@ -17,19 +30,18 @@ import type { AppStatusTone } from './useAppStatus'
 
 export type WorkspaceExternalSyncParams = {
   rootDir: string
+  rootDirRef: MutableRefObject<string>
   t: TranslateFn
   tabLabel: (path: string) => string
   setStatus: (msg: string, toneOverride?: AppStatusTone) => void
   setExternalDiskChangedPaths: Dispatch<SetStateAction<Set<string>>>
+  setSaveConflict: Dispatch<SetStateAction<SaveConflictState | null>>
+  flushEditorToMemoryRef: MutableRefObject<(() => Promise<boolean>) | null>
   refreshFileTree: () => Promise<void>
-  confirmAppDialog: (options: {
-    title: string
-    message: string
-    variant?: 'default' | 'warning'
-  }) => Promise<boolean>
   resetModeSwitchEditorBootstrap: () => void
   bumpColdOpenGeneration: () => void
   fileStatRef: MutableRefObject<Record<string, { modifiedSecs: number; size: number }>>
+  fileStatGenerationRef: MutableRefObject<number>
   externalReloadGenerationRef: MutableRefObject<number>
   suppressWorkspaceRefreshUntilRef: MutableRefObject<number>
   workspaceRestoringRef: MutableRefObject<boolean>
@@ -37,15 +49,18 @@ export type WorkspaceExternalSyncParams = {
 
 export function useWorkspaceExternalSync({
   rootDir,
+  rootDirRef,
   t,
   tabLabel,
   setStatus,
   setExternalDiskChangedPaths,
+  setSaveConflict,
+  flushEditorToMemoryRef,
   refreshFileTree,
-  confirmAppDialog,
   resetModeSwitchEditorBootstrap,
   bumpColdOpenGeneration,
   fileStatRef,
+  fileStatGenerationRef,
   externalReloadGenerationRef,
   suppressWorkspaceRefreshUntilRef,
   workspaceRestoringRef,
@@ -78,37 +93,45 @@ export function useWorkspaceExternalSync({
 
   const clearExternalDiskDrift = useCallback(
     (path: string) => {
-      setExternalDiskChangedPaths((prev) => {
-        const next = new Set(prev)
-        for (const current of [...next]) {
-          if (pathsEqual(current, path)) next.delete(current)
-        }
-        return next
-      })
+      setExternalDiskChangedPaths((prev) => clearExternalDiskDriftInState(prev, path))
     },
     [setExternalDiskChangedPaths],
   )
 
+  const shouldApplyFileStatWrite = useCallback(
+    (workspaceRootAtStart: string, capturedFileStatGeneration: number): boolean => {
+      if (isFileStatGenerationStale(capturedFileStatGeneration, fileStatGenerationRef)) return false
+      if (rootDirRef.current.trim() !== workspaceRootAtStart) return false
+      return true
+    },
+    [fileStatGenerationRef, rootDirRef],
+  )
+
   const reloadOpenFilesAfterExternalChange = useCallback(async () => {
     if (!rootDir) return
+    const workspaceRoot = rootDirRef.current.trim()
+    if (!workspaceRoot) return
     const generation = ++externalReloadGenerationRef.current
     const snap = getDocumentRuntimeSnapshot()
     const pathsToCheck = [...new Set([snap.activePath, ...snap.openedTabs].filter(Boolean))]
     for (const path of pathsToCheck) {
       if (externalReloadGenerationRef.current !== generation) return
       if (!path || isBufferTabId(path)) continue
+      const capturedFileStatGeneration = captureFileStatGeneration(fileStatGenerationRef)
       let stat: { modifiedSecs: number; size: number }
       try {
-        stat = await statNoteFile(rootDir, path)
+        stat = await statNoteFile(workspaceRoot, path)
       } catch {
         continue
       }
-      const prev = fileStatRef.current[path]
+      if (externalReloadGenerationRef.current !== generation) return
+      if (!shouldApplyFileStatWrite(workspaceRoot, capturedFileStatGeneration)) return
+      const prev = getPathKeyedRecordValue(fileStatRef.current, path)
       if (!prev || (prev.modifiedSecs === stat.modifiedSecs && prev.size === stat.size)) {
-        fileStatRef.current[path] = stat
+        setPathKeyedRecordValue(fileStatRef.current, path, stat)
         continue
       }
-      fileStatRef.current[path] = stat
+      setPathKeyedRecordValue(fileStatRef.current, path, stat)
       if (!pathsEqual(path, snap.activePath)) {
         if (isPathDirty(path)) {
           markExternalDiskDrift(path)
@@ -117,9 +140,16 @@ export function useWorkspaceExternalSync({
           const saved = getDocumentSavedContent(path)
           if (saved !== undefined) {
             try {
-              const disk = await readNote(rootDir, path)
+              const disk = await readNote(workspaceRoot, path)
+              if (externalReloadGenerationRef.current !== generation) return
+              if (!shouldApplyFileStatWrite(workspaceRoot, capturedFileStatGeneration)) return
               if (normalizeLineEndings(disk) === normalizeLineEndings(saved)) {
-                setTabBody(path, disk)
+                await dispatchDocumentCommand({
+                  type: 'UPDATE_OPEN_DOCUMENT_CONTENT',
+                  path,
+                  content: saved,
+                  source: 'external-fs-cache-sync',
+                })
                 continue
               }
             } catch {
@@ -131,39 +161,53 @@ export function useWorkspaceExternalSync({
         continue
       }
       if (isPathDirty(path)) {
-        const ok = await confirmAppDialog({
-          title: t('app.confirm.title'),
-          message: t('app.confirm.externalFileChangedDirty'),
-          variant: 'warning',
-        })
-        if (!ok) {
-          markExternalDiskDrift(path)
-          setStatus(t('app.status.saveConflict'), 'warning')
-          continue
+        markExternalDiskDrift(path)
+        if (pathsEqual(path, snap.activePath)) {
+          await flushEditorToMemoryRef.current?.()
         }
+        const local = getTabBody(path) ?? getDocumentSavedContent(path) ?? ''
+        const result = await promptExternalDriftConflict({
+          rootDir: workspaceRoot,
+          path,
+          local,
+          setSaveConflict,
+          setStatus,
+          t,
+        })
+        if (externalReloadGenerationRef.current !== generation) return
+        if (result === 'disk' || result === 'local') {
+          clearExternalDiskDrift(path)
+          resetModeSwitchEditorBootstrap()
+          bumpColdOpenGeneration()
+        } else {
+          setStatus(t('app.status.externalFileChangedDirtyKept'), 'warning')
+        }
+        continue
       }
       clearExternalDiskDrift(path)
       await dispatchDocumentCommand({
         type: 'REVERT_DOCUMENT',
-        root: rootDir,
+        root: workspaceRoot,
         path,
         source: 'external-fs-reload',
       })
-      resetModeSwitchEditorBootstrap()
-      bumpColdOpenGeneration()
     }
   }, [
     rootDir,
+    rootDirRef,
     t,
     tabLabel,
     setStatus,
-    confirmAppDialog,
+    setSaveConflict,
+    flushEditorToMemoryRef,
     resetModeSwitchEditorBootstrap,
     bumpColdOpenGeneration,
     fileStatRef,
+    fileStatGenerationRef,
     externalReloadGenerationRef,
     markExternalDiskDrift,
     clearExternalDiskDrift,
+    shouldApplyFileStatWrite,
   ])
 
   const scheduleExternalWorkspaceRefresh = useCallback(() => {

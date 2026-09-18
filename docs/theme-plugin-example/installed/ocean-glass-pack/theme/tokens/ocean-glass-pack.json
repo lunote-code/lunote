@@ -1,0 +1,22 @@
+{
+  "id": "ocean-glass",
+  "name": "Ocean Glass",
+  "label": "Ocean Glass",
+  "family": "ocean-glass",
+  "variant": "light",
+  "colors": {
+    "background": "#f0f9ff",
+    "foreground": "#0c1929",
+    "primary": "#0891b2",
+    "border": "rgba(12, 25, 41, 0.09)",
+    "muted": "#5b7a8c"
+  },
+  "radius": {
+    "card": 16,
+    "control": 11
+  },
+  "spacing": {
+    "row": 15,
+    "section": 26
+  }
+}

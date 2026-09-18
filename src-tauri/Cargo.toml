@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.7.2"
+version = "1.0.3"
 description = "Lunote — local-first cross-platform Markdown notes and PKM desktop app (Tauri)"
 authors = ["you"]
 license = ""
@@ -37,6 +37,14 @@ sys-locale = "0.3.2"
 tauri-plugin-os = "2"
 uuid = { version = "1.20.0", features = ["v4"] }
 dirs = "6.0.0"
+keyring = "3.6.3"
+aes-gcm = "0.10"
+argon2 = "0.5"
+rand = "0.8"
+hmac = "0.12"
+sha2 = "0.10"
+reqwest = { version = "0.12", default-features = false, features = ["stream", "json", "rustls-tls"] }
+futures-util = "0.3"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-global-shortcut = "2"

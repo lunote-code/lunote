@@ -161,6 +161,11 @@ def validate_ui(
         t, f, m, total = stats["translated"], stats["fallback"], stats["missing"], stats["total"]
         pseudo_ratio = (f + m) / total if total else 0.0
 
+        if m > 0:
+            errors.append(
+                f"{lid}: {m} missing UI key(s) — ship translations for all en.json keys"
+            )
+
         status = "OK"
         if pseudo_ratio >= error_pseudo:
             status = "INVALID"

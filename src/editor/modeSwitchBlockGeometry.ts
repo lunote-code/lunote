@@ -20,9 +20,11 @@ export function getModeSwitchBlockGeometryKind(typeName: string): ModeSwitchBloc
       return 'atomic_fence'
     case 'rawBlock':
     case 'mermaidBlock':
+    case 'drawingBlock':
     case 'blockMath':
     case 'linkReferenceDef':
     case 'tocDirective':
+    case 'wikiEmbed':
       return 'collapsed_atom_carrier'
     case 'horizontalRule':
       return 'zero_payload_structural'

@@ -4,6 +4,12 @@ import { KnowledgeRailHeaderSearchBar } from './KnowledgeRailSearchChrome'
 import { SearchPanel } from './SearchPanel'
 import { Icon } from '../../../design-system/icons'
 import { useI18n } from '../../../i18n'
+import {
+  KNOWLEDGE_PANEL_SCROLL_SELECTORS,
+  observeOverlayScrollbarReveal,
+} from '../../../app/overlayScrollbarReveal'
+import { setNoteGraphFilterPreference } from '../graphFilterPreference'
+import { setNoteGraphTopologyModePreference } from '../graphTopologyModePreference'
 
 type Props = {
   activeDocKey: string | null
@@ -26,6 +32,7 @@ export function KnowledgeRightRail({
 }: Props) {
   const { t } = useI18n()
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const railBodyRef = useRef<HTMLDivElement | null>(null)
   const [focusedTag, setFocusedTag] = useState<string | null>(null)
   const [tab, setTab] = useState<KnowledgeRailTab>(() => {
     const saved = typeof window !== 'undefined' ? window.localStorage.getItem('knowledgeRailTab') : null
@@ -39,6 +46,11 @@ export function KnowledgeRightRail({
   useEffect(() => {
     if (searchQuery.trim()) onSearchOpenChange(true)
   }, [onSearchOpenChange, searchQuery])
+
+  useEffect(() => {
+    if (!visible || !railBodyRef.current) return
+    return observeOverlayScrollbarReveal(railBodyRef.current, KNOWLEDGE_PANEL_SCROLL_SELECTORS)
+  }, [visible, searchOpen, tab])
 
   const tabs: KnowledgeRailTab[] = ['backlinks', 'graph', 'tags', 'frontmatter', 'embeds']
   const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, current: KnowledgeRailTab) => {
@@ -92,6 +104,18 @@ export function KnowledgeRightRail({
     setTab('graph')
   }
 
+  const openTagInGraph = (tag: string) => {
+    setNoteGraphFilterPreference({
+      filterTag: tag.trim().toLowerCase(),
+      colorByTag: true,
+      colorByFolder: false,
+    })
+    setNoteGraphTopologyModePreference('global')
+    setFocusedTag(tag)
+    setTab('graph')
+    closeSearch()
+  }
+
   if (!visible) return null
 
   return (
@@ -114,6 +138,7 @@ export function KnowledgeRightRail({
                 className={tab === 'backlinks' ? 'kos-rail-tab active' : 'kos-rail-tab'}
                 aria-selected={tab === 'backlinks'}
                 aria-controls="kos-tab-backlinks"
+                aria-label={tabLabels.backlinks}
                 onClick={() => setTab('backlinks')}
                 onKeyDown={(event) => onTabKeyDown(event, 'backlinks')}
                 tabIndex={tab === 'backlinks' ? 0 : -1}
@@ -129,6 +154,7 @@ export function KnowledgeRightRail({
                 className={tab === 'graph' ? 'kos-rail-tab active' : 'kos-rail-tab'}
                 aria-selected={tab === 'graph'}
                 aria-controls="kos-tab-graph"
+                aria-label={tabLabels.graph}
                 onClick={() => setTab('graph')}
                 onKeyDown={(event) => onTabKeyDown(event, 'graph')}
                 tabIndex={tab === 'graph' ? 0 : -1}
@@ -144,6 +170,7 @@ export function KnowledgeRightRail({
                 className={tab === 'tags' ? 'kos-rail-tab active' : 'kos-rail-tab'}
                 aria-selected={tab === 'tags'}
                 aria-controls="kos-tab-tags"
+                aria-label={tabLabels.tags}
                 onClick={() => setTab('tags')}
                 onKeyDown={(event) => onTabKeyDown(event, 'tags')}
                 tabIndex={tab === 'tags' ? 0 : -1}
@@ -159,6 +186,7 @@ export function KnowledgeRightRail({
                 className={tab === 'frontmatter' ? 'kos-rail-tab active' : 'kos-rail-tab'}
                 aria-selected={tab === 'frontmatter'}
                 aria-controls="kos-tab-frontmatter"
+                aria-label={tabLabels.frontmatter}
                 onClick={() => setTab('frontmatter')}
                 onKeyDown={(event) => onTabKeyDown(event, 'frontmatter')}
                 tabIndex={tab === 'frontmatter' ? 0 : -1}
@@ -174,6 +202,7 @@ export function KnowledgeRightRail({
                 className={tab === 'embeds' ? 'kos-rail-tab active' : 'kos-rail-tab'}
                 aria-selected={tab === 'embeds'}
                 aria-controls="kos-tab-embeds"
+                aria-label={tabLabels.embeds}
                 onClick={() => setTab('embeds')}
                 onKeyDown={(event) => onTabKeyDown(event, 'embeds')}
                 tabIndex={tab === 'embeds' ? 0 : -1}
@@ -203,7 +232,7 @@ export function KnowledgeRightRail({
           </>
         )}
       </div>
-      <div className="kos-rail-body">
+      <div ref={railBodyRef} className="kos-rail-body">
         {searchOpen ? (
           <div className="kos-surface-split-host">
             <SearchPanel
@@ -222,6 +251,7 @@ export function KnowledgeRightRail({
             tab={tab}
             focusedTag={focusedTag}
             onTagNavigate={openTagWorkspace}
+            onViewTagInGraph={openTagInGraph}
           />
         )}
       </div>

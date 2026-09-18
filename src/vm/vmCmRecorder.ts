@@ -28,6 +28,8 @@ function mergeCmEntries(a: CMChangeEntry, b: CMChangeEntry): CMChangeEntry {
     forwardChanges: a.forwardChanges.compose(b.forwardChanges),
     selectionBefore: a.selectionBefore,
     selectionAfter: b.selectionAfter,
+    bodyBefore: a.bodyBefore,
+    bodyAfter: b.bodyAfter,
   }
 }
 
@@ -113,6 +115,8 @@ export function createVmCmRecorder(): Extension {
         from: update.state.selection.main.from,
         to: update.state.selection.main.to,
       },
+      bodyBefore: update.startState.doc.toString(),
+      bodyAfter: update.state.doc.toString(),
     }
 
     if (update.changes.length >= 800) {

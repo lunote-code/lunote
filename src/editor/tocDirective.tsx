@@ -7,10 +7,18 @@ import {
   useEditorState,
 } from '@tiptap/react'
 import { memo, useCallback, useMemo } from 'react'
-import { buildLiftStandaloneTocDirectiveTransform } from './markdownStructuralTransforms'
+import {
+  buildLiftStandaloneTocDirectiveTransform,
+} from './markdownStructuralTransforms'
+import {
+  insertTocAtAppropriatePositionInDoc,
+  resolveAppropriateTocInsertPos,
+  selectionForTocPos,
+} from './insertTocAtAppropriatePosition'
 import { buildHeadingOutlineTree } from './outlineHeadingTree'
 import { DocumentOutlineTree } from '../components/DocumentOutlineTree'
 import { activeHeadingSlugBeforePos, findHeadingPositionInDoc, parseHeadingsFromPmDoc } from './pmHeadingNav'
+import { useI18n } from '../i18n'
 
 const TOC_LIFT_PLUGIN_KEY = new PluginKey('lunaTocDirectiveTransactionLift')
 
@@ -23,11 +31,13 @@ declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     tocDirective: {
       insertTocDirective: () => ReturnType
+      insertTocAtAppropriatePosition: () => ReturnType
     }
   }
 }
 
 const TocDirectiveNodeView = memo(function TocDirectiveNodeView(props: ReactNodeViewProps) {
+  const { t } = useI18n()
   const { editor } = props
 
   const doc = useEditorState({
@@ -73,16 +83,14 @@ const TocDirectiveNodeView = memo(function TocDirectiveNodeView(props: ReactNode
       data-type="toc-directive"
       contentEditable={false}
       spellCheck={false}
-      aria-label="Documentation table of contents [toc]"
+      aria-label={t('editor.toc.aria')}
     >
       <div className="inline-doc-toc-inner">
-        <div className="inline-doc-toc-label">Contents</div>
+        <div className="inline-doc-toc-label">{t('editor.toc.label')}</div>
         {headings.length === 0 ? (
-          <p className="inline-doc-toc-empty">
-            Add <code># </code> headings and jump links will appear here.
-          </p>
+          <p className="inline-doc-toc-empty">{t('editor.toc.empty')}</p>
         ) : (
-          <nav className="inline-doc-toc-nav" aria-label="directory entry">
+          <nav className="inline-doc-toc-nav" aria-label={t('editor.toc.navAria')}>
             <DocumentOutlineTree nodes={tocTree} activeId={activeHeadingId} onJump={onNavigate} />
           </nav>
         )}
@@ -153,6 +161,23 @@ export const TocDirective = Node.create({
         () =>
         ({ commands }) =>
           commands.insertContent({ type: this.name }),
+      insertTocAtAppropriatePosition:
+        () =>
+        ({ state, dispatch }) => {
+          const placement = resolveAppropriateTocInsertPos(state.doc)
+          if (placement.kind === 'focus-existing') {
+            const selection = selectionForTocPos(state.doc, placement.pos)
+            if (!selection || !dispatch) return true
+            dispatch(state.tr.setSelection(selection).scrollIntoView())
+            return true
+          }
+
+          const inserted = insertTocAtAppropriatePositionInDoc(state.doc, state.schema)
+          if (!inserted || !dispatch) return false
+          const tr = state.tr.insert(inserted.pos, state.schema.nodes.tocDirective!.create()).scrollIntoView()
+          dispatch(tr)
+          return true
+        },
     }
   },
 })

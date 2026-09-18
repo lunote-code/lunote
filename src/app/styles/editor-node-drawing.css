@@ -1,0 +1,389 @@
+@import './drawing-cursors.css';
+
+/* Shared drawing chrome: inline editor block + portal lightbox (lightbox is outside ProseMirror). */
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-toolbar,
+.pm-drawing-lightbox-panel .pm-drawing-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+  padding: 0.55rem 0.75rem;
+  border-bottom: var(--hairline, 1px solid) solid color-mix(in srgb, var(--border-subtle, #cbd5e1) 82%, transparent);
+  background: color-mix(in srgb, var(--surface-panel, #f8fafc) 72%, var(--surface-app, #fff));
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-toolbar--compact,
+.pm-drawing-lightbox-panel .pm-drawing-toolbar--compact {
+  padding: 0.45rem 0.65rem;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-toolbar__group,
+.pm-drawing-lightbox-panel .pm-drawing-toolbar__group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.12rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-app, #fff) 84%, transparent);
+  border: var(--hairline, 1px solid) solid color-mix(in srgb, var(--border-subtle, #cbd5e1) 70%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-toolbar-sep,
+.pm-drawing-lightbox-panel .pm-drawing-toolbar-sep {
+  width: 1px;
+  align-self: stretch;
+  min-height: 1.35rem;
+  background: color-mix(in srgb, var(--border-subtle, #cbd5e1) 82%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-toolbar-spacer,
+.pm-drawing-lightbox-panel .pm-drawing-toolbar-spacer {
+  flex: 1 1 auto;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-tool,
+.pm-drawing-lightbox-panel .pm-drawing-tool {
+  appearance: none;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary, #64748b);
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.2;
+  padding: 0.28rem 0.62rem;
+  cursor: pointer;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-tool:hover,
+.pm-drawing-lightbox-panel .pm-drawing-tool:hover {
+  background: color-mix(in srgb, var(--accent, #2563eb) 10%, transparent);
+  color: var(--text-primary, #0f172a);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-tool--active,
+.pm-drawing-lightbox-panel .pm-drawing-tool--active {
+  background: color-mix(in srgb, var(--accent, #2563eb) 14%, transparent);
+  color: var(--text-primary, #0f172a);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent, #2563eb) 28%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-tool--danger,
+.pm-drawing-lightbox-panel .pm-drawing-tool--danger {
+  color: var(--luna-color-danger, #b91c1c);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-tool--expand,
+.pm-drawing-lightbox-panel .pm-drawing-tool--expand {
+  min-width: 1.65rem;
+  padding-inline: 0.35rem;
+  font-size: 0.92rem;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-field,
+.pm-drawing-lightbox-panel .pm-drawing-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-field-label,
+.pm-drawing-lightbox-panel .pm-drawing-field-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #64748b);
+  white-space: nowrap;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-select,
+.pm-drawing-lightbox-panel .pm-drawing-select {
+  font: inherit;
+  font-size: 0.8125rem;
+  border: var(--hairline, 1px solid) solid color-mix(in srgb, var(--border-subtle, #cbd5e1) 82%, transparent);
+  border-radius: 7px;
+  padding: 0.22rem 0.4rem;
+  background: var(--color-bg-surface, var(--surface-app, #fff));
+  color: var(--text-primary, #0f172a);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-colors,
+.pm-drawing-lightbox-panel .pm-drawing-colors {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  flex-wrap: nowrap;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-color,
+.pm-drawing-lightbox-panel .pm-drawing-color {
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--border-subtle, #cbd5e1) 70%, transparent);
+  cursor: pointer;
+  padding: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-color--active,
+.pm-drawing-lightbox-panel .pm-drawing-color--active {
+  border-color: var(--accent, #2563eb);
+  box-shadow: 0 0 0 1px var(--color-bg-surface, var(--surface-app, #fff));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-canvas-wrap,
+.pm-drawing-lightbox-panel .pm-drawing-canvas-wrap {
+  --drawing-canvas-surface: #ffffff;
+  position: relative;
+  overflow: hidden;
+  max-width: 100%;
+  background: var(--surface-app, var(--color-bg-surface, #fff));
+  box-sizing: border-box;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-canvas-wrap:not(.pm-drawing-canvas-wrap--fullscreen) {
+  max-height: min(70vh, 540px);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-canvas-stage,
+.pm-drawing-lightbox-panel .pm-drawing-canvas-stage {
+  position: relative;
+  width: fit-content;
+  height: fit-content;
+  transform-origin: 0 0;
+  will-change: transform;
+  background: var(--surface-app, var(--color-bg-surface, #fff));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-canvas-wrap--panning,
+.pm-drawing-lightbox-panel .pm-drawing-canvas-wrap--panning {
+  cursor: grabbing;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-canvas-wrap--panning .pm-drawing-canvas,
+.pm-drawing-lightbox-panel .pm-drawing-canvas-wrap--panning .pm-drawing-canvas {
+  cursor: grabbing;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-canvas,
+.pm-drawing-lightbox-panel .pm-drawing-canvas {
+  display: block;
+  touch-action: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-tool--icon,
+.pm-drawing-lightbox-panel .pm-drawing-tool--icon {
+  width: 2rem;
+  height: 2rem;
+  min-width: 2rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-tool--icon svg,
+.pm-drawing-lightbox-panel .pm-drawing-tool--icon svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-tool--pen.pm-drawing-tool--active,
+.pm-drawing-lightbox-panel .pm-drawing-tool--pen.pm-drawing-tool--active {
+  color: var(--accent, #2563eb);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-tool--hand.pm-drawing-tool--active,
+.pm-drawing-lightbox-panel .pm-drawing-tool--hand.pm-drawing-tool--active {
+  color: var(--accent, #2563eb);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-tool--eraser.pm-drawing-tool--active,
+.pm-drawing-lightbox-panel .pm-drawing-tool--eraser.pm-drawing-tool--active {
+  background: color-mix(in srgb, var(--luna-color-danger, #dc2626) 20%, transparent);
+  color: var(--luna-color-danger-muted, #b91c1c);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--luna-color-danger, #dc2626) 35%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-tool--eraser:hover,
+.pm-drawing-lightbox-panel .pm-drawing-tool--eraser:hover {
+  background: color-mix(in srgb, var(--luna-color-danger, #dc2626) 12%, transparent);
+  color: var(--luna-color-danger-muted, #b91c1c);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-field--disabled,
+.pm-drawing-lightbox-panel .pm-drawing-field--disabled,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-colors--disabled,
+.pm-drawing-lightbox-panel .pm-drawing-colors--disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* Inline editor block */
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-wrap {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: min(var(--editor-column-width), 100%);
+  margin: 0.85rem auto;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror-selectednode:has(.pm-drawing-wrap),
+.preview-pane.markdown-visual-editor .ProseMirror > .react-renderer.ProseMirror-selectednode:has(.pm-drawing-wrap),
+.preview-pane.markdown-visual-editor .ProseMirror .react-renderer.ProseMirror-selectednode:has(.pm-drawing-wrap) {
+  outline: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-shell {
+  border: var(--hairline, 1px solid) solid color-mix(in srgb, var(--border-subtle, #cbd5e1) 88%, transparent);
+  border-radius: 12px;
+  background: var(--color-bg-surface, var(--surface-app, #fff));
+  color: var(--color-text-primary, var(--text-primary, #0f172a));
+  overflow: hidden;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--text-primary, #0f172a) 4%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-wrap--selected .pm-drawing-shell {
+  border-color: color-mix(in srgb, var(--accent, #2563eb) 55%, var(--border-subtle, #cbd5e1));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent, #2563eb) 18%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-body {
+  position: relative;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-canvas-wrap--resizing,
+.pm-drawing-lightbox-panel .pm-drawing-canvas-wrap--resizing {
+  user-select: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-resize-handle,
+.pm-drawing-lightbox-panel .pm-drawing-resize-handle {
+  position: absolute;
+  right: 0.2rem;
+  bottom: 0.2rem;
+  z-index: 3;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 3px;
+  border: var(--hairline, 1px solid) solid color-mix(in srgb, var(--border-subtle, #cbd5e1) 82%, transparent);
+  background:
+    linear-gradient(135deg, transparent 0 44%, color-mix(in srgb, var(--text-secondary, #64748b) 70%, transparent) 44% 52%, transparent 52% 68%, color-mix(in srgb, var(--text-secondary, #64748b) 70%, transparent) 68% 76%, transparent 76%),
+    color-mix(in srgb, var(--surface-panel, #f8fafc) 90%, var(--surface-app, #fff));
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--text-primary, #0f172a) 8%, transparent);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-resize-handle:hover,
+.pm-drawing-lightbox-panel .pm-drawing-resize-handle:hover {
+  border-color: color-mix(in srgb, var(--accent, #2563eb) 45%, var(--border-subtle, #cbd5e1));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-drawing-canvas-wrap:not(.pm-drawing-canvas-wrap--fullscreen) .pm-drawing-canvas {
+  display: block;
+  width: auto;
+  max-width: none;
+  height: auto;
+}
+
+/* Portal lightbox */
+.pm-drawing-lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay-modal, 1200);
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
+  background: color-mix(in srgb, var(--text-primary, #0f172a) 42%, transparent);
+  backdrop-filter: blur(4px);
+  font-family: inherit;
+}
+
+.pm-drawing-lightbox-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  background: var(--color-bg-surface, var(--surface-app, #fff));
+  color: var(--color-text-primary, var(--text-primary, #0f172a));
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.pm-drawing-lightbox-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid var(--color-border-subtle, var(--border-subtle, #cbd5e1));
+  background: var(--color-bg-surface, var(--surface-app, #fff));
+  flex-shrink: 0;
+}
+
+.pm-drawing-lightbox-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.pm-drawing-lightbox-close {
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary, #64748b);
+  font: inherit;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pm-drawing-lightbox-close:hover {
+  background: color-mix(in srgb, var(--accent, #2563eb) 10%, transparent);
+  color: var(--text-primary, #0f172a);
+}
+
+.pm-drawing-lightbox-panel .pm-drawing-canvas-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.pm-drawing-lightbox-panel .pm-drawing-canvas-wrap--fullscreen {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  background: var(--surface-app, var(--color-bg-surface, #fff));
+}
+
+.pm-drawing-lightbox-panel .pm-drawing-canvas-wrap--fullscreen .pm-drawing-canvas {
+  position: static;
+  width: auto;
+  height: auto;
+  max-width: none;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.pm-drawing-lightbox-panel .pm-drawing-canvas-wrap--fullscreen .pm-drawing-canvas-stage {
+  position: relative;
+  width: fit-content;
+  height: fit-content;
+}
+
+.pm-drawing-lightbox-panel .pm-drawing-canvas-wrap--fullscreen .pm-drawing-resize-handle {
+  right: 0.65rem;
+  bottom: 0.65rem;
+}

@@ -80,10 +80,13 @@ export const SearchPanel = forwardRef<HTMLInputElement, Props>(function SearchPa
 
   const queryPending = query.trim() !== debounced.trim()
   const searchPendingForDebounced = Boolean(debounced.trim()) && snap.query !== debounced.trim()
-  const hits =
-    !queryPending && debounced.trim() && query.trim() && snap.query === debounced.trim()
-      ? snap.hits
-      : []
+  const hits = useMemo(
+    () =>
+      !queryPending && debounced.trim() && query.trim() && snap.query === debounced.trim()
+        ? snap.hits
+        : [],
+    [debounced, query, queryPending, snap.hits, snap.query],
+  )
   const groupedHits = useMemo(() => groupHits(hits), [hits])
   const canInsertWikiLink = Boolean(getKnowledgeInteractionHost()?.insertWikiLinkAtCursor)
   const highlightedIndex = hoverIndex >= 0 ? hoverIndex : activeIndex

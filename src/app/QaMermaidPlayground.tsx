@@ -129,7 +129,7 @@ function QaMermaidInner() {
   }, [loadMarkdown, markdown])
 
   return (
-    <div style={{ padding: 24, background: '#0f1115', minHeight: '100vh' }}>
+    <div style={{ padding: 24, background: 'var(--surface-app)', minHeight: '100vh' }}>
       <h1 data-testid="qa-ready">Mermaid QA</h1>
       <p data-testid="qa-status">{status}</p>
       <div

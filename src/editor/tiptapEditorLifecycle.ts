@@ -11,6 +11,7 @@ import { runAfterReactCommit } from './reactCommitScheduler'
 import { debugPasteScroll } from './pasteScrollDebug'
 import type { AtomicVisualDocumentEnter } from './tiptapEditorTypes'
 import type { PmTocHeading } from './pmHeadingNav'
+import type { SidebarListMode } from '../app/workspace/sidebarPanelView'
 
 type TiptapEditorLifecycleArgs = {
   documentKeyRef: MutableRefObject<string>
@@ -42,7 +43,7 @@ type TiptapEditorLifecycleArgs = {
   bridgeRememberCurrentSelection: () => void
   shouldShowCodeChromeForBlockType: (blockType: string) => boolean
   emitLunaSurface: (payload: { type: 'SET_CODE_CHROME'; active: boolean } | { type: 'SET_ACTIVE_BLOCK'; nodeName: string }) => void
-  sidebarListModeRef: MutableRefObject<'files' | 'outline'>
+  sidebarListModeRef: MutableRefObject<SidebarListMode>
   onActiveHeadingChangeRef: MutableRefObject<(id: string) => void>
   onSelectionActivityRef: MutableRefObject<(() => void) | undefined>
   headingIdBeforeSelection: (editor: Editor) => string
@@ -63,6 +64,7 @@ function isUserInitiatedDocTransaction(
     uiEvent === 'paste' ||
     uiEvent === 'drop' ||
     inputLayerSource === 'typing' ||
+    inputLayerSource === 'command' ||
     isPasteLayerSource(inputLayerSource)
   )
 }

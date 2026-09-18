@@ -17,11 +17,24 @@ function isVisuallyEmptyParagraph(node: PMNode): boolean {
   return false
 }
 
+/** True when the selection genuinely covers the empty paragraph, not just grazes its start. */
+function selectionCoversEmptyParagraphInterior(
+  emptyParaPos: number,
+  nodeSize: number,
+  from: number,
+  to: number,
+): boolean {
+  const innerFrom = emptyParaPos + 1
+  const innerTo = emptyParaPos + nodeSize - 1
+  return from < innerTo && to > innerFrom
+}
+
 function buildEmptyParagraphSelectionDecorations(doc: PMNode, from: number, to: number): DecorationSet {
   if (from === to) return DecorationSet.empty
   const decorations: Decoration[] = []
   doc.nodesBetween(from, to, (node, pos) => {
     if (!isVisuallyEmptyParagraph(node)) return
+    if (!selectionCoversEmptyParagraphInterior(pos, node.nodeSize, from, to)) return
     decorations.push(
       Decoration.node(pos, pos + node.nodeSize, { class: EMPTY_PARA_IN_SELECTION_CLASS }),
     )

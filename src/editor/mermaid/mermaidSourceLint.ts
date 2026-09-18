@@ -1,5 +1,6 @@
 /** Returned as BlockRenderOutput.message; mapped to i18n in MermaidView. */
 export const MERMAID_ERROR_NOT_DIAGRAM = 'MERMAID_ERROR_NOT_DIAGRAM'
+export const MERMAID_ERROR_RENDER_FAILED = 'MERMAID_ERROR_RENDER_FAILED'
 
 const MERMAID_DIAGRAM_PREFIXES = [
   'flowchart',
@@ -66,5 +67,5 @@ export function looksLikeMermaidDiagramSource(source: string): boolean {
 export function mermaidRenderErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim()) return error.message.trim()
   if (typeof error === 'string' && error.trim()) return error.trim()
-  return 'Mermaid render failed'
+  return MERMAID_ERROR_RENDER_FAILED
 }

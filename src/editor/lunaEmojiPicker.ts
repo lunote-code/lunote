@@ -5,7 +5,7 @@ import { gemoji } from 'gemoji'
 
 import { isCodeEditGuardActive } from './lunaCodeContext'
 import { readEmojiPanelHint } from '../platform/emojiPanelHint'
-import { readEmojiPickerCopy } from '../platform/emojiPickerI18n'
+import { readEmojiCategoryLabel, readEmojiPickerCopy } from '../platform/emojiPickerI18n'
 
 const PICKER_CLASS = 'luna-emoji-picker'
 
@@ -92,8 +92,9 @@ function mountEmojiPicker(opts: {
       const b = document.createElement('button')
       b.type = 'button'
       b.className = `${PICKER_CLASS}__tab`
-      b.textContent = cat.split(' ')[0] ?? cat
-      b.title = cat
+      const tabLabel = readEmojiCategoryLabel(cat)
+      b.textContent = tabLabel
+      b.title = tabLabel
       b.setAttribute('aria-pressed', cat === activeCategory ? 'true' : 'false')
       if (cat === activeCategory) b.classList.add(`${PICKER_CLASS}__tab--active`)
       b.addEventListener('mousedown', (e) => e.preventDefault())

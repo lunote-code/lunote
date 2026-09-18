@@ -59,6 +59,10 @@ export function isPluginCatalogConfigured(): boolean {
   return PLUGIN_CATALOG_SOURCE_URL.length > 0
 }
 
+/** Documentation for configuring the plugin catalog source in production builds. */
+export const PLUGIN_CATALOG_SETUP_DOC_URL =
+  'https://github.com/lunote-code/lunote/blob/main/docs/theme-plugin-example/README.md#catalog-address-configuration'
+
 /** User-visible catalog source (absolute URL when base is a same-origin path). */
 export function formatPluginCatalogSourceLabel(origin = ''): string {
   if (!PLUGIN_CATALOG_SOURCE_URL) return ''

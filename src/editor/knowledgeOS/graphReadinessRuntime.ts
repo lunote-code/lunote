@@ -46,11 +46,10 @@ export function isGraphReady(): boolean {
   return graphReadinessState === 'READY' && topologyReady && layoutReady
 }
 
-/** When backlink/navigation carries pending center, it enters NAVIGATING and waits for double signals.*/
+/** When backlink/navigation carries pending center, it enters NAVIGATING and waits for topology refresh.*/
 export function beginGraphNavigationReadiness(): void {
   graphReadinessState = 'NAVIGATING'
   topologyReady = false
-  layoutReady = false
 }
 
 export function notifyGraphTopologyReady(): void {

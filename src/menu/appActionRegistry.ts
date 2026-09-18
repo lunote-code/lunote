@@ -1,8 +1,11 @@
 import { open } from '@tauri-apps/plugin-dialog'
 
 import { APP_DISPLAY_NAME } from '../app/workspace/constants'
+import { WebviewWindow } from '../platform/tauri/webviewWindow'
+import { resetSidebarWorkspaceOnboarding } from '../app/sidebarOnboardingStorage'
 import type { AppMenuContext, AppMenuUiDeps } from './menu.types'
 import { isPathUnderWorkspace } from '../lib/workspacePathUtils'
+import { fileDialogFilter } from '../lib/fileDialogFilters'
 import {
   openWorkspaceTemplateDocument,
   revealWorkspaceTemplatesFolder,
@@ -36,7 +39,6 @@ function applyDailyNoteOpenStatus(
 
 async function openNewWindow(m: AppMenuContext): Promise<void> {
   try {
-    const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
     const label = `w${Date.now()}`
     const url = import.meta.env.DEV ? `${window.location.origin}/` : '/'
     const w = new WebviewWindow(label, {
@@ -146,6 +148,21 @@ const CORE_APP_ACTIONS: Record<string, AppActionHandler> = {
     }
     return true
   },
+  'daily-note-calendar-open': async (m, ui) => {
+    if (!m.rootDir?.trim()) {
+      m.setStatus(m.t('app.menu.openWorkspaceFirst'))
+      return true
+    }
+    const current = ui.getSidebarState()
+    if (current.visible && current.mode === 'calendar') {
+      ui.setSidebarVisible(false)
+      return true
+    }
+    ui.setSidebarPanelView('calendar')
+    ui.setSidebarVisible(true)
+    m.setStatus(m.t('app.noteCalendar.panelOpened'))
+    return true
+  },
   'template-edit-default': async (m) => {
     if (!m.rootDir?.trim()) {
       m.setStatus(m.t('app.menu.openWorkspaceFirst'))
@@ -193,7 +210,16 @@ const CORE_APP_ACTIONS: Record<string, AppActionHandler> = {
     return true
   },
   'help-shortcuts': async (_m, ui) => {
-    ui.openPreferencesDialog('shortcuts')
+    if (ui.openShortcutsCheatsheet) {
+      ui.openShortcutsCheatsheet()
+    } else {
+      ui.openPreferencesDialog('shortcuts')
+    }
+    return true
+  },
+  'help-reset-onboarding': async (m) => {
+    resetSidebarWorkspaceOnboarding()
+    m.setStatus(m.t('app.sidebar.onboarding.resetDone'))
     return true
   },
   'file-open-file': async (m) => {
@@ -204,7 +230,7 @@ const CORE_APP_ACTIONS: Record<string, AppActionHandler> = {
     const sel = await open({
       title: m.t('app.dialog.openMd'),
       defaultPath: m.rootDir,
-      filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
+      filters: [fileDialogFilter(m.t, 'markdown', ['md', 'markdown'])],
       multiple: false,
       directory: false,
     })

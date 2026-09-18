@@ -1,6 +1,7 @@
 import { Extension } from '@tiptap/core'
 import { TextSelection } from '@tiptap/pm/state'
 
+import { shouldJoinEmptyListItemBackward } from './listTyporaBackspacePolicy'
 import { selectionInTaskLikeList } from './markdownStructuralTransforms'
 
 /**
@@ -30,9 +31,9 @@ export const LunaListTypora = Extension.create({
             return false
           }
           if (n.type.name === 'listItem') {
-            // Keep caret inside the list: merge into the previous item when possible.
-            // Lifting only when this is the first item (Typora-style exit).
-            if (editor.commands.joinItemBackward()) {
+            // Match ListKeymap semantics: only merge with a same-level previous item when it has no nested list.
+            // Unconditional joinItemBackward can cross list levels and corrupt nested lists.
+            if (shouldJoinEmptyListItemBackward(state) && editor.commands.joinItemBackward()) {
               return true
             }
             return editor.commands.liftListItem('listItem')

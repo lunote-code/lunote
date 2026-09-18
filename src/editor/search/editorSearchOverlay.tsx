@@ -17,9 +17,9 @@ type EditorSearchOverlayProps = {
   replaceText: string
   activeIndex: number
   matchCount: number
-  findPlaceholder?: string
-  replacePlaceholder?: string
-  labels?: EditorSearchOverlayLabels
+  findPlaceholder: string
+  replacePlaceholder: string
+  labels: EditorSearchOverlayLabels
   onQueryChange: (query: string) => void
   onReplaceTextChange: (text: string) => void
   onNext: () => void
@@ -35,15 +35,9 @@ export function EditorSearchOverlay({
   replaceText,
   activeIndex,
   matchCount,
-  findPlaceholder = 'Find in document',
-  replacePlaceholder = 'Replace with',
-  labels = {
-    previous: 'Previous match',
-    next: 'Next match',
-    replace: 'Replace',
-    replaceAll: 'Replace all',
-    close: 'Close search',
-  },
+  findPlaceholder,
+  replacePlaceholder,
+  labels,
   onQueryChange,
   onReplaceTextChange,
   onNext,

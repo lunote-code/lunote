@@ -17,6 +17,7 @@ import {
 import type { AbsoluteDocPath, DocKey } from '../knowledgeRuntime/types'
 import { dispatchDocumentCommand } from '../../documentRuntime/documentKernel'
 import { getDocumentAuthorityProjection } from '../../documentRuntime/documentAuthority'
+import { diskMarkdownForDocumentSave } from '../../lib/editorContentSync'
 import { pathsEqual } from '../../lib/workspacePathUtils'
 import { buildDefaultNoteContent } from '../../templates/defaultNoteContent'
 import { resolveTemplateLocale } from '../../templates/templateLocale'
@@ -72,11 +73,22 @@ function scheduleRenameDrain(): void {
   if (renameDraining) return
   renameDraining = true
   const run = async () => {
-    renameDraining = false
-    const batch = [...renameQueue]
-    renameQueue.length = 0
-    for (const job of batch) {
-      await propagateWikiLinksInVault(job.fromKey, job.toKey)
+    try {
+      while (renameQueue.length > 0) {
+        const batch = [...renameQueue]
+        renameQueue.length = 0
+        for (const job of batch) {
+          await propagateWikiLinksInVault(job.fromKey, job.toKey)
+        }
+      }
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn('[knowledge-rename-propagation] batch failed', error)
+      }
+    } finally {
+      renameDraining = false
+      // Items enqueued while the lock was held after the while-check — reschedule.
+      if (renameQueue.length > 0) scheduleRenameDrain()
     }
   }
   if (typeof requestIdleCallback === 'function') {
@@ -143,7 +155,11 @@ export async function propagateWikiLinksInVault(fromKey: DocKey, toKey: DocKey):
       if (shouldKeepRenameRewriteInMemory(meta.absolutePath, authority)) {
         memoryOnlyUpdates.push({ path: meta.absolutePath, content: next })
       } else {
-        diskUpdates.push({ path: meta.absolutePath, content: next })
+        // Authority-backed open docs are body-only — reattach YAML before disk write.
+        diskUpdates.push({
+          path: meta.absolutePath,
+          content: diskMarkdownForDocumentSave(meta.absolutePath, next),
+        })
       }
     }
   }

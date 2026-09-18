@@ -23,6 +23,11 @@ import {
 import type { FsTreeNode } from '../workspace/types'
 import type { RenameDialogState } from '../workspace/types'
 import { renameTabBodyPath } from '../document/tabBodiesStore'
+import {
+  pickTabFallbackAfterDelete,
+  readFallbackTabBody,
+  remainingTabsAfterDelete,
+} from '../document/deleteActiveDocumentNavigation'
 import { syncKnowledgeVaultFilePathChange } from '../../editor/knowledgeOS/ui/knowledgeAppIntegration'
 import type {
   EditorDocMenuState,
@@ -75,6 +80,7 @@ export type RenameAndFileOpsDeps = {
   resetModeSwitchEditorBootstrap: () => void
   setStatus: (msg: string) => void
   clearWorkspaceFileSelectionRef: MutableRefObject<(() => void) | null>
+  onNoteCalendarPathRenamed?: (oldAbsolutePath: string, newAbsolutePath: string) => void
 }
 
 export function useRenameAndFileOps(deps: RenameAndFileOpsDeps) {
@@ -102,6 +108,7 @@ export function useRenameAndFileOps(deps: RenameAndFileOpsDeps) {
     resetModeSwitchEditorBootstrap,
     setStatus,
     clearWorkspaceFileSelectionRef,
+    onNoteCalendarPathRenamed,
   } = deps
 
   const openRenameDialog = useCallback(
@@ -140,7 +147,7 @@ export function useRenameAndFileOps(deps: RenameAndFileOpsDeps) {
   ])
 
   const openNewNoteDialog = useCallback(
-(root: string, parentPath: string, openInTab = false, templatePath?: string) => {
+    (root: string, parentPath: string, openInTab = true, templatePath?: string) => {
         setFileContextMenu(null)
         setEditorDocMenu(null)
         setRenameError('')
@@ -165,7 +172,7 @@ export function useRenameAndFileOps(deps: RenameAndFileOpsDeps) {
   ])
 
   const openNewNoteFromTemplateDialog = useCallback(
-    async (root: string, parentPath: string, openInTab = false) => {
+    async (root: string, parentPath: string, openInTab = true) => {
       let templatePath = 'Templates/Default.md'
       try {
         const config = await readWorkspaceConfig(root)
@@ -372,6 +379,8 @@ export function useRenameAndFileOps(deps: RenameAndFileOpsDeps) {
           await refreshFileTree()
           await refreshWorkspaceIndex(root)
 
+          onNoteCalendarPathRenamed?.(appliedOldPath, newPath)
+
           if (!isDirectory) {
             if (pathsEqual(activePath, oldPath) || pathsEqual(activePath, appliedOldPath)) {
               await dispatchOpenDocument(root, newPath)
@@ -402,6 +411,7 @@ export function useRenameAndFileOps(deps: RenameAndFileOpsDeps) {
     setRenameError,
     setRenameSubmitting,
     setStatus,
+    onNoteCalendarPathRenamed,
     t,
   ])
 
@@ -481,14 +491,31 @@ export function useRenameAndFileOps(deps: RenameAndFileOpsDeps) {
                     setFileTree(tree)
                     const activeWasDeleted = bulkPaths.some((p) => pathsEqual(activePath, p))
                     if (activeWasDeleted) {
+                      const remaining = bulkPaths.reduce(
+                        (tabs, deleted) => remainingTabsAfterDelete(tabs, deleted),
+                        openedTabs,
+                      )
+                      const fallback = remaining.length > 0 ? remaining[remaining.length - 1]! : ''
                       const next = firstMarkdownInTree(tree)
-                      if (next) {
+                      if (fallback) {
+                        setExpandedDirs((prev) => {
+                          const expanded = new Set(prev)
+                          for (const dir of ancestorDirPathsForFile(rootDir, fallback)) expanded.add(dir)
+                          return expanded
+                        })
+                        await dispatchOpenDocument(rootDir, fallback)
+                      } else if (next) {
                         setExpandedDirs((prev) => {
                           const expanded = new Set(prev)
                           for (const dir of ancestorDirPathsForFile(rootDir, next)) expanded.add(dir)
                           return expanded
                         })
-                        await dispatchOpenDocument(rootDir, next)
+                        await dispatchDocumentCommand({
+                          type: 'OPEN_DOCUMENT_IN_TAB',
+                          root: rootDir,
+                          path: next,
+                          source: 'file-context-delete-bulk',
+                        })
                       } else {
                         resetModeSwitchEditorBootstrap()
                         await dispatchDocumentCommand({
@@ -560,10 +587,14 @@ export function useRenameAndFileOps(deps: RenameAndFileOpsDeps) {
                   }
 
                   removeDocumentReferences(path)
+                  const fallback = pickTabFallbackAfterDelete(openedTabs, path)
                   await deleteNote(rootDir, path)
                   await dispatchDocumentCommand({
                     type: 'CLOSE_TAB',
                     path,
+                    fallbackPath: pathsEqual(activePath, path) ? fallback : undefined,
+                    fallbackContent:
+                      pathsEqual(activePath, path) && fallback ? readFallbackTabBody(fallback) : undefined,
                     source: 'file-context-delete',
                   })
                   setRecentFiles((prev) => {
@@ -574,23 +605,36 @@ export function useRenameAndFileOps(deps: RenameAndFileOpsDeps) {
                   const tree = await listWorkspaceTree(rootDir)
                   setFileTree(tree)
                   if (pathsEqual(activePath, path)) {
-                    const next = firstMarkdownInTree(tree)
-                    if (next) {
+                    if (fallback) {
                       setExpandedDirs((prev) => {
                         const expanded = new Set(prev)
-                        for (const dir of ancestorDirPathsForFile(rootDir, next)) expanded.add(dir)
+                        for (const dir of ancestorDirPathsForFile(rootDir, fallback)) expanded.add(dir)
                         return expanded
                       })
-                      await dispatchOpenDocument(rootDir, next)
-                    }
-                    else {
-                      resetModeSwitchEditorBootstrap()
-                      await dispatchDocumentCommand({
-                        type: 'REPLACE_ACTIVE_DOCUMENT',
-                        path: '',
-                        content: INITIAL_NOTE_MD,
-                        source: 'file-context-delete',
-                      })
+                      await dispatchOpenDocument(rootDir, fallback)
+                    } else {
+                      const next = firstMarkdownInTree(tree)
+                      if (next) {
+                        setExpandedDirs((prev) => {
+                          const expanded = new Set(prev)
+                          for (const dir of ancestorDirPathsForFile(rootDir, next)) expanded.add(dir)
+                          return expanded
+                        })
+                        await dispatchDocumentCommand({
+                          type: 'OPEN_DOCUMENT_IN_TAB',
+                          root: rootDir,
+                          path: next,
+                          source: 'file-context-delete',
+                        })
+                      } else {
+                        resetModeSwitchEditorBootstrap()
+                        await dispatchDocumentCommand({
+                          type: 'REPLACE_ACTIVE_DOCUMENT',
+                          path: '',
+                          content: INITIAL_NOTE_MD,
+                          source: 'file-context-delete',
+                        })
+                      }
                     }
                   }
                   await refreshWorkspaceIndex(rootDir)
@@ -635,6 +679,7 @@ export function useRenameAndFileOps(deps: RenameAndFileOpsDeps) {
       openNewFolderDialog,
       openNewNoteDialog,
       openNewNoteFromTemplateDialog,
+      clearWorkspaceFileSelectionRef,
       confirmDeleteFile,
       resetModeSwitchEditorBootstrap,
       setFileContextMenu,
@@ -673,6 +718,7 @@ export function useRenameAndFileOps(deps: RenameAndFileOpsDeps) {
                 nextTabs = replacePathInList(nextTabs, oldPath, newPath)
                 renameTabBodyPath(oldPath, newPath)
                 syncKnowledgeVaultFilePathChange(rootDir, oldPath, newPath)
+                onNoteCalendarPathRenamed?.(oldPath, newPath)
                 if (pathsEqual(nextActive, oldPath)) nextActive = newPath
               }
               setRecentFiles((prev) => {
@@ -750,6 +796,7 @@ export function useRenameAndFileOps(deps: RenameAndFileOpsDeps) {
               })
               renameTabBodyPath(resolvedSource, newPath)
               syncKnowledgeVaultFilePathChange(rootDir, resolvedSource, newPath)
+              onNoteCalendarPathRenamed?.(resolvedSource, newPath)
               await refreshFileTree()
               await refreshWorkspaceIndex(rootDir)
               setExpandedDirs((prev) => {
@@ -800,6 +847,7 @@ export function useRenameAndFileOps(deps: RenameAndFileOpsDeps) {
             })
             await refreshFileTree()
             await refreshWorkspaceIndex(rootDir)
+            onNoteCalendarPathRenamed?.(resolvedSource, newPath)
             if (nextActive && activePath && !pathsEqual(activePath, nextActive)) {
               await dispatchOpenDocument(rootDir, nextActive)
             }
@@ -820,10 +868,12 @@ export function useRenameAndFileOps(deps: RenameAndFileOpsDeps) {
       refreshFileTree,
       dispatchOpenDocument,
       setRecentFiles,
+      clearWorkspaceFileSelectionRef,
       setStatus,
       setExpandedDirs,
       setDraggingWorkspaceFile,
       setDragOverTarget,
+      onNoteCalendarPathRenamed,
       t,
     ],
   )

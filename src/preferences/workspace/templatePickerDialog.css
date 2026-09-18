@@ -60,10 +60,14 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: min(28vh, 260px);
+  max-height: min(42vh, 360px);
   margin: 0;
   padding: 2px;
   overflow: auto;
+}
+
+.template-picker-list > .template-picker-section-title-row:not(:first-child) {
+  margin-top: 8px;
 }
 
 .template-picker-item {

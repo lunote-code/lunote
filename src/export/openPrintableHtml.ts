@@ -1,5 +1,8 @@
 import { isTauri } from '@tauri-apps/api/core'
 
+import { WebviewWindow } from '../platform/tauri/webviewWindow'
+import { resolveEditorUiMessage } from '../editor/resolveEditorUiMessage'
+
 const PRINT_STORAGE_PREFIX = 'lunote-print:'
 
 export class PrintPermissionRequiredError extends Error {
@@ -16,13 +19,26 @@ export class PrintContentTooLargeError extends Error {
   }
 }
 
+export class PrintWindowTimedOutError extends Error {
+  constructor() {
+    super('print-window-timed-out')
+    this.name = 'PrintWindowTimedOutError'
+  }
+}
+
+export class PrintPopupBlockedError extends Error {
+  constructor() {
+    super('print-popup-blocked')
+    this.name = 'PrintPopupBlockedError'
+  }
+}
+
 function isPermissionDeniedMessage(message: string): boolean {
   return /not allowed|denied|permission|forbidden|allow-print/i.test(message)
 }
 
 async function openPrintableHtmlTauri(printUrl: string, title: string, storageKey: string): Promise<void> {
   const label = `secondary-print-${Date.now()}`
-  const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
   const w = new WebviewWindow(label, {
     url: printUrl,
     title,
@@ -35,7 +51,7 @@ async function openPrintableHtmlTauri(printUrl: string, title: string, storageKe
 
   try {
     await new Promise<void>((resolve, reject) => {
-      const timer = window.setTimeout(() => reject(new Error('Print window timed out')), 15000)
+      const timer = window.setTimeout(() => reject(new PrintWindowTimedOutError()), 15000)
       w.once('tauri://created', () => {
         window.clearTimeout(timer)
         resolve()
@@ -59,7 +75,7 @@ async function openPrintableHtmlTauri(printUrl: string, title: string, storageKe
 function openPrintableHtmlBrowser(printUrl: string): void {
   const popup = window.open(printUrl, '_blank', 'noopener,noreferrer,width=900,height=700')
   if (!popup) {
-    throw new Error('Popup blocked — allow popups to print')
+    throw new PrintPopupBlockedError()
   }
 }
 
@@ -72,12 +88,13 @@ export async function openPrintableHtml(html: string, title?: string): Promise<v
     throw new PrintContentTooLargeError()
   }
 
+  const printTitle = title ?? resolveEditorUiMessage('app.print.windowTitle')
   const params = new URLSearchParams({
     key: storageKey,
-    title: title ?? 'Print',
+    title: printTitle,
   })
   const printUrl = `/print.html?${params.toString()}`
-  const windowTitle = title ?? 'Print'
+  const windowTitle = printTitle
 
   if (isTauri()) {
     await openPrintableHtmlTauri(printUrl, windowTitle, storageKey)

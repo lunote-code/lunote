@@ -156,7 +156,7 @@ export function FrontmatterChipField({
         submit()
       }
     },
-    [highlight, submit, suggestions.length],
+    [submit, suggestions.length],
   )
 
   const showSuggestions = suggestionsOpen && suggestions.length > 0

@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 2,
+  "id": "serif-headings-pack",
+  "name": "Serif Headings Pack",
+  "pluginType": "ui-snippet",
+  "capabilities": [
+    "theme.snippet"
+  ],
+  "platforms": [
+    "desktop",
+    "web"
+  ],
+  "requiresRestart": false,
+  "experimental": false,
+  "author": {
+    "name": "Lunote Examples",
+    "url": "https://github.com/lunote-code/lunote-theme"
+  },
+  "description": {
+    "en": "Applies serif faces to h1 and h2 in visual mode.",
+    "zh-CN": "为可视化模式 h1/h2 应用衬线字体。"
+  },
+  "changelog": {
+    "1.0.0": {
+      "en": "Initial example release.",
+      "zh-CN": "首个示例版本。"
+    }
+  },
+  "versions": [
+    {
+      "version": "1.0.0",
+      "releasedAt": "2026-06-13",
+      "minAppVersion": "0.6.0",
+      "maxAppVersion": null,
+      "packageUrl": "/packages/serif-headings-pack.json",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sizeBytes": 2048
+    }
+  ],
+  "permissions": {
+    "theme": {
+      "register": true
+    }
+  },
+  "homepage": "https://github.com/lunote-code/lunote-theme/blob/main/README.md",
+  "repository": "https://github.com/lunote-code/lunote-theme",
+  "documentation": "https://github.com/lunote-code/lunote-theme/tree/main",
+  "license": "MIT",
+  "contributes": {
+    "theme": {
+      "provides": [
+        "snippets"
+      ],
+      "defaultEnable": {}
+    },
+    "commands": [],
+    "preferencesSections": [],
+    "panels": []
+  }
+}

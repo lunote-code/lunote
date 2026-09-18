@@ -9,7 +9,7 @@ export function installKnowledgeGraphProjection(rootDir: string): () => void {
     if (!rootDir) return
     if (event.type !== 'DocumentSaved') return
     if (isBufferTabId(event.path)) return
-    notifyKnowledgeDocumentSave(event.path, event.content)
+    notifyKnowledgeDocumentSave(event.path, event.content, event.root)
   })
   return () => {
     unsubscribeKnowledgeGraph()

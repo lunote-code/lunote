@@ -1,0 +1,118 @@
+.ai-grammar-issues {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-grammar-issues-summary {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ai-grammar-issues-feedback {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ai-grammar-issues-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.ai-grammar-issues-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ai-grammar-issue {
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-elevated));
+}
+
+.ai-grammar-issue--resolved {
+  opacity: 0.72;
+}
+
+.ai-grammar-issue-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-grammar-issue-original {
+  margin: 0;
+  font-size: 13px;
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.ai-grammar-issue-suggestion {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.ai-grammar-issue-reason {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ai-grammar-issue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ai-grammar-issue-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-panel);
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.ai-grammar-issue-action--primary {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-subtle));
+  color: var(--accent);
+}
+
+.ai-grammar-issue-status {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.ai-grammar-issues-parse-failed p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.ai-grammar-issues-raw {
+  margin: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-elevated));
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 160px;
+  overflow: auto;
+}

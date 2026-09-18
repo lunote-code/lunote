@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 
 import { SettingsButton, SettingsDescription, SettingsInput } from '../components/settings'
+import { bindOverlayScrollbarReveal } from '../app/overlayScrollbarReveal'
+import { resolveOverlayPortalRoot } from '../lib/overlayPortalRoot'
+import { useFocusTrap } from '../lib/useFocusTrap'
 import {
   createWorkspaceTemplate,
   listWorkspaceTemplates,
@@ -21,6 +24,32 @@ type Props = {
   onClose: () => void
   onConfirm: (relativePath: string) => Promise<void> | void
   t: (key: string, vars?: Record<string, string | number>) => string
+  /** QA-only seed to skip workspace template listing. */
+  initialTemplates?: WorkspaceTemplateEntry[]
+}
+
+type TemplatePickerListRow =
+  | { kind: 'header'; title: string; count: number }
+  | { kind: 'entry'; entry: WorkspaceTemplateEntry; index: number }
+
+function isComposingKeyEvent(event: ReactKeyboardEvent<HTMLInputElement>): boolean {
+  return event.nativeEvent.isComposing || event.key === 'Process'
+}
+
+const TEMPLATE_PICKER_ERROR_KEYS: Record<string, string> = {
+  'Template name is empty': 'settings.workspaceNotes.templatePicker.error.emptyName',
+  'Invalid template name': 'settings.workspaceNotes.templatePicker.error.invalidName',
+  'Invalid template path': 'settings.workspaceNotes.templatePicker.error.invalidPath',
+}
+
+function formatTemplatePickerError(
+  t: Props['t'],
+  error: unknown,
+  fallbackKey = 'settings.workspaceNotes.templatePicker.error.generic',
+): string {
+  const message = error instanceof Error ? error.message : String(error)
+  const key = TEMPLATE_PICKER_ERROR_KEYS[message]
+  return t(key ?? fallbackKey)
 }
 
 export function TemplatePickerDialog({
@@ -32,9 +61,12 @@ export function TemplatePickerDialog({
   onClose,
   onConfirm,
   t,
+  initialTemplates,
 }: Props) {
   const searchInputRef = useRef<HTMLInputElement | null>(null)
-  const itemRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const listRef = useRef<HTMLDivElement | null>(null)
+  const listboxId = useId()
+  const [dialogEl, setDialogEl] = useState<HTMLDivElement | null>(null)
   const [templates, setTemplates] = useState<WorkspaceTemplateEntry[]>([])
   const [selected, setSelected] = useState(currentValue)
   const [searchQuery, setSearchQuery] = useState('')
@@ -46,14 +78,10 @@ export function TemplatePickerDialog({
   const [previewText, setPreviewText] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!open) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [open, onClose])
+  useFocusTrap(open, dialogEl, {
+    initialFocusRef: searchInputRef,
+    onEscape: saving ? undefined : onClose,
+  })
 
   const refreshTemplates = useCallback(async () => {
     setLoading(true)
@@ -62,7 +90,7 @@ export function TemplatePickerDialog({
       const entries = await listWorkspaceTemplates(rootDir)
       setTemplates(entries)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(formatTemplatePickerError(t, e, 'settings.workspaceNotes.templatePicker.error.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -74,8 +102,13 @@ export function TemplatePickerDialog({
     setSearchQuery('')
     setError(null)
     setNewName('')
+    if (initialTemplates) {
+      setTemplates(initialTemplates)
+      setLoading(false)
+      return
+    }
     void refreshTemplates()
-  }, [open, rootDir, currentValue, refreshTemplates])
+  }, [open, rootDir, currentValue, refreshTemplates, initialTemplates])
 
   const selectedEntry = useMemo(
     () => templates.find((entry) => entry.relativePath === selected) ?? null,
@@ -146,6 +179,38 @@ export function TemplatePickerDialog({
     [filteredFeaturedTemplates, filteredRemainingTemplates],
   )
   const totalVisibleCount = visibleTemplates.length
+  const highlightedIndex = useMemo(
+    () => visibleTemplates.findIndex((entry) => entry.relativePath === selected),
+    [selected, visibleTemplates],
+  )
+  const activeOptionId =
+    highlightedIndex >= 0 ? `${listboxId}-option-${highlightedIndex}` : undefined
+
+  const listRows = useMemo(() => {
+    const rows: TemplatePickerListRow[] = []
+    let index = 0
+    if (filteredFeaturedTemplates.length > 0) {
+      rows.push({
+        kind: 'header',
+        title: t('settings.workspaceNotes.templatePicker.recommendedTitle'),
+        count: filteredFeaturedTemplates.length,
+      })
+      for (const entry of filteredFeaturedTemplates) {
+        rows.push({ kind: 'entry', entry, index: index++ })
+      }
+    }
+    if (filteredRemainingTemplates.length > 0) {
+      rows.push({
+        kind: 'header',
+        title: t('settings.workspaceNotes.templatePicker.allTemplatesTitle'),
+        count: filteredRemainingTemplates.length,
+      })
+      for (const entry of filteredRemainingTemplates) {
+        rows.push({ kind: 'entry', entry, index: index++ })
+      }
+    }
+    return rows
+  }, [filteredFeaturedTemplates, filteredRemainingTemplates, t])
 
   const refreshPreview = useCallback(async () => {
     if (!open || !selected) {
@@ -166,10 +231,9 @@ export function TemplatePickerDialog({
   }, [open, rootDir, selected])
 
   useEffect(() => {
-    if (!open) return
-    searchInputRef.current?.focus()
-    searchInputRef.current?.select()
-  }, [open])
+    if (!open || !activeOptionId) return
+    document.getElementById(activeOptionId)?.scrollIntoView({ block: 'nearest' })
+  }, [activeOptionId, open])
 
   useEffect(() => {
     if (!open) return
@@ -183,9 +247,9 @@ export function TemplatePickerDialog({
   }, [open, selected, visibleTemplates])
 
   useEffect(() => {
-    if (!selected) return
-    itemRefs.current[selected]?.scrollIntoView({ block: 'nearest' })
-  }, [selected])
+    if (!open || !listRef.current) return
+    return bindOverlayScrollbarReveal(listRef.current)
+  }, [open])
 
   useEffect(() => {
     let cancelled = false
@@ -222,7 +286,7 @@ export function TemplatePickerDialog({
       setSearchQuery('')
       setNewName('')
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(formatTemplatePickerError(t, e))
     } finally {
       setSaving(false)
     }
@@ -237,11 +301,11 @@ export function TemplatePickerDialog({
       await onConfirm(selected)
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(formatTemplatePickerError(t, e))
     } finally {
       setSaving(false)
     }
-  }, [onClose, onConfirm, rootDir, selected])
+  }, [onClose, onConfirm, rootDir, selected, t])
 
   const handleEditTemplate = async () => {
     if (!selectedEntry) return
@@ -251,7 +315,7 @@ export function TemplatePickerDialog({
       await openTemplateDocumentByPath(rootDir, selectedEntry.relativePath, true)
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(formatTemplatePickerError(t, e))
     } finally {
       setActionLoading(false)
     }
@@ -264,7 +328,7 @@ export function TemplatePickerDialog({
     try {
       await revealWorkspaceTemplateFile(rootDir, selectedEntry.relativePath)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(formatTemplatePickerError(t, e))
     } finally {
       setActionLoading(false)
     }
@@ -277,7 +341,7 @@ export function TemplatePickerDialog({
       await refreshTemplates()
       await refreshPreview()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(formatTemplatePickerError(t, e, 'settings.workspaceNotes.templatePicker.error.loadFailed'))
     } finally {
       setActionLoading(false)
     }
@@ -300,6 +364,7 @@ export function TemplatePickerDialog({
 
   const handleSearchKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLInputElement>) => {
+      if (isComposingKeyEvent(event)) return
       if (event.key === 'ArrowDown') {
         event.preventDefault()
         moveSelection(1)
@@ -318,11 +383,42 @@ export function TemplatePickerDialog({
     [handleConfirm, moveSelection, saving, selected],
   )
 
+  const renderTemplateOption = (entry: WorkspaceTemplateEntry, index: number) => {
+    const active = entry.relativePath === selected
+    return (
+      <button
+        key={entry.relativePath}
+        id={`${listboxId}-option-${index}`}
+        type="button"
+        role="option"
+        aria-selected={active}
+        className={`template-picker-item ${active ? 'active' : ''}`}
+        onClick={() => setSelected(entry.relativePath)}
+      >
+        <span className="template-picker-item-main">
+          <strong>{entry.displayName}</strong>
+          {entry.relativePath === currentValue ? (
+            <span className="template-picker-current">{t('settings.workspaceNotes.templatePicker.current')}</span>
+          ) : null}
+          {entry.isRecent ? (
+            <span className="template-picker-recent">{t('settings.workspaceNotes.templatePicker.recent')}</span>
+          ) : null}
+        </span>
+        <span className="template-picker-item-path">{entry.relativePath}</span>
+      </button>
+    )
+  }
+
   if (!open) return null
 
   return createPortal(
-    <div className="about-modal-backdrop confirm-modal-backdrop" role="presentation" onClick={onClose}>
+    <div
+      className="about-modal-backdrop confirm-modal-backdrop"
+      role="presentation"
+      onClick={saving ? undefined : onClose}
+    >
       <div
+        ref={setDialogEl}
         className="about-modal confirm-modal template-picker-dialog"
         role="dialog"
         aria-modal="true"
@@ -354,6 +450,11 @@ export function TemplatePickerDialog({
         <div className="template-picker-search">
           <SettingsInput
             ref={searchInputRef}
+            role="combobox"
+            aria-expanded={visibleTemplates.length > 0}
+            aria-controls={listboxId}
+            aria-activedescendant={activeOptionId}
+            aria-autocomplete="list"
             value={searchQuery}
             disabled={saving || loading}
             placeholder={t('settings.workspaceNotes.templatePicker.searchPlaceholder')}
@@ -367,7 +468,7 @@ export function TemplatePickerDialog({
         </div>
 
         {loading ? (
-          <p className="template-picker-empty">{t('settings.workspaceNotes.loading')}</p>
+          <p className="template-picker-empty">{t('settings.workspaceNotes.templatesLoading')}</p>
         ) : allTemplates.length === 0 ? (
           <p className="template-picker-empty">{t('settings.workspaceNotes.templatePicker.empty')}</p>
         ) : !hasFilteredResults ? (
@@ -375,81 +476,26 @@ export function TemplatePickerDialog({
             {t('settings.workspaceNotes.templatePicker.noSearchResults', { query: searchQuery.trim() })}
           </p>
         ) : (
-          <>
-            {filteredFeaturedTemplates.length > 0 ? (
-              <section className="template-picker-section">
-                <div className="template-picker-section-title-row">
-                  <div className="template-picker-section-title">
-                    {t('settings.workspaceNotes.templatePicker.recommendedTitle')}
-                  </div>
+          <div
+            ref={listRef}
+            id={listboxId}
+            className="template-picker-list luna-overlay-scroll"
+            role="listbox"
+            aria-label={title}
+          >
+            {listRows.map((row) =>
+              row.kind === 'header' ? (
+                <div key={`header-${row.title}`} role="presentation" className="template-picker-section-title-row">
+                  <div className="template-picker-section-title">{row.title}</div>
                   <span className="template-picker-section-count">
-                    {t('settings.workspaceNotes.templatePicker.sectionCount', { count: filteredFeaturedTemplates.length })}
+                    {t('settings.workspaceNotes.templatePicker.sectionCount', { count: row.count })}
                   </span>
                 </div>
-                <div className="template-picker-list luna-overlay-scroll" role="listbox" aria-label={title}>
-                  {filteredFeaturedTemplates.map((entry) => {
-                    const active = entry.relativePath === selected
-                    return (
-                      <button
-                        key={entry.relativePath}
-                        ref={(node) => {
-                          itemRefs.current[entry.relativePath] = node
-                        }}
-                        type="button"
-                        className={`template-picker-item ${active ? 'active' : ''}`}
-                        onClick={() => setSelected(entry.relativePath)}
-                      >
-                        <span className="template-picker-item-main">
-                          <strong>{entry.displayName}</strong>
-                          {entry.relativePath === currentValue ? (
-                            <span className="template-picker-current">{t('settings.workspaceNotes.templatePicker.current')}</span>
-                          ) : null}
-                          {entry.isRecent ? (
-                            <span className="template-picker-recent">{t('settings.workspaceNotes.templatePicker.recent')}</span>
-                          ) : null}
-                        </span>
-                        <span className="template-picker-item-path">{entry.relativePath}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </section>
-            ) : null}
-
-            {filteredRemainingTemplates.length > 0 ? (
-              <section className="template-picker-section">
-                <div className="template-picker-section-title-row">
-                  <div className="template-picker-section-title">
-                    {t('settings.workspaceNotes.templatePicker.allTemplatesTitle')}
-                  </div>
-                  <span className="template-picker-section-count">
-                    {t('settings.workspaceNotes.templatePicker.sectionCount', { count: filteredRemainingTemplates.length })}
-                  </span>
-                </div>
-                <div className="template-picker-list luna-overlay-scroll" role="listbox" aria-label={title}>
-                  {filteredRemainingTemplates.map((entry) => {
-                    const active = entry.relativePath === selected
-                    return (
-                      <button
-                        key={entry.relativePath}
-                        ref={(node) => {
-                          itemRefs.current[entry.relativePath] = node
-                        }}
-                        type="button"
-                        className={`template-picker-item ${active ? 'active' : ''}`}
-                        onClick={() => setSelected(entry.relativePath)}
-                      >
-                        <span className="template-picker-item-main">
-                          <strong>{entry.displayName}</strong>
-                        </span>
-                        <span className="template-picker-item-path">{entry.relativePath}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </section>
-            ) : null}
-          </>
+              ) : (
+                renderTemplateOption(row.entry, row.index)
+              ),
+            )}
+          </div>
         )}
 
         {selectedEntry ? (
@@ -458,7 +504,7 @@ export function TemplatePickerDialog({
               {t('settings.workspaceNotes.templatePicker.previewTitle')}
             </div>
             {previewLoading ? (
-              <p className="template-picker-empty">{t('settings.workspaceNotes.loading')}</p>
+              <p className="template-picker-empty">{t('settings.workspaceNotes.templatePicker.previewLoading')}</p>
             ) : (
               <pre className="template-picker-preview-body">
                 {previewText || t('settings.workspaceNotes.templatePicker.previewEmpty')}
@@ -500,7 +546,7 @@ export function TemplatePickerDialog({
         </SettingsDescription>
 
         <div className="rename-modal-actions confirm-modal-actions">
-          <SettingsButton variant="secondary" onClick={onClose}>
+          <SettingsButton variant="secondary" disabled={saving} onClick={onClose}>
             {t('settings.workspaceNotes.templatePicker.cancel')}
           </SettingsButton>
           <SettingsButton variant="primary" disabled={!selected || saving} onClick={() => void handleConfirm()}>
@@ -509,6 +555,6 @@ export function TemplatePickerDialog({
         </div>
       </div>
     </div>,
-    document.body,
+    resolveOverlayPortalRoot(),
   )
 }

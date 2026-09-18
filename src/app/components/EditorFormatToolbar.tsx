@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import type { ToolbarItemDef } from '../../menu/menu.types'
 import type { TranslateFn } from '../../i18n'
@@ -16,6 +16,7 @@ type Props = {
   hasTextSelection: boolean
   onTextColorPick: (color: string | null) => void
   isCommandActive?: (commandId: string) => boolean
+  onMenuOpenChange?: (open: boolean) => void
 }
 
 function readFormatToolbarEnabled(): boolean {
@@ -29,8 +30,18 @@ export function EditorFormatToolbar({
   hasTextSelection,
   onTextColorPick,
   isCommandActive,
+  onMenuOpenChange,
 }: Props) {
   const [enabled, setEnabled] = useState(readFormatToolbarEnabled)
+  const [openFormatMenus, setOpenFormatMenus] = useState(0)
+
+  const handleFormatMenuOpenChange = useCallback((open: boolean) => {
+    setOpenFormatMenus((count) => Math.max(0, count + (open ? 1 : -1)))
+  }, [])
+
+  useEffect(() => {
+    onMenuOpenChange?.(openFormatMenus > 0)
+  }, [onMenuOpenChange, openFormatMenus])
 
   useEffect(() => {
     return subscribeAppSettings(() => {
@@ -41,7 +52,9 @@ export function EditorFormatToolbar({
   if (commands.length === 0 || !enabled) return null
 
   return (
-    <div className="editor-format-toolbar-shell">
+    <div
+      className={`editor-format-toolbar-shell${openFormatMenus > 0 ? ' editor-format-toolbar-shell--menu-open' : ''}`}
+    >
       <div
         className="editor-format-toolbar"
         role="toolbar"
@@ -57,6 +70,7 @@ export function EditorFormatToolbar({
                 title={item.title}
                 items={item.items}
                 onCommand={onCommand}
+                onOpenChange={handleFormatMenuOpenChange}
               />
             )
           }
@@ -86,6 +100,7 @@ export function EditorFormatToolbar({
           t={t}
           disabled={!hasTextSelection}
           onColorPick={onTextColorPick}
+          onOpenChange={handleFormatMenuOpenChange}
         />
       </div>
     </div>

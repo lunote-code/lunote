@@ -1,4 +1,4 @@
-export type PasteIssueCode = 'heic_unsupported'
+export type PasteIssueCode = 'heic_unsupported' | 'read_failed'
 
 type PasteIssueReporter = (code: PasteIssueCode) => void
 

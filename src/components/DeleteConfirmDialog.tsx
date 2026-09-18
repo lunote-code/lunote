@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 
+import { DialogShell } from './dialog/DialogShell'
 import { SettingsButton } from './settings'
-import { useFocusTrap } from '../lib/useFocusTrap'
 
 export type DeleteConfirmDialogProps = {
   open: boolean
@@ -24,42 +24,20 @@ export function DeleteConfirmDialog({
   onConfirm,
   onCancel,
 }: DeleteConfirmDialogProps) {
-  const dialogRef = useRef<HTMLDivElement | null>(null)
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null)
 
-  useFocusTrap(open, dialogRef.current, { initialFocusRef: cancelButtonRef, onEscape: onCancel })
-
-  if (!open) return null
-
   return (
-    <div className="about-modal-backdrop delete-modal-backdrop" role="presentation">
-      <div
-        ref={dialogRef}
-        className="about-modal delete-modal"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="delete-confirm-title"
-        aria-describedby="delete-confirm-desc"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="delete-modal-icon" aria-hidden>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7h10z"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-          </svg>
-        </div>
-        <h2 id="delete-confirm-title" className="about-modal-title delete-modal-title">
-          {title}
-        </h2>
-        <p id="delete-confirm-desc" className="about-modal-desc delete-modal-desc">
-          {message}
-        </p>
+    <DialogShell
+      open={open}
+      title={title}
+      description={message}
+      titleId="delete-confirm-title"
+      descId="delete-confirm-desc"
+      tone="destructive"
+      initialFocusRef={cancelButtonRef}
+      onEscape={onCancel}
+      actionsClassName="rename-modal-actions delete-modal-actions"
+      children={
         <div className="delete-modal-file" title={fileLabel}>
           <span className="delete-modal-file-icon" aria-hidden>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -74,15 +52,17 @@ export function DeleteConfirmDialog({
           </span>
           <span className="delete-modal-file-name">{fileLabel}</span>
         </div>
-        <div className="rename-modal-actions delete-modal-actions">
+      }
+      actions={
+        <>
           <SettingsButton ref={cancelButtonRef} variant="secondary" onClick={onCancel}>
             {cancelLabel}
           </SettingsButton>
           <SettingsButton variant="destructive" onClick={onConfirm}>
             {confirmLabel}
           </SettingsButton>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    />
   )
 }

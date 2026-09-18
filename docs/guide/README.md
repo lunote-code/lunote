@@ -8,7 +8,11 @@ Short, practical guides for the desktop app. For install, features, and download
 |-------|----------------|
 | [Themes](themes.md) | Built-in themes, `~/.luna/theme/` layout, external CSS, snippets, export styles |
 | [Shortcuts & quick menus](shortcuts-and-menus.md) | Menu bar, Command Palette, shortcuts, **`/`** slash commands, global search |
-| [Templates](../Templates/README.md) | Default and daily note templates, variables |
+| [Workspace encryption](workspace-encryption.md) | AES-256-GCM, optional image encryption, idle auto-lock |
+| [Knowledge graph](knowledge-graph.md) | Local subgraph, Global / fullscreen, performance caps |
+| [Editor Tab semantics](editor-tab-semantics.md) | Visual vs source **Tab** / **Shift-Tab**, block-level Select All, **`Cmd+/`** |
+| [Editor Tab semantics (中文)](editor-tab-semantics.zh-CN.md) | 同上（简体中文） |
+| [Templates](../Templates/README.md) | Default and daily note templates, variables, turning new-note templates off |
 | [Platform differences](platform-differences.md) | Windows / Linux / macOS — PDF, print, reveal in file manager, troubleshooting |
 | [UI design system](design-system.md) | CSS layers, tokens, fields/buttons/dialogs — for contributors |
 

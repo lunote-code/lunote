@@ -1,5 +1,6 @@
 import type { KeyboardEvent, MouseEvent, PointerEvent as ReactPointerEvent, RefObject } from 'react'
 
+import { Icon } from '../../../design-system/icons'
 import { LunaCodeToolbarButton } from '../../LunaCodeToolbarButton'
 import { IconCheck, IconChevronDown, IconChevronUp, IconCodeLang, IconCopy } from './CodeBlockToolbarIcons'
 
@@ -14,11 +15,15 @@ type Props = {
   expandLabel: string
   collapseLabel: string
   copyLabel: string
+  explainAiLabel?: string
+  showExplainAi?: boolean
+  explainRunning?: boolean
   onTogglePalette: () => void
   onChipKeyDown: (event: KeyboardEvent) => void
   onToggleFolded: () => void
   onToggleFoldedPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void
   onCopyClick: (event: MouseEvent) => void
+  onExplainCode?: (event: MouseEvent) => void
 }
 
 export function CodeBlockToolbar({
@@ -32,17 +37,22 @@ export function CodeBlockToolbar({
   expandLabel,
   collapseLabel,
   copyLabel,
+  explainAiLabel,
+  showExplainAi = false,
+  explainRunning = false,
   onTogglePalette,
   onChipKeyDown,
   onToggleFolded,
   onToggleFoldedPointerDown,
   onCopyClick,
+  onExplainCode,
 }: Props) {
   return (
     <div className="luna-code-toolbar" role="toolbar" aria-label={toolbarAria}>
       <LunaCodeToolbarButton
         ref={chipRef}
         variant="chip"
+        preventMouseDownDefault
         className="pm-code-lang-chip"
         aria-haspopup="listbox"
         aria-expanded={paletteOpen}
@@ -70,6 +80,25 @@ export function CodeBlockToolbar({
         >
           {folded ? <IconChevronDown /> : <IconChevronUp />}
         </LunaCodeToolbarButton>
+        {showExplainAi && onExplainCode ? (
+          <LunaCodeToolbarButton
+            variant="icon"
+            preventMouseDownDefault
+            className={`luna-btn--ai${explainRunning ? ' luna-btn--running' : ''}`}
+            title={explainAiLabel}
+            aria-label={explainAiLabel}
+            aria-busy={explainRunning}
+            disabled={explainRunning}
+            data-testid="code-toolbar-explain-ai"
+            onClick={onExplainCode}
+          >
+            {explainRunning ? (
+              <Icon name="refresh" size="xs" stroke="strong" className="luna-btn__ai-spinner" />
+            ) : (
+              <Icon name="ai" size="xs" stroke="strong" />
+            )}
+          </LunaCodeToolbarButton>
+        ) : null}
         <LunaCodeToolbarButton
           variant="icon"
           preventMouseDownDefault

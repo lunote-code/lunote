@@ -2,6 +2,7 @@ import { useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react'
 import { useI18n } from '../i18n'
 import {
   SettingsButton,
+  SettingsCombobox,
   SettingsDescription,
   SettingsFileInput,
   SettingsHelpPopover,
@@ -25,6 +26,12 @@ import {
   previewValueForSetting,
   type SettingsActionHandler,
 } from './settingsBindings'
+import {
+  displayValueForThemeColorSourceSetting,
+  isBuiltinThemeColorsActiveFromSettings,
+  isExternalThemeCssActiveFromSettings,
+  isThemeColorSourceSentinelValue,
+} from './themeColorSourceSettings'
 import { getSettingsRuntimeVersion, subscribeAll } from './settingsRuntime'
 import { translateSettingDescription, translateSettingLabel, translateSettingOptions } from './settingsI18n'
 import type { GroupSetting, LeafSetting, SettingsSectionId, SettingsValue } from './settingsTypes'
@@ -64,6 +71,10 @@ function useThemeDisplayVersion(): string {
 }
 
 function isVisible(item: LeafSetting): boolean {
+  if (item.visibleWhenIn) {
+    const current = bindValue(item.visibleWhenIn.path)
+    return item.visibleWhenIn.in.some((value) => Object.is(current, value))
+  }
   if (!item.visibleWhen) return true
   return Object.is(bindValue(item.visibleWhen.path), item.visibleWhen.equals)
 }
@@ -161,25 +172,59 @@ function renderSetting(
 ) {
   if (!isVisible(item)) return null
 
+  const storedStringValue = toStringValue(bindValue(item.path) ?? item.default)
+  const selectDisplayValue =
+    item.type === 'select'
+      ? displayValueForThemeColorSourceSetting(item.path, storedStringValue)
+      : storedStringValue
+
   const value = bindValue(item.path)
   const labelText = translateSettingLabel(item, t)
   const descriptionText = translateSettingDescription(item, t)
   const { label, description } = renderSettingLabel(item, labelText, descriptionText, t)
-  const rowProps = rowHighlightProps(item, labelText, descriptionText, highlightQuery)
+  const rowProps = {
+    ...rowHighlightProps(item, labelText, descriptionText, highlightQuery),
+    className: rowHighlightProps(item, labelText, descriptionText, highlightQuery).className,
+  }
 
   switch (item.type) {
     case 'select': {
       const options = resolveOptions?.(item) ?? translateSettingOptions(item.options, t)
+      const selectActiveValue =
+        selectDisplayValue !== storedStringValue
+          ? selectDisplayValue
+          : activeValueForSetting(item.path)
       return (
         <SettingsRow key={item.path} label={label} description={description} {...rowProps}>
           <SettingsSelect
-            value={toStringValue(value ?? item.default)}
-            activeValue={activeValueForSetting(item.path)}
+            value={selectDisplayValue}
+            activeValue={selectActiveValue}
             options={options}
             ariaLabel={labelText}
-            onPreviewValue={(next) => previewValueForSetting(item.path, next)}
+            onPreviewValue={(next) => {
+              if (isThemeColorSourceSentinelValue(next)) return
+              previewValueForSetting(item.path, next)
+            }}
             onClearPreview={() => clearPreviewForSetting(item.path)}
-            onValueChange={(next) => onChange(item.path, next)}
+            onValueChange={(next) => {
+              if (isThemeColorSourceSentinelValue(next)) return
+              void onChange(item.path, next)
+            }}
+          />
+        </SettingsRow>
+      )
+    }
+    case 'combobox': {
+      const options = resolveOptions?.(item) ?? translateSettingOptions(item.options ?? [], t)
+      return (
+        <SettingsRow key={item.path} label={label} description={description} {...rowProps}>
+          <SettingsCombobox
+            value={toStringValue(value ?? item.default)}
+            options={options}
+            ariaLabel={labelText}
+            presetsAriaLabel={t('settings.ai.model.choosePreset')}
+            placeholder={item.placeholderKey ? t(item.placeholderKey) : undefined}
+            onValueChange={(next) => void onChange(item.path, next)}
           />
         </SettingsRow>
       )
@@ -189,7 +234,13 @@ function renderSetting(
         <SettingsRow key={item.path} label={label} description={description} {...rowProps}>
           <div className={item.action ? 'settings-path-control' : 'settings-stack'}>
             <SettingsInput
-              type={item.numeric ? 'number' : undefined}
+              type={
+                item.inputType === 'password'
+                  ? 'password'
+                  : item.numeric
+                    ? 'number'
+                    : undefined
+              }
               inputMode={item.numeric ? 'numeric' : undefined}
               min={item.numeric ? item.min : undefined}
               max={item.numeric ? item.max : undefined}
@@ -277,6 +328,19 @@ function renderSetting(
             ? toFileDisplayValue(stringValue)
             : stringValue
         const fileMessages = fileFieldMessageKeys(item.path)
+        const builtinThemeInactive =
+          item.path === 'theme.customThemeFile' &&
+          isExternalThemeCssActiveFromSettings() &&
+          !stringValue
+        const externalCssInactive =
+          item.path === 'theme.cssImportFile' &&
+          isBuiltinThemeColorsActiveFromSettings() &&
+          !stringValue
+        const emptyLabel = builtinThemeInactive
+          ? t('settings.theme.customThemeFile.inactiveByExternal')
+          : externalCssInactive
+            ? t('settings.theme.cssImportFile.inactiveByBuiltin')
+            : t(fileMessages.empty)
       return (
         <SettingsRow key={item.path} label={label} description={description} {...rowProps}>
           <div className="settings-stack">
@@ -284,7 +348,7 @@ function renderSetting(
               value={fileDisplayValue}
               accept={item.accept}
               buttonLabel={item.action ? t(item.action.labelKey) : t('settings.file.choose')}
-              emptyLabel={t(fileMessages.empty)}
+              emptyLabel={emptyLabel}
               dropHint={t(fileMessages.dropHint)}
               onFile={(file) => {
                 if (item.action) {
@@ -359,7 +423,14 @@ function renderGroup(
     .map((path) => {
       const item = getSchemaSetting(path)
       if (!item) return null
-      return renderSetting(item, t, resolveOptions, onAction, onFile, highlightQuery)
+      return renderSetting(
+        item,
+        t,
+        resolveOptions,
+        onAction,
+        onFile,
+        highlightQuery,
+      )
     })
     .filter(Boolean)
 

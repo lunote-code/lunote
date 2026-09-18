@@ -24,6 +24,7 @@ import { LunaMermaidSourceKeyboardIsolation } from './extensions/LunaMermaidSour
 import { LunaMermaidSourceSync } from './extensions/LunaMermaidSourceSync'
 import { LunaDocumentRuntime } from './documentRuntime'
 import { MermaidBlock } from './extensions/MermaidNode'
+import { DrawingBlock } from './extensions/DrawingNode'
 import { LunaBlockMath, LunaInlineMath } from './extensions/MathNode'
 import { LUNA_KATEX_HTML_OPTIONS } from './lunaKatexOptions'
 import { LunaEmoji } from './lunaEmoji'
@@ -55,6 +56,10 @@ import {
   LunaDefinitionTerm,
 } from './lunaDefinitionList'
 import { LunaFootnoteDef, LunaFootnoteRef } from './lunaFootnote'
+import { LunaHiddenComment, LunaHiddenCommentBlock } from './lunaHiddenComment'
+import { LunaInlineTag } from './lunaInlineTag'
+import { LunaWikiEmbed, LunaWikiEmbedInline } from './lunaWikiEmbed'
+import { LunaWikiEmbedLiveLift } from './lunaWikiEmbedLiveLift'
 import { LunaFootnoteDefLiveLift } from './lunaFootnoteDefLiveLift'
 import { LunaLinkReferenceDef } from './lunaLinkReferenceDef'
 import { LunaInputLayerGuard } from './extensions/LunaInputLayerGuard'
@@ -67,6 +72,7 @@ import { VmInputRouter } from '../vm/inputRouter'
 
 export type LunaMarkdownEditorExtensionOptions = {
   resolveMediaSrc: (src: string) => string
+  getMediaRenderScope: () => string
   getNoteAssetContext: () => { root: string; notePath: string } | null
   onPasteImage?: WebviewPasteImageHandler
   placeholderText?: string
@@ -123,8 +129,14 @@ export function createLunaMarkdownEditorExtensions(options: LunaMarkdownEditorEx
     LunaEphemeralCommitOnEnter,
     /** Double-click the mark with reveal → the document inline is replaced with the Markdown source code (without overlay); ordinary text retains the native word selection*/
     LunaMarkdownSourceReveal,
-    LunaRawBlock,
-    LunaRawInline,
+    LunaRawBlock.configure({
+      resolveMediaSrc: options.resolveMediaSrc,
+      getMediaRenderScope: options.getMediaRenderScope,
+    }),
+    LunaRawInline.configure({
+      resolveMediaSrc: options.resolveMediaSrc,
+      getMediaRenderScope: options.getMediaRenderScope,
+    }),
     LunaEmoji,
     LunaHeading.configure({ levels: [1, 2, 3, 4, 5, 6] }),
     Superscript,
@@ -160,6 +172,12 @@ export function createLunaMarkdownEditorExtensions(options: LunaMarkdownEditorEx
     LunaFootnoteRef,
     LunaFootnoteDef,
     LunaFootnoteDefLiveLift,
+    LunaWikiEmbed,
+    LunaWikiEmbedInline,
+    LunaWikiEmbedLiveLift,
+    LunaHiddenComment,
+    LunaHiddenCommentBlock,
+    LunaInlineTag,
     LunaLinkReferenceDef,
     LunaLink.configure({
       openOnClick: false,
@@ -178,6 +196,7 @@ export function createLunaMarkdownEditorExtensions(options: LunaMarkdownEditorEx
       katexOptions: LUNA_KATEX_HTML_OPTIONS,
     }),
     MermaidBlock,
+    DrawingBlock,
     LunaNativeTextInputIsolation,
     LunaCodeBlockCmIsolation,
     LunaMermaidIsolation,

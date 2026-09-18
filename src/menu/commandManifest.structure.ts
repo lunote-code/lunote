@@ -156,6 +156,7 @@ export const MENU_BAR_STRUCTURE: readonly MenuBarStructureGroup[] = [
         C('para-table-row-below'),
       ]),
       C('para-math-block'),
+      C('para-drawing-canvas'),
       C('para-insert-code-block'),
       sub('sub-para-code-tools', 'menu.para.codeTools', [
         C('para-code-copy'),
@@ -251,7 +252,14 @@ export const MENU_BAR_STRUCTURE: readonly MenuBarStructureGroup[] = [
       C('toggle-sidebar'),
       C('view-sidebar-outline'),
       C('view-sidebar-files'),
+      C('daily-note-calendar-open'),
       C('view-search'),
+      C('view-quick-switcher'),
+      C('view-tab-switcher'),
+      S(),
+      C('view-ai-panel'),
+      C('view-ai-ask-selection'),
+      C('view-ai-edit-selection'),
       S(),
       C('view-word-count'),
       S(),
@@ -285,6 +293,7 @@ export const MENU_BAR_STRUCTURE: readonly MenuBarStructureGroup[] = [
     labelKey: 'menu.native.help',
     children: [
       C('help-shortcuts'),
+      C('help-reset-onboarding'),
       S(),
       C('help-about'),
       S(),
@@ -318,5 +327,6 @@ export const TOOLBAR_LAYOUT: ToolbarLayout = {
     'fmt-highlight',
     'fmt-link',
     'toolbar-callout',
+    'fmt-toc',
   ],
 }

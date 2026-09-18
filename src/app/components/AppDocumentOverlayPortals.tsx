@@ -1,7 +1,8 @@
-import { createPortal } from 'react-dom'
 import type { RefObject } from 'react'
+import { createPortal } from 'react-dom'
 
 import type { TranslateFn } from '../../i18n'
+import { pathsEqual } from '../../lib/workspacePathUtils'
 import { WorkspaceFileContextMenu } from './WorkspaceFileContextMenu'
 import { EditorDocumentContextMenu } from './EditorDocumentContextMenu'
 import { TabContextMenu } from './TabContextMenu'
@@ -28,6 +29,7 @@ type Props = {
   onEditorDocMenuPick: (action: EditorDocMenuPick, menu: EditorDocMenuState) => void
   tabContextMenu: { x: number; y: number; path: string; index: number; total: number } | null
   tabContextMenuRef: RefObject<HTMLDivElement | null>
+  externalDiskChangedPaths: ReadonlySet<string>
   onTabContextPick: (action: TabContextMenuPick, path: string, index: number) => void
   saveConflictState: {
     open: boolean
@@ -36,7 +38,7 @@ type Props = {
     local: string
     disk: string
     diskReadable: boolean
-    sourceMode: 'manual' | 'autosave'
+    sourceMode: 'manual' | 'autosave' | 'external'
     resolving?: boolean
     onCancel: () => void
     onUseDisk: () => void
@@ -46,6 +48,7 @@ type Props = {
     open: boolean
     rootDir: string
     path: string
+    activePath?: string
     onClose: () => void
     onRestore: (snapshotId: string, context: DocumentHistoryDialogContext) => Promise<void> | void
     onCreateSnapshot: (
@@ -53,7 +56,7 @@ type Props = {
     ) => Promise<import('../../documentHistory/types').DocumentHistoryEntry | null> | import('../../documentHistory/types').DocumentHistoryEntry | null
     onConfirmDelete: (entry: import('../../documentHistory/types').DocumentHistoryEntry) => Promise<boolean> | boolean
     onDeleteAll: (context: DocumentHistoryDialogContext) => Promise<boolean> | boolean
-    flushEditorToMemory?: () => Promise<boolean>
+    flushEditorToMemory?: (options?: import('../../lib/editorContentSync').FlushEditorToMemoryOptions) => Promise<boolean>
   }
 }
 
@@ -69,6 +72,7 @@ export function AppDocumentOverlayPortals({
   onEditorDocMenuPick,
   tabContextMenu,
   tabContextMenuRef,
+  externalDiskChangedPaths,
   onTabContextPick,
   saveConflictState,
   documentHistoryState,
@@ -103,6 +107,9 @@ export function AppDocumentOverlayPortals({
           <TabContextMenu
             state={tabContextMenu}
             menuRef={tabContextMenuRef}
+            hasExternalDrift={[...externalDiskChangedPaths].some((p) =>
+              pathsEqual(p, tabContextMenu.path),
+            )}
             onPick={onTabContextPick}
           />,
           document.body,
@@ -126,6 +133,7 @@ export function AppDocumentOverlayPortals({
         open={documentHistoryState.open}
         rootDir={documentHistoryState.rootDir}
         path={documentHistoryState.path}
+        activePath={documentHistoryState.activePath}
         onClose={documentHistoryState.onClose}
         onRestore={documentHistoryState.onRestore}
         onCreateSnapshot={documentHistoryState.onCreateSnapshot}

@@ -17,6 +17,7 @@ import { refreshThemeExportStylesFromSettings } from './themeExportStyleRuntime'
 import { refreshThemeStylesheetFromSettings } from './themeStylesheetRuntime'
 import { refreshThemeSnippetsFromSettings } from './themeSnippetRuntime'
 import { syncTauriWindowTheme } from '../platform/tauri/windowThemeSync'
+import { isExternalThemeCssActive } from './themeColorSource'
 
 type ThemeSubscriber = (theme: ThemeDefinition) => void
 
@@ -32,8 +33,20 @@ function notify(): void {
 }
 
 function readExternalCssFileName(): string {
-  const value = getSetting('theme.cssFile')
-  return typeof value === 'string' ? value.trim() : ''
+  const cssFile = getSetting('theme.cssFile')
+  const fileName = typeof cssFile === 'string' ? cssFile.trim() : ''
+  if (fileName) return fileName
+  const cssContent = getSetting('theme.cssContent')
+  return typeof cssContent === 'string' && cssContent.trim() ? '__inline__' : ''
+}
+
+function readExternalCssActive(): boolean {
+  const cssFile = getSetting('theme.cssFile')
+  const cssContent = getSetting('theme.cssContent')
+  return isExternalThemeCssActive({
+    cssFile: typeof cssFile === 'string' ? cssFile : '',
+    cssContent: typeof cssContent === 'string' ? cssContent : '',
+  })
 }
 
 function syncExternalCssFileMarker(fileName: string): void {
@@ -188,10 +201,11 @@ export function applyCompatibleTheme(theme: ThemeDefinition): void {
   activeThemeSignature = nextSignature
   activeTheme = safeTheme
   const themeMode = isLightTheme(safeTheme) ? 'light' : 'dark'
-  const externalCssFile = readExternalCssFileName()
-  syncExternalCssFileMarker(externalCssFile)
+  const externalCssActive = readExternalCssActive()
+  const externalCssFile = externalCssActive ? readExternalCssFileName() : ''
+  syncExternalCssFileMarker(externalCssFile === '__inline__' ? 'inline' : externalCssFile)
   applyThemeCssVariables(safeTheme, {
-    externalCssActive: Boolean(externalCssFile),
+    externalCssActive,
     themePreset: presetForTheme(safeTheme),
     themeMode,
   })

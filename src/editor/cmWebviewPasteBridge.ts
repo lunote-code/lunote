@@ -1,6 +1,7 @@
 import { EditorView } from '@codemirror/view'
 
 import { recordSuccessfulPaste, shouldSkipDuplicatePaste, computePasteFingerprint } from './pasteDedupe'
+import { reportPasteIssue } from './pasteIssueReporter'
 import {
   applyWebviewPasteFallback,
   extractValidImageFiles,
@@ -31,6 +32,7 @@ export function createCmWebviewPasteExtension(onPasteImage?: WebviewPasteImageHa
           allowNavigatorClipboardRead: allowNavigatorClipboardReadForPasteEvent(event),
         })
         if (ok && fingerprint) recordSuccessfulPaste(fingerprint)
+        else if (!ok && event.isTrusted) reportPasteIssue('read_failed')
       })()
       return true
     },

@@ -18,7 +18,12 @@ export function WorkspaceExternalDropOverlay({ t, visible, zone }: Props) {
         : 'app.drop.overlayGeneric'
 
   return (
-    <div className="workspace-external-drop-overlay" aria-hidden>
+    <div
+      className="workspace-external-drop-overlay"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
       <div className="workspace-external-drop-overlay-card">
         <p className="workspace-external-drop-overlay-title">{t('app.drop.overlayTitle')}</p>
         <p className="workspace-external-drop-overlay-hint">{t(hintKey)}</p>

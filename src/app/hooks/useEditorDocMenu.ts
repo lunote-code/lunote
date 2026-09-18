@@ -5,6 +5,7 @@ import type { TranslateFn } from '../../i18n'
 import { dispatchDocumentCommand } from '../../documentRuntime/documentKernel'
 import { copyEditorImageToClipboard } from '../../editor/copyEditorImageToClipboard'
 import { pasteFromNavigatorClipboard } from '../../editor/pasteFromNavigatorClipboard'
+import { takeLastPasteIssue } from '../../editor/pasteIssueReporter'
 import { bridgeDeleteSelection } from '../../editor/editorMutationBridge'
 import type { TiptapMarkdownEditorHandle } from '../../editor/TiptapMarkdownEditor'
 import type { EditorView } from '@codemirror/view'
@@ -127,7 +128,7 @@ export function useEditorDocMenu(deps: EditorDocMenuDeps) {
                   sourceViewRef: editorViewRef,
                   mainPaneMode: mainPaneModeRef.current,
                 })
-                if (!ok) setStatus(t('app.status.clipboardReadFailed'))
+                if (!ok && !takeLastPasteIssue()) setStatus(t('app.status.clipboardReadFailed'))
               } catch {
                 setStatus(t('app.status.clipboardReadFailed'))
               }

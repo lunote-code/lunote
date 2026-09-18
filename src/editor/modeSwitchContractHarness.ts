@@ -11,6 +11,7 @@ import { projectAlongRow } from './modeSwitchProjection'
 import { compileMarkdownForModeBridge } from './compiler/markdownCompiler'
 import { headingBodyMinIndexForLevel, structuredLineBodyMinIndexInSeg } from './modeSwitchSemanticTokenizer'
 import { canonicalMarkdownSemantics } from '../markdown/canonicalMarkdownSemantics'
+import { decideModeToggleCommandAction } from './modeToggleCommandSemantics'
 import type { SourceModeEnterAnchor } from './viewportModeAnchor'
 
 export type ModeSwitchContractCase = {
@@ -47,6 +48,7 @@ const MODE_SWITCH_CONTRACT_CASES: readonly ModeSwitchContractCase[] = Object.fre
         'linkReferenceDef geometry',
       )
       expectEqual(getModeSwitchBlockGeometryKind('tocDirective'), 'collapsed_atom_carrier', 'tocDirective geometry')
+      expectEqual(getModeSwitchBlockGeometryKind('wikiEmbed'), 'collapsed_atom_carrier', 'wikiEmbed geometry')
       expectEqual(getModeSwitchBlockGeometryKind('horizontalRule'), 'zero_payload_structural', 'horizontalRule geometry')
       expectEqual(getModeSwitchBlockGeometryKind('table'), 'atomic_container', 'table geometry')
       expectEqual(getModeSwitchBlockGeometryKind('paragraph'), 'textblock', 'paragraph geometry')
@@ -88,6 +90,7 @@ const MODE_SWITCH_CONTRACT_CASES: readonly ModeSwitchContractCase[] = Object.fre
 
       const tocDirective = getBlockEditingPolicy('tocDirective')
       expectEqual(getModeSwitchBlockGeometryKind('tocDirective'), 'collapsed_atom_carrier', 'tocDirective geometry')
+      expectEqual(getModeSwitchBlockGeometryKind('wikiEmbed'), 'collapsed_atom_carrier', 'wikiEmbed geometry')
       expectEqual(tocDirective.primaryPreference, 'source_preferred', 'tocDirective preference')
       expectEqual(tocDirective.sourceIslandCandidate, false, 'tocDirective source island')
     },
@@ -282,6 +285,56 @@ const MODE_SWITCH_CONTRACT_CASES: readonly ModeSwitchContractCase[] = Object.fre
       expectEqual(Boolean(resolved.modeSwitchSnapshot), true, 'fallback or ref resolves snapshot')
       pendingRef.current = null
       expectEqual(pendingRef.current, null, 'prepare consumes ref once')
+    },
+  },
+  {
+    id: 'command-slash-code-block-enters-document-source',
+    description: 'Cmd+/ in a fenced code block must switch the document to source mode',
+    run: () => {
+      expectEqual(
+        decideModeToggleCommandAction({
+          mainPaneMode: 'visual',
+          activeBlockType: 'codeBlock',
+          hasActiveLocalSourceIsland: false,
+        }),
+        'switch_visual_to_source',
+        'code block visual idle',
+      )
+      expectEqual(
+        decideModeToggleCommandAction({
+          mainPaneMode: 'source',
+          activeBlockType: 'codeBlock',
+          hasActiveLocalSourceIsland: false,
+        }),
+        'switch_source_to_visual',
+        'code block from source pane',
+      )
+    },
+  },
+  {
+    id: 'command-slash-mermaid-math-raw-enter-document-source',
+    description: 'Cmd+/ in Mermaid, math, or raw HTML must switch the document to source, including with a local island open',
+    run: () => {
+      for (const blockType of ['mermaidBlock', 'blockMath', 'rawBlock'] as const) {
+        expectEqual(
+          decideModeToggleCommandAction({
+            mainPaneMode: 'visual',
+            activeBlockType: blockType,
+            hasActiveLocalSourceIsland: false,
+          }),
+          'switch_visual_to_source',
+          `${blockType} visual idle`,
+        )
+        expectEqual(
+          decideModeToggleCommandAction({
+            mainPaneMode: 'visual',
+            activeBlockType: blockType,
+            hasActiveLocalSourceIsland: true,
+          }),
+          'switch_visual_to_source',
+          `${blockType} island active`,
+        )
+      }
     },
   },
 ]) satisfies readonly ModeSwitchContractCase[]

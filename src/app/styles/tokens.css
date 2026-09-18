@@ -68,25 +68,26 @@
   --luna-btn-disabled-opacity: 0.38;
   /* Compact chrome toolbar icon buttons (sidebar header, editor tab actions) */
   --luna-chrome-icon-btn-size: 28px;
-  /*Global scroll bar (tier 4: hover-reveal in scrollbars-app.css)*/
-  --luna-scrollbar-size: 8px;
+  /*Global overlay scrollbar (tier 4: hover-reveal in scrollbars-app.css)*/
+  --luna-scrollbar-size: 6px;
   --luna-scrollbar-track: transparent;
-  --luna-scrollbar-thumb: color-mix(in srgb, var(--text-muted) 38%, transparent);
-  --luna-scrollbar-thumb-hover: color-mix(in srgb, var(--text-muted) 58%, transparent);
-  --luna-scrollbar-thumb-active: color-mix(in srgb, var(--accent) 42%, var(--text-muted) 28%);
-  /*Sidebar: The thin scroll bar is attached to the right edge and coincides with the column dividing line*/
-  --luna-sidebar-scrollbar-size: 4px;
-  --luna-sidebar-scrollbar-thumb: color-mix(in srgb, var(--text-muted) 46%, var(--border-subtle));
-  --luna-sidebar-scrollbar-thumb-hover: color-mix(in srgb, var(--text-muted) 62%, var(--border-subtle));
-  /*Editor tab strip: thin horizontal bar below tabs (hover to reveal)*/
-  --luna-tabs-scrollbar-size: 4px;
-  --luna-tabs-scrollbar-thumb: color-mix(in srgb, var(--text-muted) 32%, transparent);
-  --luna-tabs-scrollbar-thumb-hover: color-mix(in srgb, var(--text-muted) 52%, transparent);
-  --luna-tabs-scrollbar-thumb-active: color-mix(in srgb, var(--accent) 36%, var(--text-muted) 24%);
-  /*Code block pre: thin scrollbar, hidden until hover / scroll / focus*/
-  --luna-code-block-scrollbar-size: 4px;
-  --luna-code-block-scrollbar-thumb: color-mix(in srgb, var(--text-muted) 32%, transparent);
-  --luna-code-block-scrollbar-thumb-hover: color-mix(in srgb, var(--text-muted) 52%, transparent);
-  --luna-code-block-scrollbar-thumb-active: color-mix(in srgb, var(--accent) 36%, var(--text-muted) 24%);
+  --luna-scrollbar-thumb: color-mix(in srgb, var(--text-muted) 30%, transparent);
+  --luna-scrollbar-thumb-hover: color-mix(in srgb, var(--text-muted) 44%, transparent);
+  --luna-scrollbar-thumb-active: color-mix(in srgb, var(--accent) 28%, var(--text-muted) 22%);
+  /*Sidebar: ultra-thin bar aligned to the right divider, visible only on intent*/
+  --luna-sidebar-scrollbar-size: 3px;
+  --luna-sidebar-scrollbar-thumb: color-mix(in srgb, var(--text-muted) 34%, transparent);
+  --luna-sidebar-scrollbar-thumb-hover: color-mix(in srgb, var(--text-muted) 48%, transparent);
+  --luna-sidebar-scrollbar-thumb-active: color-mix(in srgb, var(--accent) 24%, var(--text-muted) 24%);
+  /*Editor tab strip: minimal horizontal bar under tabs*/
+  --luna-tabs-scrollbar-size: 2px;
+  --luna-tabs-scrollbar-thumb: color-mix(in srgb, var(--text-muted) 24%, transparent);
+  --luna-tabs-scrollbar-thumb-hover: color-mix(in srgb, var(--text-muted) 38%, transparent);
+  --luna-tabs-scrollbar-thumb-active: color-mix(in srgb, var(--accent) 28%, var(--text-muted) 20%);
+  /*Code blocks and nested content: slimmer than panels, still easy to grab on hover*/
+  --luna-code-block-scrollbar-size: 3px;
+  --luna-code-block-scrollbar-thumb: color-mix(in srgb, var(--text-muted) 24%, transparent);
+  --luna-code-block-scrollbar-thumb-hover: color-mix(in srgb, var(--text-muted) 38%, transparent);
+  --luna-code-block-scrollbar-thumb-active: color-mix(in srgb, var(--accent) 28%, var(--text-muted) 20%);
 }
 

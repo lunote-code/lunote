@@ -41,27 +41,16 @@ function buildPrintCss(): string {
 @media print {
 ${blockAvoidCss}
   .markdown-body.markdown-export-body .md-export-toc {
-    border: 1px solid #d0d7de;
-    background: #f6f8fa;
+    border: 1px solid var(--border-subtle, #d0d7de);
+    background: var(--surface-panel, #f6f8fa);
     box-shadow: none;
-  }
-  body.markdown-export-root[data-theme='dark'] .markdown-body.markdown-export-body .md-export-toc {
-    border-color: #30363d;
-    background: #161b22;
   }
   .markdown-body.markdown-export-body .md-export-toc-link,
   .markdown-body.markdown-export-body .md-export-toc-entry {
-    color: #24292f;
-  }
-  body.markdown-export-root[data-theme='dark'] .markdown-body.markdown-export-body .md-export-toc-link,
-  body.markdown-export-root[data-theme='dark'] .markdown-body.markdown-export-body .md-export-toc-entry {
-    color: #e6edf3;
+    color: var(--text-primary, #24292f);
   }
   .markdown-body.markdown-export-body .md-export-toc-list .md-export-toc-list {
-    border-left-color: #d0d7de;
-  }
-  body.markdown-export-root[data-theme='dark'] .markdown-body.markdown-export-body .md-export-toc-list .md-export-toc-list {
-    border-left-color: #484f58;
+    border-left-color: var(--border-subtle, #d0d7de);
   }
 }`
 }

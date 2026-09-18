@@ -114,7 +114,7 @@ export function runCodeBlockCmShiftTab(view: EditorView, tabSize = DEFAULT_TAB_S
   const text = state.doc.toString()
   if (empty) {
     const out = outdentLineAtOffset(text, from, tabSize)
-    if (!out) return true
+    if (!out) return false
     view.dispatch({
       changes: { from: 0, to: text.length, insert: out.next },
       selection: { anchor: out.cursor },
@@ -122,6 +122,7 @@ export function runCodeBlockCmShiftTab(view: EditorView, tabSize = DEFAULT_TAB_S
     return true
   }
   const { next, selectionFrom, selectionTo } = outdentSelectedLines(text, from, to, tabSize)
+  if (next === text) return false
   view.dispatch({
     changes: { from: 0, to: text.length, insert: next },
     selection: { anchor: selectionFrom, head: selectionTo },

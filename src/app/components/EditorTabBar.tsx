@@ -1,26 +1,40 @@
 import {
   useCallback,
   useEffect,
+  useId,
+  useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
+  type CSSProperties,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
+import { createPortal } from 'react-dom'
 
 import { LunaHintPopover } from '../../components/LunaHintPopover'
 import { Icon } from '../../design-system/icons/Icon'
 import type { TranslateFn } from '../../i18n'
+import { formatCommandShortcutDisplay } from '../../menu'
 import { pathsEqual } from '../../lib/workspacePathUtils'
+import { clampMenuElementPosition } from '../../lib/contextMenuPosition'
+import { resolveTabStatusHints } from '../../lib/manualSaveStatusMessage'
+import { hasExternalDiskDriftInState } from '../../lib/externalDiskDriftState'
 import { isPathDirty } from '../../lib/documentDirty'
 import { preventButtonSecondaryMouseDown } from './preventButtonSecondaryMouseDown'
-import { isAutosaveSuspended } from '../../documentHistory/historyRestoreState'
+import {
+  getHistoryRestoreRevision,
+  isAutosaveSuspended,
+  subscribeHistoryRestoreState,
+} from '../../documentHistory/historyRestoreState'
 import { logTabNav } from '../../lib/tabNavigationDebug'
 import {
   insertBeforeIndexToMoveTarget,
   isNoOpTabReorder,
 } from '../../lib/moveItemInArray'
+import { resolveEditorTabIcon } from '../workspace/resolveEditorTabIcon'
 import { WORKSPACE_FILE_DRAG_THRESHOLD_PX } from '../workspace/workspaceDrag'
 import {
   MAX_OPEN_DOCUMENT_TABS,
@@ -38,11 +52,14 @@ type Props = {
   onClose: (path: string) => void
   onReorder: (fromIndex: number, toIndex: number) => void
   onContextMenu: (e: MouseEvent, path: string, index: number) => void
+  onExternalBadgeClick?: (path: string) => void
   leadingSlot?: ReactNode
   trailingActions?: ReactNode
+  onOpenGlobalSearch?: () => void
 }
 
 const EDITOR_TAB_DRAGGING_BODY_CLASS = 'is-editor-tab-dragging'
+const TAB_LIST_POSITION_MAX_FRAMES = 180
 
 type TabDragSession = {
   fromIndex: number
@@ -61,15 +78,9 @@ type TabDragVisualState = {
   ghostY: number
   indicatorLeft: number
   label: string
+  icon: ReturnType<typeof resolveEditorTabIcon>
   dirty: boolean
   active: boolean
-}
-
-function hasExternalDiskDrift(path: string, externalDiskChangedPaths: ReadonlySet<string>): boolean {
-  for (const p of externalDiskChangedPaths) {
-    if (pathsEqual(p, path)) return true
-  }
-  return false
 }
 
 function tabDomId(path: string): string {
@@ -86,14 +97,26 @@ export function EditorTabBar({
   onClose,
   onReorder,
   onContextMenu,
+  onExternalBadgeClick,
   leadingSlot,
   trailingActions,
+  onOpenGlobalSearch,
 }: Props) {
+  const historyRestoreRevision = useSyncExternalStore(
+    subscribeHistoryRestoreState,
+    getHistoryRestoreRevision,
+    getHistoryRestoreRevision,
+  )
   const [dragVisual, setDragVisual] = useState<TabDragVisualState | null>(null)
   const dragSessionRef = useRef<TabDragSession | null>(null)
   const rowRefs = useRef<Map<number, HTMLDivElement>>(new Map())
   const suppressClickRef = useRef(false)
   const tabsStripRef = useRef<HTMLDivElement | null>(null)
+  const tabListTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const tabListPanelRef = useRef<HTMLDivElement | null>(null)
+  const [tabListOpen, setTabListOpen] = useState(false)
+  const [tabListStyle, setTabListStyle] = useState<CSSProperties>({ visibility: 'hidden' })
+  const tabListMenuId = useId().replace(/:/g, '')
   const setRowRef = useCallback((index: number, el: HTMLDivElement | null) => {
     if (el) rowRefs.current.set(index, el)
     else rowRefs.current.delete(index)
@@ -164,6 +187,7 @@ export function EditorTabBar({
         ghostY: clientY - session.grabOffsetY,
         indicatorLeft: computeDropIndicatorLeft(insertBefore),
         label: tabLabel(path),
+        icon: resolveEditorTabIcon(path),
         dirty: isPathDirty(path),
         active: pathsEqual(activePath, path),
       })
@@ -179,6 +203,99 @@ export function EditorTabBar({
     if (clientX < rect.left + edge) strip.scrollLeft -= 10
     else if (clientX > rect.right - edge) strip.scrollLeft += 10
   }, [])
+
+  const scrollActiveTabIntoView = useCallback(() => {
+    const strip = tabsStripRef.current
+    if (!strip || !activePath) return
+    const activeIndex = openedTabs.findIndex((path) => pathsEqual(path, activePath))
+    if (activeIndex < 0) return
+    const row = rowRefs.current.get(activeIndex)
+    if (!row) return
+
+    const padding = 8
+    const rowLeft = row.offsetLeft
+    const rowRight = rowLeft + row.offsetWidth
+    const viewLeft = strip.scrollLeft
+    const viewRight = viewLeft + strip.clientWidth
+
+    if (rowLeft < viewLeft + padding) {
+      strip.scrollLeft = Math.max(0, rowLeft - padding)
+    } else if (rowRight > viewRight - padding) {
+      strip.scrollLeft = rowRight - strip.clientWidth + padding
+    }
+  }, [activePath, openedTabs])
+
+  useLayoutEffect(() => {
+    scrollActiveTabIntoView()
+  }, [scrollActiveTabIntoView, openedTabs.length, activePath])
+
+  const closeTabListMenu = useCallback(() => setTabListOpen(false), [])
+
+  useLayoutEffect(() => {
+    if (!tabListOpen) {
+      setTabListStyle({ visibility: 'hidden' })
+      return
+    }
+
+    let frame = 0
+    let attempts = 0
+    const position = () => {
+      attempts += 1
+      if (attempts > TAB_LIST_POSITION_MAX_FRAMES) {
+        setTabListStyle({ visibility: 'hidden' })
+        return
+      }
+      const trigger = tabListTriggerRef.current
+      const panel = tabListPanelRef.current
+      if (!trigger || !panel) {
+        frame = window.requestAnimationFrame(position)
+        return
+      }
+
+      const anchorRect = trigger.getBoundingClientRect()
+      const preferredLeft = anchorRect.right - panel.offsetWidth
+      const preferredTop = anchorRect.bottom + 4
+      const width = panel.offsetWidth
+      const height = panel.offsetHeight
+      if (width === 0 || height === 0) {
+        frame = window.requestAnimationFrame(position)
+        return
+      }
+
+      const { x: left, y: top } = clampMenuElementPosition(panel, preferredLeft, preferredTop)
+      setTabListStyle({
+        left,
+        top,
+        visibility: 'visible',
+        minWidth: Math.max(220, anchorRect.width),
+      })
+    }
+
+    position()
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame)
+    }
+  }, [tabListOpen, openedTabs.length, activePath])
+
+  useEffect(() => {
+    if (!tabListOpen) return
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (tabListTriggerRef.current?.contains(target)) return
+      if (tabListPanelRef.current?.contains(target)) return
+      closeTabListMenu()
+    }
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') closeTabListMenu()
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [closeTabListMenu, tabListOpen])
 
   useEffect(() => {
     if (!dragVisual) return
@@ -288,6 +405,7 @@ export function EditorTabBar({
   const nearTabLimit = isNearOpenTabLimit(tabCount)
   const atTabLimit = isAtOpenTabLimit(tabCount)
   const [limitHintAcknowledged, setLimitHintAcknowledged] = useState(false)
+  const showGlobalSearchButton = Boolean(onOpenGlobalSearch)
 
   useEffect(() => {
     if (!nearTabLimit && !atTabLimit) {
@@ -311,6 +429,7 @@ export function EditorTabBar({
           style={{ left: dragVisual.ghostX, top: dragVisual.ghostY }}
           aria-hidden
         >
+          <Icon name={dragVisual.icon} size="xs" tone="muted" stroke="regular" className="editor-tab-drag-ghost-icon" />
           <span className="editor-tab-drag-ghost-label">{dragVisual.label}</span>
           {dragVisual.dirty ? <span className="editor-tab-drag-ghost-badge" aria-hidden /> : null}
         </div>
@@ -334,20 +453,21 @@ export function EditorTabBar({
         ) : null}
         {openedTabs.map((path, index) => {
           const dirty = isPathDirty(path)
-          const external = hasExternalDiskDrift(path, externalDiskChangedPaths)
-          const historyRestore = isAutosaveSuspended(path)
+          const external = hasExternalDiskDriftInState(path, externalDiskChangedPaths)
+          const historyRestore = historyRestoreRevision >= 0 && isAutosaveSuspended(path)
+          const tabHints = resolveTabStatusHints({ t, path, historyRestore, external })
           const isActive = pathsEqual(activePath, path)
           const isDragSource = dragVisual?.fromIndex === index
           const badges: string[] = []
           if (dirty) badges.push('dirty')
-          if (external) badges.push('external')
           if (historyRestore) badges.push('history')
+          if (external) badges.push('external')
           const badgeClass = badges.length > 0 ? ` editor-tab-row--${badges.join('-')}` : ''
           const tabAriaParts = [tabLabel(path)]
           if (dirty) tabAriaParts.push(t('app.tabs.unsavedAria'))
-          if (external) tabAriaParts.push(t('app.tabs.externalAria'))
-          if (historyRestore) tabAriaParts.push(t('app.tabs.historyRestoreAria'))
+          tabAriaParts.push(...tabHints.ariaStatuses)
           const tabAriaLabel = tabAriaParts.join(' · ')
+          const tabIcon = resolveEditorTabIcon(path)
           const onTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault()
@@ -406,23 +526,39 @@ export function EditorTabBar({
                   onActivate(path)
                 }}
                 onKeyDown={onTabKeyDown}
-                title={
-                  historyRestore
-                    ? t('app.tabs.historyRestoreHint')
-                    : external
-                      ? t('app.tabs.externalDiskHint')
-                      : path
-                }
+                title={tabHints.title}
               >
+                <span className="editor-tab-icon" aria-hidden="true">
+                  <Icon name={tabIcon} size="xs" tone="muted" stroke="regular" />
+                </span>
                 <span className="editor-tab-label">{tabLabel(path)}</span>
                 {(dirty || external || historyRestore) && (
-                  <span className="editor-tab-badges" aria-hidden="true">
+                  <span className="editor-tab-badges">
                     {dirty && <span className="editor-tab-badge editor-tab-badge--dirty" />}
-                    {external && <span className="editor-tab-badge editor-tab-badge--external" />}
                     {historyRestore && <span className="editor-tab-badge editor-tab-badge--history" />}
+                    {external && (!onExternalBadgeClick || historyRestore) ? (
+                      <span className="editor-tab-badge editor-tab-badge--external" />
+                    ) : null}
                   </span>
                 )}
               </button>
+              {external && onExternalBadgeClick && !historyRestore ? (
+                <button
+                  type="button"
+                  className="editor-tab-badge-btn"
+                  title={t('app.tabs.reloadFromDiskHint')}
+                  aria-label={t('app.tabs.reloadFromDisk')}
+                  data-testid={`editor-tab-external-reload:${path.replace(/\\/g, '/').split('/').pop() ?? path}`}
+                  onMouseDown={preventButtonSecondaryMouseDown}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    onExternalBadgeClick(path)
+                  }}
+                >
+                  <span className="editor-tab-badge editor-tab-badge--external" />
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="editor-tab-close"
@@ -443,14 +579,102 @@ export function EditorTabBar({
       ) : null}
       <div className="editor-chrome-tab-spacer" aria-hidden />
       {openedTabs.length > 0 ? (
-      <div
-        className="editor-tabs-capacity"
-        data-testid="editor-tabs-capacity"
-        aria-label={t('app.tabs.countAria', { current: tabCount, max: MAX_OPEN_DOCUMENT_TABS })}
-      >
-        <span className="editor-tabs-count" aria-hidden="true">
-          {t('app.tabs.countLabel', { current: tabCount, max: MAX_OPEN_DOCUMENT_TABS })}
-        </span>
+      <div className="editor-tabs-capacity" data-testid="editor-tabs-capacity">
+        <button
+          ref={tabListTriggerRef}
+          type="button"
+          className={`editor-tabs-count-btn${tabListOpen ? ' is-active' : ''}`}
+          aria-haspopup="menu"
+          aria-expanded={tabListOpen}
+          aria-controls={tabListOpen ? tabListMenuId : undefined}
+          aria-label={t('app.tabs.listMenuAria', { current: tabCount, max: MAX_OPEN_DOCUMENT_TABS })}
+          data-testid="editor-tabs-list-trigger"
+          onMouseDown={preventButtonSecondaryMouseDown}
+          onClick={() => setTabListOpen((open) => !open)}
+        >
+          <Icon
+            name={tabListOpen ? 'chevron-down' : 'chevron-right'}
+            size="xs"
+            tone="muted"
+            stroke="strong"
+            className="editor-tabs-count-chevron"
+            aria-hidden
+          />
+          <span className="editor-tabs-count" aria-hidden="true">
+            {t('app.tabs.countLabel', { current: tabCount, max: MAX_OPEN_DOCUMENT_TABS })}
+          </span>
+        </button>
+        {tabListOpen
+          ? createPortal(
+              <div
+                id={tabListMenuId}
+                ref={tabListPanelRef}
+                className="editor-tabs-list-menu luna-reveal-popover-shell"
+                role="menu"
+                aria-label={t('app.tabs.listMenuTitle')}
+                data-testid="editor-tabs-list-menu"
+                style={tabListStyle}
+              >
+                {openedTabs.map((path, index) => {
+                  const isActive = pathsEqual(activePath, path)
+                  const dirty = isPathDirty(path)
+                  const external = hasExternalDiskDriftInState(path, externalDiskChangedPaths)
+                  const historyRestore = historyRestoreRevision >= 0 && isAutosaveSuspended(path)
+                  const tabFileStem = path.replace(/\\/g, '/').split('/').pop() ?? path
+                  return (
+                    <div
+                      key={path}
+                      className={`editor-tabs-list-row${isActive ? ' is-active' : ''}`}
+                      data-testid={`editor-tabs-list-item:${tabFileStem}`}
+                    >
+                      <button
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={isActive}
+                        className="editor-tabs-list-item"
+                        onClick={() => {
+                          logTabNav('user-tab-click', { path, index, trigger: 'tab-list-menu', activePath })
+                          onActivate(path)
+                          closeTabListMenu()
+                          requestAnimationFrame(() => scrollActiveTabIntoView())
+                        }}
+                      >
+                        <span className="editor-tabs-list-item-icon" aria-hidden="true">
+                          <Icon name={resolveEditorTabIcon(path)} size="xs" tone="muted" stroke="regular" />
+                        </span>
+                        <span className="editor-tabs-list-item-label">{tabLabel(path)}</span>
+                        {(dirty || external || historyRestore) && (
+                          <span className="editor-tabs-list-item-badges" aria-hidden="true">
+                            {dirty ? <span className="editor-tab-badge editor-tab-badge--dirty" /> : null}
+                            {historyRestore ? (
+                              <span className="editor-tab-badge editor-tab-badge--history" />
+                            ) : null}
+                            {external ? <span className="editor-tab-badge editor-tab-badge--external" /> : null}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        className="editor-tabs-list-close"
+                        aria-label={t('app.tabs.closeTab')}
+                        data-testid={`editor-tabs-list-close:${tabFileStem}`}
+                        onMouseDown={preventButtonSecondaryMouseDown}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          onClose(path)
+                          if (openedTabs.length <= 1) closeTabListMenu()
+                        }}
+                      >
+                        <Icon name="close" size="xs" tone="muted" stroke="strong" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>,
+              document.body,
+            )
+          : null}
         {nearTabLimit || atTabLimit ? (
           <LunaHintPopover
             title={t(atTabLimit ? 'app.tabs.atLimitTitle' : 'app.tabs.nearLimitTitle')}
@@ -472,7 +696,24 @@ export function EditorTabBar({
         ) : null}
       </div>
       ) : null}
-      {trailingActions ? <div className="editor-chrome-actions">{trailingActions}</div> : null}
+      {trailingActions || showGlobalSearchButton ? (
+        <div className="editor-chrome-actions">
+          {showGlobalSearchButton ? (
+            <button
+              type="button"
+              className={`luna-chrome-icon-btn editor-chrome-action-btn editor-tabs-overflow-btn${nearTabLimit || atTabLimit ? '' : ' editor-tabs-overflow-btn--quiet'}`}
+              title={`${t('app.globalSearch.aria')} (${formatCommandShortcutDisplay('view-search')})`}
+              aria-label={t('app.globalSearch.aria')}
+              data-testid="editor-tabs-overflow-switcher"
+              onMouseDown={preventButtonSecondaryMouseDown}
+              onClick={onOpenGlobalSearch}
+            >
+              <Icon name="search" size="sm" stroke="strong" />
+            </button>
+          ) : null}
+          {trailingActions}
+        </div>
+      ) : null}
       </div>
     </div>
   )

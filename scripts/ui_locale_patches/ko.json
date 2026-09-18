@@ -169,7 +169,7 @@
   "app.titleBar.welcomeTitle": "{app}에 오신 것을 환영합니다",
   "app.titleBar.welcomeSubtitle": "폴더를 열어 노트를 탐색하고 저장",
   "app.titleBar.readySubtitle": "이 작업 공간에서 노트 만들기 또는 열기",
-  "app.globalSearch.scopeHint": "열린 작업 공간의 모든 노트를 전체 텍스트로 검색합니다.",
+  "app.globalSearch.scopeHint": "열린 작업 공간에서 노트를 전체 검색합니다.",
   "app.globalSearch.shortLabel": "전체",
   "app.sidebar.recent.title": "최근 항목",
   "app.sidebar.search.placeholder": "이 작업 공간의 파일 이름 필터…",

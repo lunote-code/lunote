@@ -1,6 +1,6 @@
 let lastSuccessfulPaste: { token: string; at: number } | null = null
 
-const DEDUPE_MS = 500
+const DEDUPE_MS = 120
 
 /** Plain text is given priority when there is no image payload; image metadata avoids filename-only dedupe collisions. */
 export function computePasteFingerprint(text: string, images: readonly File[] = []): string {

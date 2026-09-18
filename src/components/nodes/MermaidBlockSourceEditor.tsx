@@ -14,6 +14,7 @@ import { resetSelectionFrameForBlock } from '../../editor/nativeInput/selectionC
 import { debugMermaid } from '../../editor/mermaid/mermaidDebug'
 import { useMermaidSourceSession } from '../../editor/mermaid/MermaidSourceSession'
 import { installMermaidSourceTextareaHandlers } from '../../editor/mermaid/mermaidSourceTextareaHandlers'
+import { useI18n } from '../../i18n'
 
 type Props = {
   blockId: string
@@ -29,6 +30,7 @@ export const MermaidBlockSourceEditor = memo(function MermaidBlockSourceEditor({
   isActive,
   preferredHeight,
 }: Props) {
+  const { t } = useI18n()
   const minEditorHeight = 180
   const { setDraft, setComposing, setActiveBlockId } = useMermaidSourceSession()
   const draft = useCodeBlockDraft(blockId)
@@ -84,10 +86,16 @@ export const MermaidBlockSourceEditor = memo(function MermaidBlockSourceEditor({
     debugMermaid('source_editor_activate', {
       blockId,
     })
+    const wrap = textareaRef.current?.closest('.pm-mermaid-wrap') as HTMLElement | null
+    if (wrap) {
+      wrap.style.contentVisibility = 'visible'
+      void wrap.offsetHeight
+    }
     const raf = requestAnimationFrame(() => {
       const ta = textareaRef.current
       if (!ta) return
       ta.focus({ preventScroll: true })
+      if (wrap) void wrap.getBoundingClientRect()
     })
     return () => cancelAnimationFrame(raf)
   }, [isActive, blockId])
@@ -191,7 +199,7 @@ export const MermaidBlockSourceEditor = memo(function MermaidBlockSourceEditor({
         onCompositionStart={onCompositionStart}
         onCompositionEnd={onCompositionEnd}
         spellCheck={false}
-        aria-label="Mermaid source code"
+        aria-label={t('editor.mermaid.sourceAria')}
       />
       <div
         className="pm-mermaid-source-resize-handle"

@@ -7,7 +7,7 @@ export async function createDocumentSnapshot(input: {
   path: string
   content: string
   title?: string | null
-  source?: 'manual' | 'pre_restore'
+  source?: 'manual' | 'pre_restore' | 'save' | 'autosave'
 }): Promise<DocumentHistoryEntry> {
   return invoke<DocumentHistoryEntry>('create_document_snapshot', {
     payload: {

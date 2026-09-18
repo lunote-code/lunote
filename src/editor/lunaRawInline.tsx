@@ -4,17 +4,37 @@ import {
   ReactNodeViewRenderer,
   type ReactNodeViewProps,
 } from '@tiptap/react'
-import { memo, useCallback, useEffect, useRef } from 'react'
-import { sanitizeEmbeddedHtml } from './lunaHtmlSanitize'
+import { memo, useCallback, useLayoutEffect, useMemo, useRef } from 'react'
+import { useI18n } from '../i18n'
+import { renderEmbeddedHtml, sanitizeEmbeddedHtml } from './lunaHtmlSanitize'
 import { parseHtmlCommentBody } from './lunaHtmlComment'
 import { startInlineMarkdownReveal } from './lunaMarkdownSourceReveal'
 import { normalizeLunaRawSource, type LunaRawSource } from './lunaRawBlock'
+import {
+  handleEmbeddedHtmlMediaMouseDown,
+  shouldAttachEmbeddedHtmlMediaMouseDownGuard,
+  shouldStopEmbeddedHtmlSurfaceNodeViewEvent,
+} from './embeddedHtmlMediaInteraction'
 
 const LunaRawInlineView = memo(function LunaRawInlineView(props: ReactNodeViewProps) {
-  const { node, editor } = props
+  const { t } = useI18n()
+  const { node, editor, extension } = props
   const source = normalizeLunaRawSource(node.attrs.source)
   const raw = String(node.attrs.content ?? '')
-  const ref = useRef<HTMLSpanElement>(null)
+  const extensionOptions = extension.options as {
+    resolveMediaSrc?: (src: string) => string
+    getMediaRenderScope?: () => string
+  }
+  const resolveMediaSrc = extensionOptions.resolveMediaSrc
+  const mediaRenderScope = extensionOptions.getMediaRenderScope?.() ?? ''
+  const surfaceRef = useRef<HTMLSpanElement>(null)
+
+  const renderedHtml = useMemo(() => {
+    if (source !== 'html') return ''
+    return renderEmbeddedHtml(raw, { resolveMediaSrc, mediaRenderScope })
+  }, [source, raw, resolveMediaSrc, mediaRenderScope])
+
+  const onEmbeddedMediaMouseDown = handleEmbeddedHtmlMediaMouseDown
 
   const onCommentDoubleClick = useCallback(
     (event: React.MouseEvent) => {
@@ -32,19 +52,23 @@ const LunaRawInlineView = memo(function LunaRawInlineView(props: ReactNodeViewPr
     [editor.view, props.getPos, props.node.nodeSize, raw],
   )
 
-  useEffect(() => {
-    const el = ref.current
+  useLayoutEffect(() => {
+    const el = surfaceRef.current
     if (!el) return
     if (source === 'html') {
-      el.innerHTML = sanitizeEmbeddedHtml(raw)
-    } else {
-      el.textContent = raw
+      if (el.innerHTML !== renderedHtml) el.innerHTML = renderedHtml
+      return
     }
-  }, [source, raw])
+    if (el.textContent !== raw) el.textContent = raw
+  }, [source, raw, renderedHtml])
 
   if (source === 'html') {
     const commentBody = parseHtmlCommentBody(raw)
     if (commentBody != null) {
+      const commentPlaceholder = t('editor.htmlComment.placeholder')
+      const commentTitle = commentBody
+        ? t('editor.htmlComment.editTitleWithBody', { body: commentBody })
+        : t('editor.htmlComment.editTitleEmpty')
       return (
         <NodeViewWrapper
           as="span"
@@ -52,12 +76,12 @@ const LunaRawInlineView = memo(function LunaRawInlineView(props: ReactNodeViewPr
           data-luna-raw-inline="1"
           data-source="html"
           data-type="html-comment"
-          title={commentBody ? `${commentBody} (double-click to edit)` : 'Comment (double-click to edit)'}
+          title={commentTitle}
           onDoubleClick={onCommentDoubleClick}
         >
           <span className="pm-luna-html-comment-badge" contentEditable={false} suppressContentEditableWarning>
             {'<!-- '}
-            {commentBody || 'comment'}
+            {commentBody || commentPlaceholder}
             {' -->'}
           </span>
         </NodeViewWrapper>
@@ -71,7 +95,15 @@ const LunaRawInlineView = memo(function LunaRawInlineView(props: ReactNodeViewPr
         data-source="html"
         data-type="html-inline"
       >
-        <span ref={ref} className="pm-luna-html-inline-surface" contentEditable={false} suppressContentEditableWarning />
+        <span
+          ref={surfaceRef}
+          className="pm-luna-html-inline-surface"
+          contentEditable={false}
+          suppressContentEditableWarning
+          onMouseDown={
+            shouldAttachEmbeddedHtmlMediaMouseDownGuard(raw) ? onEmbeddedMediaMouseDown : undefined
+          }
+        />
       </NodeViewWrapper>
     )
   }
@@ -94,6 +126,13 @@ export const LunaRawInline = Node.create({
   group: 'inline',
   inline: true,
   atom: true,
+
+  addOptions() {
+    return {
+      resolveMediaSrc: undefined as ((src: string) => string) | undefined,
+      getMediaRenderScope: undefined as (() => string) | undefined,
+    }
+  },
 
   addAttributes() {
     return {
@@ -122,7 +161,15 @@ export const LunaRawInline = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(LunaRawInlineView)
+    return ReactNodeViewRenderer(LunaRawInlineView, {
+      stopEvent: ({ event }) => shouldStopEmbeddedHtmlSurfaceNodeViewEvent(event),
+      ignoreMutation: ({ mutation }) => {
+        const target = mutation.target
+        if (!(target instanceof Node)) return false
+        const el = target instanceof Element ? target : target.parentElement
+        return !!el?.closest('.pm-luna-html-inline-surface')
+      },
+    })
   },
 
   renderHTML({ node, HTMLAttributes }) {

@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lunote.app/schemas/plugin-manifest.v2.json",
+  "title": "LunotePluginManifest",
+  "type": "object",
+  "required": ["schemaVersion", "id", "name", "version", "minAppVersion", "permissions"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "minimum": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "name": { "type": "string" },
+    "version": { "type": "string" },
+    "entry": { "type": ["string", "null"] },
+    "pluginType": { "type": "string" },
+    "capabilities": { "type": "array", "items": { "type": "string" } },
+    "platforms": { "type": "array", "items": { "type": "string" } },
+    "requiresRestart": { "type": "boolean" },
+    "experimental": { "type": "boolean" },
+    "minAppVersion": { "type": "string" },
+    "maxAppVersion": { "type": ["string", "null"] },
+    "permissions": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true
+        }
+      ]
+    },
+    "contributes": {
+      "type": "object",
+      "properties": {
+        "theme": {
+          "type": "object",
+          "properties": {
+            "style": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/ThemeStyleContribution" }
+            },
+            "snippets": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/ThemeSnippetContribution" }
+            },
+            "tokens": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/ThemeTokenContribution" }
+            },
+            "defaultEnable": {
+              "type": "object",
+              "properties": {
+                "style": { "type": "boolean" },
+                "snippets": { "type": "array", "items": { "type": "string" } },
+                "tokens": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "commands": { "type": "array", "items": { "type": "string" } },
+        "preferencesSections": { "type": "array", "items": { "type": "string" } },
+        "panels": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "properties": {
+        "contributes": {
+          "type": "object",
+          "properties": {
+            "style": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/ThemeStyleContribution" }
+            },
+            "snippets": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/ThemeSnippetContribution" }
+            },
+            "tokens": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/ThemeTokenContribution" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "ThemeStyleContribution": {
+      "type": "object",
+      "required": ["file", "label"],
+      "properties": {
+        "file": { "type": "string" },
+        "label": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "ThemeSnippetContribution": {
+      "type": "object",
+      "required": ["file", "id", "label"],
+      "properties": {
+        "file": { "type": "string" },
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "description": { "type": "string" },
+        "defaultEnabled": { "type": "boolean" }
+      }
+    },
+    "ThemeTokenContribution": {
+      "type": "object",
+      "required": ["file", "label"],
+      "properties": {
+        "file": { "type": "string" },
+        "label": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    }
+  }
+}

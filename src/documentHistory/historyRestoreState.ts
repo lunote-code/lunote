@@ -5,8 +5,10 @@ type Listener = () => void
 
 const restoreStateByPath = new Map<string, DocumentHistoryRestoreState>()
 const listeners = new Set<Listener>()
+let revision = 0
 
 function notify(): void {
+  revision += 1
   for (const listener of listeners) listener()
 }
 
@@ -50,6 +52,10 @@ export function clearAllHistoryRestoreState(): void {
   if (restoreStateByPath.size === 0) return
   restoreStateByPath.clear()
   notify()
+}
+
+export function getHistoryRestoreRevision(): number {
+  return revision
 }
 
 export function subscribeHistoryRestoreState(listener: Listener): () => void {

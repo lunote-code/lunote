@@ -34,7 +34,7 @@
     inset 0 0 0 var(--hairline) color-mix(in srgb, var(--border-subtle) 78%, transparent),
     var(--shadow-panel, 0 10px 24px color-mix(in srgb, #000 10%, transparent));
   background: var(--code-bg);
-  overflow: visible;
+  overflow: hidden;
   font-synthesis: none;
 }
 
@@ -126,7 +126,7 @@
 .preview-pane.markdown-visual-editor .ProseMirror .pm-code-body-col,
 .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-scroller {
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
+  scrollbar-width: none;
   scrollbar-color: transparent transparent;
 }
 
@@ -134,12 +134,20 @@
 .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus-within .pm-code-body-col,
 .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:hover .pm-code-block-cm .cm-scroller,
 .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus-within .pm-code-block-cm .cm-scroller {
+  scrollbar-width: thin;
   scrollbar-color: var(--luna-code-block-scrollbar-thumb) transparent;
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .pm-code-body-col::-webkit-scrollbar,
 .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-scroller::-webkit-scrollbar {
   width: var(--luna-code-block-scrollbar-size, 4px);
+  height: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:hover .pm-code-body-col::-webkit-scrollbar,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus-within .pm-code-body-col::-webkit-scrollbar,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:hover .pm-code-block-cm .cm-scroller::-webkit-scrollbar,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus-within .pm-code-block-cm .cm-scroller::-webkit-scrollbar {
   height: var(--luna-code-block-scrollbar-size, 4px);
 }
 
@@ -276,25 +284,50 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  opacity: 0.52;
+  opacity: 0.72;
   transform: translateX(-2px);
   transition:
     opacity 160ms ease,
     transform 160ms ease;
 }
 
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar__actions .luna-btn--icon:not(.luna-btn--ai) {
+  opacity: 0.52;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar__actions .luna-btn--icon.luna-btn--ai {
+  opacity: 0.78;
+}
+
+html[data-theme='dark'] .preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar__actions .luna-btn--icon.luna-btn--ai {
+  opacity: 0.88;
+}
+
 .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:hover .luna-code-toolbar__actions,
 .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--palette-open .luna-code-toolbar__actions,
 .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus-within .luna-code-toolbar__actions,
-.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--copy-failed .luna-code-toolbar__actions {
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--copy-failed .luna-code-toolbar__actions,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--block-ai-running .luna-code-toolbar__actions {
   opacity: 1;
   transform: translateX(0);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:hover .luna-code-toolbar__actions .luna-btn--icon,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--palette-open .luna-code-toolbar__actions .luna-btn--icon,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus-within .luna-code-toolbar__actions .luna-btn--icon,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--copy-failed .luna-code-toolbar__actions .luna-btn--icon,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--block-ai-running .luna-code-toolbar__actions .luna-btn--icon {
+  opacity: 1;
 }
 
 @media (hover: none) {
   .preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar__actions {
     opacity: 1;
     transform: none;
+  }
+
+  .preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar__actions .luna-btn--icon {
+    opacity: 1;
   }
 }
 
@@ -351,8 +384,34 @@
   box-shadow: none;
 }
 
-.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn--icon svg {
-  flex-shrink: 0;
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn--icon.luna-btn--ai {
+  color: color-mix(in srgb, var(--accent) 82%, var(--text-muted));
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-panel) 26%);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:hover .luna-code-toolbar .luna-btn--icon.luna-btn--ai,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:focus-within .luna-code-toolbar .luna-btn--icon.luna-btn--ai,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap--block-ai-running .luna-code-toolbar .luna-btn--icon.luna-btn--ai {
+  color: var(--reveal-source-btn-fg);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn--icon.luna-btn--ai.luna-btn--running {
+  opacity: 1;
+  cursor: default;
+  color: color-mix(in srgb, var(--accent) 88%, var(--text-primary));
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-panel));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn--icon.luna-btn--ai .luna-btn__ai-spinner {
+  animation: editor-block-ai-spin 900ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-pane.markdown-visual-editor .ProseMirror .luna-code-toolbar .luna-btn--icon.luna-btn--ai .luna-btn__ai-spinner {
+    animation: none;
+  }
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:hover .luna-code-toolbar .luna-btn--icon,
@@ -901,6 +960,17 @@
 .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-editor {
   width: 100%;
   background: transparent;
+  border-radius: inherit;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-gutters {
+  border-top-left-radius: inherit;
+  border-bottom-left-radius: inherit;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-scroller {
+  border-top-right-radius: inherit;
+  border-bottom-right-radius: inherit;
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-cm .cm-editor.cm-focused {

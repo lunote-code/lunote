@@ -45,7 +45,7 @@ export function selectAllInCurrentBlock(editor: Editor): boolean {
       }
     }
     if (selectAllInFocusedCodeBlockCm()) return true
-    return true
+    return false
   }
 
   const state = editor.state
@@ -88,7 +88,7 @@ export function selectAllInCurrentBlock(editor: Editor): boolean {
       const blockPos = $head.before(codeD)
       if (selectAllInCodeBlockCmAtPos(editor, blockPos)) return true
       // Never fall back to PM text selection while CM is the editing surface.
-      if (isCodeBlockCmFocused()) return true
+      if (isCodeBlockCmFocused()) return false
     }
     if (isCodeBlockCmFocused() && selectAllInFocusedCodeBlockCm()) return true
     const node = $head.node(codeD)
@@ -117,23 +117,27 @@ export function selectAllInCurrentBlock(editor: Editor): boolean {
   }
 
   if (taskItemD !== null) {
-    const pos = $head.before(taskItemD)
-    return editor.chain().focus().setNodeSelection(pos).run()
+    const from = $head.start(taskItemD)
+    const to = $head.end(taskItemD)
+    return editor.chain().focus().setTextSelection({ from, to }).run()
   }
 
   if (listItemD !== null) {
-    const pos = $head.before(listItemD)
-    return editor.chain().focus().setNodeSelection(pos).run()
+    const from = $head.start(listItemD)
+    const to = $head.end(listItemD)
+    return editor.chain().focus().setTextSelection({ from, to }).run()
   }
 
   if (calloutD !== null) {
-    const pos = $head.before(calloutD)
-    return editor.chain().focus().setNodeSelection(pos).run()
+    const from = $head.start(calloutD)
+    const to = $head.end(calloutD)
+    return editor.chain().focus().setTextSelection({ from, to }).run()
   }
 
   if (blockquoteD !== null) {
-    const pos = $head.before(blockquoteD)
-    return editor.chain().focus().setNodeSelection(pos).run()
+    const from = $head.start(blockquoteD)
+    const to = $head.end(blockquoteD)
+    return editor.chain().focus().setTextSelection({ from, to }).run()
   }
 
   if (textD !== null) {

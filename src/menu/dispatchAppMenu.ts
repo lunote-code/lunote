@@ -63,6 +63,15 @@ export async function dispatchAppMenuFromTauri(
     await raiseMainWindow()
   }
 
+  if (action === 'open-recent-workspace' && recentPath) {
+    void (async () => {
+      await m.loadNotes(recentPath, null, [])
+      ui.setFocusMode(false)
+      ui.setSidebarVisible(true)
+    })()
+    return
+  }
+
   if (action === 'open-recent' && recentPath) {
     void (async () => {
       let targetRoot = m.rootDir

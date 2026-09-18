@@ -17,6 +17,7 @@ import {
   type PrefsSectionTabId,
   type PrefsSectionTabsDefinition,
 } from './prefsSectionTabsMeta'
+import { findFirstMatchingPrefsSectionTab } from './prefsSearch'
 import type { PrefsTabId } from './types'
 
 type ThemeCatalogEntry = { name: string }
@@ -70,6 +71,11 @@ export function TabbedSchemaPreferencesPanel({
   useEffect(() => {
     writeStoredPrefsSectionTab(tabsDefinition, activeSectionTab)
   }, [activeSectionTab, tabsDefinition])
+
+  useEffect(() => {
+    const matchTab = findFirstMatchingPrefsSectionTab(t, tabsDefinition, searchQuery)
+    if (matchTab) setActiveSectionTab(matchTab)
+  }, [searchQuery, t, tabsDefinition])
 
   const { renderBeforeSection, renderAfterSection } = createPreferencesSectionDecorators({
     t,

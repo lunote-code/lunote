@@ -418,6 +418,7 @@ function inferRegressionBlockTypeFromMarkdown(markdown: string): string | null {
   const trimmed = markdown.trim()
   if (!trimmed) return null
   if (/^```+\s*mermaid\b/iu.test(trimmed)) return 'mermaidBlock'
+  if (/^```+\s*drawing\b/iu.test(trimmed)) return 'drawingBlock'
   if (/^```+\s*luna-raw\b/iu.test(trimmed)) return 'rawBlock'
   if (/^```+/u.test(trimmed)) return 'codeBlock'
   if (/^\$\$(?:\n|$)/u.test(trimmed)) return 'blockMath'
@@ -425,6 +426,7 @@ function inferRegressionBlockTypeFromMarkdown(markdown: string): string | null {
   if (/^\[\^[^\]\s][^\]]*\]:/u.test(trimmed)) return 'footnoteDef'
   if (/^\[[^\]]+\]:\s+/u.test(trimmed)) return 'linkReferenceDef'
   if (/^\[toc\]$/iu.test(trimmed)) return 'tocDirective'
+  if (/^!\[\[[^\]]+\]\]\s*$/u.test(trimmed)) return 'wikiEmbed'
   return null
 }
 

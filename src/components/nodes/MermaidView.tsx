@@ -11,6 +11,10 @@ import {
 } from '../../editor/mermaid/mermaidTemplates'
 import { switchMermaidActiveBlock } from '../../editor/mermaid/mermaidSourceBlockSwitch'
 import { debugMermaid } from '../../editor/mermaid/mermaidDebug'
+import {
+  MERMAID_ERROR_NOT_DIAGRAM,
+  MERMAID_ERROR_RENDER_FAILED,
+} from '../../editor/mermaid/mermaidSourceLint'
 import { isMermaidDocumentEditable } from '../../editor/mermaid/mermaidSourceInputFocus'
 import { useMermaidBlockSession, useMermaidSourceSession } from '../../editor/mermaid/MermaidSourceSession'
 import { runAfterReactCommit } from '../../editor/reactCommitScheduler'
@@ -27,6 +31,7 @@ import {
   type BlockRendererType,
 } from '../../editor/runtimeEngine/unified'
 import { MermaidBlockSourceEditor } from './MermaidBlockSourceEditor'
+import { MermaidPreviewViewport } from './MermaidPreviewViewport'
 import { useI18n } from '../../i18n'
 
 function snapshotScrollableAncestors(root: HTMLElement | null): Array<{ el: HTMLElement; top: number; left: number }> {
@@ -55,6 +60,17 @@ function restoreScrollableAncestors(snapshots: Array<{ el: HTMLElement; top: num
     snapshot.el.scrollTop = snapshot.top
     snapshot.el.scrollLeft = snapshot.left
   }
+}
+
+/** Tall preview → source swaps can skip paint while content-visibility containment is settling. */
+function nudgeMermaidSourceRepaint(root: HTMLElement | null): void {
+  if (!root) return
+  root.style.contentVisibility = 'visible'
+  void root.offsetHeight
+  requestAnimationFrame(() => {
+    void root.getBoundingClientRect()
+    root.style.removeProperty('content-visibility')
+  })
 }
 
 export const MermaidView = memo(function MermaidView(props: ReactNodeViewProps) {
@@ -200,7 +216,11 @@ export const MermaidView = memo(function MermaidView(props: ReactNodeViewProps) 
     runAfterReactCommit(() => {
       editor.commands.blur()
       restoreScrollableAncestors(scrollSnapshots)
-      requestAnimationFrame(() => restoreScrollableAncestors(scrollSnapshots))
+      nudgeMermaidSourceRepaint(wrapRef.current)
+      requestAnimationFrame(() => {
+        restoreScrollableAncestors(scrollSnapshots)
+        nudgeMermaidSourceRepaint(wrapRef.current)
+      })
     })
   }, [activeBlockId, blockId, editor, getPos, mode, node.attrs, registerBlock, setActiveTab, source])
 
@@ -244,14 +264,20 @@ export const MermaidView = memo(function MermaidView(props: ReactNodeViewProps) 
     </pre>
   )
 
-  const typeLabel = blockType === 'mindmap' ? 'Mindmap' : 'Mermaid'
+  const typeLabel =
+    blockType === 'mindmap'
+      ? t('editor.mermaid.blockType.mindmap')
+      : t('editor.mermaid.blockType.mermaid')
 
   const displayRenderError = useMemo(() => {
     if (!renderErr) return null
-    if (renderErr === 'MERMAID_ERROR_NOT_DIAGRAM') {
+    if (renderErr === MERMAID_ERROR_NOT_DIAGRAM) {
       return t('editor.mermaid.invalidSource')
     }
-    return renderErr
+    if (renderErr === MERMAID_ERROR_RENDER_FAILED) {
+      return t('editor.mermaid.renderFailed')
+    }
+    return t('editor.mermaid.renderFailed')
   }, [renderErr, t])
 
   return (
@@ -318,7 +344,7 @@ export const MermaidView = memo(function MermaidView(props: ReactNodeViewProps) 
             ) : null}
             {renderErr ? (
               <div className={`pm-mermaid-error ${RUNTIME_SURFACE_CLASS.error}`} role="alert">
-                <strong>{typeLabel}</strong>：{displayRenderError}
+                <strong>{typeLabel}</strong>: {displayRenderError}
                 {showToolbar ? (
                   <button type="button" className="pm-mermaid-error-back" onClick={goSource}>
                     {t('editor.mermaid.editSource')}
@@ -327,10 +353,13 @@ export const MermaidView = memo(function MermaidView(props: ReactNodeViewProps) 
                 {fallbackCode}
               </div>
             ) : null}
-            <div
-              ref={hostRef}
-              className={`pm-mermaid-svg-host mermaid ${RUNTIME_SURFACE_CLASS.host}`}
-              style={renderErr ? { display: 'none' } : undefined}
+            <MermaidPreviewViewport
+              blockId={blockId}
+              hostRef={hostRef}
+              disabled={busy || Boolean(renderErr) || isEmptySource}
+              hidden={busy || Boolean(renderErr) || isEmptySource}
+              title={typeLabel}
+              svgRevision={`${previewDraft}\0${busy ? 1 : 0}\0${renderErr ?? ''}`}
             />
           </div>
         )}

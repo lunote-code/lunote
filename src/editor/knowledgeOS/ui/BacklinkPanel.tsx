@@ -7,7 +7,7 @@ import {
   backlinkIdForOutbound,
 } from '../backlinkNavigation'
 import { useSurfaceLayout } from './useSurfaceLayout'
-import { isSurfaceResizing } from '../layout/surfaceSplitLayoutRuntime'
+import { useSurfaceSplitResizing } from './useSurfaceSplitResizing'
 import type { WikiLinkTarget } from '../../knowledgeRuntime/types'
 import { normalizeDocKeyForNavigation } from '../../knowledgeRuntime'
 import { resolveClickIntent } from '../../navigation/clickIntentResolver'
@@ -73,6 +73,9 @@ const InboundGroupList = memo(function InboundGroupList({
                   }
                 >
                   <code>{item.raw}</code>
+                  {item.snippet && item.snippet !== item.raw ? (
+                    <span className="kos-backlink-preview">{item.snippet}</span>
+                  ) : null}
                 </button>
               </li>
             ))}
@@ -124,7 +127,7 @@ export function BacklinkPanel({ docKey }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   useSurfaceLayout('backlink', hostRef)
   const panel = useBacklinkSlice(docKey)
-  const resizing = isSurfaceResizing()
+  const resizing = useSurfaceSplitResizing()
 
   const onNavigate = useCallback<NavigateFn>((event, backlinkId, target) => {
     const traceId = `nav-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -179,10 +182,20 @@ export function BacklinkPanel({ docKey }: Props) {
   const showInboundList = panel.inboundHydrated && panel.inbound.length > 0
   const showInboundEmpty = panel.inboundHydrated && panel.inbound.length === 0
   const showStalePreview = inboundLoading && panel.inbound.length > 0
+  const showAllEmptyState =
+    panel.inboundHydrated &&
+    panel.inbound.length === 0 &&
+    panel.outbound.length === 0 &&
+    panel.mentions.length === 0
 
   return (
     <div className="kos-surface-host" ref={hostRef}>
       <div className={`kos-backlink-panel${resizing ? ' kos-backlink-panel--resizing' : ''}`}>
+        {showAllEmptyState ? (
+          <div className="kos-surface-host kos-surface-host--empty">
+            <EmptyState variant="compact" icon="backlinks" title={t('knowledge.backlinks.empty')} />
+          </div>
+        ) : (
         <div className="kos-backlink-scroll">
           <section className="kos-backlink-section">
             <h3 className="kos-section-title">
@@ -239,7 +252,9 @@ export function BacklinkPanel({ docKey }: Props) {
                 ))}
               </ul>
             )}
-          </section>        </div>
+          </section>
+        </div>
+        )}
       </div>
     </div>
   )

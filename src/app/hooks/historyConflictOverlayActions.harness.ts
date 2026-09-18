@@ -1,7 +1,8 @@
 import {
   confirmDeleteFromDocumentHistory,
   createFromDocumentHistory,
-  keepLocalFromSaveConflict,
+  keepLocalEditsFromExternalDrift,
+  keepLocalFromSaveConflictWithDeps,
   restoreFromDocumentHistory,
   applyDiskFromSaveConflict,
 } from './historyConflictOverlayActions'
@@ -63,31 +64,58 @@ const CASES: readonly Case[] = Object.freeze([
     },
   },
   {
-    name: 'keep local force saves and reports success',
+    name: 'external drift keep local edits does not save',
     run: async () => {
       const calls: string[] = []
-      const ok = await keepLocalFromSaveConflict({
-        conflict: makeConflict(),
-        rootDir: '/vault',
-        dispatchDocumentCommand: async (command) => {
-          calls.push(`${command.type}:${command.path}:${String(command.forceOverwrite)}`)
-        },
-        markWorkspaceRefreshSuppressed: () => {
-          calls.push('suppress')
-        },
-        setSavedAt: (value) => {
-          calls.push(`savedAt:${Boolean(value)}`)
-        },
-        refreshActiveEditorAfterPathReload: (path) => {
-          calls.push(`refresh:${path}`)
-        },
+      const ok = await keepLocalEditsFromExternalDrift({
+        conflict: makeConflict({ sourceMode: 'external' }),
         setStatus: (message, tone) => {
           calls.push(`status:${tone}:${message}`)
         },
         t,
       })
+      assert(ok, 'keep local edits should return true')
+      assertEqual(
+        calls[0],
+        'status:warning:app.status.externalFileChangedDirtyKept',
+        'should report dirty-kept warning',
+      )
+      assertEqual(calls.length, 1, 'should not dispatch save')
+    },
+  },
+  {
+    name: 'keep local force saves and reports success',
+    run: async () => {
+      const calls: string[] = []
+      const ok = await keepLocalFromSaveConflictWithDeps(
+        {
+          conflict: makeConflict(),
+          rootDir: '/vault',
+          markWorkspaceRefreshSuppressed: () => {
+            calls.push('suppress')
+          },
+          setSavedAt: (value) => {
+            calls.push(`savedAt:${Boolean(value)}`)
+          },
+          refreshActiveEditorAfterPathReload: (path) => {
+            calls.push(`refresh:${path}`)
+          },
+          setStatus: (message, tone) => {
+            calls.push(`status:${tone}:${message}`)
+          },
+          t,
+        },
+        {
+          dispatchSave: async (command) => {
+            calls.push(`${command.source}:${command.path}:${String(command.forceOverwrite)}`)
+          },
+          ensureUnlocked: async () => true,
+          shouldAbortStale: () => false,
+          shouldRetryUnlock: () => false,
+        },
+      )
       assert(ok, 'keep local should return true')
-      assertEqual(calls[0], 'SAVE_DOCUMENT:/vault/note.md:true', 'should force save target path')
+      assertEqual(calls[0], 'save-conflict-force:/vault/note.md:true', 'should force save target path')
       assertEqual(calls[1], 'suppress', 'should suppress workspace refresh')
       assertEqual(calls[2], 'savedAt:true', 'should stamp saved time')
       assertEqual(calls[3], 'refresh:/vault/note.md', 'should refresh target path')
@@ -98,26 +126,33 @@ const CASES: readonly Case[] = Object.freeze([
     name: 'keep local surfaces save failure',
     run: async () => {
       const calls: string[] = []
-      const ok = await keepLocalFromSaveConflict({
-        conflict: makeConflict(),
-        rootDir: '/vault',
-        dispatchDocumentCommand: async () => {
-          throw new Error('disk busy')
+      const ok = await keepLocalFromSaveConflictWithDeps(
+        {
+          conflict: makeConflict(),
+          rootDir: '/vault',
+          markWorkspaceRefreshSuppressed: () => {
+            calls.push('suppress')
+          },
+          setSavedAt: () => {
+            calls.push('savedAt')
+          },
+          refreshActiveEditorAfterPathReload: () => {
+            calls.push('refresh')
+          },
+          setStatus: (message, tone) => {
+            calls.push(`status:${tone}:${message}`)
+          },
+          t,
         },
-        markWorkspaceRefreshSuppressed: () => {
-          calls.push('suppress')
+        {
+          dispatchSave: async () => {
+            throw new Error('disk busy')
+          },
+          ensureUnlocked: async () => true,
+          shouldAbortStale: () => false,
+          shouldRetryUnlock: () => false,
         },
-        setSavedAt: () => {
-          calls.push('savedAt')
-        },
-        refreshActiveEditorAfterPathReload: () => {
-          calls.push('refresh')
-        },
-        setStatus: (message, tone) => {
-          calls.push(`status:${tone}:${message}`)
-        },
-        t,
-      })
+      )
       assert(!ok, 'keep local should return false on failure')
       assertEqual(
         calls[0],
@@ -125,6 +160,87 @@ const CASES: readonly Case[] = Object.freeze([
         'should report save error status',
       )
       assertEqual(calls.length, 1, 'should not continue success side effects')
+    },
+  },
+  {
+    name: 'keep local retries unlock for locked encrypted workspace',
+    run: async () => {
+      let saveAttempts = 0
+      let unlockedRoot = ''
+      const ok = await keepLocalFromSaveConflictWithDeps(
+        {
+          conflict: makeConflict(),
+          rootDir: '/vault',
+          getCurrentRootDir: () => '/vault',
+          promptWorkspacePassword: async () => ({ password: 'pw' }),
+          markWorkspaceRefreshSuppressed: () => undefined,
+          setSavedAt: () => undefined,
+          refreshActiveEditorAfterPathReload: () => undefined,
+          setStatus: () => undefined,
+          t,
+        },
+        {
+          dispatchSave: async ({ root }) => {
+            saveAttempts += 1
+            if (saveAttempts === 1) {
+              throw new Error('WORKSPACE_LOCKED')
+            }
+            assertEqual(root, '/vault', 'save must target conflict root')
+          },
+          ensureUnlocked: async (root) => {
+            unlockedRoot = root
+            return true
+          },
+          shouldAbortStale: () => false,
+          shouldRetryUnlock: (_error, allowRetry, hasPrompt) => allowRetry && hasPrompt,
+        },
+      )
+      assert(ok, 'keep local should succeed after unlock')
+      assertEqual(saveAttempts, 2, 'keep local should retry save after unlock')
+      assertEqual(unlockedRoot, '/vault', 'keep local must unlock conflict root')
+    },
+  },
+  {
+    name: 'keep local aborts stale cross-workspace save without unlock',
+    run: async () => {
+      const calls: string[] = []
+      const ok = await keepLocalFromSaveConflictWithDeps(
+        {
+          conflict: makeConflict(),
+          rootDir: '/vault/old',
+          getCurrentRootDir: () => '/vault/new',
+          promptWorkspacePassword: async () => {
+            calls.push('prompt')
+            return { password: 'pw' }
+          },
+          markWorkspaceRefreshSuppressed: () => {
+            calls.push('suppress')
+          },
+          setSavedAt: () => {
+            calls.push('savedAt')
+          },
+          refreshActiveEditorAfterPathReload: () => {
+            calls.push('refresh')
+          },
+          setStatus: (message, tone) => {
+            calls.push(`status:${tone}:${message}`)
+          },
+          t,
+        },
+        {
+          dispatchSave: async () => {
+            throw new Error('WORKSPACE_LOCKED')
+          },
+          ensureUnlocked: async () => {
+            calls.push('unlock')
+            return true
+          },
+          shouldAbortStale: (rootAtRequest, currentRootDir) => rootAtRequest !== currentRootDir,
+          shouldRetryUnlock: () => true,
+        },
+      )
+      assert(!ok, 'stale keep-local should return false')
+      assertEqual(calls.length, 0, 'stale keep-local must not unlock, save, or notify')
     },
   },
   {
@@ -136,6 +252,9 @@ const CASES: readonly Case[] = Object.freeze([
         context: { rootDir: '/vault', path: '/vault/note.md' },
         flushEditorToMemory: async () => true,
         dispatchDocumentCommand: async () => undefined,
+        refreshActiveEditorAfterPathReload: (path) => {
+          calls.push(`refresh:${path}`)
+        },
         restoreSnapshot: async () => ({
           entry: {
             id: 'snap-1',
@@ -155,7 +274,8 @@ const CASES: readonly Case[] = Object.freeze([
         },
         t,
       })
-      assertEqual(calls[0], 'status:warning:app.history.restoredPendingSave', 'should report restore warning')
+      assertEqual(calls[0], 'refresh:/vault/note.md', 'should refresh active editor after restore')
+      assertEqual(calls[1], 'status:warning:app.history.restoredPendingSave', 'should report restore warning')
     },
   },
   {

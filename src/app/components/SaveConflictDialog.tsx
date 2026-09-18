@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import type { TranslateFn } from '../../i18n'
 import { buildThreeWayMergeRows } from '../../lib/threeWayMerge'
 import { useFocusTrap } from '../../lib/useFocusTrap'
 import { SettingsButton } from '../../components/settings'
+import { bindOverlayScrollbarReveal } from '../overlayScrollbarReveal'
 
 type Props = {
   t: TranslateFn
@@ -14,7 +15,7 @@ type Props = {
   localPreview: string
   diskPreview: string
   diskReadable: boolean
-  sourceMode: 'manual' | 'autosave'
+  sourceMode: 'manual' | 'autosave' | 'external'
   resolving?: boolean
   onKeepLocal: () => void
   onUseDisk: () => void
@@ -38,6 +39,7 @@ export function SaveConflictDialog({
   onCancel,
 }: Props) {
   const [dialogEl, setDialogEl] = useState<HTMLDivElement | null>(null)
+  const compareRef = useRef<HTMLDivElement | null>(null)
   const rows = useMemo(
     () => buildThreeWayMergeRows(basePreview, localPreview, diskPreview).slice(0, MAX_ROWS),
     [basePreview, localPreview, diskPreview],
@@ -50,6 +52,16 @@ export function SaveConflictDialog({
   useFocusTrap(open, dialogEl, {
     onEscape: onCancel,
   })
+
+  useEffect(() => {
+    if (!open || !dialogEl) return
+    return bindOverlayScrollbarReveal(dialogEl)
+  }, [dialogEl, open])
+
+  useEffect(() => {
+    if (!open || !compareRef.current) return
+    return bindOverlayScrollbarReveal(compareRef.current)
+  }, [open, rows.length])
 
   if (!open) return null
 
@@ -75,13 +87,27 @@ export function SaveConflictDialog({
             {t('settings.editor.autosaveEnabled.label')}
           </div>
         ) : null}
+        {sourceMode === 'external' ? (
+          <div className="save-conflict-source-badge save-conflict-source-badge--external">
+            {t('app.saveConflict.externalBadge')}
+          </div>
+        ) : null}
         <h2 id="save-conflict-title" className="app-dialog-title">
-          {t('app.saveConflict.title')}
+          {sourceMode === 'external' ? t('app.saveConflict.externalTitle') : t('app.saveConflict.title')}
         </h2>
-        <p className="app-dialog-message">{t('app.saveConflict.message', { path })}</p>
-        <div className="save-conflict-merge" role="grid" aria-label={t('app.saveConflict.mergeAria')}>
-          <div className="save-conflict-merge-header" role="row">
-            <span role="columnheader" className="save-conflict-merge-line">
+        <p className="app-dialog-message">
+          {sourceMode === 'external'
+            ? t('app.saveConflict.externalMessage', { path })
+            : t('app.saveConflict.message', { path })}
+        </p>
+        <p className="app-dialog-message save-conflict-readonly-hint">
+          {sourceMode === 'external'
+            ? t('app.saveConflict.externalReadOnlyHint')
+            : t('app.saveConflict.readOnlyHint')}
+        </p>
+        <div ref={compareRef} className="save-conflict-compare" role="grid" aria-label={t('app.saveConflict.compareAria')}>
+          <div className="save-conflict-compare-header" role="row">
+            <span role="columnheader" className="save-conflict-compare-line">
               #
             </span>
             <span role="columnheader">{t('app.saveConflict.base')}</span>
@@ -91,19 +117,19 @@ export function SaveConflictDialog({
           {rows.map((row) => (
             <div
               key={row.lineNo}
-              className={`save-conflict-merge-row save-conflict-merge-row--${row.kind}`}
+              className={`save-conflict-compare-row save-conflict-compare-row--${row.kind}`}
               role="row"
             >
-              <span className="save-conflict-merge-line" role="cell">
+              <span className="save-conflict-compare-line" role="cell">
                 {row.lineNo}
               </span>
-              <code className="save-conflict-merge-cell" role="cell">
+              <code className="save-conflict-compare-cell" role="cell">
                 {row.base || ' '}
               </code>
-              <code className="save-conflict-merge-cell" role="cell">
+              <code className="save-conflict-compare-cell" role="cell">
                 {row.local || ' '}
               </code>
-              <code className="save-conflict-merge-cell" role="cell">
+              <code className="save-conflict-compare-cell" role="cell">
                 {diskReadable ? (row.disk || ' ') : '—'}
               </code>
             </div>
@@ -131,7 +157,11 @@ export function SaveConflictDialog({
             {t('app.saveConflict.useDisk')}
           </SettingsButton>
           <SettingsButton type="button" variant="primary" onClick={onKeepLocal} disabled={resolving}>
-            {resolving ? t('app.saveConflict.resolving') : t('app.saveConflict.keepLocal')}
+            {resolving
+              ? t('app.saveConflict.resolving')
+              : sourceMode === 'external'
+                ? t('app.saveConflict.keepLocalEdits')
+                : t('app.saveConflict.keepLocal')}
           </SettingsButton>
         </div>
       </div>

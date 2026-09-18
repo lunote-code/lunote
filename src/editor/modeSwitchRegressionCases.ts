@@ -69,8 +69,7 @@ export const MODE_SWITCH_REGRESSION_CASES: readonly ModeSwitchRegressionCase[] =
       sourceToVisualDegraded: 'degraded_success',
     },
     commandSlash: {
-      visualIdle: 'open_local_source_island',
-      visualLocalActive: 'close_local_source_island',
+      visualIdle: 'switch_visual_to_source',
     },
   },
   {
@@ -83,8 +82,7 @@ export const MODE_SWITCH_REGRESSION_CASES: readonly ModeSwitchRegressionCase[] =
       sourceToVisualDegraded: 'degraded_success',
     },
     commandSlash: {
-      visualIdle: 'open_local_source_island',
-      visualLocalActive: 'close_local_source_island',
+      visualIdle: 'switch_visual_to_source',
     },
   },
   {
@@ -97,7 +95,7 @@ export const MODE_SWITCH_REGRESSION_CASES: readonly ModeSwitchRegressionCase[] =
       sourceToVisualDegraded: 'degraded_success',
     },
     commandSlash: {
-      visualIdle: 'suppress_in_code_block',
+      visualIdle: 'switch_visual_to_source',
     },
   },
   {
@@ -137,8 +135,7 @@ export const MODE_SWITCH_REGRESSION_CASES: readonly ModeSwitchRegressionCase[] =
       sourceToVisualDegraded: 'degraded_success',
     },
     commandSlash: {
-      visualIdle: 'open_local_source_island',
-      visualLocalActive: 'close_local_source_island',
+      visualIdle: 'switch_visual_to_source',
     },
   },
   {
@@ -217,8 +214,7 @@ export const MODE_SWITCH_REGRESSION_CASES: readonly ModeSwitchRegressionCase[] =
       sourceToVisualDegraded: 'degraded_success',
     },
     commandSlash: {
-      visualIdle: 'open_local_source_island',
-      visualLocalActive: 'close_local_source_island',
+      visualIdle: 'switch_visual_to_source',
     },
   },
   {
@@ -275,7 +271,7 @@ export const MODE_SWITCH_REGRESSION_CASES: readonly ModeSwitchRegressionCase[] =
   },
   {
     id: 'mermaid-fence',
-    description: 'Mermaid blocks should open a local source tab first, and the second Command+/ should return to preview',
+    description: 'Cmd+/ on a Mermaid block must switch the document to source mode',
     markdown: '```mermaid\ngraph TD\n  A-->B\n```\n',
     expected: {
       visualToSource: 'strict_success',
@@ -283,8 +279,7 @@ export const MODE_SWITCH_REGRESSION_CASES: readonly ModeSwitchRegressionCase[] =
       sourceToVisualDegraded: 'degraded_success',
     },
     commandSlash: {
-      visualIdle: 'open_local_source_island',
-      visualLocalActive: 'close_local_source_island',
+      visualIdle: 'switch_visual_to_source',
     },
   },
   {
@@ -297,8 +292,7 @@ export const MODE_SWITCH_REGRESSION_CASES: readonly ModeSwitchRegressionCase[] =
       sourceToVisualDegraded: 'degraded_success',
     },
     commandSlash: {
-      visualIdle: 'open_local_source_island',
-      visualLocalActive: 'close_local_source_island',
+      visualIdle: 'switch_visual_to_source',
     },
   },
   {
@@ -448,6 +442,21 @@ export const MODE_SWITCH_REGRESSION_CASES: readonly ModeSwitchRegressionCase[] =
     },
   },
   {
+    id: 'ordered-list-blank-gap-restart',
+    description:
+      'Blank-line-separated ordered list restarts should not merge into one continuous list after tab/mode round-trip',
+    markdown:
+      '1. 财务相关app\n2. Tarsi - Budget Tracker\n   - 离线优先\n   - AI 记账\n\n\n\n1. 阿斯顿\n2. 阿斯顿的\n',
+    expected: {
+      visualToSource: 'strict_success',
+      sourceToVisualStrict: 'strict_success',
+      sourceToVisualDegraded: 'degraded_success',
+    },
+    commandSlash: {
+      visualIdle: 'switch_visual_to_source',
+    },
+  },
+  {
     id: 'trailing-blank-after-task-list',
     description: 'When a task list ends the document, trailing blank lines should not be swallowed by the view layer',
     markdown: '- [ ] 待办一\n- [x] 已完成二\n- [ ] 待办三\n\n\n',
@@ -509,7 +518,7 @@ export const MODE_SWITCH_REGRESSION_CASES: readonly ModeSwitchRegressionCase[] =
       sourceToVisualDegraded: 'degraded_success',
     },
     commandSlash: {
-      visualIdle: 'suppress_in_code_block',
+      visualIdle: 'switch_visual_to_source',
     },
   },
   {
@@ -522,8 +531,7 @@ export const MODE_SWITCH_REGRESSION_CASES: readonly ModeSwitchRegressionCase[] =
       sourceToVisualDegraded: 'degraded_success',
     },
     commandSlash: {
-      visualIdle: 'open_local_source_island',
-      visualLocalActive: 'close_local_source_island',
+      visualIdle: 'switch_visual_to_source',
     },
   },
   {
@@ -714,8 +722,7 @@ export const MODE_SWITCH_REGRESSION_CASES: readonly ModeSwitchRegressionCase[] =
       sourceToVisualDegraded: 'degraded_success',
     },
     commandSlash: {
-      visualIdle: 'open_local_source_island',
-      visualLocalActive: 'close_local_source_island',
+      visualIdle: 'switch_visual_to_source',
     },
   },
   {

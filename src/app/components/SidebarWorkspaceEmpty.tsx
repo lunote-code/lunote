@@ -13,6 +13,8 @@ export function SidebarWorkspaceEmpty({ t, onOpenFolder, onScratchNote }: Props)
       variant="sidebar"
       icon="workspace-open"
       title={t('app.sidebar.empty.title')}
+      description={t('app.sidebar.empty.scratchDesc')}
+      hint={t('app.sidebar.empty.scratchHint')}
       actions={
         <>
           <button type="button" className="focus-exit-btn" onClick={() => void onOpenFolder()}>

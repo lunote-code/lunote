@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 2,
+  "id": "reading-comfort-pack",
+  "name": "Reading Comfort Pack",
+  "pluginType": "theme-pack",
+  "capabilities": [
+    "theme.style",
+    "theme.snippet",
+    "theme.token"
+  ],
+  "platforms": [
+    "desktop",
+    "web"
+  ],
+  "requiresRestart": false,
+  "experimental": false,
+  "author": {
+    "name": "Lunote Examples",
+    "url": "https://github.com/lunote-code/lunote-theme"
+  },
+  "description": {
+    "en": "Adds a literary palette, optional accent CSS, and a reading-focus snippet.",
+    "zh-CN": "提供文学风配色、可选强调样式与阅读专注片段。"
+  },
+  "changelog": {
+    "1.0.0": {
+      "en": "Initial example release.",
+      "zh-CN": "首个示例版本。"
+    }
+  },
+  "media": {
+    "screenshots": [
+      {
+        "url": "/media/reading-comfort-pack/screenshots/preview.png",
+        "caption": {
+          "en": "Editor with literary column and accent headings",
+          "zh-CN": "文学栏宽与标题强调效果"
+        },
+        "width": 1280,
+        "height": 800
+      },
+      {
+        "url": "/media/reading-comfort-pack/screenshots/settings.png",
+        "caption": {
+          "en": "Theme contributions listed in plugin preferences",
+          "zh-CN": "偏好设置中的插件主题贡献项"
+        },
+        "width": 1280,
+        "height": 800
+      }
+    ],
+    "banner": "/media/reading-comfort-pack/screenshots/preview.png"
+  },
+  "versions": [
+    {
+      "version": "1.0.0",
+      "releasedAt": "2026-06-12",
+      "minAppVersion": "0.6.0",
+      "maxAppVersion": null,
+      "packageUrl": "/packages/reading-comfort-pack.json",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sizeBytes": 4096
+    }
+  ],
+  "permissions": {
+    "theme": {
+      "register": true
+    }
+  },
+  "homepage": "https://github.com/lunote-code/lunote-theme/blob/main/README.md",
+  "repository": "https://github.com/lunote-code/lunote-theme",
+  "documentation": "https://github.com/lunote-code/lunote-theme/tree/main",
+  "license": "MIT",
+  "contributes": {
+    "theme": {
+      "provides": [
+        "style",
+        "snippets",
+        "tokens"
+      ],
+      "defaultEnable": {
+        "style": false,
+        "snippets": [
+          "reading-focus"
+        ]
+      }
+    },
+    "commands": [],
+    "preferencesSections": [],
+    "panels": []
+  }
+}

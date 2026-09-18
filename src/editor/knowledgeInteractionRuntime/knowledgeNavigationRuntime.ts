@@ -5,6 +5,8 @@ import type { DocKey } from '../knowledgeRuntime/types'
 import type { WikiLinkTarget } from '../knowledgeRuntime/types'
 import type { PreviewTarget } from './types'
 import { resolvePreviewTarget } from './hoverPreviewRuntime'
+import { getDocumentRuntimeSnapshot } from '../../documentRuntime/documentKernel'
+import { absolutePathToDocKeyOs } from '../knowledgeOS/vaultRuntime'
 
 export type NavigationTarget = {
   docKey: DocKey
@@ -15,6 +17,16 @@ export type NavigationTarget = {
 
 const jumpHistory: NavigationTarget[] = []
 let historyIndex = -1
+
+function sameNavigationTarget(a: NavigationTarget | null | undefined, b: NavigationTarget | null | undefined): boolean {
+  if (!a || !b) return false
+  return (
+    a.docKey === b.docKey &&
+    a.absolutePath === b.absolutePath &&
+    a.heading === b.heading &&
+    a.blockId === b.blockId
+  )
+}
 
 export function resolveNavigationTarget(target: PreviewTarget): NavigationTarget | null {
   const docKey = target.resolvedDocKey ?? resolveDocKey(target.docKey)
@@ -36,6 +48,8 @@ export function goToDefinition(target: WikiLinkTarget): NavigationTarget | null 
 }
 
 export function pushHistory(nav: NavigationTarget): void {
+  const current = jumpHistory[historyIndex] ?? null
+  if (sameNavigationTarget(current, nav)) return
   jumpHistory.splice(historyIndex + 1)
   jumpHistory.push(nav)
   historyIndex = jumpHistory.length - 1
@@ -43,6 +57,26 @@ export function pushHistory(nav: NavigationTarget): void {
     jumpHistory.shift()
     historyIndex -= 1
   }
+}
+
+export function seedHistoryFromActiveContext(): void {
+  const docKey = getActiveContextDocKey()
+  if (!docKey) return
+  const meta = getDocumentMeta(docKey)
+  const nav: NavigationTarget = {
+    docKey,
+    absolutePath: meta?.absolutePath ?? '',
+  }
+  const current = jumpHistory[historyIndex] ?? null
+  if (sameNavigationTarget(current, nav)) return
+  if (historyIndex < 0) {
+    jumpHistory.push(nav)
+    historyIndex = 0
+    return
+  }
+  jumpHistory.splice(historyIndex + 1)
+  jumpHistory.push(nav)
+  historyIndex = jumpHistory.length - 1
 }
 
 export function navigateBack(): NavigationTarget | null {
@@ -85,7 +119,9 @@ export function getActiveContextDocKey(): DocKey | null {
   const ws = getWorkspaceState()
   const tabs = [...ws.tabs.values()]
   const active = tabs.find((t) => t.id === ws.panes[0]?.activeTabId)
-  return active?.docKey ?? null
+  if (active?.docKey) return active.docKey
+  const activePath = getDocumentRuntimeSnapshot().activePath
+  return activePath ? absolutePathToDocKeyOs(activePath) : null
 }
 
 export function resetKnowledgeNavigationRuntime(): void {

@@ -6,6 +6,7 @@ import {
   BadgeCheck,
   Bold,
   BookOpen,
+  Bot,
   Braces,
   Calculator,
   CalendarDays,
@@ -39,6 +40,7 @@ import {
   Info,
   Italic,
   Keyboard,
+  KeyRound,
   Languages,
   LayoutTemplate,
   Lightbulb,
@@ -47,6 +49,8 @@ import {
   ListOrdered,
   ListTree,
   LocateFixed,
+  Lock,
+  LockOpen,
   Maximize,
   MessageSquare,
   Minimize2,
@@ -66,6 +70,7 @@ import {
   Save,
   Scissors,
   Search,
+  SendHorizontal,
   Settings,
   Shield,
   ShieldAlert,
@@ -74,6 +79,7 @@ import {
   Sparkles,
   SquarePlus,
   Strikethrough,
+  Square,
   Superscript,
   Table,
   Tag,
@@ -82,6 +88,7 @@ import {
   Undo2,
   Underline,
   Upload,
+  UserRound,
   WholeWord,
   X,
   ZoomIn,
@@ -98,12 +105,14 @@ export type SemanticIconName =
   | 'note-new'
   | 'files'
   | 'graph'
+  | 'ai'
   | 'backlinks'
   | 'assets'
   | 'tags'
   | 'frontmatter'
   | 'embeds'
   | 'search'
+  | 'send'
   | 'settings'
   | 'appearance'
   | 'export'
@@ -124,6 +133,7 @@ export type SemanticIconName =
   | 'sort-za'
   | 'sort-time'
   | 'sort-created'
+  | 'stop'
   | 'chevron-down'
   | 'chevron-left'
   | 'chevron-right'
@@ -142,6 +152,7 @@ export type SemanticIconName =
   | 'delete'
   | 'undo'
   | 'redo'
+  | 'user'
   | 'cut'
   | 'copy'
   | 'paste'
@@ -165,6 +176,9 @@ export type SemanticIconName =
   | 'history'
   | 'snapshot'
   | 'privacy'
+  | 'encryption'
+  | 'encryption-open'
+  | 'encryption-key'
   | 'hr'
   | 'footnote'
   | 'emoji'
@@ -192,12 +206,14 @@ export const iconRegistry: Record<Exclude<SemanticIconName, 'app-mark'>, LucideI
   'note-new': FilePlus,
   files: Files,
   graph: Network,
+  ai: Bot,
   backlinks: CornerDownLeft,
   assets: Paperclip,
   tags: Tag,
   frontmatter: FileJson,
   embeds: Paperclip,
   search: Search,
+  send: SendHorizontal,
   settings: Settings,
   appearance: Palette,
   export: Download,
@@ -218,6 +234,7 @@ export const iconRegistry: Record<Exclude<SemanticIconName, 'app-mark'>, LucideI
   'sort-za': ArrowUpAZ,
   'sort-time': Clock3,
   'sort-created': CalendarDays,
+  stop: Square,
   'chevron-down': ChevronDown,
   'chevron-left': ChevronLeft,
   'chevron-right': ChevronRight,
@@ -236,6 +253,7 @@ export const iconRegistry: Record<Exclude<SemanticIconName, 'app-mark'>, LucideI
   delete: Trash2,
   undo: Undo2,
   redo: Redo2,
+  user: UserRound,
   cut: Scissors,
   copy: Copy,
   paste: ClipboardPaste,
@@ -259,6 +277,9 @@ export const iconRegistry: Record<Exclude<SemanticIconName, 'app-mark'>, LucideI
   history: History,
   snapshot: Camera,
   privacy: Shield,
+  encryption: Lock,
+  'encryption-open': LockOpen,
+  'encryption-key': KeyRound,
   hr: Minus,
   footnote: Superscript,
   emoji: Smile,

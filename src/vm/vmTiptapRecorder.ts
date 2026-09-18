@@ -15,10 +15,12 @@
  */
 import { Extension } from '@tiptap/core'
 import type { EditorState } from '@tiptap/pm/state'
+import type { Node as PmNode } from '@tiptap/pm/model'
 import { Plugin } from '@tiptap/pm/state'
 import { TextSelection } from '@tiptap/pm/state'
 import { ReplaceAroundStep, ReplaceStep, type Step } from '@tiptap/pm/transform'
 
+import { compileMarkdownForModeBridge } from '../editor/markdownSerializer'
 import {
   pushStepEntry,
   truncateStepLogRedoTail,
@@ -54,8 +56,22 @@ const TYPE_BATCH_MS = 1000
 const IMMEDIATE_PUSH_STEP_THRESHOLD = 8
 
 let pendingBatch: PMStepEntry | null = null
+let pendingBeforeDoc: PmNode | null = null
+let pendingAfterDoc: PmNode | null = null
 let flushTimer: ReturnType<typeof setTimeout> | null = null
 let viewComposing = false
+
+function stampPmBodies(entry: PMStepEntry, before: PmNode, after: PmNode): PMStepEntry {
+  try {
+    return {
+      ...entry,
+      bodyBefore: compileMarkdownForModeBridge(before, before.type.schema),
+      bodyAfter: compileMarkdownForModeBridge(after, after.type.schema),
+    }
+  } catch {
+    return entry
+  }
+}
 
 function clearFlushTimer(): void {
   if (flushTimer != null) {
@@ -67,17 +83,26 @@ function clearFlushTimer(): void {
 function flushPendingBatch(docId: string): void {
   clearFlushTimer()
   if (!pendingBatch) {
-    pendingBatch = null
+    pendingBeforeDoc = null
+    pendingAfterDoc = null
     return
   }
-  pushStepEntry(docId, pendingBatch)
+  const stamped =
+    pendingBeforeDoc && pendingAfterDoc
+      ? stampPmBodies(pendingBatch, pendingBeforeDoc, pendingAfterDoc)
+      : pendingBatch
+  pushStepEntry(docId, stamped)
   pendingBatch = null
+  pendingBeforeDoc = null
+  pendingAfterDoc = null
 }
 
-function mergeIntoPending(docId: string, entry: PMStepEntry): void {
+function mergeIntoPending(docId: string, entry: PMStepEntry, oldDoc: PmNode, newDoc: PmNode): void {
   if (!pendingBatch) {
     truncateStepLogRedoTail(docId)
+    pendingBeforeDoc = oldDoc
   }
+  pendingAfterDoc = newDoc
   pendingBatch = pendingBatch ? mergePMEntries(pendingBatch, entry) : entry
 }
 
@@ -108,18 +133,24 @@ function insertsLineBreak(steps: readonly Step[]): boolean {
   })
 }
 
-function enqueuePMEntry(docId: string, entry: PMStepEntry, forceImmediate: boolean): void {
+function enqueuePMEntry(
+  docId: string,
+  entry: PMStepEntry,
+  forceImmediate: boolean,
+  oldDoc: PmNode,
+  newDoc: PmNode,
+): void {
   const immediate = forceImmediate || !isTypingOnlySteps(entry.forwardSteps)
   if (immediate) {
     flushPendingBatch(docId)
-    pushStepEntry(docId, entry)
+    pushStepEntry(docId, stampPmBodies(entry, oldDoc, newDoc))
     return
   }
   if (viewComposing) {
-    mergeIntoPending(docId, entry)
+    mergeIntoPending(docId, entry, oldDoc, newDoc)
     return
   }
-  mergeIntoPending(docId, entry)
+  mergeIntoPending(docId, entry, oldDoc, newDoc)
   scheduleBatchFlush(docId)
 }
 
@@ -199,7 +230,7 @@ export const VmTiptapRecorder = Extension.create({
             forwardSteps.length >= IMMEDIATE_PUSH_STEP_THRESHOLD ||
             insertsLineBreak(forwardSteps) ||
             changesCurrentTextblock(oldState, newState)
-          enqueuePMEntry(activeDocId, entry, forceImmediate)
+          enqueuePMEntry(activeDocId, entry, forceImmediate, oldState.doc, newState.doc)
           return null
         },
       }),

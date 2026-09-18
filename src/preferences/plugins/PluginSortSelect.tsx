@@ -1,4 +1,6 @@
+import { useMemo } from 'react'
 import type { TranslateFn } from '../../i18n'
+import { SettingsSelect, type SettingsSelectOption } from '../../components/settings'
 import {
   readStoredPluginSortMode,
   writeStoredPluginSortMode,
@@ -29,30 +31,32 @@ type Props = {
 }
 
 export function PluginSortSelect({ t, value, onChange, compact = false }: Props) {
-  const select = (
-    <select
-      className="prefs-plugin-sort-select"
+  const options = useMemo<SettingsSelectOption<PluginSortMode>[]>(
+    () =>
+      SORT_MODES.map((mode) => ({
+        value: mode,
+        label: t(SORT_LABEL_KEYS[mode]),
+      })),
+    [t],
+  )
+
+  const selector = (
+    <SettingsSelect
       value={value}
-      aria-label={t('settings.plugins.sortLabel')}
-      title={t('settings.plugins.sortLabel')}
-      onChange={(event) => onChange(event.target.value as PluginSortMode)}
-    >
-      {SORT_MODES.map((mode) => (
-        <option key={mode} value={mode}>
-          {t(SORT_LABEL_KEYS[mode])}
-        </option>
-      ))}
-    </select>
+      options={options}
+      ariaLabel={t('settings.plugins.sortLabel')}
+      onValueChange={onChange}
+    />
   )
 
   if (compact) {
-    return <div className="prefs-plugin-sort prefs-plugin-sort--compact">{select}</div>
+    return <div className="prefs-plugin-sort prefs-plugin-sort--compact">{selector}</div>
   }
 
   return (
     <label className="prefs-plugin-sort">
       <span className="prefs-plugin-sort-label">{t('settings.plugins.sortLabel')}</span>
-      {select}
+      {selector}
     </label>
   )
 }

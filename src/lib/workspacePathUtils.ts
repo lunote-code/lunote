@@ -11,9 +11,14 @@ export function normPath(p: string): string {
   return s.replace(/\\/g, '/').replace(/\/+$/u, '')
 }
 
+/** APFS/HFS+ often expose NFD paths; compare in NFC so tab/outline caches hit CJK filenames. */
+function normalizeUnicodePath(p: string): string {
+  return p.normalize('NFC')
+}
+
 /** Windows/UNC path comparison ignores case*/
 function normPathForCompare(p: string): string {
-  const normalized = normPath(p)
+  const normalized = normalizeUnicodePath(normPath(p))
   if (/^[A-Za-z]:\//.test(normalized) || normalized.startsWith('//')) {
     return normalized.toLowerCase()
   }
@@ -23,6 +28,30 @@ function normPathForCompare(p: string): string {
 /** Path comparison keys (for vault/workspace IDs, map keys, etc.)*/
 export function pathCompareKey(p: string): string {
   return normPathForCompare(p)
+}
+
+/** Lookup a path-keyed record entry using `pathsEqual` (not string identity). */
+export function getPathKeyedRecordValue<T>(
+  record: Readonly<Record<string, T>>,
+  path: string,
+): T | undefined {
+  if (Object.prototype.hasOwnProperty.call(record, path)) return record[path]
+  for (const [key, value] of Object.entries(record)) {
+    if (pathsEqual(key, path)) return value
+  }
+  return undefined
+}
+
+/** Upsert a path-keyed record entry, collapsing keys that compare equal. */
+export function setPathKeyedRecordValue<T>(
+  record: Record<string, T>,
+  path: string,
+  value: T,
+): void {
+  for (const key of Object.keys(record)) {
+    if (pathsEqual(key, path)) delete record[key]
+  }
+  record[path] = value
 }
 
 /** Compares two paths to see if they point to the same location (ignoring delimiters and Windows case differences)*/
@@ -77,6 +106,14 @@ export function isValidRecentFilePath(path: unknown): path is string {
   return true
 }
 
+/** Workspace root paths for the recent-folders list. */
+export function isValidRecentWorkspacePath(path: unknown): path is string {
+  if (!isValidRecentFilePath(path)) return false
+  const trimmed = path.trim()
+  if (pathHasParentDirSegment(trimmed)) return false
+  return true
+}
+
 const REMOTE_WORKSPACE_MARKERS = [
   'onedrive',
   'dropbox',
@@ -107,6 +144,27 @@ export function sanitizeRecentFilePaths(list: readonly unknown[]): string[] {
     out.push(path)
   }
   return out
+}
+
+export function sanitizeRecentWorkspacePaths(list: readonly unknown[]): string[] {
+  const out: string[] = []
+  for (const item of list) {
+    if (!isValidRecentWorkspacePath(item)) continue
+    const path = item.trim()
+    if (out.some((existing) => pathsEqual(existing, path))) continue
+    out.push(path)
+  }
+  return out
+}
+
+/** Recent files for display — drop workspace roots if they appear in the file list. */
+export function filterRecentFilesForDisplay(
+  files: readonly string[],
+  workspaces: readonly string[],
+): string[] {
+  return sanitizeRecentFilePaths(files).filter(
+    (file) => !workspaces.some((ws) => pathsEqual(ws, file)),
+  )
 }
 
 /** Whether `filePath` is the directory itself or a file nested inside it */
@@ -224,6 +282,24 @@ export function parentDirectoryOfFile(filePath: string): string {
   const j = filePath.lastIndexOf('\\')
   if (j > i) i = j
   return i < 0 ? '' : filePath.slice(0, i)
+}
+
+/** Resolve a relative path from a base directory, including `..` segments (result is not workspace-validated). */
+export function resolvePathRelativeToDirectory(baseDir: string, relativePath: string): string {
+  const normalized = relativePath.replace(/\\/g, '/').replace(/^\.\//u, '')
+  if (normalized.startsWith('/')) return normPath(normalized)
+  const parts = `${normPath(baseDir)}/${normalized}`.split('/')
+  const out: string[] = []
+  for (const part of parts) {
+    if (!part || part === '.') continue
+    if (part === '..') {
+      out.pop()
+      continue
+    }
+    out.push(part)
+  }
+  const prefix = normPath(baseDir).startsWith('/') ? '/' : ''
+  return `${prefix}${out.join('/')}`.replace(/\/+/g, '/')
 }
 
 /** After a directory rename, remap a file or nested directory path to the new parent. */

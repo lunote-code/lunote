@@ -36,6 +36,7 @@ export function wrapStandaloneHtml(
     ? ` data-document-cssclasses="${escapeHtmlAttr(documentClasses)}"`
     : ''
   const plainArticleClassAttr = documentClasses ? ` class="${documentClasses}"` : ''
+  const plainTextColor = dark ? '#e6edf3' : '#24292f'
   if (!styled) {
     return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -45,7 +46,7 @@ export function wrapStandaloneHtml(
 <title>${safeTitle}</title>
 </head>
 <body>
-<article${plainArticleClassAttr}${documentDataAttr} style="max-width:${exportSettings.preset.contentWidthPx}px;margin:1.25rem auto;padding:0 0.75rem;font-family:system-ui,-apple-system,sans-serif;line-height:1.55;color:#111">
+<article${plainArticleClassAttr}${documentDataAttr} style="max-width:${exportSettings.preset.contentWidthPx}px;margin:1.25rem auto;padding:0 0.75rem;font-family:system-ui,-apple-system,sans-serif;line-height:1.55;color:${plainTextColor}">
 ${bodyInnerHtml}
 </article>
 </body>
@@ -96,6 +97,8 @@ export {
   openPrintableHtml,
   PrintContentTooLargeError,
   PrintPermissionRequiredError,
+  PrintPopupBlockedError,
+  PrintWindowTimedOutError,
 } from './export/openPrintableHtml'
 
 /** Generate Word (docx) Base64 based on the same HTML fragment as exported*/

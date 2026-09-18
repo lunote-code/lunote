@@ -13,11 +13,41 @@ export type AppSettingsState = {
   lastWorkspaceRoot?: string | null
   lastWorkspaceId?: string | null
   assetStorage: AssetStorageConfig
+  /** Latest successful AI connection test result for connection-status chrome. */
+  aiConnectionTest?: {
+    ok: boolean
+    at: number
+    provider?: 'openai' | 'anthropic' | 'google' | 'deepseek' | 'openrouter' | 'local' | 'ollama' | 'lmstudio'
+  }
   /** commandId → accelerator (Mod+Shift+b); unlisted commands use manifest default*/
   shortcutOverrides?: Record<string, string>
   /** Startup update check preferences (production desktop builds). */
   updates?: {
     autoCheckEnabled?: boolean
+  }
+  /** Session security preferences (idle auto-lock). */
+  security?: {
+    /** Minutes without input before locking an unlocked encrypted workspace. 0 = never. Default 5. */
+    autoLockMinutes?: number
+  }
+  /** AI assistant API connection (OpenAI, Anthropic, Gemini, etc.). */
+  ai?: {
+    provider?: 'openai' | 'anthropic' | 'google' | 'deepseek' | 'openrouter' | 'local' | 'ollama' | 'lmstudio'
+    apiKey?: string
+    baseUrl?: string
+    model?: string
+    /** Include workspace search snippets in AI context (default true). */
+    includeWorkspaceSearch?: boolean
+    /** Include 1-hop linked note titles in AI context (default true). */
+    includeGraphNeighbors?: boolean
+    /** Extend graph context to 2-hop wiki links (default false). */
+    graphTwoHop?: boolean
+    /** When wiki-linked notes are referenced, skip workspace RAG search. */
+    preferMentionContextOnly?: boolean
+    /** Optional custom system prompt; overrides default when non-empty. */
+    systemPrompt?: string
+    /** Chat history scope: per active note (default) or one workspace-wide thread. */
+    conversationScope?: 'per-note' | 'global'
   }
   /** Reserved: Appearance/Editor, etc.*/
   appearance?: {
@@ -65,6 +95,27 @@ export type AppSettingsState = {
       /** When enabled, closing the main window hides it and keeps the app running in the background. */
       closeToTrayEnabled?: boolean
     }
+    ui?: {
+      /** Tab bar trailing focus mode icon button. */
+      focusButtonEnabled?: boolean
+      /** Tab bar trailing knowledge graph icon button. */
+      graphButtonEnabled?: boolean
+      /** Tab bar trailing AI assistant icon button. */
+      aiButtonEnabled?: boolean
+      /** Tab bar trailing global search icon button. */
+      globalSearchButtonEnabled?: boolean
+      noteCalendarButtonEnabled?: boolean
+      /** @deprecated use globalSearchButtonEnabled */
+      tabSwitcherButtonEnabled?: boolean
+      /** Floating “exit focus” control while focus mode is active. */
+      focusExitButtonEnabled?: boolean
+      /** Footer line/char/heading counters. */
+      documentStatsEnabled?: boolean
+      /** Transient toast notifications (save confirmations, errors, etc.). */
+      toastNotificationsEnabled?: boolean
+      /** @deprecated use focusButtonEnabled + graphButtonEnabled */
+      editorChromeButtonsEnabled?: boolean
+    }
   } & Record<string, unknown>
 }
 
@@ -72,6 +123,15 @@ export const DEFAULT_APP_SETTINGS: AppSettingsState = {
   version: 1,
   language: 'system',
   assetStorage: DEFAULT_ASSET_STORAGE_CONFIG,
+  security: {
+    autoLockMinutes: 5,
+  },
+  ai: {
+    provider: 'openai',
+    apiKey: '',
+    baseUrl: '',
+    model: '',
+  },
   appearance: {
     theme: {
       active: 'github-dark',
@@ -90,11 +150,21 @@ export const DEFAULT_APP_SETTINGS: AppSettingsState = {
     },
     editor: {
       autosaveEnabled: true,
-      autosaveIntervalSec: 120,
+      autosaveIntervalSec: 60,
       autosaveScope: 'activeOnly',
       columnWidth: 860,
       formatToolbarEnabled: true,
       spellcheckEnabled: true,
+    },
+    ui: {
+      focusButtonEnabled: true,
+      graphButtonEnabled: true,
+      aiButtonEnabled: true,
+      globalSearchButtonEnabled: true,
+      noteCalendarButtonEnabled: true,
+      focusExitButtonEnabled: true,
+      documentStatsEnabled: true,
+      toastNotificationsEnabled: true,
     },
   },
 }

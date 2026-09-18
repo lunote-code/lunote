@@ -1,5 +1,3 @@
-import { getBlockEditingPolicy } from './blockEditingPolicy'
-
 export type ModeToggleCommandActionKind =
   | 'close_local_source_island'
   | 'open_local_source_island'
@@ -16,11 +14,8 @@ export type ModeToggleCommandDecisionContext = {
 export function decideModeToggleCommandAction(
   context: ModeToggleCommandDecisionContext,
 ): ModeToggleCommandActionKind {
+  // Cmd+/ always toggles the document pane. Local islands stay click/UI only so
+  // Mermaid, math, and raw HTML are not trapped away from full source.
   if (context.mainPaneMode === 'source') return 'switch_source_to_visual'
-  if (context.activeBlockType === 'codeBlock') return 'suppress_in_code_block'
-  if (context.hasActiveLocalSourceIsland) return 'close_local_source_island'
-  if (getBlockEditingPolicy(context.activeBlockType).sourceIslandCandidate) {
-    return 'open_local_source_island'
-  }
   return 'switch_visual_to_source'
 }

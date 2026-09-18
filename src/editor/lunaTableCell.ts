@@ -13,7 +13,7 @@ import { cellTextAlignAttrsSpec, parseCellTextAlign } from './lunaTableCellAlign
  * Allowed blocks are consistent with the Luna editing extension (no heading, no nested tables).
  */
 const LUNA_TABLE_CELL_BLOCK_CONTENT =
-  '(paragraph | bulletList | orderedList | taskList | blockquote | codeBlock | mermaidBlock | horizontalRule | callout | rawBlock | tocDirective | blockMath)+'
+  '(paragraph | bulletList | orderedList | taskList | blockquote | codeBlock | mermaidBlock | drawingBlock | horizontalRule | callout | rawBlock | tocDirective | blockMath)+'
 
 export const LunaTableCell = TableCell.extend({
   content: LUNA_TABLE_CELL_BLOCK_CONTENT,

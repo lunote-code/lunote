@@ -6,3 +6,8 @@ export const EditorOpenReason = {
 } as const
 
 export type EditorOpenReason = (typeof EditorOpenReason)[keyof typeof EditorOpenReason]
+
+/** Mode-switch remounts must keep the VM undo log; cold open starts a fresh stack. */
+export function shouldPreserveUndoLogOnVisualCreate(openReason: EditorOpenReason): boolean {
+  return openReason === EditorOpenReason.ModeSwitchRestore
+}

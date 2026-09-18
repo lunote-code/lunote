@@ -26,6 +26,8 @@ const PANEL_CACHE_MAX_ENTRIES = 64
 const panelCache = new Map<DocKey, BacklinkPanelCacheEntry>()
 /** Display the previous inbound during bootstrap to avoid flashing 0 before READY*/
 const lastKnownInboundByDoc = new Map<DocKey, BacklinkPanelGroup[]>()
+const inboundSnippetCacheByDoc = new Map<DocKey, Map<string, string>>()
+const pendingInboundSnippetLoads = new Set<DocKey>()
 const mentionsByDocKey = new Map<
   DocKey,
   BacklinkPanelSnapshot['mentions']
@@ -46,6 +48,8 @@ function ensureCacheCoherent(): void {
   cacheRegistryRevision = registryRev
   cacheLinkGraphRevision = linkGraphRev
   panelCache.clear()
+  inboundSnippetCacheByDoc.clear()
+  pendingInboundSnippetLoads.clear()
 }
 
 function upsertPanelCache(key: DocKey, snapshot: BacklinkPanelSnapshot): void {
@@ -59,6 +63,52 @@ function upsertPanelCache(key: DocKey, snapshot: BacklinkPanelSnapshot): void {
     const oldKey = sortedKeys[i]
     if (oldKey) panelCache.delete(oldKey)
   }
+}
+
+function inboundSnippetCacheKey(sourceDocKey: DocKey, index: number): string {
+  return `${sourceDocKey}::${index}`
+}
+
+function normalizeSnippetText(value: string): string {
+  return value
+    .replace(/\r\n?/gu, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/gu, ' ')
+    .trim()
+}
+
+function trimSnippetAroundFocus(value: string, focus: string, maxLength = 180): string {
+  if (value.length <= maxLength) return value
+  const focusIndex = focus ? value.indexOf(focus) : -1
+  if (focusIndex >= 0) {
+    const start = Math.max(0, focusIndex - Math.floor((maxLength - focus.length) / 2))
+    const end = Math.min(value.length, start + maxLength)
+    return `${start > 0 ? '…' : ''}${value.slice(start, end).trim()}${end < value.length ? '…' : ''}`
+  }
+  return `${value.slice(0, maxLength).trim()}…`
+}
+
+function buildFallbackBacklinkSnippet(bodySample: string | undefined, raw: string): string {
+  const cleaned = normalizeSnippetText(bodySample ?? '')
+  if (!cleaned) return raw
+  return trimSnippetAroundFocus(cleaned, raw)
+}
+
+function buildBacklinkSnippet(markdown: string, start: number, end: number, raw: string): string {
+  const normalized = markdown.replace(/\r\n?/gu, '\n')
+  if (!normalized.trim()) return raw
+  const safeStart = Math.max(0, Math.min(start, normalized.length))
+  const safeEnd = Math.max(safeStart, Math.min(end, normalized.length))
+  const prevParagraphBreak = normalized.lastIndexOf('\n\n', Math.max(0, safeStart - 1))
+  const nextParagraphBreak = normalized.indexOf('\n\n', safeEnd)
+  const paragraphStart = prevParagraphBreak === -1 ? 0 : prevParagraphBreak + 2
+  const paragraphEnd = nextParagraphBreak === -1 ? normalized.length : nextParagraphBreak
+  const paragraph = normalizeSnippetText(normalized.slice(paragraphStart, paragraphEnd))
+  if (!paragraph) return raw
+  return trimSnippetAroundFocus(paragraph, raw)
 }
 
 function mapOutgoingLinkRefs(docKey: DocKey): BacklinkPanelSnapshot['outbound'] {
@@ -80,23 +130,72 @@ function mapOutgoingLinkRefs(docKey: DocKey): BacklinkPanelSnapshot['outbound'] 
 }
 
 function mapBacklinkEntries(docKey: DocKey): BacklinkPanelGroup[] {
+  const snippetCache = inboundSnippetCacheByDoc.get(docKey)
   return getBacklinksForDoc(docKey).map((entry) => ({
     sourceDocKey: entry.sourceDocKey,
     sourceTitle: entry.sourceTitle,
     sourceAbsolutePath: entry.sourceAbsolutePath,
-    items: entry.links.map((l) => ({
-      raw: l.raw,
-      snippet: l.raw,
-      heading: l.target.heading,
-      blockId: l.target.blockId,
-      range: { start: l.start, end: l.end },
-    })),
+    items: entry.links.map((l, index) => {
+      const sourceMeta = getDocumentMeta(entry.sourceDocKey)
+      const snippet =
+        snippetCache?.get(inboundSnippetCacheKey(entry.sourceDocKey, index)) ??
+        buildFallbackBacklinkSnippet(sourceMeta?.bodySample, l.raw)
+      return {
+        raw: l.raw,
+        snippet,
+        heading: l.target.heading,
+        blockId: l.target.blockId,
+        range: { start: l.start, end: l.end },
+      }
+    }),
   }))
+}
+
+function scheduleInboundSnippetLoad(docKey: DocKey): void {
+  if (pendingInboundSnippetLoads.has(docKey)) return
+  const entries = getBacklinksForDoc(docKey)
+  if (entries.length === 0) {
+    inboundSnippetCacheByDoc.set(docKey, new Map())
+    return
+  }
+  pendingInboundSnippetLoads.add(docKey)
+  void Promise.all(
+    entries.map(async (entry) => {
+      const sourceMeta = getDocumentMeta(entry.sourceDocKey)
+      const content = await loadNoteContent(entry.sourceDocKey, entry.sourceAbsolutePath).catch(
+        () => sourceMeta?.bodySample ?? '',
+      )
+      return { entry, content }
+    }),
+  )
+    .then((results) => {
+      const nextCache = new Map<string, string>()
+      for (const { entry, content } of results) {
+        entry.links.forEach((link, index) => {
+          nextCache.set(
+            inboundSnippetCacheKey(entry.sourceDocKey, index),
+            buildBacklinkSnippet(content, link.start, link.end, link.raw),
+          )
+        })
+      }
+      inboundSnippetCacheByDoc.set(docKey, nextCache)
+      if (activePanelDocKey === docKey) {
+        panelCache.delete(docKey)
+        upsertPanelCache(docKey, buildPanelSnapshot(docKey))
+        bumpListeners()
+      }
+    })
+    .finally(() => {
+      pendingInboundSnippetLoads.delete(docKey)
+    })
 }
 
 function buildPanelSnapshot(docKey: DocKey): BacklinkPanelSnapshot {
   const linkIndexState = getLinkIndexState()
   const inboundHydrated = linkIndexState === 'READY'
+  if (inboundHydrated && !inboundSnippetCacheByDoc.has(docKey)) {
+    scheduleInboundSnippetLoad(docKey)
+  }
 
   const inbound: BacklinkPanelGroup[] = inboundHydrated
     ? (() => {
@@ -150,6 +249,7 @@ export function setBacklinkPanelDocKey(docKey: DocKey | null): void {
   if (docKey) {
     ensureCacheCoherent()
     upsertPanelCache(docKey, buildPanelSnapshot(docKey))
+    scheduleInboundSnippetLoad(docKey)
     scheduleMentionsLoad(docKey)
   }
   bumpListeners()
@@ -160,7 +260,9 @@ export function refreshBacklinkPanel(docKey?: DocKey): void {
   if (!key) return
   ensureCacheCoherent()
   panelCache.delete(key)
+  inboundSnippetCacheByDoc.delete(key)
   upsertPanelCache(key, buildPanelSnapshot(key))
+  scheduleInboundSnippetLoad(key)
   scheduleMentionsLoad(key)
   bumpListeners()
 }
@@ -191,6 +293,8 @@ export function subscribeBacklinkPanel(listener: () => void): () => void {
 export function resetBacklinkPanelRuntime(): void {
   panelCache.clear()
   lastKnownInboundByDoc.clear()
+  inboundSnippetCacheByDoc.clear()
+  pendingInboundSnippetLoads.clear()
   mentionsByDocKey.clear()
   cacheRegistryRevision = -1
   cacheLinkGraphRevision = -1

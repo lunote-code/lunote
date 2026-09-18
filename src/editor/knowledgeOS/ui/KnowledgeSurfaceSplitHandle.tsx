@@ -23,7 +23,8 @@ export function KnowledgeSurfaceSplitHandle({ onPointerDown, onRailWidthChange }
   return (
     <div
       ref={dividerRef}
-      className="kos-surface-split-divider resize-handle resize-handle-knowledge"
+      className="resize-handle resize-handle-sidebar kos-surface-split-divider"
+      data-testid="kos-knowledge-rail-split-handle"
       role="separator"
       aria-orientation="vertical"
       aria-label={t('knowledge.resize.aria')}

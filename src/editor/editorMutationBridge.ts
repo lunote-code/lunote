@@ -21,8 +21,21 @@ import type { MutableRefObject } from 'react'
 import { EditorSelection } from '@codemirror/state'
 import type { ChangeSet } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
+import { Slice } from '@tiptap/pm/model'
+import { TextSelection } from '@tiptap/pm/state'
+import type { Node as PmNode } from '@tiptap/pm/model'
 import { scrollCodeMirrorViewToPos } from './caretAnchorScroll'
 import type { Step } from '@tiptap/pm/transform'
+import { preserveAiRailScrollDuring } from './ai/ui/aiRailScrollPreserve'
+import { canonicalMarkdownSemantics } from '../markdown/canonicalMarkdownSemantics'
+import {
+  applyTocInsertInSourceView,
+  resolveAppropriateTocInsertPos,
+} from './insertTocAtAppropriatePosition'
+import { preserveProseMirrorScrollDuring } from './preserveProseMirrorScroll'
+import { selectAllInCurrentBlock } from './lunaBlockSelectAll'
+
+const BRIDGE_FOCUS_NO_SCROLL = { scrollIntoView: false as const }
 import {
   deleteCharBackward,
   deleteLine,
@@ -33,7 +46,6 @@ import {
   selectParentSyntax,
 } from '@codemirror/commands'
 import { openSearchPanel, replaceNext } from '@codemirror/search'
-import { TextSelection } from '@tiptap/pm/state'
 import type { Editor } from '@tiptap/core'
 import {
   VM_UNDO_META,
@@ -48,7 +60,7 @@ import type { TiptapEditorCommand, TiptapMarkdownEditorHandle } from './TiptapMa
 import { buildNullEditorContext, buildSourceEditorContext, buildVisualEditorContext } from '../menu/commandContext'
 import type { EditorContext, EditorPaneMode } from '../menu/commandContext'
 import type { SourceEditorOp } from '../menu/commandOps.types'
-import { applyPlainTextInsertion } from './inputLayer/inputLayerPaste'
+import { applyPlainTextInsertion, setInputLayerSource } from './inputLayer/inputLayerPaste'
 import {
   applySourceTextColor,
   insertCodeFenceForLang,
@@ -81,12 +93,21 @@ type BridgeRefs = {
 
 const bridgeRefs: BridgeRefs = { visualRef: null, sourceRef: null, modeRef: null }
 
-type CapturedEditorSelection = { mode: EditorPaneMode; from: number; to: number }
+type CapturedEditorSelection = {
+  mode: EditorPaneMode
+  from: number
+  to: number
+  selectedText: string
+  beforeContext: string
+  afterContext: string
+}
 
 /** The top bar menu takes a snapshot when mousedown occurs; if the selection is lost before the command is executed, it will be restored.*/
 let pendingSelectionRestore: CapturedEditorSelection | null = null
 /** Most recent non-empty selection, used by commands that should still target the prior range after native menu focus loss. */
 let lastNonEmptySelection: CapturedEditorSelection | null = null
+/** Cursor/selection anchor for AI insert-at-cursor actions after focus moves to the rail or menus. */
+let lastInsertAnchor: CapturedEditorSelection | null = null
 
 // Test-only override — bypasses handle indirection
 type TestOverride = { editor: Editor | null; view: EditorView | null; mode: EditorPaneMode }
@@ -136,6 +157,77 @@ function getMode(): EditorPaneMode {
   return bridgeRefs.modeRef?.current ?? 'visual'
 }
 
+function readVisualDocText(from: number, to: number): string {
+  const editor = getVisualEditor()
+  if (!editor) return ''
+  const docSize = editor.state.doc.content.size
+  const safeFrom = Math.max(0, Math.min(from, docSize))
+  const safeTo = Math.max(safeFrom, Math.min(to, docSize))
+  return editor.state.doc.textBetween(safeFrom, safeTo, '\n', '\n')
+}
+
+function readSourceDocText(from: number, to: number): string {
+  const view = getSourceView()
+  if (!view) return ''
+  const docLen = view.state.doc.length
+  const safeFrom = Math.max(0, Math.min(from, docLen))
+  const safeTo = Math.max(safeFrom, Math.min(to, docLen))
+  return view.state.doc.sliceString(safeFrom, safeTo)
+}
+
+const SELECTION_CONTEXT_RADIUS = 24
+
+function captureSelectionSnapshot(
+  mode: EditorPaneMode,
+  from: number,
+  to: number,
+): CapturedEditorSelection {
+  if (mode === 'visual') {
+    return {
+      mode,
+      from,
+      to,
+      selectedText: readVisualDocText(from, to),
+      beforeContext: readVisualDocText(Math.max(0, from - SELECTION_CONTEXT_RADIUS), from),
+      afterContext: readVisualDocText(to, to + SELECTION_CONTEXT_RADIUS),
+    }
+  }
+  return {
+    mode,
+    from,
+    to,
+    selectedText: readSourceDocText(from, to),
+    beforeContext: readSourceDocText(Math.max(0, from - SELECTION_CONTEXT_RADIUS), from),
+    afterContext: readSourceDocText(to, to + SELECTION_CONTEXT_RADIUS),
+  }
+}
+
+function isCapturedSelectionStillValid(saved: CapturedEditorSelection): boolean {
+  if (saved.mode !== getMode()) return false
+  if (saved.mode === 'visual') {
+    const editor = getVisualEditor()
+    if (!editor) return false
+    const docSize = editor.state.doc.content.size
+    if (saved.from < 0 || saved.to < saved.from || saved.to > docSize) return false
+    return (
+      readVisualDocText(saved.from, saved.to) === saved.selectedText &&
+      readVisualDocText(Math.max(0, saved.from - SELECTION_CONTEXT_RADIUS), saved.from) ===
+        saved.beforeContext &&
+      readVisualDocText(saved.to, saved.to + SELECTION_CONTEXT_RADIUS) === saved.afterContext
+    )
+  }
+  const view = getSourceView()
+  if (!view) return false
+  const docLen = view.state.doc.length
+  if (saved.from < 0 || saved.to < saved.from || saved.to > docLen) return false
+  return (
+    readSourceDocText(saved.from, saved.to) === saved.selectedText &&
+    readSourceDocText(Math.max(0, saved.from - SELECTION_CONTEXT_RADIUS), saved.from) ===
+      saved.beforeContext &&
+    readSourceDocText(saved.to, saved.to + SELECTION_CONTEXT_RADIUS) === saved.afterContext
+  )
+}
+
 export function getBridgePaneMode(): EditorPaneMode {
   return getMode()
 }
@@ -172,6 +264,23 @@ export function getBridgeSourceEditorView(): EditorView | null {
   return getSourceView()
 }
 
+/** Run a mutation without letting focus/insert side effects jump the active editor viewport. */
+export function preserveBridgeEditorScrollDuring(fn: () => void): void {
+  if (getMode() === 'visual') {
+    const editor = getVisualEditor()
+    if (editor) {
+      preserveProseMirrorScrollDuring(editor, fn)
+      return
+    }
+  }
+  const view = getSourceView()
+  if (view) {
+    preserveProseMirrorScrollDuring(view, fn)
+    return
+  }
+  fn()
+}
+
 /** Snapshot selection before top bar menu interaction (with preventDefault to prevent focus loss)*/
 export function bridgeCaptureEditorSelection(): void {
   const mode = getMode()
@@ -179,15 +288,15 @@ export function bridgeCaptureEditorSelection(): void {
     const editor = getVisualEditor()
     if (!editor) return
     const { from, to } = editor.state.selection
-    if (from !== to) lastNonEmptySelection = { mode, from, to }
-    pendingSelectionRestore = { mode, from, to }
+    if (from !== to) lastNonEmptySelection = captureSelectionSnapshot(mode, from, to)
+    pendingSelectionRestore = captureSelectionSnapshot(mode, from, to)
     return
   }
   const view = getSourceView()
   if (!view) return
   const { from, to } = view.state.selection.main
-  if (from !== to) lastNonEmptySelection = { mode, from, to }
-  pendingSelectionRestore = { mode, from, to }
+  if (from !== to) lastNonEmptySelection = captureSelectionSnapshot(mode, from, to)
+  pendingSelectionRestore = captureSelectionSnapshot(mode, from, to)
 }
 
 /** Persist the latest non-empty selection without scheduling an automatic restore on the next refocus. */
@@ -197,24 +306,129 @@ export function bridgeRememberCurrentSelection(): void {
     const editor = getVisualEditor()
     if (!editor) return
     const { from, to } = editor.state.selection
-    if (from !== to) lastNonEmptySelection = { mode, from, to }
+    if (from !== to) lastNonEmptySelection = captureSelectionSnapshot(mode, from, to)
     return
   }
   const view = getSourceView()
   if (!view) return
   const { from, to } = view.state.selection.main
-  if (from !== to) lastNonEmptySelection = { mode, from, to }
+  if (from !== to) lastNonEmptySelection = captureSelectionSnapshot(mode, from, to)
+}
+
+/** Remember the current cursor or selection end for a later insert-at-cursor action. */
+export function bridgeRememberInsertAnchor(): void {
+  const mode = getMode()
+  if (mode === 'visual') {
+    const editor = getVisualEditor()
+    if (!editor) return
+    const { from, to } = editor.state.selection
+    lastInsertAnchor = captureSelectionSnapshot(mode, from, to)
+    if (from !== to) lastNonEmptySelection = captureSelectionSnapshot(mode, from, to)
+    return
+  }
+  const view = getSourceView()
+  if (!view) return
+  const { from, to } = view.state.selection.main
+  lastInsertAnchor = captureSelectionSnapshot(mode, from, to)
+  if (from !== to) lastNonEmptySelection = captureSelectionSnapshot(mode, from, to)
+}
+
+/** Remember an insert anchor at the end of the current selection without replacing the selection itself. */
+export function bridgeRememberInsertAnchorAtSelectionEnd(): void {
+  const mode = getMode()
+  if (mode === 'visual') {
+    const editor = getVisualEditor()
+    if (!editor) return
+    const { from, to } = editor.state.selection
+    lastInsertAnchor = captureSelectionSnapshot(mode, to, to)
+    if (from !== to) lastNonEmptySelection = captureSelectionSnapshot(mode, from, to)
+    return
+  }
+  const view = getSourceView()
+  if (!view) return
+  const { from, to } = view.state.selection.main
+  lastInsertAnchor = captureSelectionSnapshot(mode, to, to)
+  if (from !== to) lastNonEmptySelection = captureSelectionSnapshot(mode, from, to)
+}
+
+/** Remember a block range for lightweight block AI replace/insert apply. */
+export function bridgeRememberBlockAiTarget(
+  from: number,
+  to: number,
+  applyMode: 'replace' | 'insert',
+): void {
+  const mode = getMode()
+  if (mode !== 'visual') return
+  if (applyMode === 'replace') {
+    lastNonEmptySelection = captureSelectionSnapshot(mode, from, to)
+    pendingSelectionRestore = captureSelectionSnapshot(mode, from, to)
+    return
+  }
+  lastInsertAnchor = captureSelectionSnapshot(mode, to, to)
+}
+
+/** Force a PM text selection range (used before block-level AI replace/insert apply). */
+export function bridgeForceTextSelection(from: number, to: number): boolean {
+  if (getMode() !== 'visual') return false
+  const editor = getVisualEditor()
+  if (!editor || from >= to) return false
+  const docSize = editor.state.doc.content.size
+  const clampedFrom = Math.max(0, Math.min(from, docSize))
+  const clampedTo = Math.max(clampedFrom, Math.min(to, docSize))
+  if (clampedFrom >= clampedTo) return false
+  editor.commands.setTextSelection({ from: clampedFrom, to: clampedTo })
+  return true
+}
+
+/** Select the current visual block for caret-only AI entrypoints such as slash actions. */
+export function bridgeSelectCurrentVisualBlock(): boolean {
+  if (getMode() !== 'visual') return false
+  const editor = getVisualEditor()
+  if (!editor) return false
+  return selectAllInCurrentBlock(editor)
+}
+
+/** Restore the insert anchor saved by bridgeRememberInsertAnchor. */
+export function bridgeRestoreInsertAnchor(): boolean {
+  const saved = lastInsertAnchor
+  if (!saved) return false
+  if (!isCapturedSelectionStillValid(saved)) return false
+
+  if (saved.mode === 'visual') {
+    const editor = getVisualEditor()
+    if (!editor) return false
+    const docSize = editor.state.doc.content.size
+    const from = Math.max(0, Math.min(saved.from, docSize))
+    const to = Math.max(from, Math.min(saved.to, docSize))
+    editor.commands.setTextSelection({ from, to })
+    return true
+  }
+
+  const view = getSourceView()
+  if (!view) return false
+  const docLen = view.state.doc.length
+  const from = Math.max(0, Math.min(saved.from, docLen))
+  const to = Math.max(from, Math.min(saved.to, docLen))
+  view.dispatch({ selection: EditorSelection.range(from, to) })
+  return true
+}
+
+/** Whether a non-empty selection can be restored after focus moved to another surface. */
+export function bridgeHasLastNonEmptySelection(): boolean {
+  const saved = lastNonEmptySelection
+  if (!saved || saved.from === saved.to) return false
+  return isCapturedSelectionStillValid(saved)
 }
 
 /** Restore the latest remembered non-empty selection if the current selection is empty. */
 export function bridgeRestoreLastNonEmptySelection(): boolean {
   const saved = lastNonEmptySelection
   if (!saved || saved.from === saved.to) return false
-  if (saved.mode !== getMode()) return false
+  if (!isCapturedSelectionStillValid(saved)) return false
 
   if (saved.mode === 'visual') {
     const editor = getVisualEditor()
-    if (!editor || !editor.state.selection.empty) return false
+    if (!editor) return false
     const docSize = editor.state.doc.content.size
     const from = Math.max(0, Math.min(saved.from, docSize))
     const to = Math.max(from, Math.min(saved.to, docSize))
@@ -515,6 +729,31 @@ export function bridgeRunEditorCommand(
   if (view) sourceFallback(view)
 }
 
+export type InsertTocAtAppropriatePositionResult = 'inserted' | 'focused-existing' | 'failed'
+
+/** Insert `[toc]` after the title/first heading, or focus an existing marker. */
+export function bridgeInsertTocAtAppropriatePosition(): InsertTocAtAppropriatePositionResult {
+  let result: InsertTocAtAppropriatePositionResult = 'failed'
+  preserveAiRailScrollDuring(() => {
+    preserveBridgeEditorScrollDuring(() => {
+      bridgeRefocusActiveEditor()
+      if (getMode() === 'visual') {
+        const editor = getVisualEditor()
+        if (!editor) return
+        const placement = resolveAppropriateTocInsertPos(editor.state.doc)
+        bridgeRunTiptapCommand({ type: 'insertTocAtAppropriatePosition' })
+        result = placement.kind === 'focus-existing' ? 'focused-existing' : 'inserted'
+        return
+      }
+
+      const view = getSourceView()
+      if (!view) return
+      result = applyTocInsertInSourceView(view)
+    })
+  })
+  return result
+}
+
 // ─────────────────────────────────────────────────────────────
 // Clipboard operations (still document-mutating; channelled via bridge)
 // ─────────────────────────────────────────────────────────────
@@ -539,6 +778,218 @@ export function bridgeReplaceSelection(text: string): void {
   }
   const view = getSourceView()
   if (view) view.dispatch(view.state.replaceSelection(text))
+}
+
+function findTextRangeInPmDoc(doc: PmNode, needle: string): { from: number; to: number } | null {
+  const normalized = needle.trim()
+  if (!normalized) return null
+
+  let found: { from: number; to: number } | null = null
+  doc.descendants((node, pos) => {
+    if (found || !node.isText || !node.text) return
+    const index = node.text.indexOf(normalized)
+    if (index >= 0) {
+      found = { from: pos + index, to: pos + index + normalized.length }
+      return false
+    }
+    const lowerIndex = node.text.toLowerCase().indexOf(normalized.toLowerCase())
+    if (lowerIndex >= 0) {
+      found = { from: pos + lowerIndex, to: pos + lowerIndex + normalized.length }
+      return false
+    }
+  })
+  return found
+}
+
+function findTextRangeInCmDoc(docText: string, needle: string): { from: number; to: number } | null {
+  const normalized = needle.trim()
+  if (!normalized) return null
+  let index = docText.indexOf(normalized)
+  if (index < 0) {
+    index = docText.toLowerCase().indexOf(normalized.toLowerCase())
+    if (index < 0) return null
+  }
+  return { from: index, to: index + normalized.length }
+}
+
+/** Find the first occurrence of text in the active editor and select it. */
+export function bridgeFindAndSelectText(searchText: string): boolean {
+  const needle = searchText.trim()
+  if (!needle) return false
+
+  let applied = false
+  preserveAiRailScrollDuring(() => {
+    preserveBridgeEditorScrollDuring(() => {
+      bridgeRefocusActiveEditor()
+      if (getMode() === 'source') {
+        const view = getSourceView()
+        if (!view) return
+        const match = findTextRangeInCmDoc(view.state.doc.toString(), needle)
+        if (!match) return
+        const selection = EditorSelection.range(match.from, match.to)
+        view.dispatch({ selection })
+        scrollCodeMirrorViewToPos(view, match.from)
+        applied = true
+        return
+      }
+
+      const editor = getVisualEditor()
+      if (!editor) return
+      const match = findTextRangeInPmDoc(editor.state.doc, needle)
+      if (!match) return
+      const tr = editor.state.tr
+        .setSelection(TextSelection.create(editor.state.doc, match.from, match.to))
+        .scrollIntoView()
+      editor.view.dispatch(tr)
+      editor.commands.focus()
+      applied = true
+    })
+  })
+  return applied
+}
+
+export type InsertAssistantTextMode = 'insert' | 'replace'
+
+export function bridgeInsertAssistantMarkdown(text: string, mode: InsertAssistantTextMode): boolean {
+  if (!text.trim()) return false
+
+  if (getMode() === 'source') {
+    const view = getSourceView()
+    if (!view) return false
+    let applied = false
+    preserveAiRailScrollDuring(() => {
+      preserveBridgeEditorScrollDuring(() => {
+        bridgeRefocusActiveEditor()
+        const { from, to } = view.state.selection.main
+        if (mode === 'replace' && from !== to) {
+          view.dispatch({
+            changes: { from, to, insert: text },
+            selection: EditorSelection.cursor(from + text.length),
+          })
+          applied = true
+          return
+        }
+        const insertAt = to
+        const needsGap =
+          insertAt > 0 &&
+          view.state.doc.sliceString(Math.max(0, insertAt - 1), insertAt) !== '\n'
+        const prefix = needsGap ? '\n\n' : ''
+        const insert = `${prefix}${text}`
+        view.dispatch({
+          changes: { from: insertAt, insert },
+          selection: EditorSelection.cursor(insertAt + insert.length),
+        })
+        applied = true
+      })
+    })
+    return applied
+  }
+
+  const editor = getVisualEditor()
+  const handle = bridgeRefs.visualRef?.current
+  if (!editor || !handle) return false
+
+  const parsed = canonicalMarkdownSemantics.parse(text, editor.schema)
+  const slice = new Slice(parsed.content, 0, 0)
+  const { from, to } = editor.state.selection
+
+  let tr = editor.state.tr
+  if (mode === 'replace' && from !== to) {
+    tr = tr.replaceRange(from, to, slice)
+  } else {
+    const needsGap =
+      from > 1 &&
+      editor.state.doc.textBetween(Math.max(1, from - 1), from, '\n', '\n') !== '\n' &&
+      parsed.childCount > 0
+    if (needsGap) {
+      const paragraph = editor.schema.nodes.paragraph
+      if (paragraph) {
+        tr = tr.insert(from, paragraph.create())
+        tr = tr.replaceRange(from + 1, from + 1, slice)
+      } else {
+        tr = tr.replaceRange(from, to, slice)
+      }
+    } else {
+      tr = tr.replaceRange(from, to, slice)
+    }
+  }
+
+  tr = setInputLayerSource(tr, 'command')
+  preserveAiRailScrollDuring(() => {
+    preserveBridgeEditorScrollDuring(() => {
+      bridgeRefocusActiveEditor()
+      editor.view.dispatch(tr)
+      handle.markUserEdited()
+      handle.focus()
+      handle.flushPendingMarkdownSync(true, true)
+      handle.syncOutlineHeadings()
+    })
+  })
+  return true
+}
+
+export function bridgeReplaceActiveDocumentMarkdown(text: string): boolean {
+  if (!text.trim()) return false
+
+  if (getMode() === 'source') {
+    const view = getSourceView()
+    if (!view) return false
+    let applied = false
+    preserveAiRailScrollDuring(() => {
+      preserveBridgeEditorScrollDuring(() => {
+        bridgeRefocusActiveEditor()
+        const length = view.state.doc.length
+        view.dispatch({
+          changes: { from: 0, to: length, insert: text },
+          selection: EditorSelection.cursor(text.length),
+        })
+        applied = true
+      })
+    })
+    return applied
+  }
+
+  const editor = getVisualEditor()
+  const handle = bridgeRefs.visualRef?.current
+  if (!editor || !handle) return false
+
+  const parsed = canonicalMarkdownSemantics.parse(text, editor.schema)
+  let tr = editor.state.tr.replaceWith(0, editor.state.doc.content.size, parsed.content)
+  tr = setInputLayerSource(tr, 'command')
+  preserveAiRailScrollDuring(() => {
+    preserveBridgeEditorScrollDuring(() => {
+      bridgeRefocusActiveEditor()
+      editor.view.dispatch(tr)
+      handle.markUserEdited()
+      handle.focus()
+      handle.flushPendingMarkdownSync(true, true)
+      handle.syncOutlineHeadings()
+    })
+  })
+  return true
+}
+
+export function bridgeInsertText(text: string): void {
+  const mode = getMode()
+  if (mode === 'visual') {
+    const editor = getVisualEditor()
+    if (!editor) return
+    const { from, to } = editor.state.selection
+    if (from === to) {
+      bridgeRefs.visualRef?.current?.replaceSelection(text)
+      return
+    }
+    editor.view.dispatch(editor.state.tr.insertText(text, to, to).scrollIntoView())
+    editor.commands.focus(null, BRIDGE_FOCUS_NO_SCROLL)
+    return
+  }
+  const view = getSourceView()
+  if (!view) return
+  const pos = view.state.selection.main.to
+  view.dispatch({
+    changes: { from: pos, insert: text },
+    selection: EditorSelection.cursor(pos + text.length),
+  })
 }
 
 export function bridgeInsertLiteralAtCursor(text: string): void {
@@ -641,12 +1092,11 @@ export function bridgeApplyInverseCmChanges(
   const view = getSourceView()
   if (!view) return false
   const maxPos = inverseChanges.newLength
+  const from = Math.max(0, Math.min(selectionBefore.from, maxPos))
+  const to = Math.max(from, Math.min(selectionBefore.to, maxPos))
   view.dispatch({
     changes: inverseChanges,
-    selection: EditorSelection.range(
-      Math.min(selectionBefore.from, maxPos),
-      Math.min(selectionBefore.to, maxPos),
-    ),
+    selection: EditorSelection.range(from, to),
     annotations: [vmUndoAnnotation.of(true)],
   })
   return true
@@ -662,15 +1112,52 @@ export function bridgeApplyForwardCmChanges(
   const view = getSourceView()
   if (!view) return false
   const maxPos = forwardChanges.newLength
+  const from = Math.max(0, Math.min(selectionAfter.from, maxPos))
+  const to = Math.max(from, Math.min(selectionAfter.to, maxPos))
   view.dispatch({
     changes: forwardChanges,
-    selection: EditorSelection.range(
-      Math.min(selectionAfter.from, maxPos),
-      Math.min(selectionAfter.to, maxPos),
-    ),
+    selection: EditorSelection.range(from, to),
     annotations: [vmRedoAnnotation.of(true)],
   })
   return true
+}
+
+/**
+ * After a visual↔source remount, replay a canonical markdown snapshot.
+ * Native PM/CM steps are invalid on the new editor instance.
+ */
+export function bridgeApplyMarkdownBody(markdown: string, intent: 'undo' | 'redo'): boolean {
+  const skipKey = intent === 'undo' ? VM_UNDO_META : VM_REDO_META
+  const annotation = intent === 'undo' ? vmUndoAnnotation : vmRedoAnnotation
+
+  if (getMode() === 'source') {
+    const view = getSourceView()
+    if (!view) return false
+    const length = view.state.doc.length
+    view.dispatch({
+      changes: { from: 0, to: length, insert: markdown },
+      selection: EditorSelection.cursor(Math.min(markdown.length, length + markdown.length)),
+      annotations: [annotation.of(true)],
+    })
+    return true
+  }
+
+  const editor = getVisualEditor()
+  const handle = bridgeRefs.visualRef?.current
+  if (!editor || !handle || editor.isDestroyed || !editor.view) return false
+  try {
+    const parsed = canonicalMarkdownSemantics.parse(markdown, editor.schema)
+    let tr = editor.state.tr.setMeta(skipKey, true)
+    tr = tr.replaceWith(0, editor.state.doc.content.size, parsed.content)
+    tr = setInputLayerSource(tr, 'command')
+    editor.view.dispatch(tr)
+    handle.markUserEdited()
+    handle.flushPendingMarkdownSync(true, true)
+    handle.syncOutlineHeadings()
+    return true
+  } catch {
+    return false
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -772,6 +1259,9 @@ function executeBridgeSourceOp(view: EditorView, op: SourceEditorOp): boolean {
       })
       return true
     }
+    case 'insert-toc-at-appropriate-position':
+      applyTocInsertInSourceView(view)
+      return true
     case 'indent-more':
       return indentMore(view)
     case 'indent-less':

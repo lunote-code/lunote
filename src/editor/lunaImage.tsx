@@ -6,7 +6,6 @@ import {
   ReactNodeViewRenderer,
   type ReactNodeViewProps,
 } from '@tiptap/react'
-import { isTauri } from '@tauri-apps/api/core'
 import {
   memo,
   useCallback,
@@ -18,8 +17,16 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react'
 import { isAbsoluteLocalMediaPath, isExternalOrDataSrc } from '../export/mediaSources'
+import {
+  acquireLegacyEncryptedWorkspaceImageObjectUrl,
+  acquireWorkspaceImageObjectUrl,
+  releaseWorkspaceImageObjectUrl,
+  resolveWorkspaceMediaFilePath,
+  isWorkspaceMediaDecryptEnabled,
+} from '../export/workspaceMediaBlob'
 import { useI18n } from '../i18n'
-import { noteAssetExists } from '../platform/tauri/documentService'
+import { readPlainForBlockSourcePaste, readPlainFromBlockSourcePasteEvent } from './blockSourceTextareaPaste'
+import { registerBlockSourceDraftSerializeFlush } from './blockSourceDraftSerializeBridge'
 
 const VIDEO_PATH_RE = /\.(mp4|webm|ogv|ogg|mov|m4v)(\?|#|$)/i
 
@@ -88,28 +95,138 @@ function parseMarkdownImageLine(line: string): { alt: string; src: string; title
   return { alt, src: m[2].trim(), title }
 }
 
+function imageAttrsMatchDraft(
+  parsed: { alt: string; src: string; title: string | null },
+  alt: string,
+  src: string,
+  title: string,
+): boolean {
+  return (
+    parsed.src === src.trim() &&
+    parsed.alt === alt &&
+    (parsed.title ?? '') === (title || '')
+  )
+}
+
 const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
   const { t } = useI18n()
-  const { node, updateAttributes, selected } = props
+  const { node, updateAttributes, selected, editor, getPos } = props
   const src = String(node.attrs.src ?? '')
   const alt = String(node.attrs.alt ?? '')
   const title = node.attrs.title != null ? String(node.attrs.title) : ''
   const isVideo = isEmbeddedVideoSrc(src)
   const { resolveSrc, getNoteAssetContext } = props.extension.options as LunaImageOptions
-  const displaySrc = resolveSrc ? resolveSrc(src) : src
-  const loadKey = useMemo(() => imageLoadCacheKey(src, displaySrc), [src, displaySrc])
+  const fallbackDisplaySrc = resolveSrc ? resolveSrc(src) : src
+  const [workspaceBlobUrl, setWorkspaceBlobUrl] = useState<string | null>(null)
+  const [workspaceMediaPending, setWorkspaceMediaPending] = useState(false)
+  const displaySrc = workspaceBlobUrl ?? fallbackDisplaySrc
+  const loadKey = useMemo(() => imageLoadCacheKey(src, fallbackDisplaySrc), [src, fallbackDisplaySrc])
 
   const [loadError, setLoadError] = useState(() => globalFailedImageLoadKeys.has(loadKey))
   const [showBar, setShowBar] = useState(false)
   const [textDraft, setTextDraft] = useState(() => mdImageSnippet(alt, src, title))
+  const textDraftRef = useRef(textDraft)
+  const showBarRef = useRef(showBar)
   const [assetPresence, setAssetPresence] = useState<'skip' | 'pending' | 'exists' | 'missing'>('skip')
+  const [tableEmbed, setTableEmbed] = useState(false)
   const wrapRef = useRef<HTMLElement | null>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
   const sourceInputRef = useRef<HTMLTextAreaElement | null>(null)
+  const legacyFallbackAttemptedRef = useRef(false)
+  const workspaceBlobPathRef = useRef<{ root: string; path: string } | null>(null)
+
+  const releaseTrackedWorkspaceBlob = useCallback(() => {
+    const tracked = workspaceBlobPathRef.current
+    if (!tracked) return
+    releaseWorkspaceImageObjectUrl(tracked.root, tracked.path)
+    workspaceBlobPathRef.current = null
+  }, [])
+
+  useEffect(() => {
+    if (isVideo) {
+      setWorkspaceMediaPending(false)
+      setWorkspaceBlobUrl(null)
+      return
+    }
+    const raw = src.trim()
+    if (!raw || isExternalOrDataSrc(raw) || isAbsoluteLocalMediaPath(raw)) {
+      setWorkspaceMediaPending(false)
+      setWorkspaceBlobUrl(null)
+      return
+    }
+    const ctx = getNoteAssetContext?.() ?? null
+    if (!isWorkspaceMediaDecryptEnabled() || !ctx) {
+      setWorkspaceMediaPending(false)
+      setWorkspaceBlobUrl(null)
+      return
+    }
+    const workspacePath = resolveWorkspaceMediaFilePath(ctx.root, ctx.notePath, raw)
+    if (!workspacePath) {
+      setWorkspaceMediaPending(false)
+      setWorkspaceBlobUrl(null)
+      return
+    }
+
+    let cancelled = false
+    releaseTrackedWorkspaceBlob()
+    setWorkspaceMediaPending(true)
+    setWorkspaceBlobUrl(null)
+    void (async () => {
+      const objectUrl = await acquireWorkspaceImageObjectUrl(ctx.root, workspacePath)
+      if (cancelled) {
+        if (objectUrl) releaseWorkspaceImageObjectUrl(ctx.root, workspacePath)
+        return
+      }
+      if (objectUrl) {
+        workspaceBlobPathRef.current = { root: ctx.root, path: workspacePath }
+      }
+      setWorkspaceBlobUrl(objectUrl)
+      setWorkspaceMediaPending(false)
+      if (objectUrl) {
+        globalFailedImageLoadKeys.delete(loadKey)
+        setLoadError(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      releaseTrackedWorkspaceBlob()
+      setWorkspaceMediaPending(false)
+      setWorkspaceBlobUrl(null)
+    }
+  }, [src, isVideo, getNoteAssetContext, loadKey, releaseTrackedWorkspaceBlob])
+
+  useEffect(() => {
+    legacyFallbackAttemptedRef.current = false
+  }, [src, loadKey])
+
+  const tryLegacyEncryptedImageFallback = useCallback(async () => {
+    if (legacyFallbackAttemptedRef.current || isVideo) return false
+    const raw = src.trim()
+    if (!raw || isExternalOrDataSrc(raw) || isAbsoluteLocalMediaPath(raw)) return false
+    const ctx = getNoteAssetContext?.() ?? null
+    if (!ctx) return false
+    const workspacePath = resolveWorkspaceMediaFilePath(ctx.root, ctx.notePath, raw)
+    if (!workspacePath) return false
+    legacyFallbackAttemptedRef.current = true
+    setWorkspaceMediaPending(true)
+    const objectUrl = await acquireLegacyEncryptedWorkspaceImageObjectUrl(ctx.root, workspacePath)
+    if (!objectUrl) {
+      setWorkspaceMediaPending(false)
+      return false
+    }
+    releaseTrackedWorkspaceBlob()
+    workspaceBlobPathRef.current = { root: ctx.root, path: workspacePath }
+    setWorkspaceBlobUrl(objectUrl)
+    setWorkspaceMediaPending(false)
+    globalFailedImageLoadKeys.delete(loadKey)
+    setLoadError(false)
+    return true
+  }, [src, isVideo, getNoteAssetContext, loadKey, releaseTrackedWorkspaceBlob])
 
   useLayoutEffect(() => {
     setLoadError(globalFailedImageLoadKeys.has(loadKey))
-  }, [loadKey])
+  }, [loadKey, workspaceBlobUrl])
 
   useEffect(() => {
     setTextDraft(mdImageSnippet(alt, src, title))
@@ -130,25 +247,26 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
       return
     }
     const ctx = getNoteAssetContext?.() ?? null
-    if (!isTauri() || !ctx) {
+    if (!ctx) {
       setAssetPresence('skip')
       return
     }
-    let cancelled = false
-    setAssetPresence('pending')
-    void (async () => {
-      try {
-        const relativePath = raw.replace(/^\.\//u, '')
-        const exists = await noteAssetExists(ctx.root, ctx.notePath, relativePath)
-        if (!cancelled) setAssetPresence(exists ? 'exists' : 'missing')
-      } catch {
-        if (!cancelled) setAssetPresence('exists')
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
+    // Fast path: relative images load via convertFileSrc; skip per-image asset existence IPC.
+    setAssetPresence('skip')
   }, [src, isVideo, getNoteAssetContext])
+
+  useLayoutEffect(() => {
+    const detectTableEmbed = (): boolean => {
+      const el = wrapRef.current
+      if (!el) return false
+      const cell = el.closest('td, th')
+      const tableWrap = el.closest('.pm-luna-table-wrap')
+      return Boolean(cell && tableWrap)
+    }
+    setTableEmbed(detectTableEmbed())
+    const raf = requestAnimationFrame(() => setTableEmbed(detectTableEmbed()))
+    return () => cancelAnimationFrame(raf)
+  }, [src, assetPresence, loadError])
 
   const markImageFailed = useCallback(() => {
     rememberFailedImageKey(loadKey)
@@ -158,9 +276,12 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
   const showMdSource = assetPresence === 'missing' || loadError
   const snippet = useMemo(() => mdImageSnippet(alt, src, title), [alt, src, title])
 
-  /** Card chrome always on; Markdown source bar only after double-click. */
-  const cardReady = assetPresence !== 'pending'
+  /** Table icons stay compact: skip pending chrome and open-card layout churn. */
+  const resolvedAssetPresence =
+    tableEmbed && assetPresence === 'pending' ? ('skip' as const) : assetPresence
+  const cardReady = resolvedAssetPresence !== 'pending'
   const showSourcePanel = cardReady && showBar
+  const showPendingUi = resolvedAssetPresence === 'pending' || workspaceMediaPending
 
   const prevShowBarRef = useRef(false)
 
@@ -173,12 +294,9 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
       e.preventDefault()
       e.stopPropagation()
 
-      const getPos = props.getPos
-      if (typeof getPos !== 'function') return
-      const pos = getPos()
+      const pos = typeof getPos === 'function' ? getPos() : null
       if (typeof pos !== 'number') return
 
-      const { editor } = props
       const { selection } = editor.state
       const alreadySelected =
         selection instanceof NodeSelection && selection.from === pos
@@ -189,7 +307,7 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
 
       document.getSelection()?.removeAllRanges()
     },
-    [props.editor, props.getPos],
+    [editor, getPos],
   )
 
   const commitSnippet = useCallback(() => {
@@ -198,6 +316,7 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
       setTextDraft(mdImageSnippet(alt, src, title))
       return
     }
+    if (imageAttrsMatchDraft(parsed, alt, src, title)) return
     updateAttributes({
       alt: parsed.alt,
       src: parsed.src,
@@ -205,12 +324,58 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
     })
   }, [textDraft, alt, src, title, updateAttributes])
 
+  const applyDraftToNodeAttrs = useCallback(
+    (draft: string): boolean => {
+      const parsed = parseMarkdownImageLine(draft)
+      if (!parsed) return false
+      if (imageAttrsMatchDraft(parsed, alt, src, title)) return true
+      updateAttributes({
+        alt: parsed.alt,
+        src: parsed.src,
+        title: parsed.title,
+      })
+      return true
+    },
+    [alt, src, title, updateAttributes],
+  )
+
+  textDraftRef.current = textDraft
+  showBarRef.current = showBar
+
+  const flushImageSyntaxDraftForSerialize = useCallback(() => {
+    if (!showBarRef.current) return
+    applyDraftToNodeAttrs(textDraftRef.current)
+  }, [applyDraftToNodeAttrs])
+
+  useEffect(() => {
+    return registerBlockSourceDraftSerializeFlush(props.editor, flushImageSyntaxDraftForSerialize)
+  }, [props.editor, flushImageSyntaxDraftForSerialize])
+
+  useEffect(() => {
+    if (!showBar) return
+    applyDraftToNodeAttrs(textDraft)
+  }, [showBar, textDraft, applyDraftToNodeAttrs])
+
   const adjustSourceHeight = useCallback(() => {
     const el = sourceInputRef.current
     if (!el) return
     el.style.height = 'auto'
     el.style.height = `${Math.max(24, el.scrollHeight)}px`
   }, [])
+
+  const insertSourceDraftText = useCallback(
+    (text: string, selectionStart: number, selectionEnd: number) => {
+      const next = `${textDraft.slice(0, selectionStart)}${text}${textDraft.slice(selectionEnd)}`
+      setTextDraft(next)
+      applyDraftToNodeAttrs(next)
+      const caret = selectionStart + text.length
+      requestAnimationFrame(() => {
+        adjustSourceHeight()
+        sourceInputRef.current?.setSelectionRange(caret, caret)
+      })
+    },
+    [adjustSourceHeight, applyDraftToNodeAttrs, textDraft],
+  )
 
   useLayoutEffect(() => {
     if (!showSourcePanel) return
@@ -245,14 +410,15 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
       const t = e.target as Node | null
       if (!t) return
       if (wrapRef.current?.contains(t)) return
+      applyDraftToNodeAttrs(textDraft)
       setShowBar(false)
     }
     document.addEventListener('mousedown', onDoc, true)
     return () => document.removeEventListener('mousedown', onDoc, true)
-  }, [showBar, showSourcePanel])
+  }, [applyDraftToNodeAttrs, showBar, showSourcePanel, textDraft])
 
   useLayoutEffect(() => {
-    if (isVideo || loadError || showMdSource || assetPresence === 'pending') return
+    if (isVideo || loadError || showMdSource || resolvedAssetPresence === 'pending') return
     const el = imgRef.current
     if (!el || !displaySrc) return
     let cancelled = false
@@ -273,16 +439,17 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [displaySrc, isVideo, loadError, showMdSource, assetPresence, markImageFailed])
+  }, [displaySrc, isVideo, loadError, showMdSource, resolvedAssetPresence, markImageFailed])
 
   const shouldMountImg =
-    assetPresence !== 'pending' &&
-    assetPresence !== 'missing' &&
+    resolvedAssetPresence !== 'pending' &&
+    resolvedAssetPresence !== 'missing' &&
+    !workspaceMediaPending &&
     !loadError &&
     Boolean(displaySrc.trim())
 
   if (isVideo) {
-    const altLabel = alt || 'Video'
+    const altLabel = alt || t('editor.video.defaultAlt')
     return (
       <NodeViewWrapper
         as="div"
@@ -302,12 +469,12 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
     )
   }
 
-  const cardOpen = cardReady
+  const cardOpen = cardReady && !tableEmbed
 
   return (
     <NodeViewWrapper
       as="span"
-      className={`pm-image-node-root pm-image-card${cardOpen ? ' pm-image-card--open' : ''}${showSourcePanel ? ' pm-image-card--source-open' : ''}${selected || showBar ? ' pm-image-card--focus' : ''}`}
+      className={`pm-image-node-root pm-image-card${tableEmbed ? ' pm-image-card--table-embed' : ''}${cardOpen ? ' pm-image-card--open' : ''}${showSourcePanel ? ' pm-image-card--source-open' : ''}${selected || showBar ? ' pm-image-card--focus' : ''}`}
       ref={wrapRef}
       contentEditable={false}
     >
@@ -327,6 +494,23 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
             onChange={(e) => {
               setTextDraft(e.target.value)
               requestAnimationFrame(() => adjustSourceHeight())
+            }}
+            onPaste={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              const ta = event.currentTarget
+              const start = ta.selectionStart ?? ta.value.length
+              const end = ta.selectionEnd ?? start
+              const plainSync = readPlainFromBlockSourcePasteEvent(event.clipboardData)
+              if (plainSync) {
+                insertSourceDraftText(plainSync, start, end)
+                return
+              }
+              void (async () => {
+                const plain = await readPlainForBlockSourcePaste(event.clipboardData)
+                if (!plain) return
+                insertSourceDraftText(plain, start, end)
+              })()
             }}
             onBlur={() => {
               commitSnippet()
@@ -349,7 +533,7 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
           />
         </div>
       ) : null}
-      {assetPresence === 'pending' ? (
+      {showPendingUi ? (
         <div
           className="pm-image-card-preview pm-image-card-preview--pending"
           onMouseDown={onPreviewMouseDown}
@@ -376,7 +560,10 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
                 setShowBar(true)
               }}
               onError={() => {
-                markImageFailed()
+                void (async () => {
+                  const recovered = await tryLegacyEncryptedImageFallback()
+                  if (!recovered) markImageFailed()
+                })()
               }}
               onLoad={() => {
                 if (imgRef.current && imgRef.current.naturalWidth === 0) markImageFailed()
@@ -401,12 +588,12 @@ const LunaImageView = memo(function LunaImageView(props: ReactNodeViewProps) {
               {assetPresence === 'missing' ? (
                 <>
                   <span className="pm-image-broken-placeholder-title">{t('editor.image.missingLocal')}</span>
-                  {alt? <span className="pm-image-broken-placeholder-meta">alt：{alt}</span> : null}
+                  {alt ? <span className="pm-image-broken-placeholder-meta">{t('editor.image.altMeta', { alt })}</span> : null}
                 </>
               ) : loadError ? (
                 <>
                   <span className="pm-image-broken-placeholder-title">{t('editor.image.loadFailed')}</span>
-                  {alt? <span className="pm-image-broken-placeholder-meta">alt：{alt}</span> : null}
+                  {alt ? <span className="pm-image-broken-placeholder-meta">{t('editor.image.altMeta', { alt })}</span> : null}
                 </>
               ) : (
                 <span className="pm-image-broken-placeholder-title">{t('editor.image.noAddress')}</span>

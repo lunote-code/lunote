@@ -4,6 +4,8 @@ import { readNote, saveNote } from '../platform/tauri/documentService'
 import { revealInExplorer } from '../platform/tauri/platformShellService'
 import { createWorkspaceFolder } from '../platform/tauri/workspaceService'
 import {
+  getEffectiveDailyNotesConfig,
+  isNewNoteTemplatesEnabled,
   readWorkspaceConfig,
   vaultFolderName,
   workspaceConfigAbsolutePath,
@@ -90,9 +92,11 @@ async function ensureParentDirs(root: string, relativeFilePath: string): Promise
 
 export async function ensureDefaultTemplateFiles(root: string, config?: WorkspaceConfig): Promise<void> {
   const cfg = config ?? (await readWorkspaceConfig(root))
+  const templatesEnabled = isNewNoteTemplatesEnabled(cfg)
+  const dailyEnabled = getEffectiveDailyNotesConfig(cfg).enabled !== false
   const { templatesFolder, dailyTemplate: dailyPath, defaultTemplate: defaultPath } = getTemplateRefs(cfg)
 
-  if (templatesFolder && !pathHasParentDirSegment(templatesFolder)) {
+  if (templatesEnabled && templatesFolder && !pathHasParentDirSegment(templatesFolder)) {
     try {
       await createWorkspaceFolder(root, root, templatesFolder)
     } catch {
@@ -101,10 +105,10 @@ export async function ensureDefaultTemplateFiles(root: string, config?: Workspac
   }
 
   const locale = resolveTemplateLocale()
-  for (const [rel, body] of [
-    [dailyPath, getDefaultDailyTemplate(locale)],
-    [defaultPath, getDefaultNewNoteTemplate(locale)],
-  ] as const) {
+  const files: Array<readonly [string, string]> = []
+  if (dailyEnabled) files.push([dailyPath, getDefaultDailyTemplate(locale)])
+  if (templatesEnabled) files.push([defaultPath, getDefaultNewNoteTemplate(locale)])
+  for (const [rel, body] of files) {
     if (!rel || pathHasParentDirSegment(rel)) continue
     try {
       await readNote(root, rel)
@@ -120,7 +124,9 @@ export async function resolveNewNoteContent(
   options: { stem: string; parentPath: string; templatePath?: string },
 ): Promise<string> {
   const config = await readWorkspaceConfig(root)
-  const templatePath = options.templatePath?.trim() || config.templates?.defaultNewNote
+  const templatePath =
+    options.templatePath?.trim() ||
+    (isNewNoteTemplatesEnabled(config) ? config.templates?.defaultNewNote : undefined)
   const parentRel = relativePathUnderRoot(root, options.parentPath) ?? ''
   const filename = options.stem.replace(/\.md$/i, '')
   const ctx = buildTemplateContext({

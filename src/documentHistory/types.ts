@@ -1,4 +1,4 @@
-export type DocumentHistorySource = 'manual' | 'pre_restore'
+export type DocumentHistorySource = 'manual' | 'pre_restore' | 'save' | 'autosave'
 
 export type DocumentHistoryEntry = {
   id: string

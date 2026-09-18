@@ -732,14 +732,14 @@ function QaCodeBlockCmInner() {
   }, [editor, cmEnabled])
 
   return (
-    <div style={{ padding: 24, background: '#0f1115', minHeight: '100vh' }}>
-      <h1 data-testid="qa-ready" style={{ color: '#fff', marginBottom: 8 }}>
+    <div style={{ padding: 24, background: 'var(--surface-app)', minHeight: '100vh' }}>
+      <h1 data-testid="qa-ready" style={{ color: 'var(--text-primary)', marginBottom: 8 }}>
         CodeBlock CM QA
       </h1>
-      <p data-testid="qa-status" style={{ color: '#cbd5e1', marginBottom: 8 }}>
+      <p data-testid="qa-status" style={{ color: 'var(--text-secondary)', marginBottom: 8 }}>
         {status}
       </p>
-      <p data-testid="qa-cm-flag" style={{ color: '#94a3b8', marginBottom: 16 }}>
+      <p data-testid="qa-cm-flag" style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>
         codeblockCm={cmEnabled ? 'default-on' : 'off'}
       </p>
       <div

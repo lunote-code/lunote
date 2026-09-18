@@ -1,6 +1,7 @@
 import type { SetStateAction } from 'react'
 import type { SemanticIconName } from '../design-system/icons'
 import type { PrefsTabId } from '../preferences/types'
+import type { SidebarListMode, SidebarPanelView } from '../app/workspace/sidebarPanelView'
 import type { EditorContext, EditorPaneMode } from './commandContext'
 import type { SourceModeEnterAnchor } from '../editor/viewportModeAnchor'
 import type { AppExportFormat } from '../markdownExport'
@@ -106,9 +107,10 @@ export type AppMenuContext = {
   activePath: string
   content: string
   recentFiles: string[]
+  recentWorkspaces: string[]
   setRootDir: (u: SetStateAction<string>) => void
   dispatchDocumentCommand: (command: DocumentCommand) => Promise<string | void>
-  loadNotes: (root: string, prefer?: string | null, restoredOpenTabs?: string[] | null) => Promise<void>
+  loadNotes: (root: string, prefer?: string | null, restoredOpenTabs?: string[] | null) => Promise<boolean>
   chooseFolder: () => Promise<void>
   closeWorkspace: () => Promise<void>
   saveCurrent: (manual?: boolean) => Promise<void>
@@ -123,6 +125,7 @@ export type AppMenuContext = {
   t: (key: string, vars?: Record<string, string | number>) => string
   updateRecent: (p: string) => void
   setRecentFiles: (u: SetStateAction<string[]>) => void
+  setRecentWorkspaces: (u: SetStateAction<string[]>) => void
   openRenameDialog: (root: string, oldPath: string, isDirectory: boolean) => void
   openNewNoteDialog: (root: string, parentPath: string, openInTab?: boolean, templatePath?: string) => void
   openNewNoteFromTemplateDialog: (root: string, parentPath: string, openInTab?: boolean) => void
@@ -165,9 +168,14 @@ export type AppMenuContext = {
 export type AppMenuUiDeps = {
   setFocusMode: (u: SetStateAction<boolean>) => void
   setSidebarVisible: (u: SetStateAction<boolean>) => void
-  setSidebarListMode: (u: SetStateAction<'files' | 'outline'>) => void
-  getSidebarState: () => { visible: boolean; mode: 'files' | 'outline' }
+  setSidebarListMode: (u: SetStateAction<SidebarListMode>) => void
+  setSidebarPanelView: (u: SetStateAction<SidebarPanelView>) => void
+  getSidebarState: () => { visible: boolean; mode: SidebarListMode }
   openGlobalSearchModal: () => void
+  openQuickSwitcherModal: () => void
+  openTabSwitcherModal?: () => void
+  openKnowledgeSearchModal?: () => void
+  openShortcutsCheatsheet?: () => void
   setStatusbarVisible: (u: SetStateAction<boolean>) => void
   setAboutOpen: (u: SetStateAction<boolean>) => void
   setCommandPaletteOpen: (u: SetStateAction<boolean>) => void

@@ -166,10 +166,15 @@ export function reconcileCodeBlockCmFocusAfterSerialize(editor: Editor): void {
   const view = editor.view
   const pmDom = view?.dom
   if (!(pmDom instanceof HTMLElement)) return
-  if (isCodeBlockCmFocused()) return
+
+  blurStaleCodeBlockCmEditors(pmDom)
+
+  const activeInCm =
+    document.activeElement instanceof HTMLElement &&
+    Boolean(document.activeElement.closest('.pm-code-block-cm .cm-editor, .pm-code-block-cm .cm-content'))
+  if (activeInCm || pmDom.querySelector('.pm-code-block-cm .cm-editor:focus-within')) return
 
   exitAllCodeBlockEditingForView(view)
-  blurStaleCodeBlockCmEditors(pmDom)
 
   if (isPmDomSuspendedForCodeBlockCm(pmDom) || isPmLockedForCodeBlockCm(editor)) {
     unlockPmForCodeBlockCm(editor)

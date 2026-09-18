@@ -31,6 +31,7 @@ import { PreferencesTabPanel } from './PreferencesTabPanel'
 import { TabbedSchemaPreferencesPanel } from './TabbedSchemaPreferencesPanel'
 import { PluginsPreferencesPanel } from './PluginsPreferencesPanel'
 import { TemplatesPreferencesPanel } from './TemplatesPreferencesPanel'
+import { WorkspaceEncryptionPreferencesPanel } from './WorkspaceEncryptionPreferencesPanel'
 
 type Props = {
   t: TranslateFn
@@ -130,6 +131,14 @@ export function PreferencesPanel({
     return (
       <PreferencesTabPanel tabId={activeTab}>
         <TemplatesPreferencesPanel t={t} workspaceRoot={workspaceRoot} searchQuery={searchQuery} />
+      </PreferencesTabPanel>
+    )
+  }
+
+  if (activeTab === 'encryption') {
+    return (
+      <PreferencesTabPanel tabId={activeTab}>
+        <WorkspaceEncryptionPreferencesPanel t={t} workspaceRoot={workspaceRoot} />
       </PreferencesTabPanel>
     )
   }

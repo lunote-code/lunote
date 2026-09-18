@@ -78,6 +78,35 @@
     }
   }
 
+  function readStoredLanguage() {
+    try {
+      var raw = readSettingsRaw()
+      if (!raw) return 'en'
+      var parsed = JSON.parse(raw)
+      var lang = parsed && parsed.language
+      if (typeof lang === 'string' && lang && lang !== 'system') return lang
+    } catch (e) {}
+    return typeof navigator !== 'undefined' && navigator.language && navigator.language.toLowerCase().indexOf('zh-tw') === 0
+      ? 'zh-TW'
+      : typeof navigator !== 'undefined' && navigator.language && navigator.language.toLowerCase().indexOf('zh') === 0
+        ? 'zh-CN'
+        : 'en'
+  }
+
+  var STARTING_LABEL = {
+    en: 'Starting…',
+    'zh-CN': '正在启动…',
+    'zh-TW': '正在啟動…',
+    ja: '起動中…',
+    ko: '시작 중…',
+    de: 'Wird gestartet…',
+    fr: 'Démarrage…',
+    es: 'Iniciando…',
+    ru: 'Запуск…',
+    pt: 'Iniciando…',
+    it: 'Avvio…',
+  }
+
   try {
     var markup = parseSettings(readSettingsRaw())
     var root = document.documentElement
@@ -86,5 +115,10 @@
     if (markup.cssFile) root.setAttribute('data-theme-css-file', markup.cssFile)
     root.style.backgroundColor = markup.surfaceApp
     root.style.colorScheme = markup.mode
+    var locale = readStoredLanguage()
+    var statusEl = document.getElementById('boot-shell-status')
+    if (statusEl) {
+      statusEl.textContent = STARTING_LABEL[locale] || STARTING_LABEL.en
+    }
   } catch (e) {}
 })()

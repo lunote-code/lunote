@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -23,7 +24,13 @@ import {
   resolveCanonicalLanguageId,
 } from '../../lunaCodeLanguages'
 import { newMermaidBlockId } from '../../extensions/MermaidNode'
+import { pushAppToast } from '../../../app/toast/appToastStore'
 import { useI18n } from '../../../i18n'
+import { snapshotCodeBlockAtPos } from '../../ai/editorBlockAi'
+import { requestEditorBlockAi, isEditorBlockAiRunning, subscribeEditorBlockAi } from '../../ai/editorBlockAiRunner'
+import { getAppSettingsSnapshot } from '../../../settings/appSettingsStore'
+import { resolveAiButtonEnabled } from '../../../settings-runtime/editorUiChrome'
+import { isAiConfiguredFromSettings, resolveAiSettings } from '../../../settings-runtime/aiSettings'
 import { exitCodeBlockBackward, exitCodeBlockForward, focusCodeBlockLangInput } from '../behavior/nav'
 import { codeBlockNodeAt, resolveCodeBlockTextRange, resolveOwnedCodeBlockPos } from '../behavior/selection'
 import {
@@ -42,7 +49,7 @@ import {
   installCodeBlockCmMouseDownCapture,
 } from '../cm/codeBlockCmInputFocus'
 import { consumeRecentCodeBlockCmOutsidePointerRelease } from '../cm/codeBlockCmPmFocusReconcile'
-import { installCodeBlockCmClipboardCapture } from '../cm/codeBlockCmClipboard'
+import { installCodeBlockCmClipboardCapture, CODE_BLOCK_PASTE_FAILED_EVENT } from '../cm/codeBlockCmClipboard'
 import {
   disablePmCodeBlockMirrorEditing,
   installPmCodeBlockMirrorReadOnlyGuard,
@@ -54,7 +61,7 @@ import {
   describePmSelection,
 } from '../cm/codeBlockCmFocusDebug'
 import { isCodeBlockCmDom, isCodeBlockCmMouseTarget } from '../cm/codeBlockCmDom'
-import { isCodeBlockCmFocused } from '../cm/codeBlockCmFocus'
+import { isCodeBlockCmFocused, runTabInCodeBlockCmWrapWhenReady } from '../cm/codeBlockCmFocus'
 import { patchCodeBlockCmDocFromPm } from '../cm/codeBlockCmDefer'
 import { computeCodeBlockTextPatchRange } from '../cm/codeBlockCmSync'
 import { countDocumentLinesFromText } from '../model/lineModel'
@@ -236,7 +243,7 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
       window.setTimeout(() => sample('t+150ms'), 150)
       window.setTimeout(() => sample('t+500ms'), 500)
     },
-    [editor, getPos, node],
+    [editor, getPos, node, boundary],
   )
 
   const commitPendingSessionToPm = useCallback(() => {
@@ -362,7 +369,7 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
       }
       pendingSessionDocRef.current = null
     }
-  }, [cmEnabled, folded])
+  }, [cmEnabled, dispatchSession, folded])
 
   useEffect(() => {
     const instanceId = ++controllerInstanceSeq
@@ -674,6 +681,16 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
   }, [])
   useCodeBlockCopyFlashRoot(wrapRef, triggerCopyFlash)
 
+  useEffect(() => {
+    const wrap = wrapRef.current
+    if (!wrap) return
+    const onPasteFailed = () => {
+      pushAppToast(t('editor.codeBlock.pasteFailed'), 'error')
+    }
+    wrap.addEventListener(CODE_BLOCK_PASTE_FAILED_EVENT, onPasteFailed)
+    return () => wrap.removeEventListener(CODE_BLOCK_PASTE_FAILED_EVENT, onPasteFailed)
+  }, [t])
+
   const resolveCmOffsetFromPmSelection = useCallback((): number | null => {
     const range = resolveCodeBlockTextRange(editor.state.selection.$from)
     if (range?.blockPos !== ownedBlockPos || ownedBlockPos == null) return null
@@ -819,6 +836,7 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
       }
       if (cmEnabled) {
         enterEditing()
+        runTabInCodeBlockCmWrapWhenReady(wrapRef.current)
         return
       }
       focusLegacyBody()
@@ -855,7 +873,7 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
       event.stopPropagation()
       scheduleFocusCm()
     },
-    [boundary, cmAvailable, scheduleFocusCm],
+    [boundary, cmAvailable, dispatchSession, scheduleFocusCm],
   )
 
   const onSessionChange = useCallback(
@@ -998,7 +1016,7 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
         },
       )
     },
-    [boundary, editor, flushSessionToPm, isOwnedBlockFoldedInPm, scheduleFocusCm],
+    [boundary, dispatchSession, editor, flushSessionToPm, isOwnedBlockFoldedInPm, scheduleFocusCm],
   )
 
   const focusLangChipFromCm = useCallback(() => {
@@ -1150,7 +1168,7 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
         void editor.chain().focus().setTextSelection(pos + 1).scrollIntoView().run()
       }
     },
-    [cmEnabled, editor, getPos, isEditing, node, scheduleFocusCm, sessionDoc, updateAttributes],
+    [cmEnabled, dispatchSession, editor, getPos, isEditing, node, scheduleFocusCm, sessionDoc, updateAttributes],
   )
 
   const copyAllCode = useCallback(async () => {
@@ -1190,7 +1208,7 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
     if (cmAvailable) {
       scheduleFocusCm()
     }
-  }, [blockText, cmAvailable, editor, getPos, node, scheduleFocusCm, sessionDoc])
+  }, [blockText, cmAvailable, editor, getPos, isEditing, node, scheduleFocusCm, sessionDoc])
 
   const onCopyClick = useCallback((event: MouseEvent) => {
     event.preventDefault()
@@ -1202,6 +1220,45 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
       if (cmAvailable) scheduleFocusCm()
     })
   }, [boundary, cmAvailable, copyAllCode, scheduleFocusCm, suppressBlurForToolbar])
+
+  const showCodeBlockAi =
+    resolveAiButtonEnabled(getAppSettingsSnapshot().appearance?.ui) &&
+    isAiConfiguredFromSettings(resolveAiSettings(getAppSettingsSnapshot()))
+
+  const [explainPending, setExplainPending] = useState(false)
+  const blockAiRunning = useSyncExternalStore(
+    subscribeEditorBlockAi,
+    isEditorBlockAiRunning,
+    isEditorBlockAiRunning,
+  )
+
+  useEffect(() => {
+    if (!blockAiRunning) setExplainPending(false)
+  }, [blockAiRunning])
+
+  const explainRunning = explainPending && blockAiRunning
+
+  const onExplainCode = useCallback(
+    (event: MouseEvent) => {
+      event.preventDefault()
+      event.stopPropagation()
+      boundary.clearBlurExitTimer()
+      suppressBlurForToolbar()
+      boundary.releasePmForToolbar()
+      const pos = resolveOwnedCodeBlockPos(editor, getPos?.() ?? null, node)
+      if (pos == null) return
+      const block = codeBlockNodeAt(editor, pos)
+      if (!block) return
+      const snapshot = snapshotCodeBlockAtPos(editor, pos, block)
+      if (!snapshot?.blockMarkdown.trim()) {
+        pushAppToast(t('editor.blockAi.emptyBlock'), 'warning')
+        return
+      }
+      setExplainPending(true)
+      requestEditorBlockAi('explain-code-block', snapshot, t)
+    },
+    [boundary, editor, getPos, node, suppressBlurForToolbar, t],
+  )
 
   useEffect(() => {
     if (!contextMenu) return
@@ -1351,9 +1408,9 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
       })
     })
   }, [
-    applyCmSelectionOffset,
     blockText,
     boundary,
+    dispatchSession,
     editor,
     flushSessionToPm,
     folded,
@@ -1507,7 +1564,7 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
     <NodeViewWrapper
       as="div"
       ref={wrapRef}
-      className={`pm-code-block-wrap${showCmEditor ? ' pm-code-block-wrap--cm' : ''}${folded ? ' pm-code-block-wrap--folded' : ''}${ENABLE_EXPERIMENTAL_DIFF && diffMode ? ' pm-code-block-wrap--diff' : ''}${copyFlash ? ' pm-code-block-wrap--copied' : ''}${sessionState.paletteOpen ? ' pm-code-block-wrap--palette-open' : ''}${copyFailed ? ' pm-code-block-wrap--copy-failed' : ''}${contextMenu ? ' pm-code-block-wrap--ctx-menu-open' : ''}`}
+      className={`pm-code-block-wrap${showCmEditor ? ' pm-code-block-wrap--cm' : ''}${folded ? ' pm-code-block-wrap--folded' : ''}${ENABLE_EXPERIMENTAL_DIFF && diffMode ? ' pm-code-block-wrap--diff' : ''}${copyFlash ? ' pm-code-block-wrap--copied' : ''}${sessionState.paletteOpen ? ' pm-code-block-wrap--palette-open' : ''}${copyFailed ? ' pm-code-block-wrap--copy-failed' : ''}${contextMenu ? ' pm-code-block-wrap--ctx-menu-open' : ''}${explainRunning ? ' pm-code-block-wrap--block-ai-running' : ''}`}
       aria-describedby={toolbarHintId}
       data-luna-code-block-wrap
       data-language={attrLang}
@@ -1547,6 +1604,9 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
           expandLabel={t('editor.codeBlock.expand')}
           collapseLabel={t('editor.codeBlock.collapse')}
           copyLabel={copyLabel}
+          showExplainAi={showCodeBlockAi}
+          explainAiLabel={explainRunning ? t('editor.aiAction.working') : t('editor.blockAi.explainCode')}
+          explainRunning={explainRunning}
           onTogglePalette={() => {
             if (sessionState.paletteOpen) {
               dispatchSession({ type: 'close-palette' })
@@ -1561,6 +1621,7 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
           onToggleFolded={onToggleFolded}
           onToggleFoldedPointerDown={onToggleFoldedPointerDown}
           onCopyClick={onCopyClick}
+          onExplainCode={onExplainCode}
         />
         <pre className={`pm-code-block-pre${showCmEditor ? ' pm-code-block-pre--cm' : ''}`}>
           {cmEnabled ? (

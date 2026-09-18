@@ -1,11 +1,17 @@
-import { type CSSProperties, type Dispatch, type MouseEvent, type SetStateAction, useEffect, useState } from 'react'
+import { type CSSProperties, type Dispatch, type MouseEvent, type SetStateAction, useEffect, useRef, useState } from 'react'
 import { Icon } from '../../design-system/icons'
+import { EmptyState } from '../../design-system/EmptyState'
 import { DocumentOutlineBlock } from './DocumentOutlineBlock'
-import { SidebarRecentFiles } from './SidebarRecentFiles'
+import { SidebarHeaderToolbar } from './SidebarHeaderChrome'
+import { NoteCalendarPanel } from './NoteCalendarPanel'
 import {
-  SidebarFileViewToggleButton,
-  SidebarListModeSegmented,
-} from './SidebarHeaderChrome'
+  isCalendarPanelView,
+  isOutlinePanelView,
+  sidebarFileViewFromPanelView,
+  sidebarListModeFromPanelView,
+  type SidebarPanelView,
+} from '../workspace/sidebarPanelView'
+import { useEditorUiChromeSettings } from '../hooks/useEditorUiChromeSettings'
 import { SidebarHeaderSearchBar, SidebarSearchToggleButton } from './SidebarSearchChrome'
 import { SidebarWorkspaceEmpty } from './SidebarWorkspaceEmpty'
 import { SidebarWorkspaceOnboarding } from './SidebarWorkspaceOnboarding'
@@ -16,11 +22,13 @@ import { resolveWorkspaceFolderChrome } from '../workspace/workspaceTree'
 import type { FileSortMode, FlatWorkspaceFile, FsTreeNode } from '../workspace/types'
 import type { WorkspaceDragTarget } from '../workspace/workspaceDrag'
 import type { TocHeading } from './DocumentOutlineBlock'
+import { bindOverlayScrollbarReveal } from '../overlayScrollbarReveal'
 
 import type { TranslateFn } from '../../i18n'
 
 export type AppSidebarPanelProps = {
   t: TranslateFn
+  locale?: string
   rootDir: string
   activePath: string
   mainPaneMode?: 'visual' | 'source'
@@ -31,7 +39,8 @@ export type AppSidebarPanelProps = {
   setSearchText: Dispatch<SetStateAction<string>>
   isSidebarFiltering: boolean
   sidebarFilterMatchCount: number
-  sidebarListMode: 'files' | 'outline'
+  sidebarPanelView: SidebarPanelView
+  setSidebarPanelView: Dispatch<SetStateAction<SidebarPanelView>>
   draggingWorkspaceFile: string[] | null
   dragOverTarget: WorkspaceDragTarget | null
   setDragOverTarget: Dispatch<SetStateAction<WorkspaceDragTarget | null>>
@@ -41,10 +50,10 @@ export type AppSidebarPanelProps = {
   activeOutlineId: string | null
   scrollPreviewToHeading: (id: string) => void
   fileTree: FsTreeNode[]
-  sidebarFileView: 'tree' | 'list'
-  setSidebarFileView: Dispatch<SetStateAction<'tree' | 'list'>>
   workspaceFolderNodes: FsTreeNode[]
   sortedFlatWorkspaceFiles: FlatWorkspaceFile[]
+  noteCalendarEdits?: ReadonlyMap<string, number>
+  noteCalendarPreferPersistedOnly?: boolean
   sortedFileTree: FsTreeNode[]
   expandedDirs: Set<string>
   toggleWorkspaceDir: (path: string) => void
@@ -54,6 +63,7 @@ export type AppSidebarPanelProps = {
   handleMoveFileToFolder: (sourcePath: string | string[], destDir: string, isDirectory?: boolean) => void | Promise<void>
   createNewNote: () => void | Promise<void>
   createNewNoteFromTemplate: () => void | Promise<void>
+  createNewFolder: () => void | Promise<void>
   workspaceFolderName: string
   workspaceMenuRef: React.RefObject<HTMLDivElement | null>
   workspaceMenuPopRef: React.RefObject<HTMLDivElement | null>
@@ -62,13 +72,9 @@ export type AppSidebarPanelProps = {
   workspaceMenuPopStyle: CSSProperties | null
   fileSortMode: FileSortMode
   setFileSortMode: Dispatch<SetStateAction<FileSortMode>>
-  setSidebarListMode: Dispatch<SetStateAction<'files' | 'outline'>>
   setStatus: (msg: string) => void
   chooseFolder: () => void | Promise<void>
   refreshFileTree: () => void | Promise<void>
-  recentFiles: readonly string[]
-  onOpenRecent: (path: string) => void
-  onClearRecent: () => void | Promise<void>
   /** Sidebar accessibility status line (sr-only alongside search box)*/
   sidebarStatusLine: string
   /** Path highlighted while its file context menu is open. */
@@ -78,6 +84,7 @@ export type AppSidebarPanelProps = {
 export function AppSidebarPanel(props: AppSidebarPanelProps) {
   const {
     t,
+    locale = 'en-US',
     rootDir,
     activePath,
     mainPaneMode = 'visual',
@@ -88,7 +95,7 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
     setSearchText,
     isSidebarFiltering,
     sidebarFilterMatchCount,
-    sidebarListMode,
+    sidebarPanelView,
     draggingWorkspaceFile,
     dragOverTarget,
     setDragOverTarget,
@@ -98,10 +105,11 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
     activeOutlineId,
     scrollPreviewToHeading,
     fileTree,
-    sidebarFileView,
-    setSidebarFileView,
+    setSidebarPanelView,
     workspaceFolderNodes,
     sortedFlatWorkspaceFiles,
+    noteCalendarEdits,
+    noteCalendarPreferPersistedOnly = false,
     sortedFileTree,
     expandedDirs,
     toggleWorkspaceDir,
@@ -111,6 +119,7 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
     handleMoveFileToFolder,
     createNewNote,
     createNewNoteFromTemplate,
+    createNewFolder,
     workspaceFolderName,
     workspaceMenuRef,
     workspaceMenuPopRef,
@@ -119,28 +128,50 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
     workspaceMenuPopStyle,
     fileSortMode,
     setFileSortMode,
-    setSidebarListMode,
     setStatus,
     chooseFolder,
     refreshFileTree,
-    recentFiles,
-    onOpenRecent,
-    onClearRecent,
     sidebarStatusLine,
     contextMenuFilePath = null,
   } = props
 
-  const showOutlinePanel = sidebarListMode === 'outline' && !isSidebarFiltering && activePath
+  const { noteCalendarButtonEnabled } = useEditorUiChromeSettings()
+  const sidebarListMode = sidebarListModeFromPanelView(sidebarPanelView)
+  const sidebarFileView = sidebarFileViewFromPanelView(sidebarPanelView)
+  const showOutlinePanel = isOutlinePanelView(sidebarPanelView) && Boolean(activePath)
+  const showCalendarPanel = isCalendarPanelView(sidebarPanelView)
+  const showOutlineOnly = showOutlinePanel && !isSidebarFiltering && !showCalendarPanel
+  const showOutlineAlongsideFilter = showOutlinePanel && isSidebarFiltering
   const filterHasNoMatches =
     isSidebarFiltering &&
     sortedFileTree.length === 0 &&
     sortedFlatWorkspaceFiles.length === 0
-  const fileViewToggleDisabled = !rootDir || fileTree.length === 0 || sidebarListMode === 'outline'
+  const filesViewDisabled = !rootDir || fileTree.length === 0
   const [sidebarSearchOpen, setSidebarSearchOpen] = useState(false)
+  const fileListScrollRef = useRef<HTMLDivElement | null>(null)
+  const outlineScrollRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (searchText.trim()) setSidebarSearchOpen(true)
   }, [searchText])
+
+  useEffect(() => {
+    if (showCalendarPanel && sidebarSearchOpen) {
+      setSidebarSearchOpen(false)
+    }
+  }, [showCalendarPanel, sidebarSearchOpen])
+
+  useEffect(() => {
+    if (showOutlineOnly) return
+    if (!fileListScrollRef.current) return
+    return bindOverlayScrollbarReveal(fileListScrollRef.current)
+  }, [showOutlineOnly])
+
+  useEffect(() => {
+    if (!showOutlinePanel) return
+    if (!outlineScrollRef.current) return
+    return bindOverlayScrollbarReveal(outlineScrollRef.current)
+  }, [showOutlinePanel])
 
   const closeSidebarSearch = () => {
     setSearchText('')
@@ -159,6 +190,30 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
     setSidebarSearchOpen(true)
   }
 
+  const renderOutlinePanel = () => (
+    <div className="sidebar-list-outline-panel">
+      <div className="sidebar-outline-header">{t('app.sidebar.outlineHeader')}</div>
+      <div
+        ref={outlineScrollRef}
+        className="sidebar-outline-scroll"
+        onMouseDown={(e) => {
+          const target = e.target
+          if (target instanceof Element && target.closest('.document-outline-link, .document-outline-chevron')) {
+            return
+          }
+          e.preventDefault()
+        }}
+      >
+        <DocumentOutlineBlock
+          documentPath={activePath}
+          headings={outlineHeadings}
+          activeId={activeOutlineId ?? ''}
+          onJump={scrollPreviewToHeading}
+        />
+      </div>
+    </div>
+  )
+
   return (
         <aside className="sidebar workspace-split mod-left-split" data-workspace-sidebar>
           <div className="sidebar-pane-top">
@@ -173,46 +228,43 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
                 />
               ) : (
                 <>
-                  <div className="sidebar-header-primary">
-                    <SidebarListModeSegmented
-                      t={t}
-                      mode={sidebarListMode}
-                      onSelectFiles={() => setSidebarListMode('files')}
-                      onSelectOutline={() => setSidebarListMode('outline')}
-                    />
-                    <SidebarFileViewToggleButton
-                      t={t}
-                      sidebarFileView={sidebarFileView}
-                      disabled={fileViewToggleDisabled}
-                      onToggle={() => setSidebarFileView((v) => (v === 'tree' ? 'list' : 'tree'))}
-                    />
-                  </div>
-                  <div className="sidebar-header-actions">
-                    <SidebarSearchToggleButton
-                      t={t}
-                      rootDir={rootDir}
-                      open={sidebarSearchOpen}
-                      isFiltering={isSidebarFiltering}
-                      onToggle={toggleSidebarSearch}
-                    />
-                    <SidebarWorkspaceMenu
-                      t={t}
-                      rootDir={rootDir}
-                      workspaceFolderName={workspaceFolderName}
-                      workspaceMenuRef={workspaceMenuRef}
-                      workspaceMenuPopRef={workspaceMenuPopRef}
-                      workspaceMenuOpen={workspaceMenuOpen}
-                      setWorkspaceMenuOpen={setWorkspaceMenuOpen}
-                      workspaceMenuPopStyle={workspaceMenuPopStyle}
-                      fileSortMode={fileSortMode}
-                      setFileSortMode={setFileSortMode}
-                      createNewNote={createNewNote}
-                      createNewNoteFromTemplate={createNewNoteFromTemplate}
-                      chooseFolder={chooseFolder}
-                      refreshFileTree={refreshFileTree}
-                      setStatus={setStatus}
-                    />
-                  </div>
+                  <SidebarHeaderToolbar
+                    t={t}
+                    view={sidebarPanelView}
+                    filesDisabled={filesViewDisabled}
+                    noteCalendarButtonEnabled={noteCalendarButtonEnabled}
+                    onSelectView={setSidebarPanelView}
+                    showSearchToggle={!showCalendarPanel}
+                    searchToggle={
+                      <SidebarSearchToggleButton
+                        t={t}
+                        rootDir={rootDir}
+                        open={sidebarSearchOpen}
+                        isFiltering={isSidebarFiltering}
+                        onToggle={toggleSidebarSearch}
+                      />
+                    }
+                    workspaceMenu={
+                      <SidebarWorkspaceMenu
+                        t={t}
+                        rootDir={rootDir}
+                        workspaceFolderName={workspaceFolderName}
+                        workspaceMenuRef={workspaceMenuRef}
+                        workspaceMenuPopRef={workspaceMenuPopRef}
+                        workspaceMenuOpen={workspaceMenuOpen}
+                        setWorkspaceMenuOpen={setWorkspaceMenuOpen}
+                        workspaceMenuPopStyle={workspaceMenuPopStyle}
+                        fileSortMode={fileSortMode}
+                        setFileSortMode={setFileSortMode}
+                        createNewNote={createNewNote}
+                        createNewNoteFromTemplate={createNewNoteFromTemplate}
+                        createNewFolder={createNewFolder}
+                        chooseFolder={chooseFolder}
+                        refreshFileTree={refreshFileTree}
+                        setStatus={setStatus}
+                      />
+                    }
+                  />
                 </>
               )}
             </div>
@@ -227,8 +279,9 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
               </p>
             ) : null}
             <div
+              ref={fileListScrollRef}
               className={`file-list${
-                showOutlinePanel ? ' file-list--outline-root' : ''
+                showOutlineOnly || showCalendarPanel ? ' file-list--outline-root' : ''
               }${draggingWorkspaceFile ? ' file-list--workspace-drag' : ''}${dragOverTarget?.kind === 'root' ? ' file-list--root-drop-target' : ''}`}
               data-workspace-root-drop={rootDir ? rootDir.replace(/[/\\]+$/u, '') : undefined}
               onContextMenu={onSidebarBlankContextMenu}
@@ -241,41 +294,41 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
                     onScratchNote={createNewNote}
                   />
                   <SidebarWorkspaceOnboarding t={t} />
-                  <SidebarRecentFiles
-                    t={t}
-                    recentFiles={recentFiles}
-                    onOpenRecent={onOpenRecent}
-                    onClearRecent={onClearRecent}
-                  />
                 </div>
+              ) : showCalendarPanel ? (
+                <NoteCalendarPanel
+                  t={t}
+                  locale={locale}
+                  rootDir={rootDir}
+                  activePath={activePath}
+                  workspaceFiles={sortedFlatWorkspaceFiles}
+                  noteCalendarEdits={noteCalendarEdits}
+                  noteCalendarPreferPersistedOnly={noteCalendarPreferPersistedOnly}
+                  onOpenNote={(path) =>
+                    onWorkspaceFileClick(
+                      { shiftKey: false, metaKey: false, ctrlKey: false } as MouseEvent,
+                      path,
+                    )
+                  }
+                />
               ) : filterHasNoMatches ? (
-                <p className="file-list-empty">{t('app.sidebar.search.filterEmpty')}</p>
-              ) : showOutlinePanel ? (
-                <div className="sidebar-list-outline-panel">
-                  <div className="sidebar-outline-header">{t('app.sidebar.outlineHeader')}</div>
-                  <div
-                    className="sidebar-outline-scroll"
-                    onMouseDown={(e) => {
-                      const target = e.target
-                      if (target instanceof Element && target.closest('.document-outline-link, .document-outline-chevron')) {
-                        return
-                      }
-                      e.preventDefault()
-                    }}
-                  >
-                    <DocumentOutlineBlock
-                      documentPath={activePath}
-                      headings={outlineHeadings}
-                      activeId={activeOutlineId ?? ''}
-                      onJump={scrollPreviewToHeading}
-                    />
+                <>
+                  <div className="sidebar-inline-empty">
+                    <EmptyState variant="compact" icon="search" title={t('app.sidebar.search.filterEmpty')} />
                   </div>
-                </div>
+                  {showOutlineAlongsideFilter ? renderOutlinePanel() : null}
+                </>
+              ) : showOutlineOnly ? (
+                renderOutlinePanel()
               ) : sidebarListMode === 'outline' && !activePath ? (
-                <p className="file-list-empty">{t('app.sidebar.empty.openNoteOutline')}</p>
+                <div className="sidebar-inline-empty">
+                  <EmptyState variant="compact" icon="note" title={t('app.sidebar.empty.openNoteOutline')} />
+                </div>
               ) : fileTree.length === 0 ? (
                 <>
-                  <p className="file-list-empty">{t('app.sidebar.empty.dirEmpty')}</p>
+                  <div className="sidebar-inline-empty">
+                    <EmptyState variant="compact" icon="workspace" title={t('app.sidebar.empty.dirEmpty')} />
+                  </div>
                   <SidebarWorkspaceOnboarding
                     t={t}
                     workspaceReady
@@ -365,6 +418,7 @@ export function AppSidebarPanel(props: AppSidebarPanelProps) {
                       onToggleMainPaneMode={onToggleMainPaneMode}
                     />
                   ) : null}
+                  {showOutlineAlongsideFilter ? renderOutlinePanel() : null}
                 </>
               )}
             </div>

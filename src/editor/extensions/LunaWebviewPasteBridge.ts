@@ -3,6 +3,7 @@ import { Plugin } from '@tiptap/pm/state'
 
 import { getFocusedCodeBlockCmView, isCodeBlockCmFocused } from '../codeBlock/cm/codeBlockCmFocus'
 import { recordSuccessfulPaste, shouldSkipDuplicatePaste, computePasteFingerprint } from '../pasteDedupe'
+import { reportPasteIssue } from '../pasteIssueReporter'
 import {
   debugPasteScroll,
   logPasteScrollPhase,
@@ -16,6 +17,7 @@ import {
   allowNavigatorClipboardReadForPasteEvent,
   type WebviewPasteImageHandler,
 } from '../webviewPasteBridge'
+import { isBlockNativeSourceTextarea } from '../webviewPasteFocus'
 
 export type LunaWebviewPasteBridgeOptions = {
   onPasteImage?: WebviewPasteImageHandler
@@ -37,6 +39,10 @@ export const LunaWebviewPasteBridge = Extension.create<LunaWebviewPasteBridgeOpt
       new Plugin({
         props: {
           handlePaste: (view, event) => {
+            const target = event.target
+            if (target instanceof HTMLElement && isBlockNativeSourceTextarea(target)) {
+              return false
+            }
             const cd = event.clipboardData
             const prefetched = plainTextFromClipboardData(cd)
             const prefetchedHtml = htmlFromClipboardData(cd)
@@ -104,6 +110,7 @@ export const LunaWebviewPasteBridge = Extension.create<LunaWebviewPasteBridgeOpt
                 prefetchedText: prefetched,
                 prefetchedHtml: prefetchedHtml || undefined,
                 allowNavigatorClipboardRead: allowNavigatorClipboardReadForPasteEvent(event),
+                lockedPmSelection: selectionAtEvent,
               })
               logPasteScrollPhase('handlePaste-async-done', {
                 pmView: view,
@@ -112,6 +119,7 @@ export const LunaWebviewPasteBridge = Extension.create<LunaWebviewPasteBridgeOpt
                 asyncStartSelection,
               })
               if (ok && fingerprint) recordSuccessfulPaste(fingerprint)
+              else if (!ok && event.isTrusted) reportPasteIssue('read_failed')
             })()
             return true
           },

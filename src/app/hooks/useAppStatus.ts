@@ -5,7 +5,7 @@ const ERROR_CLEAR_MS = 15000
 
 export type AppStatusTone = 'neutral' | 'success' | 'info' | 'warning' | 'error'
 
-function inferStatusTone(message: string): AppStatusTone {
+export function inferStatusTone(message: string): AppStatusTone {
   const text = message.trim().toLowerCase()
   if (!text) return 'neutral'
   if (
@@ -21,22 +21,22 @@ function inferStatusTone(message: string): AppStatusTone {
   return 'neutral'
 }
 
-/** Application status bar message: used for both screen reading and visible footer, automatically cleared after a few seconds*/
+/** Transient status feedback (save success, errors). Clears after a few seconds; does not replace persistent footer state. */
 export function useAppStatus(clearMs = DEFAULT_CLEAR_MS) {
-  const [status, setStatusState] = useState('')
-  const [statusTone, setStatusTone] = useState<AppStatusTone>('neutral')
+  const [transientStatus, setTransientStatus] = useState('')
+  const [transientTone, setTransientTone] = useState<AppStatusTone>('neutral')
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const setStatus = useCallback(
     (message: string, toneOverride?: AppStatusTone) => {
       const tone = toneOverride ?? inferStatusTone(message)
-      setStatusState(message)
-      setStatusTone(tone)
+      setTransientStatus(message)
+      setTransientTone(tone)
       if (timerRef.current) clearTimeout(timerRef.current)
       if (!message) return
       timerRef.current = setTimeout(() => {
-        setStatusState('')
-        setStatusTone('neutral')
+        setTransientStatus('')
+        setTransientTone('neutral')
         timerRef.current = undefined
       }, tone === 'error' || tone === 'warning' ? ERROR_CLEAR_MS : clearMs)
     },
@@ -47,5 +47,5 @@ export function useAppStatus(clearMs = DEFAULT_CLEAR_MS) {
     if (timerRef.current) clearTimeout(timerRef.current)
   }, [])
 
-  return { status, statusTone, setStatus }
+  return { status: transientStatus, statusTone: transientTone, setStatus }
 }

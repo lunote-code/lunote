@@ -1,7 +1,27 @@
 const REVEAL_CLASS = 'luna-scrollbar-reveal'
 const GUTTER_HOVER_CLASS = 'luna-scrollbar-gutter-hover'
-const SCROLL_IDLE_MS = 900
-const GUTTER_HIT_PX = 14
+const SCROLL_IDLE_MS = 680
+const GUTTER_HIT_PX = 12
+
+/** Knowledge rail scroll regions that use tier-4r reveal on Windows/Linux WebView. */
+export const KNOWLEDGE_PANEL_SCROLL_SELECTORS = [
+  '.kos-backlink-scroll',
+  '.kos-frontmatter-panel',
+  '.kos-embed-panel',
+  '.kos-search-results',
+  '.kos-tags-scroll',
+  '.kos-graph-discovery',
+] as const
+
+/** AI rail scroll regions (main list + floating auxiliary panels). */
+export const AI_RAIL_SCROLL_SELECTORS = [
+  '.ai-rail-scroll',
+  '.ai-rail-context-inspector-panel',
+  '.ai-rail-mention-picker',
+  '.ai-rail-quick-actions-menu--floating',
+  '.ai-rail-replace-diff',
+  '.ai-grammar-issues-raw',
+] as const
 
 /**
  * macOS-style overlay scrollbars for document body on Windows/Linux WebView:
@@ -44,5 +64,54 @@ export function bindOverlayScrollbarReveal(el: HTMLElement): () => void {
     el.removeEventListener('mousemove', onMouseMove)
     el.removeEventListener('mouseleave', onMouseLeave)
     el.classList.remove(REVEAL_CLASS, GUTTER_HOVER_CLASS)
+  }
+}
+
+function collectScrollTargets(root: HTMLElement, selectors: readonly string[]): HTMLElement[] {
+  const targets: HTMLElement[] = []
+  const seen = new Set<HTMLElement>()
+  for (const selector of selectors) {
+    root.querySelectorAll(selector).forEach((node) => {
+      if (!(node instanceof HTMLElement) || seen.has(node)) return
+      seen.add(node)
+      targets.push(node)
+    })
+  }
+  return targets
+}
+
+/**
+ * Bind scroll/gutter reveal on matching scrollers under `root`.
+ * Re-syncs when DOM children change (menus, discovery panel, etc.).
+ */
+export function observeOverlayScrollbarReveal(
+  root: HTMLElement,
+  selectors: readonly string[],
+): () => void {
+  const bindings = new Map<HTMLElement, () => void>()
+
+  const sync = () => {
+    const next = collectScrollTargets(root, selectors)
+    const nextSet = new Set(next)
+    for (const [el, cleanup] of bindings) {
+      if (!nextSet.has(el)) {
+        cleanup()
+        bindings.delete(el)
+      }
+    }
+    for (const el of next) {
+      if (bindings.has(el)) continue
+      bindings.set(el, bindOverlayScrollbarReveal(el))
+    }
+  }
+
+  sync()
+  const observer = new MutationObserver(sync)
+  observer.observe(root, { childList: true, subtree: true })
+
+  return () => {
+    observer.disconnect()
+    for (const cleanup of bindings.values()) cleanup()
+    bindings.clear()
   }
 }

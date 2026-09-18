@@ -8,9 +8,7 @@ import {
   logTabNav,
   snapshotDocumentBodyMeta,
 } from '../lib/tabNavigationDebug'
-import { flushAllCodeBlockSessions } from './codeBlock/boundary/codeBlockSessionRegistry'
-import { reconcileCodeBlockCmFocusAfterSerialize } from './codeBlock/cm/codeBlockCmPmFocusReconcile'
-import { flushMermaidSourceForSerialize } from './mermaid/mermaidSourceBridge'
+import { flushVisualEditorLocalEdits } from './visualEditorPreSerializeFlush'
 import { unescapeWikiLinksInMarkdown, normalizeWikiLinkBlockRefEscapesInMarkdown } from './knowledgeRuntime/wikiLinkParser'
 import { logPasteScrollMarkdownSync } from './pasteScrollDebug'
 import type { PendingMarkdownSyncResult } from './tiptapEditorTypes'
@@ -39,10 +37,17 @@ function normalizeMarkdownWithEditor(value: string, editor: Editor): string {
   return serialized.ok ? serialized.markdown : value
 }
 
-function compileEditorMarkdownForSync(editor: Editor): PendingMarkdownSyncResult {
-  flushAllCodeBlockSessions(editor)
-  reconcileCodeBlockCmFocusAfterSerialize(editor)
-  flushMermaidSourceForSerialize(editor)
+export type CompileEditorMarkdownOptions = {
+  preserveCodeBlockEditing?: boolean
+}
+
+function compileEditorMarkdownForSync(
+  editor: Editor,
+  options?: CompileEditorMarkdownOptions,
+): PendingMarkdownSyncResult {
+  flushVisualEditorLocalEdits(editor, {
+    preserveCodeBlockEditing: options?.preserveCodeBlockEditing,
+  })
   const serialized = canonicalMarkdownSemantics.trySerialize(editor.state.doc, editor.schema)
   if (serialized.ok === false) {
     return { ok: false, error: serialized.error }

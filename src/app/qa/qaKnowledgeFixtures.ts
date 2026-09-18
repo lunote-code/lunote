@@ -1,4 +1,5 @@
 import type { AbsoluteDocPath } from '../../editor/knowledgeRuntime/types'
+import { pathCompareKey } from '../../lib/workspacePathUtils'
 
 export const QA_KNOWLEDGE_ROOT = '/qa-vault'
 
@@ -11,6 +12,8 @@ export const QA_KNOWLEDGE_FIXTURES: Record<string, string> = {
   'title-match.md': '---\ntitle: Deep Atlas\n---\n# Atlas\n\nSurface note.\n',
   'content-note.md': '---\ntitle: Content Note\n---\n# Content Note\n\nThis note explores deep work patterns.\n',
   'tag-note.md': '---\ntitle: Tag Note\ntags: [deep]\n---\n# Tag Note\n\nCatalog note.\n',
+  '知识库测试.md':
+    '---\ntitle: Knowledge OS Graph / Backlink Document\n---\n# Knowledge OS Graph / Backlink Document\n\n## Home\n\n## Project Beta\n\n### Overview\n\n### Tasks\n\nLink to [[obsidian]].\n',
 }
 
 export type QaKnowledgeNoteId = 'note-a' | 'note-b' | 'embed-host'
@@ -20,7 +23,12 @@ export function qaKnowledgeNotePath(note: QaKnowledgeNoteId): AbsoluteDocPath {
 }
 
 export function qaKnowledgeFixtureRelPath(absolutePath: string): string {
-  return absolutePath.replace(`${QA_KNOWLEDGE_ROOT}/`, '')
+  const rel = absolutePath.replace(`${QA_KNOWLEDGE_ROOT}/`, '')
+  const relKey = pathCompareKey(rel)
+  for (const key of Object.keys(QA_KNOWLEDGE_FIXTURES)) {
+    if (pathCompareKey(key) === relKey) return key
+  }
+  return rel
 }
 
 export function cloneQaKnowledgeFixtures(): Record<string, string> {

@@ -1,5 +1,6 @@
-import type { KeyboardEvent, ReactNode } from 'react'
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react'
 import { Icon, type SemanticIconName } from '../../design-system/icons'
+import { bindOverlayScrollbarReveal } from '../../app/overlayScrollbarReveal'
 
 export type SettingsSidebarItem<T extends string> = {
   id: T
@@ -28,6 +29,12 @@ export function SettingsSidebar<T extends string>({
   search,
 }: SettingsSidebarProps<T>) {
   const flatItems = groups.flatMap((group) => group.items)
+  const navRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    if (!navRef.current) return
+    return bindOverlayScrollbarReveal(navRef.current)
+  }, [])
 
   const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, itemId: T) => {
     const currentIndex = flatItems.findIndex((item) => item.id === itemId)
@@ -56,7 +63,7 @@ export function SettingsSidebar<T extends string>({
   return (
     <aside className="settings-sidebar" aria-label={ariaLabel}>
       {search ? <div className="settings-sidebar-search">{search}</div> : null}
-      <nav className="settings-sidebar-nav" role="tablist" aria-orientation="vertical">
+      <nav ref={navRef} className="settings-sidebar-nav" role="tablist" aria-orientation="vertical">
         {groups.map((group, groupIndex) => (
           <div className="settings-sidebar-group" key={groupIndex}>
             {group.label ? <div className="settings-sidebar-group-label">{group.label}</div> : null}

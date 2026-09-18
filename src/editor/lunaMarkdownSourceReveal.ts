@@ -198,11 +198,12 @@ function initialMarkdownForRange(doc: PMNode, schema: Schema, from: number, to: 
   }
 }
 
-const BLOCK_REVEAL_TYPES = new Set(['heading', 'footnoteDef', 'blockMath', 'linkReferenceDef', 'blockquote'])
+const BLOCK_REVEAL_TYPES = new Set(['heading', 'footnoteDef', 'blockMath', 'linkReferenceDef', 'blockquote', 'rawBlock'])
 const PROGRAMMATIC_BLOCK_REVEAL_TYPES = new Set([
   ...BLOCK_REVEAL_TYPES,
   'codeBlock',
   'mermaidBlock',
+  'drawingBlock',
   'rawBlock',
 ])
 
@@ -272,6 +273,9 @@ function shouldSuppressBlockRevealAtPos(
   if (target?.closest?.('[data-luna-code-block-wrap], .pm-code-block-wrap, [data-type="codeBlock"]')) {
     return true
   }
+  if (target?.closest?.('.pm-luna-html-block')) {
+    return true
+  }
   const clamped = Math.max(1, Math.min(pos, doc.content.size))
   const $pos = doc.resolve(clamped)
   if (isPosInsideCodeSpecBlock($pos)) return true
@@ -306,6 +310,16 @@ function resolveRevealableBlockAtPos(
       if (!isPosInsideHeadingContent(node, from, pos)) return
       if (target && !target.closest('.pm-heading-block')) return
       const dist = 0
+      if (dist < bestDist) {
+        bestDist = dist
+        best = { from, to, node }
+      }
+      return
+    }
+    if (node.type.name === 'rawBlock') {
+      if (normalizeLunaRawSource(node.attrs.source) !== 'html') return
+      if (target && !target.closest('.pm-luna-html-block')) return
+      const dist = pos < from ? from - pos : pos > to ? pos - to : 0
       if (dist < bestDist) {
         bestDist = dist
         best = { from, to, node }

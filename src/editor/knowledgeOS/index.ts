@@ -40,12 +40,17 @@ export {
 
 export {
   syncNoteGraphTopologyFromRoute,
+  syncNoteGraphTopologyGlobal,
+  isNoteGraphGlobalTopology,
+  isNoteGraphOnFallbackLayout,
   resolveRouteCenterNode,
   flushDeferredGraphLayout,
   getNoteGraphTopology,
   getNoteGraphSnapshot,
   getVisibleGraphNodes,
   subscribeNoteGraph,
+  invalidateNoteGraphSubgraphCache,
+  notifyNoteGraphVaultChanged,
   resetNoteGraphRuntime,
 } from './noteGraphRuntime'
 
@@ -228,14 +233,6 @@ export {
 export type { SurfaceSplitDragSession } from './layout/surfaceSplitLayoutRuntime'
 
 export {
-  freezeSplitGridColumns,
-  beginRailDragCompositor,
-  applyRailDragPreview,
-  clearRailDragPreview,
-  clearFrozenSplitGrid,
-} from './layout/surfaceSplitDragPreview'
-
-export {
   profileLayoutRecalc,
   setSurfaceSplitProfileEnabled,
   isSurfaceSplitProfileEnabled,
@@ -261,9 +258,16 @@ export {
 export {
   computeGraphLayout,
   computeGridLayoutFallback,
+  findConnectedComponents,
   GRAPH_LAYOUT_MIN_NODE_DISTANCE,
 } from './layout/computeGraphLayout'
 export { computeGraphBounds, type GraphBounds } from './layout/graphBounds'
+export {
+  buildGraphFitNodeBounds,
+  expandGraphFitBounds,
+  resolveGraphFitBounds,
+  type GraphFitNodeBounds,
+} from './layout/graphFitBounds'
 export {
   screenToGraphWorld,
   findGraphNodeAtScreen,
@@ -392,6 +396,9 @@ export {
   projectGraphViewportAtTick,
   computeDeterministicFitView,
   computeViewportCenterOnNode,
+  fitGraphViewToNodes,
+  autoFitGraphViewportOnBoot,
+  autoFitGraphViewportOnTopologyChange,
   subscribeGraphViewport,
   resetGraphViewportRuntime,
 } from './graphViewportRuntime'

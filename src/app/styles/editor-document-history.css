@@ -16,6 +16,26 @@
   margin-right: 72px;
 }
 
+.editor-history-restore-banner--external {
+  border-color: color-mix(in srgb, var(--luna-color-warning, #d97706) 35%, var(--border-subtle));
+  background: color-mix(in srgb, var(--luna-color-warning, #d97706) 10%, var(--surface-editor));
+}
+
+.editor-history-restore-banner-action {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.editor-history-restore-banner-action:hover,
+.editor-history-restore-banner-action:focus-visible {
+  text-decoration: underline;
+}
+
 .document-history-dialog {
   width: min(1440px, 99vw);
   max-height: 90vh;
@@ -130,6 +150,31 @@
   gap: 8px;
 }
 
+.document-history-loading-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 4px 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.document-history-loading-icon {
+  flex-shrink: 0;
+  animation: luna-spin 1s linear infinite;
+}
+
+.document-history-split--loading {
+  flex: 1;
+  min-height: 0;
+}
+
+.document-history-split-handle--placeholder {
+  pointer-events: none;
+  opacity: 0.35;
+}
+
 .document-history-loading-label {
   padding-bottom: 8px;
 }
@@ -137,6 +182,8 @@
 .document-history-entry {
   position: relative;
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
   border: 1px solid transparent;
   border-radius: 12px;
   background: transparent;
@@ -173,7 +220,13 @@
 }
 
 .document-history-entry-main {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   padding: 10px 12px;
   border: 0;
   background: transparent;
@@ -211,6 +264,9 @@
 }
 
 .document-history-entry-summary {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
   margin-top: 4px;
   font-size: 13px;
   line-height: 1.45;
@@ -644,8 +700,14 @@
 }
 
 .document-history-entry-note {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
   font-size: 11px;
   color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .document-history-preview-content {

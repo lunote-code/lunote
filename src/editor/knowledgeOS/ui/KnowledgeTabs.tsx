@@ -13,9 +13,10 @@ type Props = {
   tab: KnowledgeRailTab
   focusedTag?: string | null
   onTagNavigate?: (tag: string) => void
+  onViewTagInGraph?: (tag: string) => void
 }
 
-export function KnowledgeTabs({ activeDocKey, tab, focusedTag = null, onTagNavigate }: Props) {
+export function KnowledgeTabs({ activeDocKey, tab, focusedTag = null, onTagNavigate, onViewTagInGraph }: Props) {
   const tabRootRef = useRef<HTMLDivElement>(null)
   const tabPanelRef = useRef<HTMLDivElement>(null)
   useTabSurfaceLayout(tab, tabRootRef, tabPanelRef)
@@ -47,7 +48,7 @@ export function KnowledgeTabs({ activeDocKey, tab, focusedTag = null, onTagNavig
           ) : tab === 'graph' ? (
             <GraphPanel key={activeDocKey ?? 'none'} centerDocKey={activeDocKey} />
           ) : tab === 'tags' ? (
-            <TagsPanel focusTag={focusedTag} />
+            <TagsPanel focusTag={focusedTag} onViewInGraph={onViewTagInGraph} />
           ) : tab === 'frontmatter' ? (
             <FrontmatterPanel key={activeDocKey ?? 'none'} docKey={activeDocKey} onTagNavigate={onTagNavigate} />
           ) : (

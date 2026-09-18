@@ -1,6 +1,7 @@
 import type { RefObject } from 'react'
 
 import type { TranslateFn } from '../../i18n'
+import { useContextMenuKeyboardNav } from '../../lib/useContextMenuKeyboardNav'
 import { clampPointToViewport } from '../../lib/contextMenuPosition'
 import { FileContextMenuItem } from './FileContextMenuItem'
 
@@ -37,6 +38,8 @@ export function DocumentHistoryContextMenu({
   onCloseDialog,
 }: Props) {
   const { x, y, target, entryId } = state
+  const openKey = `${x}:${y}:${target}:${entryId ?? ''}:${creatingSnapshot}:${restoreDisabled}`
+  const { onKeyDown } = useContextMenuKeyboardNav(menuRef, openKey, { autoFocusOnOpen: false })
   const restoreId = target === 'entry' && entryId ? entryId : restoreEntryId
   const canDelete = target === 'entry' && Boolean(entryId)
 
@@ -44,10 +47,13 @@ export function DocumentHistoryContextMenu({
     <div
       ref={menuRef}
       role="menu"
+      aria-label={t('app.history.dialog.title')}
+      tabIndex={-1}
       className="file-ctx-menu document-history-ctx-menu"
       style={{ left: x, top: y }}
       onContextMenu={(e) => e.preventDefault()}
       onMouseDown={(e) => e.stopPropagation()}
+      onKeyDown={onKeyDown}
     >
       <FileContextMenuItem
         icon="snapshot"

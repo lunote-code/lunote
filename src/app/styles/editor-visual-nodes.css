@@ -2,8 +2,11 @@
 @import './editor-node-code-block.css';
 @import './editor-node-image-media.css';
 @import './editor-node-math.css';
+@import './editor-node-html-source.css';
 @import './editor-node-mermaid-cbr.css';
+@import './editor-node-drawing.css';
 @import './editor-node-footnotes-links.css';
+@import './editor-node-obsidian-syntax.css';
 @import './editor-node-mindmap.css';
 @import './editor-node-slash-menus.css';
 @import './editor-markdown-preview.css';

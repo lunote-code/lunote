@@ -37,9 +37,36 @@ function readPackageVersion() {
   return String(pkg.version ?? '').trim()
 }
 
-function readTauriVersion() {
+function semverToMsiVersion(version) {
+  const core = version.trim().split('+')[0]
+  const match = core.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/)
+  if (!match) {
+    throw new Error(`Invalid semver for MSI mapping: "${version}"`)
+  }
+  const major = Number(match[1])
+  const minor = Number(match[2])
+  const patch = Number(match[3])
+  const prerelease = match[4]
+  if (major > 255 || minor > 255) {
+    throw new Error(`MSI major/minor must be <= 255: "${version}"`)
+  }
+  if (patch > 65535) {
+    throw new Error(`MSI patch must be <= 65535: "${version}"`)
+  }
+  let build = 0
+  if (prerelease) {
+    const trailing = prerelease.match(/(\d+)$/)
+    build = trailing ? Number(trailing[1]) : 0
+  }
+  if (build > 65535) {
+    throw new Error(`MSI build must be <= 65535: "${version}"`)
+  }
+  return `${major}.${minor}.${patch}.${build}`
+}
+
+function readTauriMsiVersion() {
   const conf = JSON.parse(fs.readFileSync(paths.tauriConf, 'utf8'))
-  return String(conf.version ?? '').trim()
+  return String(conf.bundle?.windows?.wix?.version ?? '').trim()
 }
 
 function readCargoVersion() {
@@ -60,9 +87,18 @@ function readPackageLockVersion() {
   return rootVersion || pkgVersion || null
 }
 
+function readTauriVersion() {
+  const conf = JSON.parse(fs.readFileSync(paths.tauriConf, 'utf8'))
+  return String(conf.version ?? '').trim()
+}
+
 function writeTauriVersion(version) {
   const conf = JSON.parse(fs.readFileSync(paths.tauriConf, 'utf8'))
   conf.version = version
+  conf.bundle ??= {}
+  conf.bundle.windows ??= {}
+  conf.bundle.windows.wix ??= {}
+  conf.bundle.windows.wix.version = semverToMsiVersion(version)
   fs.writeFileSync(paths.tauriConf, `${JSON.stringify(conf, null, 2)}\n`)
 }
 
@@ -91,8 +127,10 @@ function writePackageLockVersion(version) {
 
 function main() {
   const canonical = readCanonicalVersion()
+  const expectedMsiVersion = semverToMsiVersion(canonical)
   const packageVersion = readPackageVersion()
   const tauriVersion = readTauriVersion()
+  const tauriMsiVersion = readTauriMsiVersion()
   const cargoVersion = readCargoVersion()
   const lockVersion = readPackageLockVersion()
 
@@ -100,8 +138,9 @@ function main() {
     ['package.json', packageVersion, canonical],
     ['package-lock.json', lockVersion, canonical],
     ['src-tauri/tauri.conf.json', tauriVersion, canonical],
+    ['src-tauri/tauri.conf.json (windows.wix.version)', tauriMsiVersion, expectedMsiVersion],
     ['src-tauri/Cargo.toml', cargoVersion, canonical],
-  ].filter(([, actual]) => actual !== canonical)
+  ].filter(([, actual, expected]) => actual !== expected)
 
   if (checkOnly) {
     if (mismatches.length === 0) {
@@ -118,7 +157,7 @@ function main() {
 
   if (packageVersion !== canonical) writePackageJsonVersion(canonical)
   if (lockVersion !== canonical) writePackageLockVersion(canonical)
-  if (tauriVersion !== canonical) writeTauriVersion(canonical)
+  if (tauriVersion !== canonical || tauriMsiVersion !== expectedMsiVersion) writeTauriVersion(canonical)
   if (cargoVersion !== canonical) writeCargoVersion(canonical)
 
   if (mismatches.length === 0) {

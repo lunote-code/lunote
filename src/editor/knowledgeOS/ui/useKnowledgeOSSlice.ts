@@ -47,7 +47,19 @@ export function useSearchSlice(): KnowledgeSearchSnapshot {
 
   useEffect(() => {
     return subscribeKnowledgeSearch(() => {
-      setSearch(getKnowledgeSearchSnapshot())
+      setSearch((prev) => {
+        const next = getKnowledgeSearchSnapshot()
+        if (prev === next) return prev
+        if (
+          prev.revision === next.revision &&
+          prev.query === next.query &&
+          prev.loading === next.loading &&
+          prev.hits === next.hits
+        ) {
+          return prev
+        }
+        return next
+      })
     })
   }, [])
 

@@ -70,7 +70,7 @@ function testMacMenuBootPipeline() {
     findAccel(boot.bar, 'view-fullscreen') === 'CmdOrCtrl+Ctrl+KeyF',
     'mac-menu-boot.json must ship macOS accelerators (not Linux/Win defaults)',
   )
-  for (const action of ['edit-paste', 'edit-copy', 'edit-cut']) {
+  for (const action of ['edit-paste', 'edit-copy', 'edit-cut', 'edit-select-all']) {
     assert(
       findAccel(boot.bar, action) === undefined,
       `mac-menu-boot.json ${action} must not register Tauri accelerator`,

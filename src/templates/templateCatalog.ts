@@ -2,7 +2,7 @@ import type { FsTreeNode } from '../app/workspace/types'
 import { parentDirectoryOfFile, pathHasParentDirSegment, relativePathUnderRoot } from '../lib/workspacePathUtils'
 import { createNote } from '../platform/tauri/documentService'
 import { listWorkspaceTree } from '../platform/tauri/workspaceService'
-import { readWorkspaceConfig, writeWorkspaceConfig } from '../workspace/workspaceConfig'
+import { isNewNoteTemplatesEnabled, readWorkspaceConfig, writeWorkspaceConfig } from '../workspace/workspaceConfig'
 import { getDefaultNewNoteTemplate } from './defaultNoteContent'
 import { resolveTemplateLocale } from './templateLocale'
 import { renderTemplateString } from './renderTemplate'
@@ -92,7 +92,9 @@ function walkTemplateFiles(
 
 export async function listWorkspaceTemplates(root: string): Promise<WorkspaceTemplateEntry[]> {
   const config = await readWorkspaceConfig(root)
-  await ensureDefaultTemplateFiles(root, config)
+  if (isNewNoteTemplatesEnabled(config)) {
+    await ensureDefaultTemplateFiles(root, config)
+  }
   const recent = normalizeRecentTemplateList(config.templates?.recentlyUsed)
   const folder = normalizeFolderRel(config.templates?.folder ?? 'Templates') || 'Templates'
   const tree = await listWorkspaceTree(root)

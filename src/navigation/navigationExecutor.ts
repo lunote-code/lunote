@@ -51,6 +51,8 @@ async function dispatchNavigationCommand(event: NavigationEvent): Promise<void> 
           docKey: identity.docKey,
           heading: typeof event.meta?.heading === 'string' ? event.meta.heading : undefined,
           blockId: typeof event.meta?.blockId === 'string' ? event.meta.blockId : undefined,
+          linkBodyOffset:
+            typeof event.meta?.linkBodyOffset === 'number' ? event.meta.linkBodyOffset : undefined,
           source: `navigation:${event.source}`,
           traceId,
         })
@@ -75,7 +77,8 @@ async function dispatchNavigationCommand(event: NavigationEvent): Promise<void> 
 function hasRevealTarget(event: NavigationEvent): boolean {
   return Boolean(
     (typeof event.meta?.heading === 'string' && event.meta.heading.trim()) ||
-    (typeof event.meta?.blockId === 'string' && event.meta.blockId.trim()),
+    (typeof event.meta?.blockId === 'string' && event.meta.blockId.trim()) ||
+    (typeof event.meta?.linkBodyOffset === 'number' && event.meta.linkBodyOffset >= 0),
   )
 }
 
@@ -121,12 +124,7 @@ function resolveOpenCommandType(
 }
 
 function shouldRevealDocument(event: NavigationEvent): boolean {
-  const hasAnchor = hasRevealTarget(event)
-  return (
-    hasAnchor &&
-    (event.type === NavigationEventType.BACKLINK_FOCUS ||
-      event.type === NavigationEventType.GRAPH_FOCUS)
-  )
+  return hasRevealTarget(event)
 }
 
 function resolveNavigationPath(event: NavigationEvent, docKey: string): string | null {

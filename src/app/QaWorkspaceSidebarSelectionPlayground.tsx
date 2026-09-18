@@ -16,6 +16,11 @@ import { useWorkspaceSidebar } from './hooks/useWorkspaceSidebar'
 import type { EditorDocMenuState, FileContextMenuState } from './workspace/contextMenuTypes'
 import type { WorkspaceDragTarget } from './workspace/workspaceDrag'
 import type { FileSortMode, FsTreeNode } from './workspace/types'
+import type { SidebarPanelView } from './workspace/sidebarPanelView'
+import {
+  sidebarFileViewFromPanelView,
+  sidebarListModeFromPanelView,
+} from './workspace/sidebarPanelView'
 
 const QA_ROOT = '/qa-vault'
 const QA_DOC_A = `${QA_ROOT}/doc-a.md`
@@ -82,8 +87,9 @@ function QaWorkspaceSidebarSelectionInner() {
   const [openedTabs, setOpenedTabs] = useState<string[]>([QA_DOC_A, QA_DOC_B])
   const [activePath, setActivePath] = useState(QA_DOC_A)
   const [searchText, setSearchText] = useState('')
-  const [sidebarListMode, setSidebarListMode] = useState<'files' | 'outline'>('files')
-  const [sidebarFileView, setSidebarFileView] = useState<'tree' | 'list'>('tree')
+  const [sidebarPanelView, setSidebarPanelView] = useState<SidebarPanelView>('files-tree')
+  const sidebarListMode = sidebarListModeFromPanelView(sidebarPanelView)
+  const sidebarFileView = sidebarFileViewFromPanelView(sidebarPanelView)
   const [fileSortMode, setFileSortMode] = useState<FileSortMode>('group')
   const [draggingWorkspaceFile, setDraggingWorkspaceFile] = useState<string[] | null>(null)
   const [dragOverTarget, setDragOverTarget] = useState<WorkspaceDragTarget | null>(null)
@@ -240,7 +246,8 @@ function QaWorkspaceSidebarSelectionInner() {
           setSearchText={setSearchText}
           isSidebarFiltering={isSidebarFiltering}
           sidebarFilterMatchCount={sidebarFilterMatchCount}
-          sidebarListMode={sidebarListMode}
+          sidebarPanelView={sidebarPanelView}
+          setSidebarPanelView={setSidebarPanelView}
           draggingWorkspaceFile={draggingWorkspaceFile}
           dragOverTarget={dragOverTarget}
           setDragOverTarget={setDragOverTarget}
@@ -250,8 +257,6 @@ function QaWorkspaceSidebarSelectionInner() {
           activeOutlineId={null}
           scrollPreviewToHeading={() => undefined}
           fileTree={fileTree}
-          sidebarFileView={sidebarFileView}
-          setSidebarFileView={setSidebarFileView}
           workspaceFolderNodes={workspaceFolderNodes}
           sortedFlatWorkspaceFiles={sortedFlatWorkspaceFiles}
           sortedFileTree={sortedFileTree}
@@ -263,6 +268,7 @@ function QaWorkspaceSidebarSelectionInner() {
           handleMoveFileToFolder={async () => undefined}
           createNewNote={() => undefined}
           createNewNoteFromTemplate={() => undefined}
+          createNewFolder={() => undefined}
           workspaceFolderName="qa-vault"
           workspaceMenuRef={workspaceMenuRef}
           workspaceMenuPopRef={workspaceMenuPopRef}
@@ -271,13 +277,9 @@ function QaWorkspaceSidebarSelectionInner() {
           workspaceMenuPopStyle={workspaceMenuPopStyle}
           fileSortMode={fileSortMode}
           setFileSortMode={setFileSortMode}
-          setSidebarListMode={setSidebarListMode}
           setStatus={setStatus}
           chooseFolder={() => undefined}
           refreshFileTree={async () => undefined}
-          recentFiles={[]}
-          onOpenRecent={() => undefined}
-          onClearRecent={async () => undefined}
           sidebarStatusLine=""
           contextMenuFilePath={fileContextMenu?.path ?? null}
         />

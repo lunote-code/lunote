@@ -5,6 +5,7 @@ import {
   WORKSPACE_CONFIG_RELATIVE_PATH,
   type WorkspaceConfig,
   type WorkspaceDailyNotesConfig,
+  type WorkspaceTemplatesConfig,
 } from './workspaceConfigTypes'
 import { formatDateWithPattern } from '../templates/formatDateTokens'
 
@@ -72,6 +73,17 @@ export function getEffectiveDailyNotesConfig(config: WorkspaceConfig): Workspace
     ...DEFAULT_WORKSPACE_CONFIG.dailyNotes,
     ...config.dailyNotes,
   }
+}
+
+export function getEffectiveTemplatesConfig(config: WorkspaceConfig): WorkspaceTemplatesConfig {
+  return {
+    ...DEFAULT_WORKSPACE_CONFIG.templates,
+    ...config.templates,
+  }
+}
+
+export function isNewNoteTemplatesEnabled(config: WorkspaceConfig): boolean {
+  return getEffectiveTemplatesConfig(config).enabled !== false
 }
 
 export function vaultFolderName(root: string): string {

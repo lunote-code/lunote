@@ -21,6 +21,7 @@ export type TiptapEditorCommand =
   | { type: 'insertParagraphAbove' }
   | { type: 'insertParagraphBelow' }
   | { type: 'blockMath' }
+  | { type: 'drawingBlock' }
   | { type: 'copyCodeBlock' }
   | { type: 'indentCodeSelection' }
   | { type: 'indentCodeBlock' }
@@ -51,6 +52,7 @@ export type TiptapEditorCommand =
   | { type: 'insertText'; text: string }
   | { type: 'horizontalRule' }
   | { type: 'tocDirective' }
+  | { type: 'insertTocAtAppropriatePosition' }
   | { type: 'linkReference' }
   | { type: 'footnoteRef'; label?: string }
 
@@ -76,6 +78,9 @@ export type TiptapMarkdownEditorHandle = {
   getBoundDocumentKey: () => string | null
   focus: () => void
   openSearchPanel: (options?: { replace?: boolean }) => boolean
+  revealSearchQuery: (query: string, snippetHtml?: string) => boolean
+  clearSearchHighlight: () => boolean
+  isSearchPanelOpen: () => boolean
   moveSearch: (direction: 1 | -1) => boolean
   replaceSearchNext: (replacement: string) => boolean
   /** Collapse selection before navigation without focus (responsible by IEM focusEditor tail)*/
@@ -83,7 +88,15 @@ export type TiptapMarkdownEditorHandle = {
   getMarkdown: (force?: boolean) => string
   tryFlushPendingMarkdownSync: () => PendingMarkdownSyncResult
   /** Cancel anti-shake and synchronize PM→Markdown, call before saving/cutting tabs */
-  flushPendingMarkdownSync: (force?: boolean, emitChange?: boolean) => string
+  flushPendingMarkdownSync: (
+    force?: boolean,
+    emitChange?: boolean,
+    options?: { preserveCodeBlockEditing?: boolean },
+  ) => string
+  /** Immediately publish heading outline from the current PM doc (bypasses throttle). */
+  syncOutlineHeadings: () => void
+  /** Mark the current document as user-edited (menu/AI/command mutations). */
+  markUserEdited: () => void
   /** Normalize a markdown string using the editor schema for compare-only. */
   normalizeMarkdownForCompare: (markdown: string) => string | null
   /** True only after an explicit user edit on the current document load (not hydrate/restore). */

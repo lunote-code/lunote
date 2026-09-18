@@ -11,16 +11,27 @@ import {
   normalizeEditorFormatToolbarEnabled,
 } from '../settings-runtime/editorFormatToolbarEnabled'
 import { normalizeEditorSpellcheckEnabled } from '../settings-runtime/editorSpellcheck'
+import { normalizeEditorUiChromeSettings } from '../settings-runtime/editorUiChrome'
+import { normalizeAiSettings } from '../settings-runtime/aiSettings'
+import { normalizeAutoLockMinutes } from '../settings-runtime/workspaceAutoLock'
 import { normalizeThemeVariant } from '../theme-runtime/themeResolver'
+import { isExternalThemeCssActive } from '../theme-runtime/themeColorSource'
 import { isShortcutCustomizable } from '../menu/shortcutPlatformDefaults'
 import { mirrorAppSettingsLocalCache } from '../platform/bootEarlyTheme'
 import { getAppSettings, saveAppSettings } from '../platform/tauri/settingsService'
+import {
+  hydrateAiApiKeyFromSecureStore,
+  persistAiApiKeyToSecureStore,
+  stripAiApiKeyForDisk,
+} from './aiApiKeyPersistence'
 
 const LEGACY_WEB_STORAGE_KEY = 'CrossPlatNote:appSettings:v1'
 const WEB_STORAGE_KEY = 'Lunote:appSettings:v1'
 
 type EditorAppearance = NonNullable<NonNullable<AppSettingsState['appearance']>['editor']>
 type WindowAppearance = NonNullable<NonNullable<AppSettingsState['appearance']>['window']>
+type UiAppearance = NonNullable<NonNullable<AppSettingsState['appearance']>['ui']>
+type SecuritySettings = NonNullable<AppSettingsState['security']>
 
 function normalizeEditorAppearance(editor: Partial<EditorAppearance> | undefined) {
   const familyRaw = typeof editor?.fontFamily === 'string' ? editor.fontFamily.trim() : ''
@@ -54,27 +65,68 @@ function normalizeWindowAppearance(windowPrefs: Partial<WindowAppearance> | unde
   }
 }
 
+function normalizeSecuritySettings(security: Partial<SecuritySettings> | undefined | null): SecuritySettings {
+  return {
+    autoLockMinutes: normalizeAutoLockMinutes(security?.autoLockMinutes),
+  }
+}
+
 export function normalizeAppSettingsState(settings: AppSettingsState): AppSettingsState {
   return {
     ...settings,
     assetStorage: normalizeAssetStorageConfig(settings.assetStorage),
+    security: normalizeSecuritySettings(settings.security),
+    ai: normalizeAiSettings(settings.ai),
+    aiConnectionTest:
+      typeof settings.aiConnectionTest?.ok === 'boolean' &&
+      typeof settings.aiConnectionTest?.at === 'number'
+        ? settings.aiConnectionTest
+        : undefined,
     appearance: normalizeAppearance(settings.appearance),
   }
+}
+
+function normalizeUiAppearance(ui: Partial<UiAppearance> | undefined) {
+  return normalizeEditorUiChromeSettings(ui)
 }
 
 function normalizeAppearance(appearance: AppSettingsState['appearance']): AppSettingsState['appearance'] {
   const existingTheme = { ...(appearance?.theme ?? {}) }
   delete (existingTheme as Record<string, unknown>).cssCompatMode
+  const normalizedActive = normalizeThemeVariant(existingTheme.active)
+  const theme = {
+    ...existingTheme,
+    active: normalizedActive,
+  }
+  if (!isExternalThemeCssActive(theme) && !theme.active) {
+    theme.active = 'github-dark'
+  }
   const existingEditor = normalizeEditorAppearance(appearance?.editor)
   const existingWindow = normalizeWindowAppearance(appearance?.window)
+  const existingUi = normalizeUiAppearance(appearance?.ui)
   return {
     ...(appearance ?? {}),
-    theme: {
-      ...existingTheme,
-      active: normalizeThemeVariant(existingTheme.active),
-    },
+    theme,
     editor: existingEditor,
     window: existingWindow,
+    ui: existingUi,
+  }
+}
+
+function normalizeAiConnectionTest(
+  raw: AppSettingsState['aiConnectionTest'] | undefined,
+): AppSettingsState['aiConnectionTest'] | undefined {
+  if (
+    typeof raw?.ok !== 'boolean' ||
+    typeof raw?.at !== 'number' ||
+    typeof raw?.provider !== 'string'
+  ) {
+    return undefined
+  }
+  return {
+    ok: raw.ok,
+    at: raw.at,
+    provider: raw.provider,
   }
 }
 
@@ -88,6 +140,9 @@ function parse(raw: string | null): AppSettingsState {
       version: typeof v.version === 'number' ? v.version : 1,
       language: (v.language as AppSettingsState['language']) ?? 'system',
       assetStorage: normalizeAssetStorageConfig(v.assetStorage),
+      security: normalizeSecuritySettings(v.security),
+      ai: normalizeAiSettings(v.ai),
+      aiConnectionTest: normalizeAiConnectionTest(v.aiConnectionTest),
       appearance: normalizeAppearance(v.appearance),
       shortcutOverrides: normalizeShortcutOverrides(v.shortcutOverrides),
     }
@@ -111,6 +166,16 @@ function normalizeShortcutOverrides(
   return Object.keys(out).length > 0 ? out : undefined
 }
 
+export function readAppSettingsLocalCache(): AppSettingsState | null {
+  if (typeof localStorage === 'undefined') return null
+  let raw = localStorage.getItem(WEB_STORAGE_KEY)
+  if (!raw) {
+    raw = localStorage.getItem(LEGACY_WEB_STORAGE_KEY)
+  }
+  if (!raw) return null
+  return parse(raw)
+}
+
 export async function loadAppSettingsFromDisk(options?: { fallbackOnError?: boolean }): Promise<AppSettingsState> {
   const fallbackOnError = options?.fallbackOnError ?? true
   if (isTauri()) {
@@ -119,18 +184,25 @@ export async function loadAppSettingsFromDisk(options?: { fallbackOnError?: bool
       const needsThemeCompatMigration = Boolean(
         (settings.appearance?.theme as Record<string, unknown> | undefined)?.cssCompatMode,
       )
-      const normalized = normalizeAppSettingsState({
+      let normalized = normalizeAppSettingsState({
         ...DEFAULT_APP_SETTINGS,
         ...settings,
         shortcutOverrides: normalizeShortcutOverrides(settings.shortcutOverrides),
       })
+      const hydrated = await hydrateAiApiKeyFromSecureStore(normalized)
+      normalized = hydrated.settings
       const needsFormatToolbarMigration = needsFormatToolbarSettingsMigration(settings.appearance?.editor)
-      if (needsThemeCompatMigration || needsFormatToolbarMigration) {
-        void saveAppSettings(normalized).catch((error) => {
-          console.warn('[app-settings] Failed to migrate legacy appearance settings.', error)
+      if (
+        needsThemeCompatMigration ||
+        needsFormatToolbarMigration ||
+        hydrated.didMigrateFromSettings
+      ) {
+        void saveAppSettingsToDisk(normalized).catch((error) => {
+          console.warn('[app-settings] Failed to migrate legacy settings.', error)
         })
       }
-      mirrorAppSettingsLocalCache(JSON.stringify(normalized))
+      // Never mirror the API key into localStorage on Tauri.
+      mirrorAppSettingsLocalCache(JSON.stringify(stripAiApiKeyForDisk(normalized)))
       return normalized
     } catch (error) {
       if (!fallbackOnError) throw error
@@ -172,11 +244,21 @@ export async function loadAppSettingsFromDisk(options?: { fallbackOnError?: bool
 
 export async function saveAppSettingsToDisk(settings: AppSettingsState): Promise<void> {
   const normalized = normalizeAppSettingsState(settings)
-  const serialized = JSON.stringify(normalized)
   if (isTauri()) {
-    await saveAppSettings(normalized)
+    const apiKey = typeof normalized.ai?.apiKey === 'string' ? normalized.ai.apiKey : ''
+    let forDisk = stripAiApiKeyForDisk(normalized)
+    try {
+      await persistAiApiKeyToSecureStore(apiKey)
+    } catch (error) {
+      console.warn('[ai-api-key] Keychain persist failed; keeping key in settings JSON fallback', error)
+      // Prefer not to block unrelated settings saves or drop the only copy of the key.
+      forDisk = normalized
+    }
+    const serialized = JSON.stringify(forDisk)
+    await saveAppSettings(forDisk)
     mirrorAppSettingsLocalCache(serialized)
     return
   }
+  const serialized = JSON.stringify(normalized)
   localStorage.setItem(WEB_STORAGE_KEY, serialized)
 }

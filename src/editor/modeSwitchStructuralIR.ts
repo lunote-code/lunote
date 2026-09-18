@@ -1,6 +1,10 @@
 import type { Node as PMNode } from 'prosemirror-model'
 
 import {
+  drawingDocumentFromNodeAttrs,
+  serializeDrawingFenceBody,
+} from './drawing/drawingDocument'
+import {
   collectProjectablePmLeafRows,
   freezeModeSwitchLeafPath,
 } from './modeSwitchLeafRow'
@@ -838,7 +842,9 @@ export function extractLeafMarkdownSegments(
           bodyTo: body.bodyTo,
           blockType: info.startsWith('mermaid')
             ? 'mermaidBlock'
-            : info.startsWith('luna-raw')
+            : info.startsWith('drawing')
+              ? 'drawingBlock'
+              : info.startsWith('luna-raw')
               ? 'rawBlock'
               : 'codeBlock',
           source: info.startsWith('luna-raw') ? 'unknown' : undefined,
@@ -887,6 +893,14 @@ export function extractLeafMarkdownSegments(
           bodyFrom: markdownFrom,
           bodyTo: markdownTo,
           blockType: 'tocDirective',
+        })
+      } else if (token.type === 'wiki_embed_block') {
+        rows.push({
+          markdownFrom,
+          markdownTo,
+          bodyFrom: markdownFrom,
+          bodyTo: markdownTo,
+          blockType: 'wikiEmbed',
         })
       } else if (token.type === 'html_block') {
         rows.push({
@@ -949,12 +963,29 @@ export function extractLeafMarkdownSegments(
 const COLLAPSED_ATOM_SEMANTIC_TEXT_READERS: Readonly<Record<string, CollapsedAtomSemanticTextReader>> = Object.freeze({
   rawBlock: (node) => String((node.attrs as { content?: string } | null | undefined)?.content ?? ''),
   mermaidBlock: (node) => String((node.attrs as { source?: string } | null | undefined)?.source ?? ''),
+  drawingBlock: (node) => {
+    const attrs =
+      (node.attrs as {
+        width?: number
+        height?: number
+        originX?: number
+        originY?: number
+        strokes?: string
+      } | null | undefined) ?? {}
+    return serializeDrawingFenceBody(
+      drawingDocumentFromNodeAttrs(attrs),
+    )
+  },
   blockMath: (node) => String((node.attrs as { latex?: string } | null | undefined)?.latex ?? ''),
   linkReferenceDef: (node) => {
     const attrs =
       (node.attrs as { label?: string; href?: string; title?: string | null } | null | undefined) ?? {}
     return formatLinkReferenceDefLine(attrs.label ?? '', attrs.href ?? '', attrs.title ?? null)
   },
+  wikiEmbed: (node) =>
+    normalizeWikiLinkBlockRefEscapesInMarkdown(
+      String((node.attrs as { raw?: string } | null | undefined)?.raw ?? ''),
+    ),
   tocDirective: () => '[toc]',
 })
 
@@ -1001,6 +1032,7 @@ function isCompatibleLeafRowType(pmRow: PmLeafRow, mdRow: MarkdownLeafSeg): bool
   const mdType = mdRow.blockType
   if (pmType === mdType) return true
   if (pmType === 'mermaidBlock' && mdType === 'codeBlock') return true
+  if (pmType === 'drawingBlock' && mdType === 'codeBlock') return true
   if (pmType === 'paragraph' && mdType === 'tocDirective') return pmRowIsStandaloneTocParagraph(pmRow)
   if (pmType === 'tocDirective' && mdType === 'paragraph' && isEmptyMdLeafRow(mdRow)) return false
   if (isSpuriousEmptyPmLeafRow(pmRow) && mdType === 'paragraph' && isEmptyMdLeafRow(mdRow)) return true

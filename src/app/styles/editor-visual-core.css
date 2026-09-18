@@ -503,6 +503,8 @@
 .preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l1 {
   margin-top: 40px;
   margin-bottom: 20px;
+  padding-bottom: 0.35em;
+  border-bottom: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 42%, transparent);
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .pm-heading-block--l2 .pm-heading-content {
@@ -576,7 +578,7 @@
   font-size: 2.2em;
   margin-top: 0.2em;
   padding-bottom: 0.35em;
-  border-bottom: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 50%, transparent);
+  border-bottom: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 42%, transparent);
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror > h1:not(:first-child) {
@@ -800,12 +802,14 @@
   height: 1px;
   margin: 2rem auto;
   max-width: min(var(--editor-column-width), 100%);
-  opacity: 0.85;
+  opacity: 0.62;
   background: linear-gradient(
     90deg,
-    transparent,
-    color-mix(in srgb, var(--border-strong) 55%, transparent),
-    transparent
+    transparent 0%,
+    color-mix(in srgb, var(--border-subtle) 22%, transparent) 18%,
+    color-mix(in srgb, var(--border-subtle) 58%, transparent) 50%,
+    color-mix(in srgb, var(--border-subtle) 22%, transparent) 82%,
+    transparent 100%
   );
 }
 

@@ -2,10 +2,12 @@ import type { RefObject } from 'react'
 
 import { AlertDialog } from '../../components/AlertDialog'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { WorkspacePasswordDialog } from '../../components/WorkspacePasswordDialog'
 import { UnsavedChangesDialog } from '../../components/UnsavedChangesDialog'
 import { DeleteConfirmDialog } from '../../components/DeleteConfirmDialog'
 import { PreferencesDialog } from '../../preferences/PreferencesDialog'
 import { WorkspaceGlobalSearchModal } from './WorkspaceGlobalSearchModal'
+import { WorkspaceQuickSwitcherModal } from './WorkspaceQuickSwitcherModal'
 import { KnowledgeHoverCard } from '../../editor/knowledgeOS/ui/KnowledgeHoverCard'
 import type { TranslateFn } from '../../i18n'
 import type { PaletteCommandDef } from '../../menu'
@@ -17,6 +19,7 @@ import type {
   RenameDialogState,
   UnsavedChangesChoice,
   UnsavedChangesDialogState,
+  WorkspacePasswordDialogState,
 } from '../workspace/types'
 import type {
   EditorDocMenuPick,
@@ -29,6 +32,8 @@ import type {
 import type { DocumentHistoryDialogContext } from './DocumentHistoryDialog'
 import type { WorkspaceSearchIndexEntry } from '../search/workspaceSearch'
 import { AppCommandPaletteOverlay } from './AppCommandPaletteOverlay'
+import { TabSwitcherModal } from './TabSwitcherModal'
+import { ShortcutsCheatsheetDialogHost } from '../../components/ShortcutsCheatsheetDialog'
 import { AppRenameDialog } from './AppRenameDialog'
 import { AppDocumentOverlayPortals } from './AppDocumentOverlayPortals'
 
@@ -41,7 +46,27 @@ export type AppRootOverlaysProps = {
   globalSearchInputRef: RefObject<HTMLInputElement | null>
   rootDir: string
   workspaceSearchIndex: readonly WorkspaceSearchIndexEntry[]
-  onGlobalSearchOpenDocument: (root: string, path: string) => void | Promise<void>
+  onGlobalSearchOpenDocument: (
+    root: string,
+    path: string,
+    options?: { searchQuery?: string; searchSnippetHtml?: string },
+  ) => void | Promise<void>
+  quickSwitcherOpen: boolean
+  quickSwitcherQuery: string
+  onQuickSwitcherQueryChange: (q: string) => void
+  onQuickSwitcherClose: () => void
+  quickSwitcherInputRef: RefObject<HTMLInputElement | null>
+  recentFilePaths: readonly string[]
+  onQuickSwitcherOpenDocument: (root: string, path: string) => void | Promise<void>
+  tabSwitcherOpen: boolean
+  tabSwitcherQuery: string
+  onTabSwitcherQueryChange: (q: string) => void
+  onTabSwitcherClose: () => void
+  tabSwitcherInputRef: RefObject<HTMLInputElement | null>
+  openedTabPaths: readonly string[]
+  tabMruPaths: readonly string[]
+  tabLabel: (path: string) => string
+  onTabSwitcherActivate: (path: string) => void | Promise<void>
   wikiHoverId: string | null
   commandPaletteOpen: boolean
   commandPaletteQuery: string
@@ -61,6 +86,9 @@ export type AppRootOverlaysProps = {
   onUnsavedChoice: (choice: UnsavedChangesChoice) => void
   confirmDialog: ConfirmDialogState | null
   onConfirmDialog: (confirmed: boolean) => void
+  workspacePasswordDialog: WorkspacePasswordDialogState | null
+  onWorkspacePasswordSubmit: (password: string, confirmPassword?: string) => void
+  onWorkspacePasswordCancel: () => void
   alertDialog: AlertDialogState | null
   onAlertClose: () => void
   renameDialog: RenameDialogState | null
@@ -82,6 +110,7 @@ export type AppRootOverlaysProps = {
   onEditorDocMenuPick: (action: EditorDocMenuPick, menu: EditorDocMenuState) => void
   tabContextMenu: { x: number; y: number; path: string; index: number; total: number } | null
   tabContextMenuRef: RefObject<HTMLDivElement | null>
+  externalDiskChangedPaths: ReadonlySet<string>
   onTabContextPick: (action: TabContextMenuPick, path: string, index: number) => void
   saveConflictState: {
     open: boolean
@@ -90,7 +119,7 @@ export type AppRootOverlaysProps = {
     local: string
     disk: string
     diskReadable: boolean
-    sourceMode: 'manual' | 'autosave'
+    sourceMode: 'manual' | 'autosave' | 'external'
     resolving?: boolean
     onCancel: () => void
     onUseDisk: () => void
@@ -100,6 +129,7 @@ export type AppRootOverlaysProps = {
     open: boolean
     rootDir: string
     path: string
+    activePath?: string
     onClose: () => void
     onRestore: (snapshotId: string, context: DocumentHistoryDialogContext) => Promise<void> | void
     onCreateSnapshot: (
@@ -107,7 +137,7 @@ export type AppRootOverlaysProps = {
     ) => Promise<import('../../documentHistory/types').DocumentHistoryEntry | null> | import('../../documentHistory/types').DocumentHistoryEntry | null
     onConfirmDelete: (entry: import('../../documentHistory/types').DocumentHistoryEntry) => Promise<boolean> | boolean
     onDeleteAll: (context: DocumentHistoryDialogContext) => Promise<boolean> | boolean
-    flushEditorToMemory?: () => Promise<boolean>
+    flushEditorToMemory?: (options?: import('../../lib/editorContentSync').FlushEditorToMemoryOptions) => Promise<boolean>
   }
 }
 
@@ -122,6 +152,22 @@ export function AppRootOverlays(props: AppRootOverlaysProps) {
     rootDir,
     workspaceSearchIndex,
     onGlobalSearchOpenDocument,
+    quickSwitcherOpen,
+    quickSwitcherQuery,
+    onQuickSwitcherQueryChange,
+    onQuickSwitcherClose,
+    quickSwitcherInputRef,
+    recentFilePaths,
+    onQuickSwitcherOpenDocument,
+    tabSwitcherOpen,
+    tabSwitcherQuery,
+    onTabSwitcherQueryChange,
+    onTabSwitcherClose,
+    tabSwitcherInputRef,
+    openedTabPaths,
+    tabMruPaths,
+    tabLabel,
+    onTabSwitcherActivate,
     wikiHoverId,
     commandPaletteOpen,
     commandPaletteQuery,
@@ -141,6 +187,9 @@ export function AppRootOverlays(props: AppRootOverlaysProps) {
     onUnsavedChoice,
     confirmDialog,
     onConfirmDialog,
+    workspacePasswordDialog,
+    onWorkspacePasswordSubmit,
+    onWorkspacePasswordCancel,
     alertDialog,
     onAlertClose,
     renameDialog,
@@ -162,6 +211,7 @@ export function AppRootOverlays(props: AppRootOverlaysProps) {
     onEditorDocMenuPick,
     tabContextMenu,
     tabContextMenuRef,
+    externalDiskChangedPaths,
     onTabContextPick,
     saveConflictState,
     documentHistoryState,
@@ -180,6 +230,31 @@ export function AppRootOverlays(props: AppRootOverlaysProps) {
         onOpenDocument={onGlobalSearchOpenDocument}
         t={t}
       />
+      <WorkspaceQuickSwitcherModal
+        open={quickSwitcherOpen}
+        query={quickSwitcherQuery}
+        rootDir={rootDir}
+        searchIndex={workspaceSearchIndex}
+        recentPaths={recentFilePaths}
+        onQueryChange={onQuickSwitcherQueryChange}
+        onClose={onQuickSwitcherClose}
+        inputRef={quickSwitcherInputRef}
+        onOpenDocument={onQuickSwitcherOpenDocument}
+        t={t}
+      />
+      <TabSwitcherModal
+        open={tabSwitcherOpen}
+        query={tabSwitcherQuery}
+        openedTabs={openedTabPaths}
+        mruPaths={tabMruPaths}
+        tabLabel={tabLabel}
+        onQueryChange={onTabSwitcherQueryChange}
+        onClose={onTabSwitcherClose}
+        onActivateTab={onTabSwitcherActivate}
+        inputRef={tabSwitcherInputRef}
+        t={t}
+      />
+      <ShortcutsCheatsheetDialogHost t={t} />
       <KnowledgeHoverCard hoverId={wikiHoverId} />
       <AppCommandPaletteOverlay
         t={t}
@@ -226,6 +301,19 @@ export function AppRootOverlays(props: AppRootOverlaysProps) {
         onConfirm={() => onConfirmDialog(true)}
         onCancel={() => onConfirmDialog(false)}
       />
+      <WorkspacePasswordDialog
+        open={workspacePasswordDialog != null}
+        title={workspacePasswordDialog?.title ?? ''}
+        message={workspacePasswordDialog?.message ?? ''}
+        passwordLabel={workspacePasswordDialog?.passwordLabel}
+        confirmLabel={workspacePasswordDialog?.confirmLabel ?? t('app.rename.submit')}
+        cancelLabel={workspacePasswordDialog?.cancelLabel ?? t('app.rename.cancel')}
+        requireConfirm={workspacePasswordDialog?.requireConfirm}
+        confirmPasswordLabel={workspacePasswordDialog?.confirmPasswordLabel}
+        error={workspacePasswordDialog?.error ?? null}
+        onSubmit={onWorkspacePasswordSubmit}
+        onCancel={onWorkspacePasswordCancel}
+      />
       <AlertDialog
         open={alertDialog != null}
         title={alertDialog?.title ?? ''}
@@ -257,6 +345,7 @@ export function AppRootOverlays(props: AppRootOverlaysProps) {
         onEditorDocMenuPick={onEditorDocMenuPick}
         tabContextMenu={tabContextMenu}
         tabContextMenuRef={tabContextMenuRef}
+        externalDiskChangedPaths={externalDiskChangedPaths}
         onTabContextPick={onTabContextPick}
         saveConflictState={saveConflictState}
         documentHistoryState={documentHistoryState}

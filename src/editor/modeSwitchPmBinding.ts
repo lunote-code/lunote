@@ -56,6 +56,7 @@ function pmRowIsStandaloneTocParagraph(pmRow: ModeSwitchPmLeafRow): boolean {
 function isCompatiblePmRow(pmRow: ModeSwitchPmLeafRow, row: CanonicalLeafRow): boolean {
   if (pmRow.blockType === row.blockType) return true
   if (pmRow.blockType === 'mermaidBlock' && row.blockType === 'codeBlock') return true
+  if (pmRow.blockType === 'drawingBlock' && row.blockType === 'codeBlock') return true
   if (pmRow.blockType === 'paragraph' && row.blockType === 'tocDirective') return pmRowIsStandaloneTocParagraph(pmRow)
   if (isSpuriousEmptyPmLeafRow(pmRow) && isEmptyCanonicalParagraph(row)) return true
   if (

@@ -20,6 +20,10 @@ function transactionsAllowListMultilinePaste(transactions: readonly Transaction[
   return transactions.some((tr) => getInputLayerSource(tr) === 'paste-list')
 }
 
+function transactionsAllowParagraphMultilinePaste(transactions: readonly Transaction[]): boolean {
+  return transactions.some((tr) => getInputLayerSource(tr) === 'paste-multiline')
+}
+
 /**
  * Runtime guard: Paste transactions must not inject codeBlock/mermaidBlock and must not increase the number of paragraph blocks.
  */
@@ -29,6 +33,7 @@ export function assertPasteDidNotCreateCodeBlock(oldState: EditorState, newState
     assertNoPasteStructuralInjection(oldState.doc, newState.doc, {
       allowRichStructure: transactionsAllowRichPasteStructure(transactions),
       allowListMultiline: transactionsAllowListMultilinePaste(transactions),
+      allowParagraphMultiline: transactionsAllowParagraphMultilinePaste(transactions),
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
@@ -55,6 +60,7 @@ export function createInputLayerPasteGuardPlugin(): Plugin {
         assertNoPasteStructuralInjection(before, tr.doc, {
           allowRichStructure: source === 'paste-rich',
           allowListMultiline: source === 'paste-list',
+          allowParagraphMultiline: source === 'paste-multiline',
         })
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)

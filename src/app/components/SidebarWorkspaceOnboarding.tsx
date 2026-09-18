@@ -1,10 +1,12 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import type { TranslateFn } from '../../i18n'
-
-const LEGACY_STORAGE_KEY = 'luna:sidebar-onboarding-dismissed'
-const NO_WORKSPACE_STORAGE_KEY = 'luna:sidebar-onboarding-dismissed:no-workspace'
-const WORKSPACE_STORAGE_KEY = 'luna:sidebar-onboarding-dismissed:workspace'
+import {
+  LEGACY_SIDEBAR_ONBOARDING_KEY,
+  NO_WORKSPACE_SIDEBAR_ONBOARDING_KEY,
+  SIDEBAR_ONBOARDING_RESET_EVENT,
+  WORKSPACE_SIDEBAR_ONBOARDING_KEY,
+} from '../sidebarOnboardingStorage'
 
 type Props = {
   t: TranslateFn
@@ -23,14 +25,22 @@ export function SidebarWorkspaceOnboarding({
   onOpenKnowledgePanel,
   onToggleMainPaneMode,
 }: Props) {
-  const storageKey = workspaceReady ? WORKSPACE_STORAGE_KEY : NO_WORKSPACE_STORAGE_KEY
+  const storageKey = workspaceReady ? WORKSPACE_SIDEBAR_ONBOARDING_KEY : NO_WORKSPACE_SIDEBAR_ONBOARDING_KEY
   const [dismissed, setDismissed] = useState(() => {
     try {
-      return localStorage.getItem(storageKey) === '1' || localStorage.getItem(LEGACY_STORAGE_KEY) === '1'
+      return (
+        localStorage.getItem(storageKey) === '1' || localStorage.getItem(LEGACY_SIDEBAR_ONBOARDING_KEY) === '1'
+      )
     } catch {
       return false
     }
   })
+
+  useEffect(() => {
+    const onReset = () => setDismissed(false)
+    window.addEventListener(SIDEBAR_ONBOARDING_RESET_EVENT, onReset)
+    return () => window.removeEventListener(SIDEBAR_ONBOARDING_RESET_EVENT, onReset)
+  }, [])
 
   const dismiss = useCallback(() => {
     try {

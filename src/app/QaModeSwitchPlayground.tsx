@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 
 import { I18nProvider, useI18n } from '../i18n'
 import { getEnMessagesSnapshot, getLocaleMessagesSnapshot, getLocaleRawSnapshot } from '../i18n/localeRegistry'
-import { comfortableEditorTheme, createWriterBaseExtensions } from './codemirror/sourceEditorExtensions'
+import { comfortableEditorTheme, createWriterBaseExtensions, markdownUxKeymap } from './codemirror/sourceEditorExtensions'
 import { createShowLineBreaksCompartmentExtension } from '../editor/cmShowLineBreaks'
 import { EditorOpenReason } from '../editor/editorOpenReason'
 import {
@@ -24,6 +24,12 @@ import type { ModeSwitchPrepareResultKind } from '../editor/viewportModeAnchor'
 import type { SourceModeEnterAnchor } from '../editor/viewportModeAnchor'
 import type { SourceToVisualPrepareResult } from '../editor/modeSwitchTransitionPrepare'
 import { useEditorModeSwitch } from './hooks/useEditorModeSwitch'
+import { initEditorMutationBridge } from '../editor/editorMutationBridge'
+import {
+  redoLastTransaction,
+  setActiveTransactionDoc,
+  undoLastTransaction,
+} from '../menu/commandTransaction'
 import { markAppSettingsHydratedForTests } from '../settings/appSettingsStore'
 import { DEFAULT_APP_SETTINGS } from '../settings/appSettingsTypes'
 import type { EditorView } from '@codemirror/view'
@@ -43,6 +49,10 @@ declare global {
       switchToSource: () => void
       switchToVisual: () => void
       setSourceText: (text: string) => void
+      loadMarkdown: (text: string) => void
+      setSourceCursorOnLine: (needle: string) => boolean
+      undo: () => boolean
+      redo: () => boolean
       runRoundTrip: () => Promise<{
         snapshotHeldInSource: boolean
         returnKind: ModeSwitchPrepareResultKind | null
@@ -56,6 +66,11 @@ const QA_DOCUMENT_KEY = 'qa:mode-switch'
 const QA_MARKDOWN = `# Mode switch QA
 
 Paragraph with **bold** and \`code\`.
+
+\`\`\`js
+const modeSwitchProbe = 42
+console.log('mode-switch-cm-kept')
+\`\`\`
 
 \`\`\`mermaid
 flowchart LR
@@ -129,6 +144,12 @@ function QaModeSwitchInner() {
   } | null>(null)
   const suppressMarkdownSerdeRef = useRef(false)
   const modeToggleRetryCountRef = useRef(0)
+  const modeSwitchGenerationRef = useRef(0)
+
+  useEffect(() => {
+    initEditorMutationBridge(visualEditorRef, editorViewRef, mainPaneModeRef)
+    setActiveTransactionDoc(QA_DOCUMENT_KEY)
+  }, [])
 
   const qaMetricsRef = useRef({
     snapshotHeldInSource: false,
@@ -166,6 +187,7 @@ function QaModeSwitchInner() {
       sourceCodeMirrorBootSelectionRef,
       suppressMarkdownSerdeRef,
       modeToggleRetryCountRef,
+      modeSwitchGenerationRef,
     },
     setters: {
       setMainPaneMode,
@@ -186,6 +208,7 @@ function QaModeSwitchInner() {
       markdown({ codeLanguages: languages }),
       comfortableEditorTheme,
       ...createWriterBaseExtensions(t),
+      markdownUxKeymap,
       createShowLineBreaksCompartmentExtension(),
     ]
   }, [t])
@@ -244,13 +267,32 @@ function QaModeSwitchInner() {
         }
         setContent(text)
       },
+      loadMarkdown: (text) => {
+        setContent(text)
+        if (mainPaneModeRef.current !== 'visual') {
+          void switchToVisualMode()
+        }
+      },
+      setSourceCursorOnLine: (needle) => {
+        const view = editorViewRef.current
+        if (!view) return false
+        const doc = view.state.doc.toString()
+        const idx = doc.indexOf(needle)
+        if (idx < 0) return false
+        const pos = idx + needle.length
+        view.dispatch({ selection: { anchor: pos } })
+        view.focus()
+        return true
+      },
+      undo: () => undoLastTransaction(QA_DOCUMENT_KEY),
+      redo: () => redoLastTransaction(QA_DOCUMENT_KEY),
       runRoundTrip: async () => {
         qaMetricsRef.current.lastReturnKind = null
         qaMetricsRef.current.hadSnapshotOnReturn = false
         qaMetricsRef.current.snapshotHeldInSource = false
 
         if (mainPaneModeRef.current !== 'visual') {
-          switchToVisualMode()
+          await switchToVisualMode()
           await waitForPaneMode(() => mainPaneModeRef.current, 'visual')
         }
 
@@ -260,7 +302,7 @@ function QaModeSwitchInner() {
           pendingSourceModeAnchorRef.current?.modeSwitchSnapshot,
         )
 
-        switchToVisualMode()
+        await switchToVisualMode()
         await waitForPaneMode(() => mainPaneModeRef.current, 'visual')
         await waitMs(200)
 
@@ -280,11 +322,11 @@ function QaModeSwitchInner() {
   const sourceDoc = getSourceModeIdentity(QA_DOCUMENT_KEY) ?? content
 
   return (
-    <div style={{ padding: 24, background: '#0f1115', minHeight: '100vh' }}>
-      <h1 data-testid="qa-ready" style={{ color: '#fff', marginBottom: 8 }}>
+    <div style={{ padding: 24, background: 'var(--surface-app)', minHeight: '100vh' }}>
+      <h1 data-testid="qa-ready" style={{ color: 'var(--text-primary)', marginBottom: 8 }}>
         Mode Switch QA
       </h1>
-      <p data-testid="qa-status" style={{ color: '#cbd5e1', marginBottom: 16 }}>
+      <p data-testid="qa-status" style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>
         {status} pane={mainPaneMode}
       </p>
       <div
@@ -292,7 +334,7 @@ function QaModeSwitchInner() {
         data-pane-mode={mainPaneMode}
         data-testid="qa-editor-panel"
         className={mainPaneMode === 'source' ? 'markdown-source-view' : 'markdown-visual-editor'}
-        style={{ height: 420, border: '1px solid #334155', borderRadius: 8, overflow: 'hidden' }}
+        style={{ height: 420, border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'hidden' }}
       >
         {mainPaneMode === 'visual' ? (
           <TiptapMarkdownEditor

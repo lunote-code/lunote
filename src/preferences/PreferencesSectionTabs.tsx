@@ -22,7 +22,7 @@ export function PreferencesSectionTabs({
   const sectionPrefix = `prefs-${definition.prefsTab}`
   const tabsClassName = [
     'prefs-section-tabs',
-    definition.tabs.length === 2 ? 'prefs-section-tabs--count-2' : '',
+    definition.tabs.length >= 2 ? `prefs-section-tabs--count-${definition.tabs.length}` : '',
     className,
   ]
     .filter(Boolean)

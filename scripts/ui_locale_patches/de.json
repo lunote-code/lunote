@@ -169,7 +169,7 @@
   "app.titleBar.welcomeTitle": "Willkommen bei {app}",
   "app.titleBar.welcomeSubtitle": "Ordner öffnen, um Notizen zu durchsuchen und zu speichern",
   "app.titleBar.readySubtitle": "Notiz in diesem Arbeitsbereich erstellen oder öffnen",
-  "app.globalSearch.scopeHint": "Volltextsuche in allen Notizen des geöffneten Arbeitsbereichs.",
+  "app.globalSearch.scopeHint": "Volltextsuche im geöffneten Arbeitsbereich.",
   "app.globalSearch.shortLabel": "Volltext",
   "app.sidebar.recent.title": "Zuletzt geöffnet",
   "app.sidebar.search.placeholder": "Dateinamen in diesem Arbeitsbereich filtern…",

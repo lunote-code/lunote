@@ -11,9 +11,8 @@ import {
   buildRasterExportStyles,
   mountRasterExportFrame,
 } from './rasterExportFrame'
-import { isExternalOrDataSrc, isFileMediaUrl, rewriteRelativeMediaSources, buildMediaSourceResolveOptions } from './mediaSources'
+import { rewriteRelativeMediaSources, buildMediaSourceResolveOptions } from './mediaSources'
 import { buildPdfExportHtml } from './pdfExportHtml'
-import { noteAssetExists } from '../platform/tauri/documentService'
 import { renderHtmlToPdfBase64, renderHtmlToPdfPath } from '../platform/tauri/pdfService'
 import type { UiLocaleId } from '../i18n/resolveLocale'
 import { resolveExportUiLocale } from './exportLocaleTypography'
@@ -36,24 +35,6 @@ function ensurePdfHtmlWithinLimit(html: string): void {
       `PDF export HTML exceeds ${MAX_PDF_EXPORT_HTML_BYTES / (1024 * 1024)}MB limit`,
     )
   }
-}
-
-async function runWithConcurrency<T>(
-  items: readonly T[],
-  limit: number,
-  worker: (item: T) => Promise<void>,
-): Promise<void> {
-  if (items.length === 0) return
-  const size = Math.max(1, Math.min(limit, items.length))
-  let cursor = 0
-  const workers = Array.from({ length: size }, async () => {
-    while (cursor < items.length) {
-      const current = cursor
-      cursor += 1
-      await worker(items[current]!)
-    }
-  })
-  await Promise.all(workers)
 }
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -146,21 +127,6 @@ async function createRenderHost(markdown: string, opts: RenderOptions) {
     opts.sourcePath,
     buildMediaSourceResolveOptions(opts.rootDir),
   )
-  if (isTauri() && opts.rootDir && opts.sourcePath) {
-    const workspaceRoot = opts.rootDir
-    const sourcePath = opts.sourcePath
-    const candidates = Array.from(article.querySelectorAll('img'))
-    await runWithConcurrency(candidates, 8, async (img) => {
-      const rel = img.getAttribute('data-luna-original-src')
-      if (!rel || (isExternalOrDataSrc(rel) && !isFileMediaUrl(rel))) return
-      try {
-        const exists = await noteAssetExists(workspaceRoot, sourcePath, rel)
-        if (!exists) replaceBrokenImage(img)
-      } catch {
-        /*If the detection fails, no replacement will be performed, and subsequent img loading logic will be used.*/
-      }
-    })
-  }
 
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
   await frameDoc.fonts?.ready?.catch(() => undefined)

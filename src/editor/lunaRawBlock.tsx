@@ -4,9 +4,26 @@ import {
   ReactNodeViewRenderer,
   type ReactNodeViewProps,
 } from '@tiptap/react'
-import { memo, useCallback, useEffect, useRef, type MouseEvent as ReactMouseEvent } from 'react'
-import { sanitizeEmbeddedHtml } from './lunaHtmlSanitize'
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from 'react'
+import { LunaHtmlBlockSourceEditor } from './LunaHtmlBlockSourceEditor'
+import { useI18n } from '../i18n'
+import {
+  renderEmbeddedHtml,
+  sanitizeEmbeddedHtml,
+  type RenderEmbeddedHtmlOptions,
+} from './lunaHtmlSanitize'
 import { parseHtmlCommentBody } from './lunaHtmlComment'
+import { handleEmbeddedHtmlMediaMouseDown, shouldAttachEmbeddedHtmlMediaMouseDownGuard, shouldStopEmbeddedHtmlSurfaceNodeViewEvent } from './embeddedHtmlMediaInteraction'
+import { registerBlockSourceDraftSerializeFlush } from './blockSourceDraftSerializeBridge'
 import { startMarkdownBlockSourceReveal } from './lunaMarkdownSourceReveal'
 
 /** Consistent with `rawBlock` node attrs.source and serialization fence `source:` lines*/
@@ -18,15 +35,92 @@ export function normalizeLunaRawSource(v: unknown): LunaRawSource {
   return 'unknown'
 }
 
-function sanitizeHtmlFragment(html: string): string {
-  return sanitizeEmbeddedHtml(html)
+function sanitizeHtmlFragment(html: string, options: RenderEmbeddedHtmlOptions): string {
+  return renderEmbeddedHtml(html, options)
+}
+
+type LunaRawBlockExtensionOptions = {
+  resolveMediaSrc?: (src: string) => string
+  getMediaRenderScope?: () => string
 }
 
 const LunaRawBlockView = memo(function LunaRawBlockView(props: ReactNodeViewProps) {
-  const { node, editor, getPos } = props
+  const { t } = useI18n()
+  const { node, editor, getPos, extension, updateAttributes } = props
   const source = normalizeLunaRawSource(node.attrs.source)
   const raw = String(node.attrs.content ?? '')
+  const editable = editor.isEditable
+  const [sourceOpen, setSourceOpen] = useState(false)
+  const [sourceDraft, setSourceDraft] = useState(raw)
+  const sourceDraftRef = useRef(sourceDraft)
+  const sourceOpenRef = useRef(sourceOpen)
+  const rawRef = useRef(raw)
   const surfaceRef = useRef<HTMLDivElement>(null)
+  const extensionOptions = extension.options as LunaRawBlockExtensionOptions
+  const resolveMediaSrc = extensionOptions.resolveMediaSrc
+  const getMediaRenderScope = extensionOptions.getMediaRenderScope
+  const mediaRenderScope = getMediaRenderScope?.() ?? ''
+
+  sourceDraftRef.current = sourceDraft
+  sourceOpenRef.current = sourceOpen
+  rawRef.current = raw
+
+  const flushHtmlSourceDraftForSerialize = useCallback(() => {
+    if (!sourceOpenRef.current) return
+    const next = sourceDraftRef.current.replace(/\r\n/gu, '\n')
+    if (next !== rawRef.current) {
+      updateAttributes({ content: next })
+    }
+  }, [updateAttributes])
+
+  useEffect(() => {
+    return registerBlockSourceDraftSerializeFlush(editor, flushHtmlSourceDraftForSerialize)
+  }, [editor, flushHtmlSourceDraftForSerialize])
+
+  const renderedHtml = useMemo(() => {
+    if (source !== 'html' || sourceOpen) return ''
+    return sanitizeHtmlFragment(raw, {
+      resolveMediaSrc,
+      mediaRenderScope,
+    })
+  }, [source, raw, resolveMediaSrc, mediaRenderScope, sourceOpen])
+
+  useEffect(() => {
+    if (sourceOpen) return
+    setSourceDraft(raw)
+  }, [raw, sourceOpen])
+
+  const onHtmlBlockDoubleClick = useCallback(
+    (event: ReactMouseEvent<HTMLElement>) => {
+      event.preventDefault()
+      event.stopPropagation()
+      if (!editable) return
+      setSourceDraft(raw)
+      setSourceOpen(true)
+    },
+    [editable, raw],
+  )
+
+  const commitHtmlSource = useCallback(() => {
+    const next = sourceDraftRef.current.replace(/\r\n/gu, '\n')
+    if (next !== raw) {
+      updateAttributes({ content: next })
+    }
+    setSourceOpen(false)
+  }, [raw, updateAttributes])
+
+  useEffect(() => {
+    if (!sourceOpen) return
+    const next = sourceDraft.replace(/\r\n/gu, '\n')
+    if (next !== raw) {
+      updateAttributes({ content: next })
+    }
+  }, [sourceOpen, sourceDraft, raw, updateAttributes])
+
+  const cancelHtmlSource = useCallback(() => {
+    setSourceDraft(raw)
+    setSourceOpen(false)
+  }, [raw])
 
   const onCommentBlockDoubleClick = useCallback(
     (event: ReactMouseEvent<HTMLElement>) => {
@@ -39,16 +133,20 @@ const LunaRawBlockView = memo(function LunaRawBlockView(props: ReactNodeViewProp
     [editor.view, getPos],
   )
 
-  useEffect(() => {
-    if (source !== 'html') return
+  useLayoutEffect(() => {
+    if (source !== 'html' || sourceOpen) return
     const el = surfaceRef.current
-    if (!el) return
-    el.innerHTML = sanitizeHtmlFragment(raw)
-  }, [source, raw])
+    if (!el || el.innerHTML === renderedHtml) return
+    el.innerHTML = renderedHtml
+  }, [source, sourceOpen, renderedHtml])
 
   if (source === 'html') {
     const commentBody = parseHtmlCommentBody(raw)
     if (commentBody != null) {
+      const commentPlaceholder = t('editor.htmlComment.placeholder')
+      const commentTitle = commentBody
+        ? t('editor.htmlComment.editTitleWithBody', { body: commentBody })
+        : t('editor.htmlComment.editTitleEmpty')
       return (
         <NodeViewWrapper
           as="div"
@@ -56,7 +154,7 @@ const LunaRawBlockView = memo(function LunaRawBlockView(props: ReactNodeViewProp
           data-luna-raw-block="1"
           data-source="html"
           data-type="html-comment-block"
-          title={commentBody ? `${commentBody} (double-click to edit)` : 'Comment (double-click to edit)'}
+          title={commentTitle}
           onDoubleClick={onCommentBlockDoubleClick}
         >
           <div
@@ -67,7 +165,7 @@ const LunaRawBlockView = memo(function LunaRawBlockView(props: ReactNodeViewProp
           >
             <span className="pm-luna-html-comment-badge">
               {'<!-- '}
-              {commentBody || 'comment'}
+              {commentBody || commentPlaceholder}
               {' -->'}
             </span>
           </div>
@@ -77,12 +175,33 @@ const LunaRawBlockView = memo(function LunaRawBlockView(props: ReactNodeViewProp
     return (
       <NodeViewWrapper
         as="div"
-        className="pm-luna-raw-block pm-luna-html-block"
+        className={`pm-luna-raw-block pm-luna-html-block${sourceOpen ? ' pm-luna-html-block--source-open' : ''}`}
         data-luna-raw-block="1"
         data-source="html"
         data-type="html-block"
+        title={t('editor.htmlBlock.editTitle')}
+        onDoubleClick={sourceOpen ? undefined : onHtmlBlockDoubleClick}
       >
-        <div ref={surfaceRef} className="pm-luna-html-block-surface" contentEditable={false} suppressContentEditableWarning />
+        {sourceOpen ? (
+          <LunaHtmlBlockSourceEditor
+            value={sourceDraft}
+            onChange={setSourceDraft}
+            onCommit={commitHtmlSource}
+            onCancel={cancelHtmlSource}
+          />
+        ) : null}
+        <div
+          ref={surfaceRef}
+          className={`pm-luna-html-block-surface${sourceOpen ? ' pm-luna-html-block-surface--hidden' : ''}`}
+          contentEditable={false}
+          suppressContentEditableWarning
+          aria-hidden={sourceOpen}
+          onMouseDown={
+            sourceOpen || !shouldAttachEmbeddedHtmlMediaMouseDownGuard(raw)
+              ? undefined
+              : handleEmbeddedHtmlMediaMouseDown
+          }
+        />
       </NodeViewWrapper>
     )
   }
@@ -108,6 +227,13 @@ export const LunaRawBlock = Node.create({
   group: 'block',
   atom: true,
   draggable: false,
+
+  addOptions() {
+    return {
+      resolveMediaSrc: undefined as ((src: string) => string) | undefined,
+      getMediaRenderScope: undefined as (() => string) | undefined,
+    }
+  },
 
   addAttributes() {
     return {
@@ -136,14 +262,23 @@ export const LunaRawBlock = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(LunaRawBlockView)
+    return ReactNodeViewRenderer(LunaRawBlockView, {
+      selectedOnTextSelection: false,
+      stopEvent: ({ event }) => shouldStopEmbeddedHtmlSurfaceNodeViewEvent(event),
+      ignoreMutation: ({ mutation }) => {
+        const target = mutation.target
+        if (!(target instanceof Node)) return false
+        const el = target instanceof Element ? target : target.parentElement
+        return !!el?.closest('.pm-luna-html-block-surface, .pm-luna-html-comment-block-surface')
+      },
+    })
   },
 
   renderHTML({ node, HTMLAttributes }) {
     const source = normalizeLunaRawSource(node.attrs.source)
     const content = String(node.attrs.content ?? '')
     if (source === 'html') {
-      const safeContent = sanitizeHtmlFragment(content)
+      const safeContent = sanitizeEmbeddedHtml(content)
       return [
         'div',
         mergeAttributes(HTMLAttributes, {

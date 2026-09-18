@@ -53,6 +53,47 @@ export type WikiLinkMenuState = {
   activeIndex: number
 }
 
+const SLASH_MENU_RECENT_STORAGE_KEY = 'luna.slashMenuRecent'
+const SLASH_MENU_RECENT_LIMIT = 8
+const SLASH_MENU_DEFAULT_PRIORITY = [
+  'knowledge-base',
+  'table',
+  'task',
+  'code-block',
+  'drawing',
+  'mermaid',
+  'mindmap',
+  'bullet',
+  'ordered',
+  'ai-continue',
+] as const
+
+function readRecentSlashCommandIds(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(SLASH_MENU_RECENT_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((value): value is string => typeof value === 'string')
+  } catch {
+    return []
+  }
+}
+
+export function recordRecentSlashCommandId(id: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    const next = [id, ...readRecentSlashCommandIds().filter((existing) => existing !== id)].slice(
+      0,
+      SLASH_MENU_RECENT_LIMIT,
+    )
+    window.localStorage.setItem(SLASH_MENU_RECENT_STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    // ignore
+  }
+}
+
 /** When the menu is not open, complete detection is only performed when a `/` trigger may appear in the paragraph (mitigating recalculation of each key)*/
 export function shouldProbeSlashMenu(editor: Editor, menuOpen: boolean): boolean {
   if (menuOpen) return true
@@ -89,9 +130,24 @@ function slashCommandMatchesQuery(item: { label: string; aliases: string[] }, qu
   return tokens.some((token) => token.includes(query))
 }
 
+function slashCommandSortScore(item: SlashCommandItem, recentIds: readonly string[]): number {
+  const recentIndex = recentIds.indexOf(item.id)
+  const priorityIndex = SLASH_MENU_DEFAULT_PRIORITY.indexOf(item.id as (typeof SLASH_MENU_DEFAULT_PRIORITY)[number])
+  let score = 0
+  if (recentIndex >= 0) score += 200 - recentIndex * 12
+  if (priorityIndex >= 0) score += 120 - priorityIndex * 8
+  return score
+}
+
 export function buildSlashMenuRows(commands: readonly SlashCommandItem[], query: string): SlashMenuRow[] {
   const rows: SlashMenuRow[] = []
-  for (const command of commands) {
+  const recentIds = query ? [] : readRecentSlashCommandIds()
+  const orderedCommands = query
+    ? commands
+    : [...commands].sort(
+        (a, b) => slashCommandSortScore(b, recentIds) - slashCommandSortScore(a, recentIds),
+      )
+  for (const command of orderedCommands) {
     if (isSlashCommandGroup(command)) {
       const parentMatch = slashCommandMatchesQuery(command, query)
       const matchingChildren = command.children.filter((child) => slashCommandMatchesQuery(child, query))
@@ -120,7 +176,7 @@ export function buildSlashMenuRows(commands: readonly SlashCommandItem[], query:
       run: command.run,
     })
   }
-  return rows.slice(0, 20)
+  return rows.slice(0, 32)
 }
 
 export function firstExecutableSlashRowIndex(rows: readonly SlashMenuRow[]): number {

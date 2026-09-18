@@ -2,7 +2,9 @@ import { useLayoutEffect, useRef } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
 import { readRecentFilesFromStorage } from '../../lib/recentFilesStorage'
-import { isValidRecentFilePath } from '../../lib/workspacePathUtils'
+import { sliceRecentMenuItems } from '../../lib/recentMenuNodes'
+import { readRecentWorkspacesFromStorage } from '../../lib/recentWorkspacesStorage'
+import { isValidRecentFilePath, isValidRecentWorkspacePath } from '../../lib/workspacePathUtils'
 import { useI18n } from '../../i18n/provider'
 import { usesNativeMacAppMenu } from '../../app/shellPlatform'
 import {
@@ -24,13 +26,18 @@ export function MacNativeMenuEarlyUpgrade() {
     let cancelled = false
 
     void (async () => {
-      const recentFiles = readRecentFilesFromStorage().filter(isValidRecentFilePath).slice(0, 8)
-      await syncRecentMenu(recentFiles)
+      const slice = sliceRecentMenuItems(
+        readRecentWorkspacesFromStorage().filter(isValidRecentWorkspacePath),
+        readRecentFilesFromStorage().filter(isValidRecentFilePath),
+        8,
+      )
+      await syncRecentMenu(slice.workspaces, slice.files)
 
       const fullscreenChecked = await getCurrentWindow().isFullscreen()
       await installMacNativeAppMenu({
         t: tRef.current,
-        recentFiles,
+        recentWorkspaces: slice.workspaces,
+        recentFiles: slice.files,
         fullscreenChecked,
       })
 

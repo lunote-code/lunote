@@ -27,7 +27,11 @@ export function collectNodeTypes(doc: ProseMirrorNode, typeNames: readonly strin
 export function assertNoPasteStructuralInjection(
   before: ProseMirrorNode,
   after: ProseMirrorNode,
-  opts?: { allowRichStructure?: boolean; allowListMultiline?: boolean },
+  opts?: {
+    allowRichStructure?: boolean
+    allowListMultiline?: boolean
+    allowParagraphMultiline?: boolean
+  },
 ): void {
   const forbidden = ['codeBlock', 'mermaidBlock'] as const
   for (const typeName of forbidden) {
@@ -48,10 +52,14 @@ export function assertNoPasteStructuralInjection(
     if (opts?.allowListMultiline) {
       const listItemBefore = countNodeType(before, 'listItem')
       const listItemAfter = countNodeType(after, 'listItem')
-      if (listItemAfter > listItemBefore && listItemAfter - listItemBefore === paraAfter - paraBefore) {
+      const taskItemBefore = countNodeType(before, 'taskItem')
+      const taskItemAfter = countNodeType(after, 'taskItem')
+      const itemDelta = listItemAfter - listItemBefore + (taskItemAfter - taskItemBefore)
+      if (itemDelta > 0 && itemDelta === paraAfter - paraBefore) {
         return
       }
     }
+    if (opts?.allowParagraphMultiline) return
     throw new Error(
       `Invalid paste transformation: paragraph count increased (${paraBefore} → ${paraAfter}); paste must be plain text insert only`,
     )

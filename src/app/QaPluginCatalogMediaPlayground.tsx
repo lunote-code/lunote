@@ -32,6 +32,8 @@ import {
 } from '../theme-runtime/themeSnippetRuntime'
 import { subscribeThemeRuntime } from '../theme-runtime/themeRuntime'
 import type { FileSortMode, FlatWorkspaceFile, FsTreeNode } from './workspace/types'
+import type { SidebarPanelView } from './workspace/sidebarPanelView'
+import { sidebarListModeFromPanelView } from './workspace/sidebarPanelView'
 
 const QA_ROOT = '/qa-plugin-media-vault'
 const QA_DOC = `${QA_ROOT}/theme-preview.md`
@@ -156,8 +158,8 @@ function QaPluginCatalogMediaInner() {
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(
     () => new Set([`${QA_ROOT}/projects`, `${QA_ROOT}/research`, `${QA_ROOT}/archive`]),
   )
-  const [sidebarListMode, setSidebarListMode] = useState<'files' | 'outline'>('files')
-  const [sidebarFileView, setSidebarFileView] = useState<'tree' | 'list'>('tree')
+  const [sidebarPanelView, setSidebarPanelView] = useState<SidebarPanelView>('files-tree')
+  const sidebarListMode = sidebarListModeFromPanelView(sidebarPanelView)
   const [fileSortMode, setFileSortMode] = useState<FileSortMode>('group')
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false)
 
@@ -252,7 +254,8 @@ function QaPluginCatalogMediaInner() {
           setSearchText={() => undefined}
           isSidebarFiltering={false}
           sidebarFilterMatchCount={flatFiles.length}
-          sidebarListMode={sidebarListMode}
+          sidebarPanelView={sidebarPanelView}
+          setSidebarPanelView={setSidebarPanelView}
           draggingWorkspaceFile={null}
           dragOverTarget={null}
           setDragOverTarget={() => undefined}
@@ -262,8 +265,6 @@ function QaPluginCatalogMediaInner() {
           activeOutlineId={null}
           scrollPreviewToHeading={() => undefined}
           fileTree={SIDEBAR_TREE}
-          sidebarFileView={sidebarFileView}
-          setSidebarFileView={setSidebarFileView}
           workspaceFolderNodes={SIDEBAR_TREE}
           sortedFlatWorkspaceFiles={flatFiles}
           sortedFileTree={SIDEBAR_TREE}
@@ -282,6 +283,7 @@ function QaPluginCatalogMediaInner() {
           handleMoveFileToFolder={() => undefined}
           createNewNote={() => undefined}
           createNewNoteFromTemplate={() => undefined}
+          createNewFolder={() => undefined}
           workspaceFolderName="Plugin Media Vault"
           workspaceMenuRef={workspaceMenuRef}
           workspaceMenuPopRef={workspaceMenuPopRef}
@@ -290,13 +292,9 @@ function QaPluginCatalogMediaInner() {
           workspaceMenuPopStyle={workspaceMenuPopStyle}
           fileSortMode={fileSortMode}
           setFileSortMode={setFileSortMode}
-          setSidebarListMode={setSidebarListMode}
           setStatus={() => undefined}
           chooseFolder={() => undefined}
           refreshFileTree={async () => undefined}
-          recentFiles={[]}
-          onOpenRecent={() => undefined}
-          onClearRecent={async () => undefined}
           sidebarStatusLine=""
         />
 

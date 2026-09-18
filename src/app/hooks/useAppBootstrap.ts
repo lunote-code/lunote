@@ -3,15 +3,13 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { isTauri } from '@tauri-apps/api/core'
 
 import type { TranslateFn } from '../../i18n'
-import {
-  dispatchDocumentCommand,
-  isDocumentContentDirty,
-} from '../../documentRuntime/documentKernel'
+import { dispatchDocumentCommand } from '../../documentRuntime/documentKernel'
 import { hasAnyDirtyDocument, listDirtyDocumentPaths } from '../../lib/documentDirty'
+import type { AppStatusTone } from './useAppStatus'
 import { installNavigationRuntimeFirewall } from '../../navigation/navigationRuntimeFirewall'
 import { dispatchRestoreNavigation } from '../../navigation/navigationFactory'
 import { recordNavigationSideEffect } from '../../navigation/navigationEventValidator'
-import { logError, logWarn } from '../../lib/lunaLogger'
+import { logError, logInfo, logWarn } from '../../lib/lunaLogger'
 import { ensureLunaDirs } from '../../lunaPaths'
 import { flushLunaWorkspaceSnapshotWrites, readLunaWorkspaceSnapshot, workspaceIdFromRoot } from '../../lunaPersistence'
 import {
@@ -19,24 +17,28 @@ import {
   clearLastWorkspaceSettings,
   hydrateAppSettingsStore,
 } from '../../settings/appSettingsStore'
-import type { TiptapMarkdownEditorHandle } from '../../editor/TiptapMarkdownEditor'
 import { isCloseToTrayAvailable } from '../../platform/tauri/quickCapture'
+import {
+  QA_APP_ROOT_OUTLINE_NOTE_B,
+  isQaAppRootOutlineMode,
+} from '../qa/qaAppRootOutlineHarness'
+import { QA_KNOWLEDGE_ROOT } from '../qa/qaKnowledgeFixtures'
+import { markBootPhase, measureBootSince } from '../bootPerf'
+import { persistWorkspaceSnapshotNow } from '../../documentRuntime/persistWorkspaceSnapshot'
+import { readNote, statNoteFile } from '../../platform/tauri/documentService'
+import { shouldRestoreRecoveryDraft } from '../workspace/recoveryDraftRestore'
+import { isWorkspaceLoadSupersededError } from './useWorkspaceLoader'
 
 export type AppBootstrapDeps = {
   tRef: RefObject<TranslateFn>
-  rootDir: string
   setRootDir: (root: string) => void
-  loadNotes: (root: string, prefer?: string | null, tabs?: string[] | null) => Promise<void>
-  workspaceRestoringRef: MutableRefObject<boolean>
+  loadNotes: (root: string, prefer?: string | null, tabs?: string[] | null) => Promise<boolean>
   pendingRestoreEventIdRef: MutableRefObject<string | null>
-  setStatus: (msg: string) => void
-  mainPaneModeRef: MutableRefObject<'visual' | 'source'>
-  visualEditorRef: RefObject<TiptapMarkdownEditorHandle | null>
-  sessionGuardRef: MutableRefObject<{ activePath: string; content: string; openedTabs: string[] }>
-  activePathRef: RefObject<string>
-  contentRef: RefObject<string>
-  bufferBodiesRef: MutableRefObject<Record<string, string>>
+  acquireWorkspaceRestoreBarrier: () => void
+  releaseWorkspaceRestoreBarrier: () => void
+  setStatus: (msg: string, toneOverride?: AppStatusTone) => void
   saveAllDirtyDocumentsRef: MutableRefObject<(() => Promise<boolean>) | null>
+  flushEditorToMemoryRef: MutableRefObject<(() => Promise<boolean>) | null>
   promptUnsavedChanges: (options: {
     title?: string
     message: string
@@ -69,19 +71,76 @@ function isCloseToTrayEnabled(): boolean {
 }
 
 async function hideMainWindowToBackground(
-  event: { preventDefault: () => void },
-  setStatus: (msg: string) => void,
+  setStatus: (msg: string, toneOverride?: AppStatusTone) => void,
   t: TranslateFn,
 ): Promise<boolean> {
   if (!isCloseToTrayEnabled() || !isCloseToTrayAvailable()) return false
-  // Must run synchronously before any await — otherwise the window may finish closing.
-  event.preventDefault()
   await getCurrentWindow().hide().catch(() => undefined)
   if (shouldShowCloseToTrayHint()) {
     markCloseToTrayHintShown()
-    setStatus(t('app.status.windowHiddenToTray'))
+    setStatus(t('app.status.windowHiddenToTray'), 'info')
   }
   return true
+}
+
+async function flushWindowCloseEdits(deps: {
+  flushEditorToMemoryRef: MutableRefObject<(() => Promise<boolean>) | null>
+}): Promise<boolean> {
+  await flushLunaWorkspaceSnapshotWrites().catch(() => undefined)
+  const flushEditorToMemory = deps.flushEditorToMemoryRef.current
+  if (!flushEditorToMemory) return true
+  return flushEditorToMemory()
+}
+
+async function restoreWorkspaceRecoveryDrafts(
+  rootDir: string,
+  drafts: Record<string, { content: string; updatedAt: number }> | undefined,
+): Promise<number> {
+  if (!drafts) return 0
+  const entries = Object.entries(drafts).filter(
+    ([path, draft]) => Boolean(path) && typeof draft?.content === 'string',
+  )
+  if (entries.length === 0) return 0
+  let restored = 0
+  for (const [path, draft] of entries) {
+    let shouldRestore: boolean
+    try {
+      const [diskContent, stat] = await Promise.all([
+        readNote(rootDir, path),
+        statNoteFile(rootDir, path),
+      ])
+      shouldRestore = shouldRestoreRecoveryDraft({
+        draft,
+        diskContent,
+        diskModifiedSecs: stat.modifiedSecs,
+      })
+    } catch {
+      shouldRestore = shouldRestoreRecoveryDraft({ draft })
+    }
+    if (!shouldRestore) continue
+    try {
+      await dispatchDocumentCommand({
+        type: 'UPDATE_OPEN_DOCUMENT_CONTENT',
+        path,
+        content: draft.content,
+        source: 'workspace-recovery-restore',
+      })
+      restored += 1
+    } catch {
+      // Ignore per-note restore failures so other drafts can still recover.
+    }
+  }
+  return restored
+}
+
+function perfNowMs(): number {
+  return typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now()
+}
+
+function perfDurationMs(startedAt: number): number {
+  return Math.round((perfNowMs() - startedAt) * 10) / 10
 }
 
 export function useAppBootstrap(deps: AppBootstrapDeps) {
@@ -89,15 +148,11 @@ export function useAppBootstrap(deps: AppBootstrapDeps) {
     tRef,
     setRootDir,
     loadNotes,
-    workspaceRestoringRef,
     pendingRestoreEventIdRef,
+    acquireWorkspaceRestoreBarrier,
+    releaseWorkspaceRestoreBarrier,
     setStatus,
-    mainPaneModeRef,
-    visualEditorRef,
-    sessionGuardRef,
-    activePathRef,
-    contentRef,
-    bufferBodiesRef,
+    flushEditorToMemoryRef,
     saveAllDirtyDocumentsRef,
     promptUnsavedChanges,
   } = deps
@@ -118,18 +173,41 @@ export function useAppBootstrap(deps: AppBootstrapDeps) {
   }
 
   useEffect(() => {
-    if (!isTauri()) return
     const generation = ++workspaceRestoreGenerationRef.current
     let cancelled = false
     void (async () => {
+      acquireWorkspaceRestoreBarrier()
+      markBootPhase('workspace_restore_effect_start', { generation })
+      const restoreStartedAt = perfNowMs()
+      const logRestoreStage = (stage: string, extra: Record<string, unknown> = {}) => {
+        logInfo('[PERF] workspace_restore_stage', {
+          generation,
+          stage,
+          elapsedMs: perfDurationMs(restoreStartedAt),
+          ...extra,
+        })
+      }
       console.info('[LAUNCH] workspace_restore start', { generation })
+      logRestoreStage('start', {
+        bootReadyToRestoreStartMs: measureBootSince('theme_applied', 'workspace_restore_effect_start'),
+        appChunkReadyToRestoreStartMs: measureBootSince('app_chunk_ready', 'workspace_restore_effect_start'),
+      })
       try {
+        if (isQaAppRootOutlineMode()) {
+          await loadNotes(QA_KNOWLEDGE_ROOT, QA_APP_ROOT_OUTLINE_NOTE_B, [QA_APP_ROOT_OUTLINE_NOTE_B])
+          return
+        }
+        if (!isTauri()) return
+        const ensureDirsStartedAt = perfNowMs()
         await ensureLunaDirs()
+        logRestoreStage('ensureLunaDirs', { durationMs: perfDurationMs(ensureDirsStartedAt) })
         if (cancelled) {
           console.info('[LAUNCH] workspace_restore aborted (cancelled after ensureLunaDirs)', { generation })
           return
         }
+        const hydrateStartedAt = perfNowMs()
         await hydrateAppSettingsStore()
+        logRestoreStage('hydrateAppSettingsStore', { durationMs: perfDurationMs(hydrateStartedAt) })
         if (cancelled) {
           console.info('[LAUNCH] workspace_restore aborted (cancelled after settings hydrate)', { generation })
           return
@@ -148,7 +226,12 @@ export function useAppBootstrap(deps: AppBootstrapDeps) {
           return
         }
         const workspaceId = savedWorkspaceId || workspaceIdFromRoot(savedWorkspaceRoot!)
+        const readSnapshotStartedAt = perfNowMs()
         const snap = await readLunaWorkspaceSnapshot(workspaceId)
+        logRestoreStage('readLunaWorkspaceSnapshot', {
+          durationMs: perfDurationMs(readSnapshotStartedAt),
+          workspaceId,
+        })
         if (cancelled) {
           console.info('[LAUNCH] workspace_restore aborted (cancelled after snapshot read)', { generation })
           return
@@ -187,8 +270,25 @@ export function useAppBootstrap(deps: AppBootstrapDeps) {
           savedPath,
           openTabs: snap?.openTabs?.length ?? 0,
         })
-        await loadNotes(savedRoot, savedPath, snap?.openTabs ?? [])
+        const loadNotesStartedAt = perfNowMs()
+        const didLoadWorkspace = await loadNotes(savedRoot, savedPath, snap?.openTabs ?? [])
+        if (!didLoadWorkspace || cancelled || workspaceRestoreGenerationRef.current !== generation) return
+        const restoredRecoveryDraftCount = await restoreWorkspaceRecoveryDrafts(savedRoot, snap?.recoveryDrafts)
+        if (restoredRecoveryDraftCount > 0) {
+          setStatus(tRef.current('app.status.recoveryRestored', { count: restoredRecoveryDraftCount }), 'warning')
+        }
+        logRestoreStage('loadNotes', {
+          durationMs: perfDurationMs(loadNotesStartedAt),
+          savedRoot,
+          savedPath,
+          openTabs: snap?.openTabs?.length ?? 0,
+          restoredRecoveryDraftCount,
+        })
         console.info('[LAUNCH] workspace_restore loadNotes done', { generation, savedRoot })
+        logRestoreStage('done', {
+          totalDurationMs: perfDurationMs(restoreStartedAt),
+          savedRoot,
+        })
       } catch (error) {
         const stale = workspaceRestoreGenerationRef.current !== generation
         logError('[LAUNCH] workspace_restore error', {
@@ -197,15 +297,17 @@ export function useAppBootstrap(deps: AppBootstrapDeps) {
           stale,
           error: error instanceof Error ? error.message : String(error),
         })
+        if (isWorkspaceLoadSupersededError(error)) return
         if (cancelled || stale) return
         const unavailable = isWorkspaceRestoreUnavailableError(error)
         if (unavailable) logWarn('[LAUNCH] workspace_restore_skipped', error)
         else logError('[LAUNCH] workspace_restore_failed', error)
         const message = error instanceof Error ? error.message : String(error)
-        await clearLastWorkspaceSettings().catch((clearError) => {
-          logWarn('[LAUNCH] workspace_restore_hint_clear_failed', clearError)
-        })
-        workspaceRestoringRef.current = false
+        if (!unavailable) {
+          await clearLastWorkspaceSettings().catch((clearError) => {
+            logWarn('[LAUNCH] workspace_restore_hint_clear_failed', clearError)
+          })
+        }
         pendingRestoreEventIdRef.current = null
         setRootDir('')
         setStatus(
@@ -215,6 +317,8 @@ export function useAppBootstrap(deps: AppBootstrapDeps) {
               ? tRef.current('app.status.operationFailed', { message })
               : tRef.current('app.status.workspaceRestoreFailed'),
         )
+      } finally {
+        releaseWorkspaceRestoreBarrier()
       }
     })()
     return () => {
@@ -232,43 +336,28 @@ export function useAppBootstrap(deps: AppBootstrapDeps) {
         const hideToBackground = isCloseToTrayEnabled() && isCloseToTrayAvailable()
         if (hideToBackground) {
           event.preventDefault()
+          await hideMainWindowToBackground(setStatus, tRef.current)
+          void flushWindowCloseEdits({
+            flushEditorToMemoryRef,
+          })
+          return
         }
 
-        await flushLunaWorkspaceSnapshotWrites().catch(() => undefined)
-        const visual = visualEditorRef.current
-        const mayHaveUnflushedVisualEdits =
-          mainPaneModeRef.current === 'visual' &&
-          Boolean(visual?.hasUserEditedSinceDocumentLoad())
-
-        if (mainPaneModeRef.current === 'visual' && visual && mayHaveUnflushedVisualEdits) {
-          let body: string
-          try {
-            // Do not emit editor onChange during close; forced serialize without user edits
-            // can round-trip to markdown that differs from the on-disk baseline.
-            body = visual.flushPendingMarkdownSync(true, false)
-          } catch (error) {
+        try {
+          const flushed = await flushWindowCloseEdits({
+            flushEditorToMemoryRef,
+          })
+          if (!flushed) {
             event.preventDefault()
-            setStatus(
-              tRef.current('app.status.saveFailed', {
-                message: error instanceof Error ? error.message : String(error),
-              }),
-            )
             return
           }
-          const path = sessionGuardRef.current.activePath || activePathRef.current
-          if (path && isDocumentContentDirty(path, body)) {
-            contentRef.current = body
-            bufferBodiesRef.current[path] = body
-            await dispatchDocumentCommand({
-              type: 'DOCUMENT_CONTENT_CHANGED',
-              path,
-              content: body,
-              source: 'window-close-flush',
-            }).catch(() => undefined)
-          }
-        }
-
-        if (await hideMainWindowToBackground(event, setStatus, tRef.current)) {
+        } catch (error) {
+          event.preventDefault()
+          setStatus(
+            tRef.current('app.status.saveFailed', {
+              message: error instanceof Error ? error.message : String(error),
+            }),
+          )
           return
         }
 
@@ -291,6 +380,9 @@ export function useAppBootstrap(deps: AppBootstrapDeps) {
           if (choice === 'save') {
             const saved = await saveAllDirtyDocumentsRef.current?.()
             if (!saved) return
+          } else if (choice === 'discard') {
+            persistWorkspaceSnapshotNow({ clearRecoveryDrafts: true })
+            await flushLunaWorkspaceSnapshotWrites().catch(() => undefined)
           }
           await getCurrentWindow().destroy()
         } catch {
@@ -310,15 +402,10 @@ export function useAppBootstrap(deps: AppBootstrapDeps) {
       off?.()
     }
   }, [
-    activePathRef,
-    bufferBodiesRef,
-    contentRef,
-    mainPaneModeRef,
     promptUnsavedChanges,
+    flushEditorToMemoryRef,
     saveAllDirtyDocumentsRef,
-    sessionGuardRef,
     setStatus,
     tRef,
-    visualEditorRef,
   ])
 }

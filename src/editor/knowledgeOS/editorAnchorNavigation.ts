@@ -4,7 +4,6 @@ import {
   resolveHeadingLineInDocument,
 } from '../knowledgeRuntime'
 import { canonicalMarkdownOutline } from '../../markdown/canonicalMarkdownOutline'
-
 import type { DocKey } from '../knowledgeRuntime/types'
 import type { NavigationEntry } from './types'
 import type { InteractionIntentSource } from './ui/interactionModel/types'
@@ -103,6 +102,7 @@ export type EditorAnchorRevealRequest = {
   absolutePath: string
   heading?: string
   blockId?: string
+  linkBodyOffset?: number
   source: InteractionIntentSource
   /** The text after opening the target document; avoid the failure of using the closure content to parse the anchor point when React setState is not submitted.*/
   markdown?: string

@@ -8,7 +8,8 @@ import {
 } from '@tauri-apps/api/menu'
 
 import { APP_DISPLAY_NAME } from '../../app/workspace/constants'
-import { isValidRecentFilePath } from '../../lib/workspacePathUtils'
+import { sliceRecentMenuItems } from '../../lib/recentMenuNodes'
+import { isValidRecentFilePath, isValidRecentWorkspacePath } from '../../lib/workspacePathUtils'
 import {
   APP_MENU_SCHEMA,
   isLeaf,
@@ -28,6 +29,7 @@ import {
 
 export type MacNativeMenuDeps = {
   t: (key: string) => string
+  recentWorkspaces: readonly string[]
   recentFiles: readonly string[]
   fullscreenChecked: boolean
 }
@@ -98,8 +100,12 @@ function basename(path: string): string {
 }
 
 async function buildRecentSection(deps: MacNativeMenuDeps): Promise<NativeMenuItem[]> {
-  const valid = deps.recentFiles.filter(isValidRecentFilePath).slice(0, RECENT_MENU_LIMIT)
-  if (valid.length === 0) {
+  const { workspaces, files } = sliceRecentMenuItems(
+    deps.recentWorkspaces.filter(isValidRecentWorkspacePath),
+    deps.recentFiles.filter(isValidRecentFilePath),
+    RECENT_MENU_LIMIT,
+  )
+  if (workspaces.length === 0 && files.length === 0) {
     return [
       await MenuItem.new({
         id: 'recent-placeholder',
@@ -110,24 +116,47 @@ async function buildRecentSection(deps: MacNativeMenuDeps): Promise<NativeMenuIt
   }
 
   const recentIcon = await resolveMacSubmenuIcon('sort-time')
+  const folderIcon = await resolveMacSubmenuIcon('workspace-open')
   const noteIcon = await resolveMacSubmenuIcon('note')
   const clearIcon = await resolveMacSubmenuIcon('delete')
 
   const items: NativeMenuItem[] = []
-  for (let i = 0; i < valid.length; i++) {
+  for (let i = 0; i < workspaces.length; i++) {
+    const label = basename(workspaces[i]!) || workspaces[i]!
+    if (folderIcon) {
+      items.push(
+        await IconMenuItem.new({
+          id: `recent-ws-${i}`,
+          text: label,
+          icon: folderIcon,
+        }),
+      )
+    } else {
+      items.push(
+        await MenuItem.new({
+          id: `recent-ws-${i}`,
+          text: label,
+        }),
+      )
+    }
+  }
+  if (workspaces.length > 0 && files.length > 0) {
+    items.push(await PredefinedMenuItem.new({ item: 'Separator' }))
+  }
+  for (let i = 0; i < files.length; i++) {
     if (noteIcon) {
       items.push(
         await IconMenuItem.new({
-          id: `recent-${i}`,
-          text: basename(valid[i]!),
+          id: `recent-file-${i}`,
+          text: basename(files[i]!),
           icon: noteIcon,
         }),
       )
     } else {
       items.push(
         await MenuItem.new({
-          id: `recent-${i}`,
-          text: basename(valid[i]!),
+          id: `recent-file-${i}`,
+          text: basename(files[i]!),
         }),
       )
     }

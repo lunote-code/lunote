@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 2,
+  "id": "code-clarity-pack",
+  "name": "Code Clarity Pack",
+  "version": "1.0.0",
+  "entry": null,
+  "pluginType": "ui-snippet",
+  "capabilities": [
+    "theme.snippet"
+  ],
+  "platforms": [
+    "desktop",
+    "web"
+  ],
+  "requiresRestart": false,
+  "experimental": false,
+  "minAppVersion": "0.6.0",
+  "maxAppVersion": null,
+  "permissions": {
+    "theme": {
+      "register": true
+    }
+  },
+  "contributes": {
+    "theme": {
+      "style": [],
+      "snippets": [
+        {
+          "file": "theme/snippets/code-gutter-solid-pack.css",
+          "id": "code-gutter-solid-pack",
+          "label": "Solid Code Gutter",
+          "description": "Opaque code gutters to prevent line-number overlap.",
+          "defaultEnabled": true
+        },
+        {
+          "file": "theme/snippets/crisp-code-shadow-pack.css",
+          "id": "crisp-code-shadow-pack",
+          "label": "Crisp Code Shadow",
+          "description": "Sharper fenced code block edges and hover feedback.",
+          "defaultEnabled": false
+        }
+      ],
+      "tokens": [],
+      "defaultEnable": {
+        "snippets": [
+          "code-gutter-solid-pack"
+        ]
+      }
+    },
+    "commands": [],
+    "preferencesSections": [],
+    "panels": []
+  }
+}

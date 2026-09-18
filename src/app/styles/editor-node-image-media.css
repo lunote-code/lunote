@@ -13,7 +13,7 @@
   display: block;
   width: 100%;
   max-height: min(70vh, 520px);
-  background: #000;
+  background: var(--surface-app, #000);
 }
 
 /* Image NodeView: preview card by default; double-click opens Markdown source strip */

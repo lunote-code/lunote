@@ -30,6 +30,42 @@ pub struct AppSettings {
   pub shortcut_overrides: Option<std::collections::HashMap<String, String>>,
   #[serde(default)]
   pub updates: Option<UpdatesSettings>,
+  #[serde(default)]
+  pub security: Option<SecuritySettings>,
+  #[serde(default)]
+  pub ai: Option<AiSettings>,
+  #[serde(default)]
+  pub ai_connection_test: Option<AiConnectionTestResult>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiConnectionTestResult {
+  pub ok: bool,
+  pub at: u64,
+  #[serde(default)]
+  pub provider: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiSettings {
+  #[serde(default)]
+  pub provider: Option<String>,
+  #[serde(default)]
+  pub api_key: Option<String>,
+  #[serde(default)]
+  pub base_url: Option<String>,
+  #[serde(default)]
+  pub model: Option<String>,
+  #[serde(default)]
+  pub include_workspace_search: Option<bool>,
+  #[serde(default)]
+  pub include_graph_neighbors: Option<bool>,
+  #[serde(default)]
+  pub system_prompt: Option<String>,
+  #[serde(default)]
+  pub conversation_scope: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,6 +73,13 @@ pub struct AppSettings {
 pub struct UpdatesSettings {
   #[serde(default)]
   pub auto_check_enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SecuritySettings {
+  #[serde(default)]
+  pub auto_lock_minutes: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,6 +130,9 @@ impl Default for AppSettings {
       appearance: None,
       shortcut_overrides: None,
       updates: None,
+      security: None,
+      ai: None,
+      ai_connection_test: None,
     }
   }
 }
@@ -106,6 +152,67 @@ impl AppSettings {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn persists_ai_connection_test() {
+    let settings = AppSettings {
+      ai_connection_test: Some(AiConnectionTestResult {
+        ok: true,
+        at: 1_700_000_000_000,
+        provider: Some("google".into()),
+      }),
+      ..AppSettings::default()
+    };
+    let json = serde_json::to_string(&settings).expect("serialize");
+    let parsed: AppSettings = serde_json::from_str(&json).expect("deserialize");
+    let test = parsed.ai_connection_test.expect("ai connection test");
+    assert!(test.ok);
+    assert_eq!(test.at, 1_700_000_000_000);
+    assert_eq!(test.provider.as_deref(), Some("google"));
+  }
+
+  #[test]
+  fn persists_ai_settings() {
+    let settings = AppSettings {
+      ai: Some(AiSettings {
+        provider: Some("anthropic".into()),
+        api_key: Some("sk-test".into()),
+        base_url: Some("https://api.anthropic.com".into()),
+        model: Some("claude-sonnet-4-20250514".into()),
+        include_workspace_search: None,
+        include_graph_neighbors: None,
+        system_prompt: None,
+        conversation_scope: None,
+      }),
+      ..AppSettings::default()
+    };
+    let json = serde_json::to_string(&settings).expect("serialize");
+    let parsed: AppSettings = serde_json::from_str(&json).expect("deserialize");
+    let ai = parsed.ai.expect("ai settings");
+    assert_eq!(ai.provider.as_deref(), Some("anthropic"));
+    assert_eq!(ai.api_key.as_deref(), Some("sk-test"));
+    assert_eq!(ai.base_url.as_deref(), Some("https://api.anthropic.com"));
+    assert_eq!(ai.model.as_deref(), Some("claude-sonnet-4-20250514"));
+  }
+
+  #[test]
+  fn persists_security_auto_lock_minutes() {
+    let settings = AppSettings {
+      security: Some(SecuritySettings {
+        auto_lock_minutes: Some(5),
+      }),
+      ..AppSettings::default()
+    };
+    let json = serde_json::to_string(&settings).expect("serialize");
+    let parsed: AppSettings = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(
+      parsed
+        .security
+        .as_ref()
+        .and_then(|security| security.auto_lock_minutes),
+      Some(5)
+    );
+  }
 
   #[test]
   fn persists_updates_auto_check_disabled() {
@@ -178,7 +285,7 @@ pub fn write_app_settings(app: &AppHandle, settings: &AppSettings) -> Result<(),
   crate::core::security::validate_asset_storage_absolute_path(&settings.asset_storage.absolute_path)?;
   luna_paths::ensure_luna_dirs()?;
   let path = settings_path()?;
-  let data = serde_json::to_vec_pretty(settings).map_err(|e| e.to_string())?;
+  let data = serde_json::to_vec_pretty(&settings).map_err(|e| e.to_string())?;
   crate::core::security::ensure_json_payload_size(&data, "Apply settings")?;
   crate::core::atomic_io::atomic_write(&path, &data).map_err(|e| e.to_string())
 }

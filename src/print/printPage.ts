@@ -2,6 +2,8 @@ import DOMPurify from 'dompurify'
 import type { Config as DomPurifyConfig } from 'dompurify'
 import { isTauri } from '@tauri-apps/api/core'
 
+import { getCurrentWebviewWindow } from '../platform/tauri/webviewWindow'
+
 const PRINT_HTML_PURIFY: DomPurifyConfig = {
   USE_PROFILES: { html: true },
   ADD_TAGS: [
@@ -16,7 +18,6 @@ const PRINT_HTML_PURIFY: DomPurifyConfig = {
 
 async function closeSelf(): Promise<void> {
   if (isTauri()) {
-    const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow')
     await getCurrentWebviewWindow().close()
     return
   }

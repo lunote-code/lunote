@@ -53,6 +53,17 @@ export type UnsavedChangesDialogState = {
   cancelLabel: string
 }
 export type UnsavedChangesChoice = 'save' | 'discard' | 'cancel'
+
+export type WorkspacePasswordDialogState = {
+  title: string
+  message: string
+  passwordLabel?: string
+  confirmLabel: string
+  cancelLabel: string
+  requireConfirm?: boolean
+  confirmPasswordLabel?: string
+  error?: string
+}
 export type AlertDialogState = {
   title: string
   message: string

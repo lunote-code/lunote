@@ -20,7 +20,9 @@ import {
 } from './tiptapSlashMenuModel'
 import type { TiptapEditorCommand } from './tiptapEditorTypes'
 import type { EphemeralCommandType } from './ephemeralFormatting'
+import type { EditorAiSlashActionId } from './ai/editorAiActions'
 import { newMermaidBlockId } from './extensions/MermaidNode'
+import { createDrawingBlockInsertContent } from './drawing/drawingBlockInsert'
 import {
   MERMAID_FLOWCHART_TEMPLATE,
   MERMAID_MINDMAP_TEMPLATE,
@@ -33,6 +35,7 @@ type CreateTiptapSlashCommandsArgs = {
   focusNoScroll: FocusNoScrollOption
   runTiptapCommand: (editor: Editor, command: TiptapEditorCommand) => boolean
   runEphemeralCommand: (editor: Editor, commandType: EphemeralCommandType) => boolean
+  onAiSlashAction?: (actionId: EditorAiSlashActionId) => void
 }
 
 function insertWikiLinkTrigger(editor: Editor, focusNoScroll: FocusNoScrollOption): boolean {
@@ -70,8 +73,21 @@ function slashRunEphemeral(
 }
 
 export function createTiptapSlashCommands(args: CreateTiptapSlashCommandsArgs): readonly SlashCommandItem[] {
-  const { t, focusNoScroll, runTiptapCommand, runEphemeralCommand } = args
+  const { t, focusNoScroll, runTiptapCommand, runEphemeralCommand, onAiSlashAction } = args
+  const aiSlash = (id: EditorAiSlashActionId, labelKey: string, aliases: string[]): SlashCommandLeaf => ({
+    id: `ai-${id}`,
+    label: t(labelKey),
+    aliases,
+    run: () => {
+      onAiSlashAction?.(id)
+      return true
+    },
+  })
+
   return [
+    aiSlash('continue', 'editor.slash.aiContinue', ['ai', 'continue', '续写', 'ai续写', '写作']),
+    aiSlash('summarize', 'editor.slash.aiSummarize', ['summarize', 'summary', '总结', '摘要']),
+    aiSlash('edit-selection', 'editor.slash.aiImprove', ['improve', 'rewrite', '改写', '润色', '改进']),
     slashRunEphemeral('bold', t('editor.slash.bold'), ['bold', '粗体', '加粗'], 'bold', runEphemeralCommand),
     slashRunEphemeral('italic', t('editor.slash.italic'), ['italic', '斜体'], 'italic', runEphemeralCommand),
     slashRunTiptap('h1', t('editor.slash.h1'), ['h1', 'heading1', 'title', '标题1', '一级标题'], {
@@ -114,6 +130,17 @@ export function createTiptapSlashCommands(args: CreateTiptapSlashCommandsArgs): 
       { type: 'codeBlock', language: 'text' },
       runTiptapCommand,
     ),
+    {
+      id: 'drawing',
+      label: t('editor.slash.drawing'),
+      aliases: ['drawing', 'draw', 'canvas', 'paint', '画图', '手绘', '画布', '涂鸦', '手绘画布'],
+      run: (editor) =>
+        editor
+          .chain()
+          .focus(null, focusNoScroll)
+          .insertContent([...createDrawingBlockInsertContent()])
+          .run(),
+    },
     {
       id: 'table',
       label: t('editor.slash.table'),

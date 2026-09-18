@@ -1,22 +1,39 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { I18nProvider } from '../i18n'
-import { getEnMessagesSnapshot, getLocaleMessagesSnapshot, getLocaleRawSnapshot } from '../i18n/localeRegistry'
+import { I18nProvider, type I18nBootstrap } from '../i18n'
+import {
+  ensureLocaleRawLoaded,
+  getEnMessagesSnapshot,
+  isUiLocaleId,
+  type UiLocaleId,
+} from '../i18n/localeRegistry'
 import {
   absolutePathToDocKeyOs,
   deleteNote,
+  docKeyToAbsolutePath,
   initKnowledgeOS,
   onKnowledgeOSWorkspaceOpened,
   openNoteInWorkspace,
   setBacklinkPanelDocKey,
   syncNoteGraphTopologyFromRoute,
   getNoteGraphTopology,
+  isNoteGraphGlobalTopology,
 } from '../editor/knowledgeOS/index'
 import { requestOsRevision } from '../editor/knowledgeOS/knowledgeUIBridge'
 import { setPendingGraphCenter } from '../editor/knowledgeOS/graphNavigationRuntime'
 import { getGraphViewport, setGraphViewportIntent, fitGraphViewToNodes, resetGraphViewToDefault } from '../editor/knowledgeOS/graphViewportRuntime'
 import { KnowledgeRightRail } from '../editor/knowledgeOS/ui/KnowledgeRightRail'
 import { registerKnowledgeInteractionHost } from '../editor/knowledgeOS/ui/knowledgeInteractionHost'
+import {
+  appendWikiLinkToMarkdownBody,
+  createGraphWikiLink,
+  formatWikiLinkMarkup,
+  hasOutgoingWikiLink,
+} from '../editor/knowledgeOS/graphLinkCreationRuntime'
+import { removeWikiLinkFromMarkdownBody } from '../editor/knowledgeOS/graphLinkRemovalRuntime'
+import { notifyKnowledgeDocumentSave } from '../editor/knowledgeOS/ui/knowledgeAppIntegration'
+import { attachDocumentFrontmatter } from '../editor/documentFrontmatterStore'
+import { parseFrontmatter } from '../editor/knowledgeRuntime/wikiLinkParser'
 import {
   bootstrapWorkspaceLinkGraphIndex,
   openVault,
@@ -40,6 +57,12 @@ import {
   qaKnowledgeNotePath,
   type QaKnowledgeNoteId,
 } from './qa/qaKnowledgeFixtures'
+import { buildGraphLimitFixtures } from './qa/qaGraphLimitFixtures'
+import { buildGraphLargeScaleFixtures } from './qa/qaGraphLargeScaleFixtures'
+import { prepareGraphSvgForExport } from '../editor/knowledgeOS/graphExportRuntime'
+import { DEFAULT_APP_SETTINGS } from '../settings/appSettingsTypes'
+import { markAppSettingsHydratedForTests, getAppSettingsSnapshot } from '../settings/appSettingsStore'
+import { AI_PROVIDER_DEFAULT_MODEL } from '../settings-runtime/aiSettings'
 
 export { QA_KNOWLEDGE_FIXTURES, QA_KNOWLEDGE_ROOT }
 export type { QaKnowledgeNoteId }
@@ -51,14 +74,26 @@ declare global {
       activePath: () => string | null
       openedTabPaths: () => string[]
       setActiveNote: (note: QaKnowledgeNoteId) => Promise<void>
+      setActiveDocStem: (stem: string) => Promise<void>
+      loadGraphLimitFixture: () => Promise<void>
+      loadGraphLargeScaleFixture: () => Promise<void>
+      graphLimitNoticeVisible: () => boolean
+      graphLimitNoticeText: () => string
+      graphTopologyNodeCount: () => number
+      graphTopologyEdgeCount: () => number
       openSearch: () => void
       closeSearch: () => void
       countInRail: (selector: string) => number
       backlinkSourceTitles: () => string[]
       graphTopologyCenterDocKey: () => string | null
+      isGraphGlobalTopology: () => boolean
       graphCenterLabel: () => string | null
       graphNodeLabels: () => string[]
-      getFixtureMarkdown: (note: QaKnowledgeNoteId) => string
+      getFixtureMarkdown: (note: QaKnowledgeNoteId | 'note-c') => string
+      seedWikiLinkBetweenNotes: (
+        sourceDocKey: string,
+        targetDocKey: string,
+      ) => Promise<'ok' | 'self' | 'duplicate' | 'invalid' | 'failed'>
       writeDocumentCalls: () => string[]
       graphViewport: () => { x: number; y: number; zoom: number }
       panGraph: (dx: number, dy: number) => void
@@ -74,19 +109,26 @@ declare global {
         navigable: boolean
       } | null
       graphTopologyEdgePairs: () => string[]
+      setAiConfigured: (configured: boolean) => void
+      setAiButtonEnabled: (enabled: boolean) => void
+      graphExportProbe: () => {
+        ok: boolean
+        reason?: string
+        hitCount?: number
+        hasViewBox?: boolean
+        width?: number
+        height?: number
+      }
     }
   }
 }
 
-const QA_BOOTSTRAP = {
-  mergedMessages: getLocaleMessagesSnapshot('en'),
-  enMessages: getEnMessagesSnapshot(),
-  rawLocale: getLocaleRawSnapshot('en'),
-  languageSetting: 'en' as const,
-  effectiveLocale: 'en' as const,
+function resolveQaLocale(): UiLocaleId {
+  const raw = new URLSearchParams(window.location.search).get('locale')
+  return raw && isUiLocaleId(raw) ? raw : 'en'
 }
 
-function QaKnowledgeInner() {
+function QaKnowledgeInner({ locale }: { locale: UiLocaleId }) {
   const [status, setStatus] = useState('booting')
   const [activeDocKey, setActiveDocKey] = useState<string | null>(null)
   const [activePath, setActivePath] = useState<string | null>(null)
@@ -100,6 +142,10 @@ function QaKnowledgeInner() {
   const activeDocKeyRef = useRef<string | null>(null)
   const activePathRef = useRef<string | null>(null)
   const openedTabsRef = useRef<string[]>([])
+
+  useEffect(() => {
+    markAppSettingsHydratedForTests({ ...DEFAULT_APP_SETTINGS, language: locale })
+  }, [locale])
 
   const readFixture = useCallback((path: string) => {
     const rel = qaKnowledgeFixtureRelPath(path)
@@ -115,10 +161,10 @@ function QaKnowledgeInner() {
 
   const syncKnowledgeRoute = useCallback((docKey: string | null) => {
     setBacklinkPanelDocKey(docKey)
-    syncNoteGraphTopologyFromRoute(docKey)
     if (docKey) {
       setPendingGraphCenter(docKey, `page:${docKey}`)
     }
+    syncNoteGraphTopologyFromRoute(docKey)
   }, [])
 
   const openPathInTab = useCallback(async (path: AbsoluteDocPath, source: string) => {
@@ -136,6 +182,35 @@ function QaKnowledgeInner() {
     },
     [openPathInTab],
   )
+
+  const setActiveDocStem = useCallback(
+    async (stem: string) => {
+      await openPathInTab(`${QA_KNOWLEDGE_ROOT}/${stem}.md` as AbsoluteDocPath, 'qa-knowledge-set-active')
+    },
+    [openPathInTab],
+  )
+
+  const reindexWorkspaceLinkGraph = useCallback(async () => {
+    const paths = Object.keys(fixturesRef.current).map(
+      (file) => `${QA_KNOWLEDGE_ROOT}/${file}` as AbsoluteDocPath,
+    )
+    await bootstrapWorkspaceLinkGraphIndex(QA_KNOWLEDGE_ROOT, paths, async (path) => {
+      const rel = qaKnowledgeFixtureRelPath(path)
+      return fixturesRef.current[rel] ?? ''
+    })
+    await waitForLinkIndexReady(15_000)
+    requestOsRevision()
+  }, [])
+
+  const loadGraphLimitFixture = useCallback(async () => {
+    Object.assign(fixturesRef.current, buildGraphLimitFixtures())
+    await reindexWorkspaceLinkGraph()
+  }, [reindexWorkspaceLinkGraph])
+
+  const loadGraphLargeScaleFixture = useCallback(async () => {
+    Object.assign(fixturesRef.current, buildGraphLargeScaleFixtures())
+    await reindexWorkspaceLinkGraph()
+  }, [reindexWorkspaceLinkGraph])
 
   const persistFixture = useCallback(async (path: string, content: string) => {
     const rel = qaKnowledgeFixtureRelPath(path)
@@ -173,6 +248,17 @@ function QaKnowledgeInner() {
       activePath: () => activePathRef.current,
       openedTabPaths: () => [...openedTabsRef.current],
       setActiveNote: activateNote,
+      setActiveDocStem,
+      loadGraphLimitFixture,
+      loadGraphLargeScaleFixture,
+      graphLimitNoticeVisible: () =>
+        document.querySelector('.qa-knowledge-rail [data-testid="kos-graph-limit-notice"]') != null,
+      graphLimitNoticeText: () =>
+        document
+          .querySelector('.qa-knowledge-rail [data-testid="kos-graph-limit-notice"]')
+          ?.textContent?.trim() ?? '',
+      graphTopologyNodeCount: () => getNoteGraphTopology().nodes.length,
+      graphTopologyEdgeCount: () => getNoteGraphTopology().edges.length,
       openSearch,
       closeSearch: () => setSearchOpen(false),
       countInRail: (selector) => document.querySelectorAll(`.qa-knowledge-rail ${selector}`).length,
@@ -181,6 +267,7 @@ function QaKnowledgeInner() {
           (el) => el.textContent?.trim() ?? '',
         ),
       graphTopologyCenterDocKey: () => getNoteGraphTopology().centerDocKey,
+      isGraphGlobalTopology: () => isNoteGraphGlobalTopology(),
       graphCenterLabel: () =>
         document
           .querySelector('.qa-knowledge-rail .kos-graph-node--center .kos-graph-node-label')
@@ -190,6 +277,12 @@ function QaKnowledgeInner() {
           (el) => el.textContent?.trim() ?? '',
         ),
       getFixtureMarkdown: (note) => fixturesRef.current[`${note}.md`] ?? '',
+      seedWikiLinkBetweenNotes: (sourceDocKey, targetDocKey) =>
+        createGraphWikiLink({
+          sourceDocKey,
+          targetDocKey,
+          targetTitle: targetDocKey,
+        }),
       writeDocumentCalls: () => [...writeDocumentCallsRef.current],
       graphViewport: () => getGraphViewport(),
       panGraph: (dx, dy) => {
@@ -228,11 +321,50 @@ function QaKnowledgeInner() {
       },
       graphTopologyEdgePairs: () =>
         getNoteGraphTopology().edges.map((edge) => `${edge.from}\0${edge.to}`),
+      setAiConfigured: (configured: boolean) => {
+        const snap = getAppSettingsSnapshot()
+        markAppSettingsHydratedForTests({
+          ...snap,
+          ai: {
+            ...snap.ai,
+            provider: 'openai',
+            model: snap.ai?.model ?? AI_PROVIDER_DEFAULT_MODEL.openai,
+            apiKey: configured ? 'qa-test-key' : '',
+          },
+        })
+      },
+      setAiButtonEnabled: (enabled: boolean) => {
+        const snap = getAppSettingsSnapshot()
+        markAppSettingsHydratedForTests({
+          ...snap,
+          appearance: {
+            ...snap.appearance,
+            ui: {
+              ...snap.appearance?.ui,
+              aiButtonEnabled: enabled,
+            },
+          },
+        })
+      },
+      graphExportProbe: () => {
+        const svg = document.querySelector('.qa-knowledge-rail svg.kos-graph-svg')
+        if (!(svg instanceof SVGSVGElement)) {
+          return { ok: false, reason: 'no-svg' }
+        }
+        const prepared = prepareGraphSvgForExport(svg)
+        return {
+          ok: true,
+          hitCount: prepared.svg.querySelectorAll('.kos-graph-edge-hit').length,
+          hasViewBox: Boolean(prepared.svg.getAttribute('viewBox')),
+          width: prepared.width,
+          height: prepared.height,
+        }
+      },
     }
     return () => {
       delete window.__QA_KNOWLEDGE__
     }
-  }, [activateNote, openSearch, deleteVaultNote])
+  }, [activateNote, setActiveDocStem, loadGraphLimitFixture, loadGraphLargeScaleFixture, openSearch, deleteVaultNote])
 
   useEffect(() => {
     let cancelled = false
@@ -264,6 +396,19 @@ function QaKnowledgeInner() {
     })
 
     void (async () => {
+      markAppSettingsHydratedForTests({
+        ...DEFAULT_APP_SETTINGS,
+        language: locale,
+        ai: {
+          provider: 'openai',
+          apiKey: 'qa-test-key',
+          model: AI_PROVIDER_DEFAULT_MODEL.openai,
+          includeWorkspaceSearch: false,
+          includeGraphNeighbors: true,
+          conversationScope: 'per-note',
+        },
+      })
+
       resetKnowledgeRuntime()
       openVault(QA_KNOWLEDGE_ROOT)
       initKnowledgeOS({
@@ -294,6 +439,37 @@ function QaKnowledgeInner() {
           setEditorContent((prev) =>
             prev + (title && title !== docKey ? `[[${docKey}|${title}]]` : `[[${docKey}]]`),
           )
+          return true
+        },
+        appendWikiLinkBetweenNotes: async ({ sourceDocKey, targetDocKey, targetTitle }) => {
+          if (hasOutgoingWikiLink(sourceDocKey, targetDocKey)) return false
+          const absolutePath = docKeyToAbsolutePath(sourceDocKey, QA_KNOWLEDGE_ROOT)
+          if (!absolutePath) return false
+          const rel = qaKnowledgeFixtureRelPath(absolutePath)
+          const current = fixturesRef.current[rel]
+          if (current === undefined) return false
+          const { body } = parseFrontmatter(current)
+          const linkMarkup = formatWikiLinkMarkup(targetDocKey, targetTitle)
+          const nextBody = appendWikiLinkToMarkdownBody(body, linkMarkup)
+          const full = attachDocumentFrontmatter(absolutePath, nextBody)
+          await persistFixture(absolutePath, full)
+          notifyKnowledgeDocumentSave(absolutePath, full)
+          requestOsRevision()
+          return true
+        },
+        removeWikiLinkBetweenNotes: async ({ sourceDocKey, targetDocKey, heading, kind }) => {
+          const absolutePath = docKeyToAbsolutePath(sourceDocKey, QA_KNOWLEDGE_ROOT)
+          if (!absolutePath) return false
+          const rel = qaKnowledgeFixtureRelPath(absolutePath)
+          const current = fixturesRef.current[rel]
+          if (current === undefined) return false
+          const { body } = parseFrontmatter(current)
+          const nextBody = removeWikiLinkFromMarkdownBody(body, targetDocKey, { heading, kind })
+          if (nextBody === body) return false
+          const full = attachDocumentFrontmatter(absolutePath, nextBody)
+          await persistFixture(absolutePath, full)
+          notifyKnowledgeDocumentSave(absolutePath, full)
+          requestOsRevision()
           return true
         },
         onHoverIdChange: () => {},
@@ -333,7 +509,7 @@ function QaKnowledgeInner() {
       registerDocumentRuntimeCapabilities(null)
       resetDocumentRuntimeKernel()
     }
-  }, [openPathInTab, openSearch, readFixture, syncKnowledgeRoute, updateDocumentFrontmatter, persistFixture])
+  }, [locale, openPathInTab, openSearch, readFixture, syncKnowledgeRoute, updateDocumentFrontmatter, persistFixture])
 
   const shellClass = useMemo(
     () => ['preview-pane', 'markdown-visual-editor', 'qa-knowledge-shell'].filter(Boolean).join(' '),
@@ -345,6 +521,9 @@ function QaKnowledgeInner() {
       <div className="qa-knowledge-diagnostics" style={{ padding: '12px 24px' }}>
         <h1 data-testid="qa-ready">Knowledge QA</h1>
         <p data-testid="qa-status">{status}</p>
+        <p data-testid="qa-locale" style={{ color: 'var(--text-secondary)' }}>
+          locale={locale}
+        </p>
         <p data-testid="qa-active-doc" style={{ color: 'var(--text-secondary)' }}>
           active={activeDocKey ?? 'none'}
         </p>
@@ -416,9 +595,40 @@ function QaKnowledgeInner() {
 }
 
 export function QaKnowledgePlayground() {
+  const locale = resolveQaLocale()
+  const [bootstrap, setBootstrap] = useState<I18nBootstrap | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const enMessages = getEnMessagesSnapshot()
+      const rawLocale = locale === 'en' ? enMessages : await ensureLocaleRawLoaded(locale)
+      if (cancelled) return
+      setBootstrap({
+        mergedMessages: locale === 'en' ? enMessages : { ...enMessages, ...rawLocale },
+        enMessages,
+        rawLocale,
+        languageSetting: locale,
+        effectiveLocale: locale,
+      })
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [locale])
+
+  if (!bootstrap) {
+    return (
+      <div style={{ padding: 24, minHeight: '100vh' }}>
+        <h1 data-testid="qa-ready">Knowledge QA</h1>
+        <p data-testid="qa-status">booting</p>
+      </div>
+    )
+  }
+
   return (
-    <I18nProvider bootstrap={QA_BOOTSTRAP}>
-      <QaKnowledgeInner />
+    <I18nProvider bootstrap={bootstrap}>
+      <QaKnowledgeInner locale={locale} />
     </I18nProvider>
   )
 }

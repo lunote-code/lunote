@@ -18,12 +18,10 @@ import { applyInitialThemeFromSettings } from '../theme-runtime/themeRuntime'
 import { markAppSettingsHydratedForTests } from '../settings/appSettingsStore'
 import { DEFAULT_APP_SETTINGS } from '../settings/appSettingsTypes'
 import { EditorTabBar } from './components/EditorTabBar'
-import {
-  SidebarFileViewToggleButton,
-  SidebarListModeSegmented,
-} from './components/SidebarHeaderChrome'
+import { SidebarPanelViewSegmented } from './components/SidebarHeaderChrome'
 import { SidebarSearchToggleButton } from './components/SidebarSearchChrome'
 import { SidebarWorkspaceMenu } from './components/SidebarWorkspaceMenu'
+import type { SidebarPanelView } from './workspace/sidebarPanelView'
 import type { FileSortMode } from './workspace/types'
 
 const QA_ROOT = '/qa-vault'
@@ -46,6 +44,10 @@ declare global {
       getSidebarHeaderHeight: () => number
       getTabsScrollWidth: () => number
       getTabsClientWidth: () => number
+      getTabsScrollLeft: () => number
+      getActiveTabPath: () => string
+      getOpenedTabCount: () => number
+      isActiveTabInViewport: () => boolean
     }
   }
 }
@@ -55,9 +57,38 @@ function QaChromeVisualInner({ locale }: { locale: UiLocaleId }) {
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>('dark')
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false)
   const [fileSortMode, setFileSortMode] = useState<FileSortMode>('group')
-  const [sidebarFileView, setSidebarFileView] = useState<'tree' | 'list'>('tree')
+  const [sidebarPanelView, setSidebarPanelView] = useState<SidebarPanelView>('files-tree')
+  const [openedTabs, setOpenedTabs] = useState<string[]>(() => [...OVERFLOW_TABS])
+  const [activePath, setActivePath] = useState<string>(() => OVERFLOW_TABS[3] ?? '')
   const workspaceMenuRef = useRef<HTMLDivElement | null>(null)
   const workspaceMenuPopRef = useRef<HTMLDivElement | null>(null)
+  const openedTabsRef = useRef(openedTabs)
+  const activePathRef = useRef(activePath)
+
+  useEffect(() => {
+    openedTabsRef.current = openedTabs
+  }, [openedTabs])
+
+  useEffect(() => {
+    activePathRef.current = activePath
+  }, [activePath])
+
+  const handleActivateTab = useCallback((path: string) => {
+    setActivePath(path)
+  }, [])
+
+  const handleCloseTab = useCallback((path: string) => {
+    setOpenedTabs((prev) => {
+      const index = prev.indexOf(path)
+      if (index < 0) return prev
+      const next = prev.filter((entry) => entry !== path)
+      setActivePath((current) => {
+        if (current !== path) return current
+        return next[Math.min(index, next.length - 1)] ?? ''
+      })
+      return next
+    })
+  }, [])
 
   const setTheme = useCallback((mode: 'light' | 'dark') => {
     const variant = mode === 'light' ? 'github-light' : 'github-dark'
@@ -85,6 +116,18 @@ function QaChromeVisualInner({ locale }: { locale: UiLocaleId }) {
         document.querySelector('[data-testid="qa-chrome-visual-tabs"] .editor-tabs')?.scrollWidth ?? 0,
       getTabsClientWidth: () =>
         document.querySelector('[data-testid="qa-chrome-visual-tabs"] .editor-tabs')?.clientWidth ?? 0,
+      getTabsScrollLeft: () =>
+        document.querySelector('[data-testid="qa-chrome-visual-tabs"] .editor-tabs')?.scrollLeft ?? 0,
+      getActiveTabPath: () => activePathRef.current,
+      getOpenedTabCount: () => openedTabsRef.current.length,
+      isActiveTabInViewport: () => {
+        const tabsEl = document.querySelector('[data-testid="qa-chrome-visual-tabs"] .editor-tabs')
+        const activeTab = tabsEl?.querySelector('[role="tab"][aria-selected="true"]')
+        if (!(tabsEl instanceof HTMLElement) || !(activeTab instanceof HTMLElement)) return false
+        const tabsRect = tabsEl.getBoundingClientRect()
+        const tabRect = activeTab.getBoundingClientRect()
+        return tabRect.left >= tabsRect.left - 1 && tabRect.right <= tabsRect.right + 1
+      },
     }
     return () => {
       delete window.__QA_CHROME_VISUAL__
@@ -134,17 +177,11 @@ function QaChromeVisualInner({ locale }: { locale: UiLocaleId }) {
           <div className="sidebar-pane-top">
             <div className="sidebar-header">
               <div className="sidebar-header-primary">
-                <SidebarListModeSegmented
+                <SidebarPanelViewSegmented
                   t={t}
-                  mode="files"
-                  onSelectFiles={() => undefined}
-                  onSelectOutline={() => undefined}
-                />
-                <SidebarFileViewToggleButton
-                  t={t}
-                  sidebarFileView={sidebarFileView}
-                  disabled={false}
-                  onToggle={() => setSidebarFileView((view) => (view === 'tree' ? 'list' : 'tree'))}
+                  view={sidebarPanelView}
+                  filesDisabled={false}
+                  onSelectView={setSidebarPanelView}
                 />
               </div>
               <div className="sidebar-header-actions">
@@ -168,6 +205,7 @@ function QaChromeVisualInner({ locale }: { locale: UiLocaleId }) {
                   setFileSortMode={setFileSortMode}
                   createNewNote={async () => undefined}
                   createNewNoteFromTemplate={async () => undefined}
+                  createNewFolder={async () => undefined}
                   chooseFolder={async () => undefined}
                   refreshFileTree={async () => undefined}
                   setStatus={() => undefined}
@@ -185,13 +223,20 @@ function QaChromeVisualInner({ locale }: { locale: UiLocaleId }) {
           <div data-testid="qa-chrome-visual-tabs" style={{ minWidth: 0 }}>
             <EditorTabBar
               t={t}
-              openedTabs={OVERFLOW_TABS}
-              activePath={OVERFLOW_TABS[3] ?? ''}
+              openedTabs={openedTabs}
+              activePath={activePath}
               externalDiskChangedPaths={new Set([OVERFLOW_TABS[1] ?? ''])}
               tabLabel={(path) => path.split('/').pop() ?? path}
-              onActivate={() => undefined}
-              onClose={() => undefined}
-              onReorder={() => undefined}
+              onActivate={handleActivateTab}
+              onClose={handleCloseTab}
+              onReorder={(fromIndex, toIndex) => {
+                setOpenedTabs((prev) => {
+                  const next = [...prev]
+                  const [moved] = next.splice(fromIndex, 1)
+                  if (moved) next.splice(toIndex, 0, moved)
+                  return next
+                })
+              }}
               onContextMenu={() => undefined}
               trailingActions={
                 <>

@@ -10,6 +10,7 @@ type SettingsFileInputProps = {
   dropHint: string
   onFile: (file: File) => void
   actions?: ReactNode
+  disabled?: boolean
 }
 
 export function SettingsFileInput({
@@ -20,10 +21,12 @@ export function SettingsFileInput({
   dropHint,
   onFile,
   actions,
+  disabled = false,
 }: SettingsFileInputProps) {
   const inputRef = useRef<HTMLInputElement | null>(null)
 
   const readDrop = (event: DragEvent<HTMLDivElement>) => {
+    if (disabled) return
     event.preventDefault()
     const file = event.dataTransfer.files.item(0)
     if (file) onFile(file)
@@ -31,8 +34,11 @@ export function SettingsFileInput({
 
   return (
     <div
-      className="settings-file-dropzone"
-      onDragOver={(event) => event.preventDefault()}
+      className={`settings-file-dropzone${disabled ? ' is-disabled' : ''}`}
+      onDragOver={(event) => {
+        if (disabled) return
+        event.preventDefault()
+      }}
       onDrop={readDrop}
     >
       <input
@@ -40,7 +46,9 @@ export function SettingsFileInput({
         className="settings-file-native"
         type="file"
         accept={accept}
+        disabled={disabled}
         onChange={(event) => {
+          if (disabled) return
           const file = event.target.files?.item(0)
           if (file) onFile(file)
           event.currentTarget.value = ''
@@ -52,7 +60,15 @@ export function SettingsFileInput({
       </div>
       <div className="settings-file-actions">
         {actions}
-        <SettingsButton type="button" variant="secondary" onClick={() => inputRef.current?.click()}>
+        <SettingsButton
+          type="button"
+          variant="secondary"
+          disabled={disabled}
+          onClick={() => {
+            if (disabled) return
+            inputRef.current?.click()
+          }}
+        >
           {buttonLabel}
         </SettingsButton>
       </div>

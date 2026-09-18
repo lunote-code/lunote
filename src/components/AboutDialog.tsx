@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 
 import { SettingsButton } from './settings'
+import { resolveOverlayPortalRoot } from '../lib/overlayPortalRoot'
 import type { TranslateFn } from '../i18n'
 import { APP_DISPLAY_NAME, APP_SHORT_NAME, APP_VERSION } from '../app/workspace/constants'
 import {
@@ -72,7 +74,7 @@ export function AboutDialog({ open, onClose, t }: Props) {
     )
   }
 
-  return (
+  const shell = (
     <AboutDialogBackdrop onClose={onClose}>
       <div
         ref={dialogRef}
@@ -94,6 +96,8 @@ export function AboutDialog({ open, onClose, t }: Props) {
       </div>
     </AboutDialogBackdrop>
   )
+
+  return typeof document !== 'undefined' ? createPortal(shell, resolveOverlayPortalRoot()) : shell
 }
 
 function AboutDialogBackdrop({

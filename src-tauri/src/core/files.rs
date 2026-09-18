@@ -138,22 +138,42 @@ pub fn collect_markdown_files(root: &str) -> Result<Vec<String>, String> {
   Ok(files)
 }
 
-pub fn read_file(root: &str, path: &str) -> Result<String, String> {
-  let root_path = PathBuf::from(root);
-  let note_path = PathBuf::from(path);
-  ensure_no_parent_dir_components(&note_path)?;
-  let resolved = ensure_under_allowed_root(&note_path, &root_path)?;
-  let meta = std::fs::metadata(&resolved).map_err(|e| format!("Failed to read file information: {e}"))?;
-  security::ensure_note_file_size(meta.len(), "note")?;
-  std::fs::read_to_string(resolved).map_err(|e| format!("Failed to read file: {e}"))
+pub fn read_file(root: &str, path: &str, crypto_key: Option<&[u8; 32]>) -> Result<String, String> {
+  super::workspace_encryption::read_note_plaintext(root, path, crypto_key)
 }
 
-pub fn read_file_base64(root: &str, path: &str) -> Result<String, String> {
+pub fn read_file_base64(
+  root: &str,
+  path: &str,
+  crypto_key: Option<&[u8; 32]>,
+) -> Result<String, String> {
   let root_path = PathBuf::from(root);
   let p = PathBuf::from(path);
   ensure_no_parent_dir_components(&p)?;
   let resolved = ensure_under_allowed_root(&p, &root_path)?;
   let bytes = std::fs::read(&resolved).map_err(|e| format!("Failed to read file: {e}"))?;
+  let encrypted_workspace = super::workspace_encryption::load_metadata(root)?.is_some();
+  if super::workspace_encryption::is_encrypted_payload(&bytes) {
+    let plaintext = if super::workspace_encryption::is_markdown_path(&resolved) {
+      super::workspace_encryption::read_note_plaintext(root, path, crypto_key)?
+        .into_bytes()
+    } else {
+      super::workspace_encryption::read_binary_plaintext(root, path, crypto_key)?
+    };
+    security::ensure_binary_payload_size(&plaintext, "document")?;
+    return Ok(base64::engine::general_purpose::STANDARD.encode(plaintext));
+  }
+  if encrypted_workspace && super::workspace_encryption::is_markdown_path(&resolved) {
+    let plaintext = super::workspace_encryption::read_note_plaintext(root, path, crypto_key)?;
+    security::ensure_note_payload_size(plaintext.as_bytes(), "document")?;
+    return Ok(base64::engine::general_purpose::STANDARD.encode(plaintext.as_bytes()));
+  }
+  if encrypted_workspace
+    && crypto_key.is_none()
+    && super::workspace_encryption::is_image_path(&resolved)
+  {
+    return Err("WORKSPACE_LOCKED".to_string());
+  }
   security::ensure_binary_payload_size(&bytes, "document")?;
   Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
 }
@@ -188,6 +208,7 @@ pub fn save_file(
   path: &str,
   content: &str,
   expected_modified_secs: Option<u64>,
+  crypto_key: Option<&[u8; 32]>,
 ) -> Result<(), String> {
   let root_path = PathBuf::from(root);
   let note_path = PathBuf::from(path);
@@ -213,8 +234,8 @@ pub fn save_file(
   if let Some(parent) = resolved.parent() {
     std::fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {e}"))?;
   }
-  security::ensure_note_payload_size(content.as_bytes(), "note")?;
-  atomic_io::atomic_write(&resolved, content.as_bytes()).map_err(|e| format!("Failed to save file: {e}"))
+  let payload = super::workspace_encryption::write_note_plaintext(root, path, content, crypto_key)?;
+  atomic_io::atomic_write(&resolved, &payload).map_err(|e| format!("Failed to save file: {e}"))
 }
 
 /// `relative_path` is relative to the parent directory of the note (e.g. `note.assets/paste-1.png`).
@@ -223,6 +244,7 @@ pub fn save_note_asset_file(
   note_path: &str,
   relative_path: &str,
   data_base64: &str,
+  crypto_key: Option<&[u8; 32]>,
 ) -> Result<(), String> {
   let root_path = PathBuf::from(root);
   let note_path_buf = PathBuf::from(note_path);
@@ -251,7 +273,13 @@ pub fn save_note_asset_file(
     .decode(trimmed.as_bytes())
     .map_err(|e| format!("Image data decoding failed: {e}"))?;
   security::ensure_binary_payload_size(&bytes, "picture")?;
-  atomic_io::atomic_write(&resolved_target, &bytes).map_err(|e| format!("Failed to write image: {e}"))
+  let payload = super::workspace_encryption::write_binary_plaintext(
+    root,
+    &resolved_target.to_string_lossy(),
+    &bytes,
+    crypto_key,
+  )?;
+  atomic_io::atomic_write(&resolved_target, &payload).map_err(|e| format!("Failed to write image: {e}"))
 }
 
 /// Determine whether the relative resource path in the same directory of the note exists (consistent with the `save_note_asset_file` parsing rules).
@@ -496,7 +524,7 @@ fn default_note_content(stem: &str) -> String {
   format!("---\ntitle: {title}\n---\n\n# {title}\n\n")
 }
 
-pub fn create_note(payload: &CreateNotePayload) -> Result<String, String> {
+pub fn create_note(payload: &CreateNotePayload, crypto_key: Option<&[u8; 32]>) -> Result<String, String> {
   let root_path = PathBuf::from(&payload.root);
   if !root_path.is_dir() {
     return Err("Invalid working directory".to_string());
@@ -524,8 +552,8 @@ pub fn create_note(payload: &CreateNotePayload) -> Result<String, String> {
       .content
       .clone()
       .unwrap_or_else(|| default_note_content(stem));
-    crate::core::security::ensure_note_payload_size(content.as_bytes(), "Create note")?;
-    atomic_io::atomic_write(&path, content.as_bytes())
+    let bytes = super::workspace_encryption::write_note_plaintext(&payload.root, &path.to_string_lossy(), &content, crypto_key)?;
+    atomic_io::atomic_write(&path, &bytes)
       .map_err(|e| format!("Creation failed: {e}"))?;
     return Ok(path.to_string_lossy().to_string());
   }
@@ -552,19 +580,22 @@ pub fn create_note(payload: &CreateNotePayload) -> Result<String, String> {
     .content
     .clone()
     .unwrap_or_else(|| default_note_content(&stem));
-  crate::core::security::ensure_note_payload_size(content.as_bytes(), "Create note")?;
-  atomic_io::atomic_write(&path, content.as_bytes()).map_err(|e| format!("Creation failed: {e}"))?;
+  let bytes = super::workspace_encryption::write_note_plaintext(&payload.root, &path.to_string_lossy(), &content, crypto_key)?;
+  atomic_io::atomic_write(&path, &bytes).map_err(|e| format!("Creation failed: {e}"))?;
   Ok(path.to_string_lossy().to_string())
 }
 
-pub fn create_new_note(root: &str) -> Result<String, String> {
-  create_note(&CreateNotePayload {
-    root: root.to_string(),
-    parent_path: None,
-    stem: Some("new note".to_string()),
-    content: None,
-    relative_path: None,
-  })
+pub fn create_new_note(root: &str, crypto_key: Option<&[u8; 32]>) -> Result<String, String> {
+  create_note(
+    &CreateNotePayload {
+      root: root.to_string(),
+      parent_path: None,
+      stem: Some("new note".to_string()),
+      content: None,
+      relative_path: None,
+    },
+    crypto_key,
+  )
 }
 
 #[derive(serde::Deserialize)]
@@ -575,14 +606,21 @@ pub struct ParentDirPayload {
 }
 
 /// Create notes in an existing parent directory (automatically avoiding the same name).
-pub fn create_new_note_in_parent(root: &str, parent_path: &str) -> Result<String, String> {
-  create_note(&CreateNotePayload {
-    root: root.to_string(),
-    parent_path: Some(parent_path.to_string()),
-    stem: Some("new note".to_string()),
-    content: None,
-    relative_path: None,
-  })
+pub fn create_new_note_in_parent(
+  root: &str,
+  parent_path: &str,
+  crypto_key: Option<&[u8; 32]>,
+) -> Result<String, String> {
+  create_note(
+    &CreateNotePayload {
+      root: root.to_string(),
+      parent_path: Some(parent_path.to_string()),
+      stem: Some("new note".to_string()),
+      content: None,
+      relative_path: None,
+    },
+    crypto_key,
+  )
 }
 
 #[derive(serde::Deserialize)]
@@ -618,7 +656,14 @@ pub fn create_workspace_folder(payload: &CreateFolderPayload) -> Result<String, 
   Ok(new_dir.to_string_lossy().to_string())
 }
 
-pub fn import_markdown_file(root: &str, source: &str) -> Result<String, String> {
+pub fn import_markdown_file(
+  root: &str,
+  source: &str,
+  crypto_key: Option<&[u8; 32]>,
+) -> Result<String, String> {
+  if let Some(key) = crypto_key {
+    return super::workspace_encryption::import_markdown_into_encrypted_workspace(root, source, key);
+  }
   let root_path = PathBuf::from(root);
   if !root_path.is_dir() {
     return Err("Invalid working directory".to_string());
@@ -721,7 +766,10 @@ pub fn workspace_path_is_directory(root: &str, path: &str) -> Result<bool, Strin
   Ok(resolved.is_dir())
 }
 
-pub fn import_dropped_file_bytes(payload: &ImportDroppedFileBytesPayload) -> Result<String, String> {
+pub fn import_dropped_file_bytes(
+  payload: &ImportDroppedFileBytesPayload,
+  crypto_key: Option<&[u8; 32]>,
+) -> Result<String, String> {
   let root_path = security::ensure_listable_workspace_root(&payload.root)?;
   let dest_path = PathBuf::from(payload.dest_dir.trim());
   ensure_no_parent_dir_components(&dest_path)?;
@@ -746,6 +794,9 @@ pub fn import_dropped_file_bytes(payload: &ImportDroppedFileBytesPayload) -> Res
     std::fs::create_dir_all(par).map_err(|e| format!("Failed to create directory: {e}"))?;
   }
   atomic_io::atomic_write(&dest, &bytes).map_err(|e| format!("Import failed: {e}"))?;
+  if let Some(key) = crypto_key {
+    super::workspace_encryption::encrypt_markdown_file_if_needed(&dest, key)?;
+  }
   Ok(dest.to_string_lossy().to_string())
 }
 
@@ -855,6 +906,7 @@ fn copy_import_dir_recursive(
 
 pub fn import_external_paths_into_workspace(
   payload: &ImportExternalPathsPayload,
+  crypto_key: Option<&[u8; 32]>,
 ) -> Result<ImportExternalPathsResult, String> {
   let root_path = security::ensure_listable_workspace_root(&payload.root)?;
   let dest_path = PathBuf::from(payload.dest_dir.trim());
@@ -910,6 +962,12 @@ pub fn import_external_paths_into_workspace(
         &mut folder_count,
         &mut entry_budget,
       )?;
+    }
+  }
+
+  if let Some(key) = crypto_key {
+    for imported_path in &imported_paths {
+      super::workspace_encryption::encrypt_markdown_file_if_needed(Path::new(imported_path), key)?;
     }
   }
 

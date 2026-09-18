@@ -1,4 +1,5 @@
 import {
+  clearDocumentEventLog,
   documentEventTimestamp,
   publishDocumentEvent,
 } from './documentEventStream'
@@ -23,8 +24,10 @@ import {
   mergeOpenTabs,
   wouldExceedOpenTabLimit,
   wouldExceedOpenTabLimitForPaths,
-} from '../app/document/openTabLimits'
+} from './openTabLimits'
 import { parseFrontmatter } from '../editor/knowledgeRuntime/wikiLinkParser'
+import { logInfo } from '../lib/lunaLogger'
+import { editorSurfaceForDocumentPath, warnIfFullMarkdownInBodyStore } from './documentBodyProjection'
 
 const initialSnapshot: DocumentRuntimeSnapshot = {
   rootDir: '',
@@ -33,6 +36,37 @@ const initialSnapshot: DocumentRuntimeSnapshot = {
   openedTabs: [],
   dirtyByPath: {},
   updatedAt: 0,
+}
+
+function perfNowMs(): number {
+  return typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now()
+}
+
+function perfDurationMs(startedAt: number): number {
+  return Math.round((perfNowMs() - startedAt) * 10) / 10
+}
+
+function logDocumentReadPerf(args: {
+  commandType: 'OPEN_DOCUMENT' | 'RESTORE_WORKSPACE'
+  source?: string
+  root: string
+  path: string
+  durationMs: number
+  bytes: number
+  openTabs?: number
+}): void {
+  if (!(args.durationMs >= 50 || args.source?.includes('workspace-restore'))) return
+  logInfo('[PERF] document_read', {
+    commandType: args.commandType,
+    source: args.source ?? null,
+    root: args.root,
+    path: args.path,
+    durationMs: args.durationMs,
+    bytes: args.bytes,
+    openTabs: args.openTabs ?? null,
+  })
 }
 
 let snapshot: DocumentRuntimeSnapshot = initialSnapshot
@@ -87,6 +121,12 @@ function clearSavedContent(): void {
 
 function editorSurfaceForDirtyCompare(markdown: string): string {
   return parseFrontmatter(markdown).body
+}
+
+function kernelContentForPath(path: string, markdown: string): string {
+  const surface = editorSurfaceForDocumentPath(path, markdown)
+  warnIfFullMarkdownInBodyStore('kernel-content', path, markdown)
+  return surface
 }
 
 function isContentDirty(path: string, content: string): boolean {
@@ -335,13 +375,14 @@ function applyOpenDocumentContentState(
     }
   }
   const preserveDirtyDuringModeSwitch = source === 'mode-switch'
+  const kernelContent = kernelContentForPath(path, content)
   if (isActivePath) {
     const nextDirtyByPath = preserveDirtyDuringModeSwitch
       ? preserveDirtyFlagForPath(path, snapshot.dirtyByPath)
       : dirtyFlagForPath(path, content, snapshot.dirtyByPath)
     logDirtyProbe('apply-open-document-content:active', {
       path,
-      content,
+      content: kernelContent,
       source,
       nextDirtyByPath,
       extra: {
@@ -352,7 +393,7 @@ function applyOpenDocumentContentState(
     capabilities?.renderContent(content)
     setKernelSnapshot({
       activePath: path,
-      content,
+      content: kernelContent,
       dirtyByPath: nextDirtyByPath,
     })
   } else {
@@ -361,7 +402,7 @@ function applyOpenDocumentContentState(
       : dirtyFlagForPath(path, content, snapshot.dirtyByPath)
     logDirtyProbe('apply-open-document-content:inactive', {
       path,
-      content,
+      content: kernelContent,
       source,
       nextDirtyByPath,
       extra: {
@@ -376,10 +417,11 @@ function applyOpenDocumentContentState(
   publishDocumentEvent({
     type: 'DocumentContentChanged',
     path,
-    content,
+    content: kernelContent,
     source,
     timestamp: documentEventTimestamp(),
   })
+  projectDerivedDocumentBody(path, kernelContent)
 }
 
 function notify(): void {
@@ -444,6 +486,22 @@ export function registerDocumentRuntimeCapabilities(
   capabilities = next
 }
 
+export const DOCUMENT_RUNTIME_NO_CAPABILITIES_ERROR =
+  'DocumentRuntimeKernel has no registered capabilities'
+
+export function hasDocumentRuntimeCapabilities(): boolean {
+  return capabilities != null
+}
+
+/** True when a command failed because capabilities were cleared mid-flight (e.g. crash teardown). */
+export function isDocumentRuntimeTornDownError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message === DOCUMENT_RUNTIME_NO_CAPABILITIES_ERROR &&
+    !hasDocumentRuntimeCapabilities()
+  )
+}
+
 function pruneDirtyForTabs(
   tabs: readonly string[],
   dirtyByPath: Readonly<Record<string, boolean>>,
@@ -453,6 +511,11 @@ function pruneDirtyForTabs(
     if (dirty && tabs.some((tabPath) => pathsEqual(tabPath, path))) next[path] = true
   }
   return next
+}
+
+function projectDerivedDocumentBody(path: string, content: string): void {
+  if (!path) return
+  capabilities?.projectOpenDocumentBody?.(path, content)
 }
 
 export async function dispatchDocumentCommand(command: DocumentCommand): Promise<string | void> {
@@ -470,14 +533,26 @@ export function applyActiveDocumentContentImmediately(
 
 async function dispatchDocumentCommandInner(command: DocumentCommand): Promise<string | void> {
   if (!capabilities) {
-    throw new Error('DocumentRuntimeKernel has no registered capabilities')
+    throw new Error(DOCUMENT_RUNTIME_NO_CAPABILITIES_ERROR)
   }
 
   switch (command.type) {
     case 'OPEN_DOCUMENT': {
       const traceId = command.traceId ?? `kernel-${Date.now()}`
       const rootChanged = Boolean(command.root) && command.root !== snapshot.rootDir
+      const readStartedAt = perfNowMs()
       const content = await capabilities.readDocument(command.root, command.path)
+      capabilities.invalidateEditorBootstrapBeforeDocumentRead?.(command.path, {
+        bumpColdOpen: pathsEqual(snapshot.activePath, command.path),
+      })
+      logDocumentReadPerf({
+        commandType: command.type,
+        source: command.source,
+        root: command.root,
+        path: command.path,
+        durationMs: perfDurationMs(readStartedAt),
+        bytes: content.length,
+      })
       capabilities.setActiveDocument(command.path, content)
       capabilities.onDocumentOpened?.(command.root, command.path, content)
       capabilities.onAfterOpen?.(command.path, content)
@@ -500,17 +575,18 @@ async function dispatchDocumentCommandInner(command: DocumentCommand): Promise<s
       setKernelSnapshot({
         rootDir: command.root,
         activePath: command.path,
-        content,
+        content: kernelContentForPath(command.path, content),
         dirtyByPath: nextDirtyByPath,
       })
       publishDocumentEvent({
         type: 'DocumentOpened',
         root: command.root,
         path: command.path,
-        content,
+        content: kernelContentForPath(command.path, content),
         source: command.source,
         timestamp: documentEventTimestamp(),
       })
+      projectDerivedDocumentBody(command.path, kernelContentForPath(command.path, content))
       if (isTabNavLogEnabled()) {
         logTabNav('kernel-set-active', {
           commandType: command.type,
@@ -545,6 +621,7 @@ async function dispatchDocumentCommandInner(command: DocumentCommand): Promise<s
         docKey: command.docKey,
         heading: command.heading,
         blockId: command.blockId,
+        linkBodyOffset: command.linkBodyOffset,
         content,
         source: command.source,
         traceId: command.traceId,
@@ -613,16 +690,17 @@ async function dispatchDocumentCommandInner(command: DocumentCommand): Promise<s
       capabilities.renderContent(command.content)
       setKernelSnapshot({
         activePath: command.path,
-        content: command.content,
+        content: kernelContentForPath(command.path, command.content),
         dirtyByPath: dirtyFlagForPath(command.path, command.content, snapshot.dirtyByPath),
       })
       publishDocumentEvent({
         type: 'DocumentContentChanged',
         path: command.path,
-        content: command.content,
+        content: kernelContentForPath(command.path, command.content),
         source: command.source ?? 'normalize',
         timestamp: documentEventTimestamp(),
       })
+      projectDerivedDocumentBody(command.path, kernelContentForPath(command.path, command.content))
       return
     }
 
@@ -630,9 +708,10 @@ async function dispatchDocumentCommandInner(command: DocumentCommand): Promise<s
       devPreSaveDiagnostic(command)
       await capabilities.writeDocument(command.root, command.path, command.content, {
         forceOverwrite: command.forceOverwrite,
+        expectedModifiedSecs: command.expectedModifiedSecs,
       })
       await devPostSaveReadbackVerify(command)
-      capabilities.onDocumentSaved?.(command.root, command.path, command.content)
+      capabilities.onDocumentSaved?.(command.root, command.path, command.content, command.source)
       {
         const savedState = applySavedDocumentState(command.path, command.content, snapshot.dirtyByPath)
         setKernelSnapshot({
@@ -649,36 +728,55 @@ async function dispatchDocumentCommandInner(command: DocumentCommand): Promise<s
         source: command.source,
         timestamp: documentEventTimestamp(),
       })
+      projectDerivedDocumentBody(command.path, command.content)
       resumeAutosaveForPath(command.path)
       return
 
     case 'SAVE_DOCUMENT_BATCH': {
       if (command.documents.length === 0) return
-      let nextDirty = snapshot.dirtyByPath
-      let nextActiveContent: string | undefined
-      for (const doc of command.documents) {
-        await capabilities.writeDocument(command.root, doc.path, doc.content, {
-          forceOverwrite: command.forceOverwrite,
+      // Write first; only then update saved baselines so a mid-batch failure cannot
+      // leave dirtyByPath and savedContentByPath out of sync for unwritten docs.
+      const caps = capabilities
+      const written: Array<{ path: string; content: string }> = []
+      const commitWrittenBaselines = () => {
+        if (written.length === 0) return
+        let nextDirty = snapshot.dirtyByPath
+        let nextActiveContent: string | undefined
+        for (const doc of written) {
+          caps.onDocumentSaved?.(command.root, doc.path, doc.content, command.source)
+          const savedState = applySavedDocumentState(doc.path, doc.content, nextDirty)
+          nextDirty = savedState.dirtyByPath
+          if (savedState.activeContent !== undefined) nextActiveContent = savedState.activeContent
+          publishDocumentEvent({
+            type: 'DocumentSaved',
+            root: command.root,
+            path: doc.path,
+            content: doc.content,
+            source: command.source,
+            timestamp: documentEventTimestamp(),
+          })
+          projectDerivedDocumentBody(doc.path, doc.content)
+          resumeAutosaveForPath(doc.path)
+        }
+        setKernelSnapshot({
+          rootDir: command.root,
+          ...(nextActiveContent !== undefined ? { content: nextActiveContent } : {}),
+          dirtyByPath: nextDirty,
         })
-        capabilities.onDocumentSaved?.(command.root, doc.path, doc.content)
-        const savedState = applySavedDocumentState(doc.path, doc.content, nextDirty)
-        nextDirty = savedState.dirtyByPath
-        if (savedState.activeContent !== undefined) nextActiveContent = savedState.activeContent
-        publishDocumentEvent({
-          type: 'DocumentSaved',
-          root: command.root,
-          path: doc.path,
-          content: doc.content,
-          source: command.source,
-          timestamp: documentEventTimestamp(),
-        })
-        resumeAutosaveForPath(doc.path)
       }
-      setKernelSnapshot({
-        rootDir: command.root,
-        ...(nextActiveContent !== undefined ? { content: nextActiveContent } : {}),
-        dirtyByPath: nextDirty,
-      })
+      try {
+        for (const doc of command.documents) {
+          await caps.writeDocument(command.root, doc.path, doc.content, {
+            forceOverwrite: command.forceOverwrite,
+            expectedModifiedSecs: doc.expectedModifiedSecs,
+          })
+          written.push(doc)
+        }
+      } catch (error) {
+        commitWrittenBaselines()
+        throw error
+      }
+      commitWrittenBaselines()
       return
     }
 
@@ -711,7 +809,23 @@ async function dispatchDocumentCommandInner(command: DocumentCommand): Promise<s
       }
       capabilities.setTabs(openTabs)
       if (command.activePath) {
-        const content = await capabilities.readDocument(command.root, command.activePath)
+        const readStartedAt = perfNowMs()
+        const cachedContent = capabilities.readCachedDocumentForRestore?.(command.activePath)
+        const content =
+          cachedContent ??
+          (await capabilities.readDocument(command.root, command.activePath))
+        capabilities.invalidateEditorBootstrapBeforeDocumentRead?.(command.activePath, {
+          bumpColdOpen: pathsEqual(snapshot.activePath, command.activePath),
+        })
+        logDocumentReadPerf({
+          commandType: command.type,
+          source: command.source,
+          root: command.root,
+          path: command.activePath,
+          durationMs: perfDurationMs(readStartedAt),
+          bytes: content.length,
+          openTabs: openTabs.length,
+        })
         capabilities.setActiveDocument(command.activePath, content)
         capabilities.onDocumentOpened?.(command.root, command.activePath, content)
         clearSavedContent()
@@ -719,10 +833,19 @@ async function dispatchDocumentCommandInner(command: DocumentCommand): Promise<s
         setKernelSnapshot({
           rootDir: command.root,
           activePath: command.activePath,
-          content,
+          content: kernelContentForPath(command.activePath, content),
           openedTabs: openTabs,
           dirtyByPath: {},
         })
+        publishDocumentEvent({
+          type: 'DocumentOpened',
+          root: command.root,
+          path: command.activePath,
+          content: kernelContentForPath(command.activePath, content),
+          source: command.source,
+          timestamp: documentEventTimestamp(),
+        })
+        projectDerivedDocumentBody(command.activePath, kernelContentForPath(command.activePath, content))
       } else {
         const content = command.emptyContent ?? ''
         capabilities.setActiveDocument('', content)
@@ -764,6 +887,7 @@ async function dispatchDocumentCommandInner(command: DocumentCommand): Promise<s
         source: command.source,
         timestamp: documentEventTimestamp(),
       })
+      projectDerivedDocumentBody(command.id, command.content)
       return command.content
 
     case 'OPEN_SCRATCH_TAB': {
@@ -792,6 +916,15 @@ async function dispatchDocumentCommandInner(command: DocumentCommand): Promise<s
         source: command.source,
         timestamp: documentEventTimestamp(),
       })
+      publishDocumentEvent({
+        type: 'DocumentOpened',
+        root: snapshot.rootDir,
+        path: command.id,
+        content: command.content,
+        source: command.source,
+        timestamp: documentEventTimestamp(),
+      })
+      projectDerivedDocumentBody(command.id, command.content)
       return command.content
     }
 
@@ -801,7 +934,10 @@ async function dispatchDocumentCommandInner(command: DocumentCommand): Promise<s
       capabilities.setTabs(nextTabs)
       const closingActive = pathsEqual(snapshot.activePath, command.path)
       const fallbackPath = closingActive ? command.fallbackPath ?? '' : snapshot.activePath
-      const fallbackContent = closingActive ? command.fallbackContent ?? '' : snapshot.content
+      const fallbackContentRaw = closingActive ? command.fallbackContent ?? '' : snapshot.content
+      const fallbackContent = closingActive
+        ? kernelContentForPath(fallbackPath, fallbackContentRaw)
+        : snapshot.content
       deleteSavedContent(command.path)
       const nextDirty = { ...snapshot.dirtyByPath }
       for (const key of Object.keys(nextDirty)) {
@@ -859,54 +995,70 @@ async function dispatchDocumentCommandInner(command: DocumentCommand): Promise<s
       capabilities.setActiveDocument(command.path, command.content)
       setKernelSnapshot({
         activePath: command.path,
-        content: command.content,
+        content: kernelContentForPath(command.path, command.content),
         dirtyByPath: nextDirtyByPath,
       })
       publishDocumentEvent({
         type: 'DocumentContentChanged',
         path: command.path,
-        content: command.content,
+        content: kernelContentForPath(command.path, command.content),
         source: command.source,
         timestamp: documentEventTimestamp(),
       })
+      projectDerivedDocumentBody(command.path, kernelContentForPath(command.path, command.content))
       return command.content
     }
 
     case 'REVERT_DOCUMENT': {
+      const revertingActiveDocument = pathsEqual(snapshot.activePath, command.path)
       const content = await capabilities.readDocument(command.root, command.path)
-      capabilities.setActiveDocument(command.path, content)
+      if (revertingActiveDocument) {
+        capabilities.invalidateEditorBootstrapBeforeDocumentRead?.(command.path)
+        capabilities.setActiveDocument(command.path, content)
+      }
       setSavedContent(command.path, content)
       resumeAutosaveForPath(command.path)
+      const revertedKernelContent = revertingActiveDocument
+        ? kernelContentForPath(command.path, content)
+        : snapshot.content
       setKernelSnapshot({
         rootDir: command.root,
-        activePath: command.path,
-        content,
+        activePath: revertingActiveDocument ? command.path : snapshot.activePath,
+        content: revertedKernelContent,
         dirtyByPath: dirtyFlagForPath(command.path, content, snapshot.dirtyByPath),
       })
       publishDocumentEvent({
         type: 'DocumentContentChanged',
         path: command.path,
-        content,
+        content: kernelContentForPath(command.path, content),
         source: command.source,
         timestamp: documentEventTimestamp(),
       })
+      projectDerivedDocumentBody(command.path, kernelContentForPath(command.path, content))
       return content
     }
 
     case 'RESTORE_DOCUMENT_HISTORY_SNAPSHOT': {
-      capabilities.setActiveDocument(command.path, command.content)
+      const restoringActiveDocument = pathsEqual(snapshot.activePath, command.path)
+      if (restoringActiveDocument) {
+        capabilities.setActiveDocument(command.path, command.content)
+      }
+      const restoredKernelContent = restoringActiveDocument
+        ? kernelContentForPath(command.path, command.content)
+        : snapshot.content
       setKernelSnapshot({
-        activePath: command.path,
-        content: command.content,
+        activePath: restoringActiveDocument ? command.path : snapshot.activePath,
+        content: restoredKernelContent,
         dirtyByPath: dirtyFlagForPath(command.path, command.content, snapshot.dirtyByPath),
       })
       publishDocumentEvent({
         type: 'DocumentContentChanged',
         path: command.path,
-        content: command.content,
+        content: kernelContentForPath(command.path, command.content),
         source: command.source ?? `history-restore:${command.snapshotId}`,
         timestamp: documentEventTimestamp(),
       })
+      projectDerivedDocumentBody(command.path, kernelContentForPath(command.path, command.content))
       return command.content
     }
 
@@ -929,4 +1081,15 @@ export function resetDocumentRuntimeKernel(): void {
   capabilities = null
   listeners.clear()
   clearSavedContent()
+}
+
+/** Drop in-memory document bodies after lock. Keeps root, tabs, and active path for reload. */
+export function purgeOpenDocumentPlaintext(): void {
+  clearSavedContent()
+  setKernelSnapshot({
+    content: '',
+    dirtyByPath: {},
+  })
+  capabilities?.renderContent('')
+  clearDocumentEventLog()
 }

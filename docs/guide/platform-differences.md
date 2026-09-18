@@ -47,7 +47,7 @@ On the desktop app, Lunote reads the host OS via **`@tauri-apps/plugin-os`** (no
 ## Clipboard and images
 
 - Pasting images uses the OS clipboard (PNG/JPEG/GIF/WebP, etc.).
-- **HEIC/HEIF** paths are recognized but decoding depends on system libraries; on Linux, HEIC paste may fail unless the file is converted.
+- **HEIC/HEIF** — Lunote tries to decode and convert to PNG automatically (macOS `sips`, `heif-convert`, or ImageMagick when available). If conversion fails, paste PNG/JPEG instead or use **Format → Image** to insert the file.
 - Copying a **file** from Finder may put both a file list and a filename on the clipboard; Lunote suppresses duplicate filename text when a real image path is available (macOS-oriented heuristic; other file managers may differ).
 
 ## File watching

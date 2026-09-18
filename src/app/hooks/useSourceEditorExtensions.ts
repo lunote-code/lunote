@@ -1,4 +1,13 @@
-import { useEffect, useMemo, useSyncExternalStore, type Dispatch, type MutableRefObject, type RefObject, type SetStateAction } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+  type Dispatch,
+  type MutableRefObject,
+  type RefObject,
+  type SetStateAction,
+} from 'react'
 import { markdown } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
 import {
@@ -37,17 +46,19 @@ import {
   markdownUxKeymap,
 } from '../codemirror/sourceEditorExtensions'
 import { useI18n } from '../../i18n'
+import type { SidebarListMode } from '../workspace/sidebarPanelView'
 
 export type SourceEditorExtensionsDeps = {
   isLargeDoc: boolean
-  sidebarListMode: 'files' | 'outline'
-  outlineSpyCtxRef: MutableRefObject<{ sidebarListMode: 'files' | 'outline' }>
+  sidebarListMode: SidebarListMode
+  outlineSpyCtxRef: MutableRefObject<{ sidebarListMode: SidebarListMode }>
   setActiveOutlineIdRef: MutableRefObject<(id: string) => void>
   setActiveOutlineId: Dispatch<SetStateAction<string>>
   wikiHandlersRef: MutableRefObject<WikiLinkEditorHandlers | null>
   wikiTargetResolverRef: MutableRefObject<((pos: number) => WikiLinkTarget | null) | null>
   pasteImageHandlerRef: MutableRefObject<(file: File, mimeHint: string) => Promise<string | null>>
   editorViewRef: RefObject<EditorView | null>
+  onSourceSelectionActivity?: () => void
 }
 
 export function useSourceEditorExtensions(deps: SourceEditorExtensionsDeps) {
@@ -61,9 +72,12 @@ export function useSourceEditorExtensions(deps: SourceEditorExtensionsDeps) {
     wikiTargetResolverRef,
     pasteImageHandlerRef,
     editorViewRef,
+    onSourceSelectionActivity,
   } = deps
 
-  const { t, effectiveLocale } = useI18n()
+  const { t } = useI18n()
+  const onSourceSelectionActivityRef = useRef(onSourceSelectionActivity)
+  onSourceSelectionActivityRef.current = onSourceSelectionActivity
 
   useEffect(() => {
     outlineSpyCtxRef.current = { sidebarListMode }
@@ -127,6 +141,15 @@ export function useSourceEditorExtensions(deps: SourceEditorExtensionsDeps) {
     [outlineSpyCtxRef, setActiveOutlineId],
   )
 
+  const editorSelectionActivityExt = useMemo(
+    () =>
+      EditorView.updateListener.of((update) => {
+        if (!update.selectionSet) return
+        onSourceSelectionActivityRef.current?.()
+      }),
+    [],
+  )
+
   const wikiLinkCmExt = useMemo(
     () => createWikiLinkClickExtension(wikiHandlersRef, wikiTargetResolverRef),
     [wikiHandlersRef, wikiTargetResolverRef],
@@ -169,6 +192,7 @@ export function useSourceEditorExtensions(deps: SourceEditorExtensionsDeps) {
       EditorView.lineWrapping,
       comfortableEditorTheme,
       cmNavigationJumpFlashExt,
+      editorSelectionActivityExt,
       wikiLinkCmExt,
       cmWebviewPasteExt,
       cmWikiLinkSuggestExt,
@@ -178,11 +202,11 @@ export function useSourceEditorExtensions(deps: SourceEditorExtensionsDeps) {
     }
     return exts
   }, [
-    effectiveLocale,
     t,
     isLargeDoc,
     editorOutlineScrollViewportExt,
     editorOutlineActiveExt,
+    editorSelectionActivityExt,
     wikiLinkCmExt,
     cmWebviewPasteExt,
     cmWikiLinkSuggestExt,

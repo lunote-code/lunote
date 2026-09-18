@@ -628,7 +628,7 @@ export function PluginCatalogList({
               setEarlyAccessDismissed(true)
             }}
           >
-            {t('settings.plugins.earlyAccessNotice')}
+            <span data-testid="prefs-plugins-early-access-notice">{t('settings.plugins.earlyAccessNotice')}</span>
           </PreferencesInfoCallout>
         ) : null}
 

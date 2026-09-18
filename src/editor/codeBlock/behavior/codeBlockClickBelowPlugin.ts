@@ -1,7 +1,7 @@
 import type { Editor } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 
-import { tryFocusParagraphBelowLastCodeBlockOnPointer } from './codeBlockClickBelow'
+import { tryFocusParagraphOnHardBlockPointer } from './codeBlockClickBelow'
 
 export function createCodeBlockClickBelowPlugin(editor: Editor): Plugin {
   return new Plugin({
@@ -10,7 +10,7 @@ export function createCodeBlockClickBelowPlugin(editor: Editor): Plugin {
       handleDOMEvents: {
         click(view, event) {
           if (!(event instanceof MouseEvent)) return false
-          if (tryFocusParagraphBelowLastCodeBlockOnPointer(editor, view, event)) {
+          if (tryFocusParagraphOnHardBlockPointer(editor, view, event)) {
             event.preventDefault()
             return true
           }

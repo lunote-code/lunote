@@ -1,0 +1,174 @@
+.shortcuts-cheatsheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay-command-palette, 10200);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 16px;
+  overflow: auto;
+  background: var(--luna-overlay-backdrop);
+}
+
+.shortcuts-cheatsheet-dialog {
+  width: min(720px, 100%);
+  max-height: min(80vh, 900px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--luna-overlay-panel-border);
+  border-radius: 12px;
+  background: var(--luna-overlay-panel-bg);
+  box-shadow: var(--luna-overlay-panel-shadow);
+}
+
+.shortcuts-cheatsheet-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.shortcuts-cheatsheet-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.shortcuts-cheatsheet-lead {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.shortcuts-cheatsheet-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.shortcuts-cheatsheet-close {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.shortcuts-cheatsheet-close:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.shortcuts-cheatsheet-body {
+  overflow: auto;
+  padding: 12px 18px 16px;
+}
+
+.shortcuts-cheatsheet-section + .shortcuts-cheatsheet-section {
+  margin-top: 18px;
+}
+
+.shortcuts-cheatsheet-section-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.shortcuts-cheatsheet-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.shortcuts-cheatsheet-table tr + tr {
+  border-top: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
+}
+
+.shortcuts-cheatsheet-command {
+  width: 62%;
+  padding: 7px 8px 7px 0;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  color: var(--text-primary);
+}
+
+.shortcuts-cheatsheet-key {
+  padding: 7px 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.shortcuts-cheatsheet-key kbd {
+  display: inline-block;
+  min-width: 1.5em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+  background: color-mix(in srgb, var(--surface-hover) 70%, var(--surface-panel));
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.shortcuts-cheatsheet-footer {
+  padding: 10px 18px 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.shortcuts-cheatsheet-customize-link {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.shortcuts-cheatsheet-customize-link:hover {
+  text-decoration: underline;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .shortcuts-cheatsheet-backdrop,
+  .shortcuts-cheatsheet-backdrop * {
+    visibility: visible;
+  }
+
+  .shortcuts-cheatsheet-backdrop {
+    position: static;
+    inset: auto;
+    padding: 0;
+    overflow: visible;
+    background: var(--surface-app, #fff);
+  }
+
+  .shortcuts-cheatsheet-dialog {
+    width: 100%;
+    max-height: none;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .shortcuts-cheatsheet-header-actions,
+  .shortcuts-cheatsheet-footer {
+    display: none;
+  }
+
+  .shortcuts-cheatsheet-body {
+    overflow: visible;
+  }
+}

@@ -1,15 +1,27 @@
 /**
  * Knowledge OS UI Bridge — OKFL single OSKernelClock driver snapshot.
  */
-import { subscribeKnowledgeEvents, subscribeLinkIndexState } from '../knowledgeRuntime'
+import {
+  getActiveVaultSession,
+  refreshGraphViewIncremental,
+  resetLinkGraph,
+  resetLinkGraphIndex,
+  subscribeKnowledgeEvents,
+  subscribeLinkIndexState,
+  vaultIdFromRoot,
+} from '../knowledgeRuntime'
+import { resetWorkspaceLinkGraphBootstrap } from '../knowledgeRuntime/workspaceLinkGraphBootstrap'
 import { initKnowledgeSurfaceRuntime, onKsrWorkspaceOpened } from '../knowledgeSurfaceRuntime'
+import { resetKnowledgeSurfaceRuntime } from '../knowledgeSurfaceRuntime/knowledgeSurfaceBridge'
 import type { ContentResolver } from '../knowledgeInteractionRuntime'
+import { resetKnowledgeInteractionRuntime, resetKnowledgeNavigationRuntime } from '../knowledgeInteractionRuntime'
 import { refreshBacklinkPanel, subscribeBacklinkPanel } from './backlinkPanelRuntime'
 import { getBacklinkPanelSnapshot } from './backlinkPanelRuntime'
 import {
   flushDeferredGraphLayout,
   getNoteGraphSnapshot,
   invalidateNoteGraphSubgraphCache,
+  notifyNoteGraphVaultChanged,
   subscribeNoteGraph,
 } from './noteGraphRuntime'
 import { beginKnowledgeOSBoot, endKnowledgeOSBoot, resetKnowledgeOSBoot } from './knowledgeOSBoot'
@@ -245,12 +257,25 @@ export function initKnowledgeOS(options?: {
   }
 }
 
+function clearLinkGraphForVaultSwitch(nextVaultId: string): void {
+  const prevSession = getActiveVaultSession()
+  const prevVaultId = prevSession ? vaultIdFromRoot(prevSession.rootDir) : null
+  if (prevVaultId && prevVaultId !== nextVaultId) {
+    resetLinkGraphIndex()
+    resetLinkGraph()
+    resetWorkspaceLinkGraphBootstrap()
+    refreshGraphViewIncremental()
+  }
+}
+
 export function onKnowledgeOSWorkspaceOpened(rootDir: string): void {
+  const vaultId = vaultIdFromRoot(rootDir)
+  clearLinkGraphForVaultSwitch(vaultId)
+  notifyNoteGraphVaultChanged(vaultId)
   endKnowledgeOSBoot()
   openKnowledgeVault(rootDir)
   openKnowledgeWorkspace(rootDir)
   onKsrWorkspaceOpened(rootDir)
-  const vaultId = rootDir.replace(/\\/g, '/').replace(/\/+$/u, '')
   restoreKnowledgeUILayoutFromStorage(vaultId)
   restoreSurfaceSplitLayoutFromStorage()
   bumpLiveKernelTick('workspace')
@@ -258,14 +283,17 @@ export function onKnowledgeOSWorkspaceOpened(rootDir: string): void {
 }
 
 export function onKnowledgeOSWorkspaceClosing(rootDir: string): void {
-  const vaultId = rootDir.replace(/\\/g, '/').replace(/\/+$/u, '')
+  const vaultId = vaultIdFromRoot(rootDir)
   persistKnowledgeUILayout(vaultId)
   closeKnowledgeVault(vaultId)
+  notifyNoteGraphVaultChanged(null)
   resetKnowledgeOS()
 }
 
 export function resetKnowledgeOS(): void {
   resetKnowledgeOSBoot()
+  resetKnowledgeSurfaceRuntime()
+  resetKnowledgeInteractionRuntime()
   resetSurfaceLayoutRuntime()
   resetSurfaceSplitLayoutRuntime()
   resetInteractionTransactionState()
@@ -281,6 +309,7 @@ export function resetKnowledgeOS(): void {
   resetGraphNavigationRuntime()
   resetNoteGraphRuntime()
   resetKnowledgeSearchRuntime()
+  resetKnowledgeNavigationRuntime()
   resetKnowledgeWorkspaceRuntime()
   registerVaultFileAdapter(null)
   knowledgeUIBridgeBooted = false

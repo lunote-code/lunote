@@ -23,6 +23,15 @@ export const DEFERRED_KNOWLEDGE_OS_MODULES = [
   'collaborationSessionRuntime',
 ] as const
 
+/** AI capabilities not booted at workspace open; wired lazily from editor rails. */
+export const ACTIVE_AI_MODULES = ['aiPanelRuntime', 'aiCursorInsertRuntime', 'aiBlockRuntime'] as const
+
+export const DEFERRED_AI_MODULES = ['aiAgentOrchestrationRuntime', 'aiCollaborationRuntime'] as const
+
 export function isDeferredKnowledgeModule(moduleId: string): boolean {
   return (DEFERRED_KNOWLEDGE_OS_MODULES as readonly string[]).includes(moduleId)
+}
+
+export function isDeferredAiModule(moduleId: string): boolean {
+  return (DEFERRED_AI_MODULES as readonly string[]).includes(moduleId)
 }

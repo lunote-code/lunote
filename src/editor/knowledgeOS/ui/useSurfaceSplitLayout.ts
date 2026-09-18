@@ -10,29 +10,26 @@ import {
   setSurfaceSplitPreview,
   subscribeSurfaceSplitLayout,
   setSurfaceSplitLayoutProgrammatic,
-  type SurfaceSplitDragSession,
   SURFACE_RAIL_DEFAULT_PX,
-  SURFACE_RAIL_MIN_PX,
   SURFACE_RAIL_MAX_PX,
+  SURFACE_RAIL_MIN_PX,
   SURFACE_SPLITTER_WIDTH_PX,
 } from '../layout/surfaceSplitLayoutRuntime'
 import {
-  applyRailDragPreview,
-  beginRailDragCompositor,
-  clearFrozenSplitGrid,
-  clearRailDragPreview,
-  freezeSplitGridColumns,
-} from '../layout/surfaceSplitDragPreview'
-import {
   beginDeepProfileDrag,
   endDeepProfileDrag,
-  flushDeepProfileFrame,
   profileLayoutRecalc,
 } from '../layout/surfaceSplitLayoutProfile'
-import { getCurrentOSKernelTick } from '../osKernelClock'
+import { beginVerticalSplitDrag } from '../../../lib/verticalSplitDrag'
 import { invalidateKnowledgeOSSnapshot } from '../knowledgeUIBridge'
+import { getCurrentOSKernelTick } from '../osKernelClock'
 
 const RESIZE_DEBOUNCE_MS = 200
+
+function clampRailWidth(nextRail: number, usable: number): number {
+  const maxRail = Math.min(SURFACE_RAIL_MAX_PX, Math.max(SURFACE_RAIL_MIN_PX, usable - SURFACE_RAIL_MIN_PX))
+  return Math.max(SURFACE_RAIL_MIN_PX, Math.min(maxRail, Math.round(nextRail)))
+}
 
 export function useSurfaceSplitLayout(
   mainRef: React.RefObject<HTMLElement | null>,
@@ -45,13 +42,9 @@ export function useSurfaceSplitLayout(
   const observeTargetRef = useRef<HTMLElement | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dragRef = useRef({
-    session: null as SurfaceSplitDragSession | null,
-    railEl: null as HTMLElement | null,
     startX: 0,
     startRail: 0,
     usable: 0,
-    rafId: 0,
-    pendingRatio: null as number | null,
   })
 
   const syncCommittedRailCss = useCallback(() => {
@@ -132,67 +125,17 @@ export function useSurfaceSplitLayout(
     syncCommittedRailCss()
   }, [railVisible, syncCommittedRailCss])
 
-  const flushPreviewFrame = useCallback(() => {
-    dragRef.current.rafId = 0
-    const ratio = dragRef.current.pendingRatio
-    const session = dragRef.current.session
-    if (ratio == null || !session) return
-    dragRef.current.pendingRatio = null
-
-    profileLayoutRecalc('split', 'preview-transform')
-    const previewWidth = setSurfaceSplitPreview(ratio)
-    const { scaleX, frozen, preview } = applyRailDragPreview(
-      dragRef.current.railEl,
-      previewWidth,
-      session.frozenRailWidth,
-    )
-    flushDeepProfileFrame(scaleX, frozen, preview)
-  }, [])
-
-  const schedulePreview = useCallback(
-    (ratio: number) => {
-      dragRef.current.pendingRatio = ratio
-      if (dragRef.current.rafId !== 0) return
-      dragRef.current.rafId = requestAnimationFrame(flushPreviewFrame)
-    },
-    [flushPreviewFrame],
-  )
-
-  const endDrag = useCallback(
-    (handleEl: HTMLElement, pointerId: number) => {
+  const applyLiveRailWidth = useCallback(
+    (nextRail: number) => {
       const main = mainRef.current
-      const rail = dragRef.current.railEl
-
-      if (dragRef.current.rafId !== 0) {
-        cancelAnimationFrame(dragRef.current.rafId)
-        dragRef.current.rafId = 0
+      if (!main) return
+      profileLayoutRecalc('split', 'preview-css-var')
+      applyKosRailWidthCss(main, nextRail)
+      if (dragRef.current.usable > 0) {
+        setSurfaceSplitPreview(nextRail / dragRef.current.usable)
       }
-      dragRef.current.pendingRatio = null
-
-      try {
-        handleEl.releasePointerCapture(pointerId)
-      } catch {
-        /* already released */
-      }
-
-      main?.classList.remove('is-kos-split-dragging')
-      clearRailDragPreview(rail)
-      clearFrozenSplitGrid(main)
-
-      profileLayoutRecalc('split', 'commit')
-      commitSurfaceSplitLayout(getCurrentOSKernelTick())
-      clearKosRailWidthInline(main)
-      committedRailWidthRef.current = getSurfaceSplitLayout().railWidth
-      applyKosRailWidthCss(main, committedRailWidthRef.current)
-      endDeepProfileDrag(committedRailWidthRef.current)
-      invalidateKnowledgeOSSnapshot()
-
-      dragRef.current.session = null
-      dragRef.current.railEl = null
-
-      connectResizeObserver()
     },
-    [connectResizeObserver, mainRef],
+    [mainRef],
   )
 
   const onSplitterPointerDown = useCallback(
@@ -200,74 +143,62 @@ export function useSurfaceSplitLayout(
       if (e.button !== 0) return
       e.preventDefault()
       e.stopPropagation()
-      e.currentTarget.setPointerCapture(e.pointerId)
 
+      const handle = e.currentTarget
       const main = mainRef.current
       if (!main) return
 
       const layout = getSurfaceSplitLayout()
-      const editorStack = main.querySelector('.main-editor-stack') as HTMLElement | null
-      const rail = main.querySelector('.kos-right-rail') as HTMLElement | null
-
-      profileLayoutRecalc('editor', 'drag-start-offsetWidth-once')
-      const frozenEditorWidth = Math.round(editorStack?.offsetWidth ?? 0)
-      const frozenRailWidth = Math.round(layout.railWidth)
       const frozenMainWidth = Math.round(main.getBoundingClientRect().width)
-
-      const session: SurfaceSplitDragSession = {
-        frozenEditorWidth,
-        frozenRailWidth,
-        frozenMainWidth,
-      }
-
       const usable = Math.max(
         SURFACE_RAIL_MIN_PX * 2,
         frozenMainWidth - SURFACE_SPLITTER_WIDTH_PX,
       )
+      const startRail = layout.railWidth
 
       disconnectResizeObserver()
-      beginSurfaceSplitDrag(session)
-      freezeSplitGridColumns(main, session)
-      beginRailDragCompositor(rail, session.frozenRailWidth)
+      beginSurfaceSplitDrag()
       beginDeepProfileDrag()
-      main.classList.add('is-kos-split-dragging')
 
       dragRef.current = {
-        session,
-        railEl: rail,
         startX: e.clientX,
-        startRail: frozenRailWidth,
+        startRail,
         usable,
-        rafId: 0,
-        pendingRatio: null,
       }
 
-      const onMove = (ev: PointerEvent) => {
-        const delta = dragRef.current.startX - ev.clientX
-        const nextRail = Math.max(SURFACE_RAIL_MIN_PX, dragRef.current.startRail + delta)
-        const ratio =
-          dragRef.current.usable > 0 ? nextRail / dragRef.current.usable : layout.splitRatio
-        schedulePreview(ratio)
-      }
-
-      const onUp = (ev: PointerEvent) => {
-        window.removeEventListener('pointermove', onMove)
-        window.removeEventListener('pointerup', onUp)
-        endDrag(e.currentTarget, ev.pointerId)
-      }
-
-      window.addEventListener('pointermove', onMove)
-      window.addEventListener('pointerup', onUp)
+      beginVerticalSplitDrag({
+        handle,
+        pointerId: e.pointerId,
+        onMove: (clientX) => {
+          const delta = dragRef.current.startX - clientX
+          applyLiveRailWidth(clampRailWidth(dragRef.current.startRail + delta, dragRef.current.usable))
+        },
+        onEnd: () => {
+          profileLayoutRecalc('split', 'commit')
+          commitSurfaceSplitLayout(getCurrentOSKernelTick())
+          clearKosRailWidthInline(main)
+          committedRailWidthRef.current = getSurfaceSplitLayout().railWidth
+          applyKosRailWidthCss(main, committedRailWidthRef.current)
+          endDeepProfileDrag(committedRailWidthRef.current)
+          invalidateKnowledgeOSSnapshot()
+          connectResizeObserver()
+        },
+      })
     },
-    [disconnectResizeObserver, endDrag, mainRef, schedulePreview],
+    [applyLiveRailWidth, connectResizeObserver, disconnectResizeObserver, mainRef],
   )
 
   const adjustRailWidth = useCallback(
     (nextWidth: number) => {
-      const clamped = Math.max(SURFACE_RAIL_MIN_PX, Math.min(SURFACE_RAIL_MAX_PX, Math.round(nextWidth)))
+      const main = mainRef.current
+      const usable = Math.max(
+        SURFACE_RAIL_MIN_PX * 2,
+        Math.round(main?.getBoundingClientRect().width ?? 0) - SURFACE_SPLITTER_WIDTH_PX,
+      )
+      const clamped = clampRailWidth(nextWidth, usable)
       setSurfaceSplitLayoutProgrammatic(clamped)
       committedRailWidthRef.current = clamped
-      applyKosRailWidthCss(mainRef.current, clamped)
+      applyKosRailWidthCss(main, clamped)
       invalidateKnowledgeOSSnapshot()
     },
     [mainRef],

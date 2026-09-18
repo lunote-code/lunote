@@ -1,5 +1,8 @@
 import type { Editor } from '@tiptap/core'
+import type { EditorView as CmEditorView } from '@codemirror/view'
 import type { EditorView } from '@tiptap/pm/view'
+
+type ScrollPreserveTarget = Editor | EditorView | CmEditorView
 
 type ScrollSnapshot = {
   el: HTMLElement
@@ -7,10 +10,14 @@ type ScrollSnapshot = {
   left: number
 }
 
-function scrollDomFor(editorOrView: Editor | EditorView): HTMLElement | null {
+function scrollDomFor(editorOrView: ScrollPreserveTarget): HTMLElement | null {
   if ('view' in editorOrView) {
     if (editorOrView.isDestroyed) return null
     return editorOrView.view.dom as HTMLElement
+  }
+  if ('scrollDOM' in editorOrView) {
+    if (!editorOrView.dom.isConnected) return null
+    return editorOrView.scrollDOM as HTMLElement
   }
   if (!editorOrView.dom.isConnected) return null
   return editorOrView.dom as HTMLElement
@@ -44,7 +51,7 @@ function restoreScrollableAncestors(snapshots: ScrollSnapshot[]): void {
 }
 
 /** Run a PM-side mutation without letting focus/scrollIntoView jump the viewport. */
-export function preserveProseMirrorScrollDuring(editorOrView: Editor | EditorView, fn: () => void): void {
+export function preserveProseMirrorScrollDuring(editorOrView: ScrollPreserveTarget, fn: () => void): void {
   const dom = scrollDomFor(editorOrView)
   if (!dom) {
     fn()

@@ -18,6 +18,7 @@ export type SourceEditorOp =
   | { kind: 'set-text-color'; color: string | null }
   //New: Structure insertion
   | { kind: 'insert-literal'; text: string }        //Directly insert fixed text (hr/toc/footnote)
+  | { kind: 'insert-toc-at-appropriate-position' }  //Insert [toc] after title/first heading
   | { kind: 'indent-more' }                         //List/code indentation increased
   | { kind: 'indent-less' }                         //List/code indentation reduction
   | { kind: 'toggle-task-done'; done: boolean }     //Switch task completion status

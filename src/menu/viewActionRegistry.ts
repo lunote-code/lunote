@@ -1,4 +1,6 @@
 import type { AppMenuContext, AppMenuUiDeps } from './menu.types'
+import { requestOpenAiPanel } from '../editor/ai/aiPanelStore'
+import { requestEditorAiSelectionAction } from '../editor/ai/editorAiActions'
 
 type AppActionHandler = (m: AppMenuContext, ui: AppMenuUiDeps) => Promise<boolean>
 
@@ -72,6 +74,58 @@ const VIEW_APP_ACTIONS: Record<string, AppActionHandler> = {
       return true
     }
     ui.openGlobalSearchModal()
+    return true
+  },
+  'view-knowledge-search': async (m, ui) => {
+    if (!m.rootDir?.trim()) {
+      m.setStatus(m.t('app.menu.openWorkspaceFirst'))
+      return true
+    }
+    ui.openKnowledgeSearchModal?.()
+    return true
+  },
+  'view-quick-switcher': async (m, ui) => {
+    if (!m.rootDir?.trim()) {
+      m.setStatus(m.t('app.menu.openWorkspaceFirst'))
+      return true
+    }
+    ui.openQuickSwitcherModal()
+    return true
+  },
+  'view-tab-switcher': async (_m, ui) => {
+    ui.openTabSwitcherModal?.()
+    return true
+  },
+  'view-ai-panel': async (m) => {
+    if (!m.rootDir?.trim()) {
+      m.setStatus(m.t('app.menu.openWorkspaceFirst'))
+      return true
+    }
+    requestOpenAiPanel()
+    return true
+  },
+  'view-ai-ask-selection': async (m) => {
+    if (!m.rootDir?.trim()) {
+      m.setStatus(m.t('app.menu.openWorkspaceFirst'))
+      return true
+    }
+    if (m.getEditorContext().selectionEmpty) {
+      m.setStatus(m.t('ai.rail.command.noSelection'))
+      return true
+    }
+    requestEditorAiSelectionAction('ask-selection', m.t)
+    return true
+  },
+  'view-ai-edit-selection': async (m) => {
+    if (!m.rootDir?.trim()) {
+      m.setStatus(m.t('app.menu.openWorkspaceFirst'))
+      return true
+    }
+    if (m.getEditorContext().selectionEmpty) {
+      m.setStatus(m.t('ai.rail.command.noSelection'))
+      return true
+    }
+    requestEditorAiSelectionAction('edit-selection', m.t)
     return true
   },
 }

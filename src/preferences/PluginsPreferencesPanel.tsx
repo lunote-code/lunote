@@ -1,21 +1,21 @@
 import type { TranslateFn } from '../i18n'
-import type { UiLocaleId } from '../i18n/localeRegistry'
+import { PreferencesNotice } from './PreferencesNotice'
+import {
+  formatPluginCatalogSourceLabel,
+  isPluginCatalogConfigured,
+  PLUGIN_CATALOG_SETUP_DOC_URL,
+} from '../plugins/pluginConstants'
+import { PREFS_TAB_TITLE_KEY } from './prefsMeta'
+import { PluginCatalogList } from './plugins/PluginCatalogList'
 import {
   SettingsHelpPopover,
   SettingsInlineHelp,
   SettingsPage,
 } from '../components/settings'
-import { PreferencesNotice } from './PreferencesNotice'
-import {
-  formatPluginCatalogSourceLabel,
-  isPluginCatalogConfigured,
-} from '../plugins/pluginConstants'
-import { PREFS_TAB_TITLE_KEY } from './prefsMeta'
-import { PluginCatalogList } from './plugins/PluginCatalogList'
 
 type Props = {
   t: TranslateFn
-  effectiveLocale: UiLocaleId
+  effectiveLocale: import('../i18n/localeRegistry').UiLocaleId
   searchQuery?: string
 }
 
@@ -48,9 +48,27 @@ export function PluginsPreferencesPanel({ t, effectiveLocale, searchQuery = '' }
       {catalogConfigured ? (
         <PluginCatalogList t={t} effectiveLocale={effectiveLocale} searchQuery={searchQuery} />
       ) : (
-        <PreferencesNotice tone="muted" role="status">
-          {t('settings.plugins.catalogNotConfigured')}
-        </PreferencesNotice>
+        <div data-testid="prefs-plugins-catalog-unavailable" className="prefs-plugins-setup-guide">
+          <PreferencesNotice tone="muted" role="status">
+            {t('settings.plugins.catalogNotConfigured')}
+          </PreferencesNotice>
+          <div className="prefs-plugins-setup-body">
+            <p className="prefs-plugins-setup-lead">{t('settings.plugins.catalogSetupLead')}</p>
+            <ol className="prefs-plugins-setup-steps">
+              <li>{t('settings.plugins.catalogSetupStepConfig')}</li>
+              <li>{t('settings.plugins.catalogSetupStepDev')}</li>
+              <li>{t('settings.plugins.catalogSetupStepRestart')}</li>
+            </ol>
+            <a
+              className="prefs-plugins-setup-doc-link"
+              href={PLUGIN_CATALOG_SETUP_DOC_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {t('settings.plugins.catalogSetupDocLink')}
+            </a>
+          </div>
+        </div>
       )}
     </SettingsPage>
   )

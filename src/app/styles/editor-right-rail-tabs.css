@@ -1,0 +1,103 @@
+.editor-right-rail-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  min-width: 0;
+}
+
+.editor-right-rail-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 6px 8px;
+  border-bottom: var(--hairline) solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-editor));
+}
+
+.editor-right-rail-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  border: var(--hairline) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-ui);
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.editor-right-rail-tab:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface-hover) 88%, transparent);
+}
+
+.editor-right-rail-tab--active {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-panel));
+}
+
+.editor-right-rail-panels {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+.editor-right-rail-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.editor-right-rail-panel--inactive {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.editor-right-rail-panel > .kos-right-rail {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.editor-right-rail-backdrop {
+  display: none;
+}
+
+@media (max-width: 1100px) {
+  .main.main-with-rail.has-kos-rail > .editor-right-rail-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    top: var(--luna-chrome-toolbar-h);
+    z-index: 1;
+    margin: 0;
+    padding: 0;
+    border: none;
+    cursor: default;
+    background: color-mix(in srgb, var(--luna-overlay-backdrop) 72%, transparent);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+
+  .main.main-with-rail.has-kos-rail > .editor-right-rail-container {
+    position: absolute;
+    top: var(--luna-chrome-toolbar-h);
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    grid-column: auto;
+    width: min(var(--kos-rail-width, 300px), min(360px, 88vw));
+    border-left: var(--hairline) solid var(--luna-overlay-panel-border);
+    background: var(--luna-overlay-panel-bg);
+    box-shadow: var(--luna-overlay-panel-shadow);
+  }
+}

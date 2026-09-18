@@ -1,11 +1,13 @@
 export type SettingsSectionId =
   | 'general'
   | 'appearance'
+  | 'interface'
   | 'export'
   | 'import'
   | 'templates'
   | 'editor'
   | 'language'
+  | 'ai'
 
 export type SettingsValue = string | boolean | number | null | undefined
 
@@ -17,6 +19,11 @@ export type SettingsOption = {
   groupKey?: string
   description?: string
   descriptionKey?: string
+}
+
+export type SettingsVisibilityInRule = {
+  path: string
+  in: readonly SettingsValue[]
 }
 
 export type SettingsVisibilityRule = {
@@ -40,6 +47,7 @@ export interface BaseSetting {
   helpTitleKey?: string
   section: SettingsSectionId
   visibleWhen?: SettingsVisibilityRule
+  visibleWhenIn?: SettingsVisibilityInRule
 }
 
 export interface SelectSetting extends BaseSetting {
@@ -58,6 +66,8 @@ export interface InputSetting extends BaseSetting {
   numeric?: boolean
   min?: number
   max?: number
+  /** Mask sensitive values such as API keys. */
+  inputType?: 'text' | 'password'
 }
 
 export interface SwitchSetting extends BaseSetting {
@@ -69,6 +79,13 @@ export interface TextareaSetting extends BaseSetting {
   type: 'textarea'
   placeholderKey?: string
   default?: string
+}
+
+export interface ComboboxSetting extends BaseSetting {
+  type: 'combobox'
+  placeholderKey?: string
+  default?: string
+  options?: readonly SettingsOption[]
 }
 
 export interface FileSetting extends BaseSetting {
@@ -89,7 +106,7 @@ export interface GroupSetting {
   items: readonly string[]
 }
 
-export type LeafSetting = SelectSetting | InputSetting | SwitchSetting | TextareaSetting | FileSetting
+export type LeafSetting = SelectSetting | InputSetting | ComboboxSetting | SwitchSetting | TextareaSetting | FileSetting
 export type SettingsItem = LeafSetting | GroupSetting
 
 export type SettingsSectionSchema = {

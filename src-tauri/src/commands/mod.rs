@@ -1,7 +1,9 @@
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use base64::Engine;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::{
   app_settings::{self, AppSettings},
@@ -14,6 +16,9 @@ use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_dialog::FilePath;
 
 pub(crate) mod document_history;
+pub(crate) mod workspace_encryption;
+
+use crate::core::workspace_encryption::WorkspaceCryptoState;
 
 #[derive(serde::Deserialize)]
 pub struct RootPayload {
@@ -69,6 +74,21 @@ pub struct SearchPayload {
   pub limit: Option<usize>,
   #[serde(default)]
   pub workspace_root: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexNotesPayload {
+  pub root: String,
+  #[serde(default)]
+  pub prefetched: Vec<PrefetchedNoteEntry>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrefetchedNoteEntry {
+  pub path: String,
+  pub content: String,
 }
 
 #[derive(serde::Serialize)]
@@ -175,6 +195,38 @@ pub fn write_luna_workspace(payload: WorkspaceSnapshotPayload) -> Result<(), Str
   luna_paths::write_workspace_snapshot(&payload.workspace_id, &payload.snapshot)
 }
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiConversationDocKeyPayload {
+  pub doc_key: String,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WriteAiConversationPayload {
+  pub doc_key: String,
+  pub snapshot: serde_json::Value,
+}
+
+#[tauri::command]
+pub fn read_ai_conversation(
+  payload: AiConversationDocKeyPayload,
+) -> Result<Option<serde_json::Value>, String> {
+  luna_paths::read_ai_conversation_snapshot(&payload.doc_key)
+}
+
+#[tauri::command]
+pub fn write_ai_conversation(payload: WriteAiConversationPayload) -> Result<(), String> {
+  let data = serde_json::to_vec(&payload.snapshot).map_err(|e| e.to_string())?;
+  security::ensure_json_payload_size(&data, "AI conversation")?;
+  luna_paths::write_ai_conversation_snapshot(&payload.doc_key, &payload.snapshot)
+}
+
+#[tauri::command]
+pub fn delete_ai_conversation(payload: AiConversationDocKeyPayload) -> Result<(), String> {
+  luna_paths::delete_ai_conversation_snapshot(&payload.doc_key)
+}
+
 #[tauri::command]
 pub fn append_luna_log(line: String, kind: Option<String>) -> Result<(), String> {
   let clamped = security::clamp_log_line(&line);
@@ -275,9 +327,66 @@ fn asset_index_file(workspace_id: &str) -> Result<PathBuf, String> {
   Ok(workspace_assets_dir(workspace_id)?.join("index.json"))
 }
 
-fn resolve_workspace_root(root: &str) -> Result<String, String> {
+fn note_calendar_edits_file(workspace_id: &str) -> Result<PathBuf, String> {
+  let safe_id = safe_workspace_id(workspace_id)?;
+  let dir = luna_paths::get_workspace_path()?.join(&safe_id);
+  std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create workspace directory: {e}"))?;
+  Ok(dir.join("note-calendar-edits.json"))
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteCalendarEditsIndex {
+  #[serde(default = "note_calendar_edits_version")]
+  pub version: u32,
+  #[serde(default)]
+  pub edits: std::collections::HashMap<String, i64>,
+  #[serde(default)]
+  pub updated_at: i64,
+}
+
+fn note_calendar_edits_version() -> u32 {
+  1
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WriteNoteCalendarEditsPayload {
+  pub workspace_id: String,
+  pub index: NoteCalendarEditsIndex,
+}
+
+#[tauri::command]
+pub fn read_luna_note_calendar_edits(payload: WorkspaceIdPayload) -> Result<NoteCalendarEditsIndex, String> {
+  luna_paths::ensure_luna_dirs()?;
+  let path = note_calendar_edits_file(&payload.workspace_id)?;
+  if !path.is_file() {
+    return Ok(NoteCalendarEditsIndex::default());
+  }
+  let data = std::fs::read(&path).map_err(|e| e.to_string())?;
+  security::ensure_json_payload_size(&data, "Note calendar edits")?;
+  serde_json::from_slice(&data).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn write_luna_note_calendar_edits(payload: WriteNoteCalendarEditsPayload) -> Result<(), String> {
+  luna_paths::ensure_luna_dirs()?;
+  let path = note_calendar_edits_file(&payload.workspace_id)?;
+  let data = serde_json::to_vec_pretty(&payload.index).map_err(|e| e.to_string())?;
+  security::ensure_json_payload_size(&data, "Note calendar edits")?;
+  crate::core::atomic_io::atomic_write(&path, &data).map_err(|e| e.to_string())
+}
+
+pub(crate) fn resolve_workspace_root(root: &str) -> Result<String, String> {
   let resolved = security::ensure_listable_workspace_root(root)?;
   Ok(resolved.to_string_lossy().to_string())
+}
+
+pub(crate) fn resolve_note_crypto_key(
+  crypto: &WorkspaceCryptoState,
+  root: &str,
+) -> Result<Option<[u8; 32]>, String> {
+  crate::core::workspace_encryption::resolve_crypto_key(crypto, root)
 }
 
 #[tauri::command]
@@ -409,6 +518,18 @@ pub fn register_workspace_asset_scope(app: AppHandle, workspace_root: String) ->
 }
 
 #[tauri::command]
+pub fn forbid_workspace_asset_scope(app: AppHandle, workspace_root: String) -> Result<(), String> {
+  let trimmed = workspace_root.trim();
+  if trimmed.is_empty() {
+    return Ok(());
+  }
+  let resolved = security::ensure_listable_workspace_root(trimmed)?;
+  app.asset_protocol_scope()
+    .forbid_directory(&resolved, true)
+    .map_err(|e| format!("Failed to forbid resource protocol scope: {e}"))
+}
+
+#[tauri::command]
 pub fn open_trusted_path(app: AppHandle, payload: ScopedPathPayload) -> Result<(), String> {
   let resolved = security::ensure_open_allowed(&payload.path, &payload.workspace_root)?;
   app
@@ -510,14 +631,22 @@ pub fn list_workspace_tree(payload: RootPayload) -> Result<Vec<files::FsTreeNode
 }
 
 #[tauri::command]
-pub fn read_note(payload: NotePayload) -> Result<String, String> {
+pub fn read_note(
+  crypto: State<'_, WorkspaceCryptoState>,
+  payload: NotePayload,
+) -> Result<String, String> {
   let root = resolve_workspace_root(&payload.root)?;
-  files::read_file(&root, &payload.path)
+  let key = resolve_note_crypto_key(&crypto, &root)?;
+  files::read_file(&root, &payload.path, key.as_ref())
 }
 
 #[tauri::command]
-pub fn save_note(payload: SavePayload) -> Result<(), String> {
+pub fn save_note(
+  crypto: State<'_, WorkspaceCryptoState>,
+  payload: SavePayload,
+) -> Result<(), String> {
   let root = resolve_workspace_root(&payload.root)?;
+  let key = resolve_note_crypto_key(&crypto, &root)?;
   files::save_file(
     &root,
     &payload.path,
@@ -527,17 +656,23 @@ pub fn save_note(payload: SavePayload) -> Result<(), String> {
     } else {
       payload.expected_modified_secs
     },
+    key.as_ref(),
   )
 }
 
 #[tauri::command]
-pub fn save_note_asset(payload: SaveAssetPayload) -> Result<(), String> {
+pub fn save_note_asset(
+  crypto: State<'_, WorkspaceCryptoState>,
+  payload: SaveAssetPayload,
+) -> Result<(), String> {
   let root = resolve_workspace_root(&payload.root)?;
+  let key = resolve_note_crypto_key(&crypto, &root)?;
   files::save_note_asset_file(
     &root,
     &payload.path,
     &payload.relative_path,
     &payload.data_base64,
+    key.as_ref(),
   )
 }
 
@@ -548,17 +683,27 @@ pub fn note_asset_exists(payload: NoteAssetExistsPayload) -> Result<bool, String
 }
 
 #[tauri::command]
-pub fn read_workspace_file_base64(payload: ReadBinaryPayload) -> Result<String, String> {
+pub fn read_workspace_file_base64(
+  crypto: State<'_, WorkspaceCryptoState>,
+  payload: ReadBinaryPayload,
+) -> Result<String, String> {
   let root = resolve_workspace_root(&payload.root)?;
-  files::read_file_base64(&root, &payload.path)
+  let key = resolve_note_crypto_key(&crypto, &root)?;
+  files::read_file_base64(&root, &payload.path, key.as_ref())
 }
 
 #[tauri::command]
-pub fn sync_recent_menu(app: AppHandle, paths: Vec<String>) -> Result<(), String> {
-  let trimmed: Vec<String> = paths.into_iter().take(8).collect();
+pub fn sync_recent_menu(
+  app: AppHandle,
+  workspaces: Vec<String>,
+  files: Vec<String>,
+) -> Result<(), String> {
   let state = app.state::<RecentMenuPaths>();
   let mut guard = state.0.lock().map_err(|_| "Internal status error".to_string())?;
-  * guard = trimmed;
+  *guard = crate::RecentMenuSnapshot {
+    workspaces: workspaces.into_iter().take(8).collect(),
+    files: files.into_iter().take(8).collect(),
+  };
   Ok(())
 }
 
@@ -617,8 +762,139 @@ pub fn note_file_stat(payload: NotePayload) -> Result<files::NoteFileStat, Strin
   files::note_file_stat(&root, &payload.path)
 }
 
-fn index_notes_impl(state: &AppState, root: &str) -> Result<IndexResponse, String> {
+fn file_fingerprint(path: &str) -> Result<(u64, u64), String> {
+  let meta = std::fs::metadata(path).map_err(|e| format!("Failed to read file information: {e}"))?;
+  let modified_secs = meta
+    .modified()
+    .ok()
+    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+    .map(|d| d.as_secs())
+    .unwrap_or(0);
+  Ok((modified_secs, meta.len()))
+}
+
+pub const WORKSPACE_INDEX_PROGRESS_EVENT: &str = "luna:workspace-index-progress";
+
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceIndexProgressPayload {
+  root: String,
+  phase: String,
+  processed: u32,
+  total: u32,
+}
+
+fn emit_index_progress(app: &AppHandle, root: &str, phase: &str, processed: u32, total: u32) {
+  let _ = app.emit(
+    WORKSPACE_INDEX_PROGRESS_EVENT,
+    WorkspaceIndexProgressPayload {
+      root: root.to_string(),
+      phase: phase.to_string(),
+      processed,
+      total,
+    },
+  );
+}
+
+fn read_note_index_entries_parallel(
+  app: &AppHandle,
+  root: &str,
+  files: &[String],
+  key: Option<&[u8; 32]>,
+  cancel: Arc<AtomicBool>,
+) -> Result<(Vec<(String, String, String)>, usize), String> {
+  use crate::core::parallel_batch;
+  use crate::core::search;
+
+  let total = files.len();
+  emit_index_progress(app, root, "reading", 0, total as u32);
+  let progress: parallel_batch::ParallelProgressCallback = Some(Arc::new({
+    let app = app.clone();
+    let root = root.to_string();
+    move |processed, total| {
+      emit_index_progress(&app, &root, "reading", processed as u32, total as u32);
+    }
+  }));
+  let root_owned = root.to_string();
+  let key = key.copied();
+  parallel_batch::parallel_filter_map_strings_with_progress(
+    files,
+    progress,
+    Some(cancel),
+    Arc::new(move |file| {
+      let meta = std::fs::metadata(file).ok()?;
+      if security::ensure_note_file_size(meta.len(), "note").is_err() {
+        log::warn!("index_notes skip oversized file {file} ({} bytes)", meta.len());
+        return None;
+      }
+      let content = match files::read_file(&root_owned, file, key.as_ref()) {
+        Ok(text) => text,
+        Err(e) => {
+          log::warn!("index_notes skip unreadable file {file}: {e}");
+          return None;
+        }
+      };
+      let title = search::note_index_title(
+        &content,
+        Path::new(file)
+          .file_name()
+          .and_then(|it| it.to_str())
+          .unwrap_or("untitled"),
+      );
+      Some((file.to_string(), title, content))
+    }),
+  )
+}
+
+fn ensure_index_not_cancelled(cancel: &AtomicBool) -> Result<(), String> {
+  if cancel.load(Ordering::Acquire) {
+    return Err(crate::core::parallel_batch::WORKSPACE_INDEX_CANCELLED.to_string());
+  }
+  Ok(())
+}
+
+fn note_title_for_index(content: &str, file: &str) -> String {
+  use std::path::Path;
+  crate::core::search::note_index_title(
+    content,
+    Path::new(file)
+      .file_name()
+      .and_then(|it| it.to_str())
+      .unwrap_or("untitled"),
+  )
+}
+
+fn partition_prefetched_note_reads(
+  files: &[String],
+  prefetched: &std::collections::HashMap<String, String>,
+) -> (Vec<(String, String, String)>, Vec<String>) {
+  let mut ready = Vec::new();
+  let mut to_read = Vec::new();
+  for file in files {
+    if let Some(content) = prefetched.get(file) {
+      ready.push((
+        file.clone(),
+        note_title_for_index(content, file),
+        content.clone(),
+      ));
+    } else {
+      to_read.push(file.clone());
+    }
+  }
+  (ready, to_read)
+}
+
+fn index_notes_impl(
+  app: &AppHandle,
+  state: &AppState,
+  crypto: &WorkspaceCryptoState,
+  root: &str,
+  cancel: Arc<AtomicBool>,
+  prefetched: std::collections::HashMap<String, String>,
+) -> Result<IndexResponse, String> {
   use std::collections::HashSet;
+  cancel.store(false, Ordering::Release);
+  let key = resolve_note_crypto_key(crypto, root)?;
   let _index_guard = state
     .index_notes_lock
     .lock()
@@ -651,67 +927,43 @@ fn index_notes_impl(state: &AppState, root: &str) -> Result<IndexResponse, Strin
     fingerprints.remove(path);
   }
 
-  fn file_fingerprint(path: &str) -> Result<(u64, u64), String> {
-    let meta = std::fs::metadata(path).map_err(|e| format!("Failed to read file information: {e}"))?;
-    let modified_secs = meta
-      .modified()
-      .ok()
-      .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-      .map(|d| d.as_secs())
-      .unwrap_or(0);
-    Ok((modified_secs, meta.len()))
-  }
-
-  let mut notes = Vec::new();
-  let mut skipped = 0usize;
-
   if root_changed {
-    for file in files {
-      let meta = match std::fs::metadata(&file) {
-        Ok(m) => m,
-        Err(e) => {
-          log::warn!("index_notes skip unreadable stat {file}: {e}");
-          skipped += 1;
-          continue;
-        }
-      };
-      if security::ensure_note_file_size(meta.len(), "note").is_err() {
-        log::warn!("index_notes skip oversized file {file} ({} bytes)", meta.len());
-        skipped += 1;
-        continue;
-      }
-      let content = match std::fs::read_to_string(&file) {
-        Ok(text) => text,
-        Err(e) => {
-          log::warn!("index_notes skip unreadable file {file}: {e}");
-          skipped += 1;
-          continue;
-        }
-      };
-      let title = Path::new(&file)
-        .file_name()
-        .and_then(|it| it.to_str())
-        .unwrap_or("untitled")
-        .to_string();
+    let (prefetched_entries, files_to_read) = partition_prefetched_note_reads(&files, &prefetched);
+    let (entries, read_skipped) = read_note_index_entries_parallel(
+      app,
+      root,
+      &files_to_read,
+      key.as_ref(),
+      Arc::clone(&cancel),
+    )?;
+    ensure_index_not_cancelled(cancel.as_ref())?;
+    let skipped = read_skipped;
+    let mut notes = prefetched_entries;
+    for (file, title, content) in entries {
       if let Ok(fp) = file_fingerprint(&file) {
         fingerprints.insert(file.clone(), fp);
       }
       notes.push((file, title, content));
     }
+    ensure_index_not_cancelled(cancel.as_ref())?;
+    emit_index_progress(app, root, "writing", 0, notes.len() as u32);
     let conn = state
       .search_conn
       .lock()
       .map_err(|_| "Search connection status abnormal".to_string())?;
     let count = search::rebuild_index(&conn, &notes)?;
+    emit_index_progress(app, root, "writing", notes.len() as u32, notes.len() as u32);
+    ensure_index_not_cancelled(cancel.as_ref())?;
     let mut indexed_root = state
       .indexed_root
       .lock()
       .map_err(|_| "Abnormal index directory status".to_string())?;
-    * indexed_root = Some(root.to_string());
+    *indexed_root = Some(root.to_string());
     return Ok(IndexResponse { count, skipped });
   }
 
-  let mut upserts = Vec::new();
+  let mut to_read = Vec::new();
+  let mut skipped = 0usize;
   for file in files {
     let fingerprint = match file_fingerprint(&file) {
       Ok(fp) => fp,
@@ -729,23 +981,29 @@ fn index_notes_impl(state: &AppState, root: &str) -> Result<IndexResponse, Strin
       skipped += 1;
       continue;
     }
-    let content = match std::fs::read_to_string(&file) {
-      Ok(text) => text,
-      Err(e) => {
-        log::warn!("index_notes skip unreadable file {file}: {e}");
-        skipped += 1;
-        continue;
-      }
-    };
-    let title = Path::new(&file)
-      .file_name()
-      .and_then(|it| it.to_str())
-      .unwrap_or("untitled")
-      .to_string();
-    fingerprints.insert(file.clone(), fingerprint);
+    to_read.push(file);
+  }
+
+  let (prefetched_entries, files_to_read) = partition_prefetched_note_reads(&to_read, &prefetched);
+  let (entries, read_skipped) = read_note_index_entries_parallel(
+    app,
+    root,
+    &files_to_read,
+    key.as_ref(),
+    Arc::clone(&cancel),
+  )?;
+  ensure_index_not_cancelled(cancel.as_ref())?;
+  skipped += read_skipped;
+  let mut upserts = prefetched_entries;
+  for (file, title, content) in entries {
+    if let Ok(fp) = file_fingerprint(&file) {
+      fingerprints.insert(file.clone(), fp);
+    }
     upserts.push((file, title, content));
   }
 
+  ensure_index_not_cancelled(cancel.as_ref())?;
+  emit_index_progress(app, root, "writing", 0, upserts.len() as u32);
   let conn = state
     .search_conn
     .lock()
@@ -755,24 +1013,73 @@ fn index_notes_impl(state: &AppState, root: &str) -> Result<IndexResponse, Strin
   } else {
     search::apply_index_delta(&conn, &upserts, &removed)?
   };
+  emit_index_progress(
+    app,
+    root,
+    "writing",
+    upserts.len() as u32,
+    upserts.len() as u32,
+  );
 
+  ensure_index_not_cancelled(cancel.as_ref())?;
   let mut indexed_root = state
     .indexed_root
     .lock()
     .map_err(|_| "Abnormal index directory status".to_string())?;
-  * indexed_root = Some(root.to_string());
+  *indexed_root = Some(root.to_string());
   Ok(IndexResponse { count, skipped })
+}
+
+#[tauri::command]
+pub fn cancel_index_notes(state: State<'_, AppState>) {
+  state
+    .index_notes_cancel
+    .store(true, Ordering::Release);
+}
+
+pub(crate) fn drop_search_index_for_locked_root(state: &AppState, root: &str) {
+  state.index_notes_cancel.store(true, Ordering::Release);
+  let Ok(_index_guard) = state.index_notes_lock.lock() else {
+    return;
+  };
+  let matches_root = {
+    let Ok(indexed_root) = state.indexed_root.lock() else {
+      return;
+    };
+    indexed_root.as_deref() == Some(root)
+  };
+  if !matches_root {
+    return;
+  }
+  if let Ok(mut fingerprints) = state.note_index_fingerprints.lock() {
+    fingerprints.clear();
+  }
+  if let Ok(conn) = state.search_conn.lock() {
+    let _ = search::clear_index(&conn);
+  }
+  if let Ok(mut indexed_root) = state.indexed_root.lock() {
+    if indexed_root.as_deref() == Some(root) {
+      *indexed_root = None;
+    }
+  }
 }
 
 #[tauri::command]
 pub async fn index_notes(
   app: AppHandle,
-  payload: RootPayload,
+  payload: IndexNotesPayload,
 ) -> Result<IndexResponse, String> {
   let root = resolve_workspace_root(&payload.root)?;
+  let prefetched = payload
+    .prefetched
+    .into_iter()
+    .map(|entry| (entry.path, entry.content))
+    .collect();
+  let cancel = app.state::<AppState>().index_notes_cancel.clone();
   tauri::async_runtime::spawn_blocking(move || {
     let state = app.state::<AppState>();
-    index_notes_impl(&state, &root)
+    let crypto = app.state::<WorkspaceCryptoState>();
+    index_notes_impl(&app, &state, &crypto, &root, cancel, prefetched)
   })
   .await
   .map_err(|e| format!("Indexing task failed: {e}"))?
@@ -826,21 +1133,33 @@ pub fn move_note(mut payload: files::MoveNotePayload) -> Result<String, String> 
 }
 
 #[tauri::command]
-pub fn create_new_note(payload: RootPayload) -> Result<String, String> {
+pub fn create_new_note(
+  crypto: State<'_, WorkspaceCryptoState>,
+  payload: RootPayload,
+) -> Result<String, String> {
   let root = resolve_workspace_root(&payload.root)?;
-  files::create_new_note(&root)
+  let key = resolve_note_crypto_key(&crypto, &root)?;
+  files::create_new_note(&root, key.as_ref())
 }
 
 #[tauri::command]
-pub fn create_note(mut payload: files::CreateNotePayload) -> Result<String, String> {
+pub fn create_note(
+  crypto: State<'_, WorkspaceCryptoState>,
+  mut payload: files::CreateNotePayload,
+) -> Result<String, String> {
   payload.root = resolve_workspace_root(&payload.root)?;
-  files::create_note(&payload)
+  let key = resolve_note_crypto_key(&crypto, &payload.root)?;
+  files::create_note(&payload, key.as_ref())
 }
 
 #[tauri::command]
-pub fn create_new_note_in_parent(payload: files::ParentDirPayload) -> Result<String, String> {
+pub fn create_new_note_in_parent(
+  crypto: State<'_, WorkspaceCryptoState>,
+  payload: files::ParentDirPayload,
+) -> Result<String, String> {
   let root = resolve_workspace_root(&payload.root)?;
-  files::create_new_note_in_parent(&root, &payload.parent_path)
+  let key = resolve_note_crypto_key(&crypto, &root)?;
+  files::create_new_note_in_parent(&root, &payload.parent_path, key.as_ref())
 }
 
 #[tauri::command]
@@ -851,18 +1170,22 @@ pub fn create_workspace_folder(mut payload: files::CreateFolderPayload) -> Resul
 
 #[tauri::command]
 pub fn import_external_paths_into_workspace(
+  crypto: State<'_, WorkspaceCryptoState>,
   mut payload: files::ImportExternalPathsPayload,
 ) -> Result<files::ImportExternalPathsResult, String> {
   payload.root = resolve_workspace_root(&payload.root)?;
-  files::import_external_paths_into_workspace(&payload)
+  let key = resolve_note_crypto_key(&crypto, &payload.root)?;
+  files::import_external_paths_into_workspace(&payload, key.as_ref())
 }
 
 #[tauri::command]
 pub fn import_dropped_file_bytes(
+  crypto: State<'_, WorkspaceCryptoState>,
   mut payload: files::ImportDroppedFileBytesPayload,
 ) -> Result<String, String> {
   payload.root = resolve_workspace_root(&payload.root)?;
-  files::import_dropped_file_bytes(&payload)
+  let key = resolve_note_crypto_key(&crypto, &payload.root)?;
+  files::import_dropped_file_bytes(&payload, key.as_ref())
 }
 
 #[derive(serde::Deserialize)]
@@ -879,8 +1202,13 @@ pub fn workspace_path_is_directory(mut payload: WorkspacePathPayload) -> Result<
 }
 
 #[tauri::command]
-pub fn import_markdown_via_dialog(app: AppHandle, root: String) -> Result<Option<String>, String> {
+pub fn import_markdown_via_dialog(
+  app: AppHandle,
+  crypto: State<'_, WorkspaceCryptoState>,
+  root: String,
+) -> Result<Option<String>, String> {
   let root = resolve_workspace_root(&root)?;
+  let key = resolve_note_crypto_key(&crypto, &root)?;
   let picked = app
     .dialog()
     .file()
@@ -890,7 +1218,7 @@ pub fn import_markdown_via_dialog(app: AppHandle, root: String) -> Result<Option
     return Ok(None);
   };
   let source = dialog_file_path_to_string(path)?;
-  let dest = files::import_markdown_file(&root, &source)?;
+  let dest = files::import_markdown_file(&root, &source, key.as_ref())?;
   Ok(Some(dest))
 }
 

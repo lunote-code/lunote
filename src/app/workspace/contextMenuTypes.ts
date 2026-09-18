@@ -37,4 +37,4 @@ export type EditorDocMenuPick =
   | 'copyPath'
   | 'reveal'
 
-export type TabContextMenuPick = 'close' | 'closeOthers' | 'closeLeft' | 'closeRight'
+export type TabContextMenuPick = 'close' | 'closeOthers' | 'closeLeft' | 'closeRight' | 'reloadFromDisk'

@@ -1,4 +1,4 @@
-import { useLayoutEffect, type RefObject } from 'react'
+import { useLayoutEffect, useRef, type RefObject } from 'react'
 
 import {
   clearGraphFontReflowQueued,
@@ -31,6 +31,13 @@ export function useGraphNodeRenderStability(
   worldGroupRef: RefObject<SVGGElement | null>,
   graphRevision: number,
 ): void {
+  const nodesRef = useRef(nodes)
+  const edgesRef = useRef(edges)
+  const viewportRef = useRef(viewport)
+  nodesRef.current = nodes
+  edgesRef.current = edges
+  viewportRef.current = viewport
+
   useLayoutEffect(() => {
     if (graphRevision > 0) {
       markGraphFontReflowQueued()
@@ -49,9 +56,9 @@ export function useGraphNodeRenderStability(
 
       const sample = buildGraphRenderFrameSample(
         activeNodeId,
-        nodes,
-        edges,
-        viewport,
+        nodesRef.current,
+        edgesRef.current,
+        viewportRef.current,
         width,
         height,
         worldGroupRef.current,
@@ -75,12 +82,12 @@ export function useGraphNodeRenderStability(
   }, [
     activeNodeId,
     renderState,
-    nodes,
-    edges,
-    viewport,
     width,
     height,
     worldGroupRef,
     graphRevision,
+    viewport.x,
+    viewport.y,
+    viewport.zoom,
   ])
 }

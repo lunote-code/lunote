@@ -7,6 +7,7 @@ import { DEFAULT_APP_SETTINGS } from './appSettingsTypes'
 import {
   loadAppSettingsFromDisk,
   normalizeAppSettingsState,
+  readAppSettingsLocalCache,
   saveAppSettingsToDisk,
 } from './appSettingsPersistence'
 import type { AssetStorageConfig } from '../assets/assetStoragePolicy'
@@ -35,6 +36,15 @@ function summarizeSettingsSnapshot(state: AppSettingsState) {
 
 export function getAppSettingsSnapshot(): AppSettingsState {
   return { ...snapshot }
+}
+
+export function isAppSettingsHydrated(): boolean {
+  return hydrated
+}
+
+export function getAppSettingsSnapshotWithLocalFallback(): AppSettingsState {
+  if (hydrated) return { ...snapshot }
+  return readAppSettingsLocalCache() ?? { ...snapshot }
 }
 
 export function subscribeAppSettings(cb: Sub): () => void {
@@ -148,6 +158,7 @@ export async function setAppearanceSetting(path: string, value: unknown): Promis
   const editor = { ...((appearance.editor as Record<string, unknown> | undefined) ?? {}) }
   const exportPrefs = { ...((appearance.export as Record<string, unknown> | undefined) ?? {}) }
   const windowPrefs = { ...((appearance.window as Record<string, unknown> | undefined) ?? {}) }
+  const uiPrefs = { ...((appearance.ui as Record<string, unknown> | undefined) ?? {}) }
 
   if (path.startsWith('theme.')) {
     theme[path.slice('theme.'.length)] = value
@@ -162,6 +173,9 @@ export async function setAppearanceSetting(path: string, value: unknown): Promis
   } else if (path.startsWith('window.')) {
     windowPrefs[path.slice('window.'.length)] = value
     appearance.window = windowPrefs
+  } else if (path.startsWith('ui.')) {
+    uiPrefs[path.slice('ui.'.length)] = value
+    appearance.ui = uiPrefs
   } else {
     appearance[path] = value
   }
@@ -169,6 +183,18 @@ export async function setAppearanceSetting(path: string, value: unknown): Promis
   snapshot = {
     ...snapshot,
     appearance,
+  }
+  await persistSnapshot()
+  notify()
+}
+
+export async function setSecurityAutoLockMinutes(minutes: number): Promise<void> {
+  snapshot = {
+    ...snapshot,
+    security: {
+      ...(snapshot.security ?? {}),
+      autoLockMinutes: minutes,
+    },
   }
   await persistSnapshot()
   notify()
@@ -184,6 +210,48 @@ export async function setUpdatesSetting(
       ...(snapshot.updates ?? {}),
       [key]: value,
     },
+  }
+  await persistSnapshot()
+  notify()
+}
+
+export async function setAiSetting(
+  key: keyof NonNullable<AppSettingsState['ai']>,
+  value: string | boolean,
+): Promise<void> {
+  const current = snapshot.ai ?? {}
+  const previous = current[key]
+  if (Object.is(previous, value)) return
+
+  const shouldClearConnectionTest = key === 'provider' || key === 'apiKey' || key === 'baseUrl'
+  snapshot = {
+    ...snapshot,
+    ai: {
+      ...current,
+      [key]: value,
+    },
+    ...(shouldClearConnectionTest ? { aiConnectionTest: undefined } : {}),
+  }
+  if (shouldClearConnectionTest && typeof localStorage !== 'undefined') {
+    try {
+      localStorage.removeItem('luna:ai.connectionTest')
+    } catch {
+      // ignore
+    }
+  }
+  await persistSnapshot()
+  notify()
+  if (shouldClearConnectionTest) {
+    window.dispatchEvent(new CustomEvent('luna:ai-connection-test-updated'))
+  }
+}
+
+export async function setAiConnectionTestResult(
+  value: AppSettingsState['aiConnectionTest'] | undefined,
+): Promise<void> {
+  snapshot = {
+    ...snapshot,
+    aiConnectionTest: value,
   }
   await persistSnapshot()
   notify()

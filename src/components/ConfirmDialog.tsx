@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react'
+import { useRef, type ReactNode } from 'react'
 
+import { DialogShell } from './dialog/DialogShell'
 import { SettingsButton } from './settings'
-import { useFocusTrap } from '../lib/useFocusTrap'
 
 export type ConfirmDialogVariant = 'default' | 'warning'
 
@@ -12,6 +12,11 @@ export type ConfirmDialogProps = {
   confirmLabel: string
   cancelLabel: string
   variant?: ConfirmDialogVariant
+  children?: ReactNode
+  panelClassName?: string
+  backdropClassName?: string
+  portalRoot?: HTMLElement | null
+  panelDataTestId?: string
   onConfirm: () => void
   onCancel: () => void
 }
@@ -23,64 +28,41 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   variant = 'default',
+  children,
+  panelClassName,
+  backdropClassName,
+  portalRoot,
+  panelDataTestId,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null)
-  const [dialogEl, setDialogEl] = useState<HTMLDivElement | null>(null)
-
-  useFocusTrap(open, dialogEl, { initialFocusRef: cancelButtonRef, onEscape: onCancel })
-
-  if (!open) return null
 
   return (
-    <div className="about-modal-backdrop confirm-modal-backdrop" role="presentation">
-      <div
-        ref={setDialogEl}
-        className={`about-modal confirm-modal confirm-modal-${variant}`}
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
-        aria-describedby="confirm-dialog-desc"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="confirm-modal-icon" aria-hidden>
-          {variant === 'warning' ? (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          ) : (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.75" />
-              <path d="M12 8v5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-              <circle cx="12" cy="16.5" r="1" fill="currentColor" />
-            </svg>
-          )}
-        </div>
-        <h2 id="confirm-dialog-title" className="about-modal-title confirm-modal-title">
-          {title}
-        </h2>
-        <p id="confirm-dialog-desc" className="about-modal-desc confirm-modal-desc">
-          {message}
-        </p>
-        <div className="rename-modal-actions confirm-modal-actions settings-inline-controls">
+    <DialogShell
+      open={open}
+      title={title}
+      description={message}
+      titleId="confirm-dialog-title"
+      descId="confirm-dialog-desc"
+      tone={variant === 'warning' ? 'warning' : 'default'}
+      panelClassName={panelClassName}
+      backdropClassName={backdropClassName}
+      portalRoot={portalRoot}
+      panelDataTestId={panelDataTestId}
+      initialFocusRef={cancelButtonRef}
+      onEscape={onCancel}
+      children={children}
+      actions={
+        <>
           <SettingsButton ref={cancelButtonRef} variant="secondary" onClick={onCancel}>
             {cancelLabel}
           </SettingsButton>
-          <SettingsButton
-            variant={variant === 'warning' ? 'danger' : 'primary'}
-            onClick={onConfirm}
-          >
+          <SettingsButton variant="primary" onClick={onConfirm}>
             {confirmLabel}
           </SettingsButton>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    />
   )
 }

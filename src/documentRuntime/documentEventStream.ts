@@ -76,8 +76,13 @@ export function getDocumentEventLog(): readonly DocumentEvent[] {
   return [...eventLog]
 }
 
-export function resetDocumentEventStream(): void {
+export function clearDocumentEventLog(): void {
   eventLog.length = 0
+  pendingEvents.length = 0
+}
+
+export function resetDocumentEventStream(): void {
+  clearDocumentEventLog()
   subscribers.clear()
 }
 

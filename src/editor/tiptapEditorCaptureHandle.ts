@@ -10,12 +10,12 @@ import type {
   ModeSwitchSnapshot,
 } from './modeSwitchSnapshot'
 import type { SourceModeEnterAnchor } from './viewportModeAnchor'
+import { flushVisualEditorLocalEdits } from './visualEditorPreSerializeFlush'
 
 type TiptapEditorCaptureHandleArgs = {
   editor: Editor | null
   boundDocumentKey: string
   markdown: string
-  flushMermaidSourceForSerialize: (editor: Editor) => void
   trySerialize: (
     doc: PmNode,
     schema: Schema,
@@ -72,10 +72,11 @@ export function createTiptapEditorCaptureHandle(
       }
       const view = args.editor.view
       const schema = args.editor.schema
-      const doc = view.state.doc
       const markdownBefore = args.markdown
+      const docBeforeFlush = view.state.doc
 
-      args.flushMermaidSourceForSerialize(args.editor)
+      flushVisualEditorLocalEdits(args.editor)
+      const doc = view.state.doc
       const serializedNow = args.trySerialize(doc, schema)
       const identityMarkdown =
         serializedNow.ok
@@ -107,7 +108,7 @@ export function createTiptapEditorCaptureHandle(
           args.assertNoPartialModeSwitchMutation({
             markdownBefore,
             markdownAfter: args.markdown,
-            pmDocUnchanged: doc.eq(view.state.doc),
+            pmDocUnchanged: docBeforeFlush.eq(view.state.doc),
           })
         }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type MouseEvent as ReactMouseEvent } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 
 import type { TranslateFn } from '../../i18n'
@@ -10,16 +10,22 @@ import {
   subscribeDocumentFrontmatter,
 } from '../../editor/documentFrontmatterStore'
 import { deleteDocumentSnapshot, listDocumentSnapshots, readDocumentSnapshot } from '../../documentHistory/historyRepository'
+import { resolveSnapshotEntrySummary } from '../../documentHistory/snapshotEntrySummary'
 import type { DocumentHistoryEntry, DocumentHistorySnapshot } from '../../documentHistory/types'
 import { getHistoryRestoreState, resumeAutosaveForPath, subscribeHistoryRestoreState } from '../../documentHistory/historyRestoreState'
-import { resolveLatestDocumentBody } from '../../documentRuntime/documentAuthority'
+import { shouldFlushEditorBeforeHistoryDiff } from '../../documentHistory/historyDialogFlushPolicy'
 import { subscribeDocumentRuntime } from '../../documentRuntime/documentKernel'
+import { resolveLatestDocumentBody } from '../../documentRuntime/documentAuthority'
 import { subscribeTabBodies } from '../document/tabBodiesStore'
 import { useFocusTrap } from '../../lib/useFocusTrap'
+import type { FlushEditorToMemoryOptions } from '../../lib/editorContentSync'
 import { logInfo, logWarn } from '../../lib/lunaLogger'
 import { markdownToStyledHtmlFragment } from '../../markdownExport'
 import { getCurrentThemeMode, subscribeTheme } from '../../theme-runtime/themeRuntime'
 import { handleVerticalResizeKeyDown } from '../../lib/verticalResizeKeyboard'
+import { beginVerticalSplitDrag } from '../../lib/verticalSplitDrag'
+import { useDelayedFeedback } from '../../lib/useDelayedFeedback'
+import { bindOverlayScrollbarReveal } from '../overlayScrollbarReveal'
 import { SettingsButton } from '../../components/settings'
 import { Icon } from '../../design-system/icons/Icon'
 import {
@@ -27,6 +33,10 @@ import {
   DocumentHistoryContextMenu,
   type DocumentHistoryContextMenuState,
 } from './DocumentHistoryContextMenu'
+import {
+  DocumentHistoryListLoadingSkeleton,
+  DocumentHistoryPreviewLoadingSkeleton,
+} from './DocumentHistoryLoadingSkeleton'
 
 export type DocumentHistoryDialogContext = {
   rootDir: string
@@ -38,6 +48,7 @@ type Props = {
   open: boolean
   rootDir: string
   path: string
+  activePath?: string
   onClose: () => void
   onRestore: (snapshotId: string, context: DocumentHistoryDialogContext) => Promise<void> | void
   onCreateSnapshot: (
@@ -45,7 +56,7 @@ type Props = {
   ) => Promise<DocumentHistoryEntry | null> | DocumentHistoryEntry | null
   onConfirmDeleteSnapshot: (entry: DocumentHistoryEntry) => Promise<boolean> | boolean
   onDeleteAllSnapshots: (context: DocumentHistoryDialogContext) => Promise<boolean> | boolean
-  flushEditorToMemory?: () => Promise<boolean>
+  flushEditorToMemory?: (options?: FlushEditorToMemoryOptions) => Promise<boolean>
 }
 
 const SIDEBAR_WIDTH_MIN = 200
@@ -54,6 +65,7 @@ const SIDEBAR_WIDTH_STEP = 16
 const SIDEBAR_WIDTH_STORAGE_KEY = 'documentHistorySidebarWidth'
 const SIDEBAR_WIDTH_DEFAULT = 236
 const DIFF_ROW_LIMIT = 240
+const HISTORY_LOADING_FEEDBACK_DELAY_MS = 250
 
 function emitHistoryDialogDebug(
   level: 'info' | 'warn',
@@ -92,14 +104,6 @@ function sourceLabel(t: TranslateFn, entry: DocumentHistoryEntry): string {
   return t('app.history.source.manual')
 }
 
-function entrySummary(t: TranslateFn, entry: DocumentHistoryEntry): string {
-  const title = entry.title?.trim()
-  if (title) return title
-  const excerpt = entry.excerpt?.trim()
-  if (excerpt) return excerpt
-  return t('app.history.dialog.snapshotMeta', { size: entry.size })
-}
-
 function readStoredSidebarWidth(): number {
   if (typeof window === 'undefined') return SIDEBAR_WIDTH_DEFAULT
   const saved = localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY)
@@ -113,6 +117,7 @@ export function DocumentHistoryDialog({
   open,
   rootDir,
   path,
+  activePath,
   onClose,
   onRestore,
   onCreateSnapshot,
@@ -121,6 +126,7 @@ export function DocumentHistoryDialog({
   flushEditorToMemory,
 }: Props) {
   const dialogContext = { rootDir, path }
+  const [listLoadError, setListLoadError] = useState(false)
   const [entries, setEntries] = useState<DocumentHistoryEntry[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [preview, setPreview] = useState<DocumentHistorySnapshot | null>(null)
@@ -131,7 +137,11 @@ export function DocumentHistoryDialog({
   const [deletingAll, setDeletingAll] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(readStoredSidebarWidth)
   const [viewMode, setViewMode] = useState<'preview' | 'diff'>('preview')
+  const previewTabId = useId()
+  const diffTabId = useId()
+  const previewPanelId = useId()
   const shouldTrackSelectedSnapshot = open && Boolean(selectedId)
+  const shouldTrackDiffBody = shouldTrackSelectedSnapshot && viewMode === 'diff'
   const currentRestoredSnapshotId = useSyncExternalStore(
     subscribeHistoryRestoreState,
     () => getHistoryRestoreState(path)?.snapshotId ?? '',
@@ -140,13 +150,18 @@ export function DocumentHistoryDialog({
   const [contextMenu, setContextMenu] = useState<DocumentHistoryContextMenuState | null>(null)
   const contextMenuRef = useRef<HTMLDivElement | null>(null)
   const dialogRef = useRef<HTMLDivElement | null>(null)
+  const historyListRef = useRef<HTMLDivElement | null>(null)
+  const historyPreviewBodyRef = useRef<HTMLDivElement | null>(null)
+  const flushEditorToMemoryRef = useRef(flushEditorToMemory)
+  flushEditorToMemoryRef.current = flushEditorToMemory
+  const diffFlushKeyRef = useRef('')
   const contextRestoreId = contextMenu?.target === 'entry' && contextMenu.entryId
     ? contextMenu.entryId
     : selectedId
   const contextRestoreDisabled = !contextRestoreId || contextRestoreId === currentRestoredSnapshotId
   const selectedEntry = entries.find((entry) => entry.id === selectedId) ?? null
   const currentBody = useSyncExternalStore(
-    shouldTrackSelectedSnapshot
+    shouldTrackDiffBody
       ? (onStoreChange) => {
           const unsubRuntime = subscribeDocumentRuntime(onStoreChange)
           const unsubTabBodies = subscribeTabBodies(onStoreChange)
@@ -158,7 +173,7 @@ export function DocumentHistoryDialog({
           }
         }
       : () => () => {},
-    shouldTrackSelectedSnapshot ? () => resolveLatestDocumentBody(path) ?? '' : () => '',
+    shouldTrackDiffBody ? () => resolveLatestDocumentBody(path) ?? '' : () => '',
     () => '',
   )
   const previewDark = useSyncExternalStore(
@@ -166,12 +181,16 @@ export function DocumentHistoryDialog({
     shouldTrackSelectedSnapshot ? getCurrentThemeMode : () => 'dark',
     () => 'dark',
   ) === 'dark'
-  const diffRows = preview && viewMode === 'diff'
-    ? buildDocumentHistoryDiffRowsForPath(path, currentBody, preview.content).slice(0, DIFF_ROW_LIMIT)
-    : []
-  const diffHasChanges = preview && viewMode === 'diff'
-    ? !documentHistoryContentEquals(path, currentBody, preview.content)
-    : false
+  const diffRows = useMemo(() => {
+    if (!preview || viewMode !== 'diff') return []
+    return buildDocumentHistoryDiffRowsForPath(path, currentBody, preview.content).slice(0, DIFF_ROW_LIMIT)
+  }, [currentBody, path, preview, viewMode])
+  const diffHasChanges = useMemo(() => {
+    if (!preview || viewMode !== 'diff') return false
+    return !documentHistoryContentEquals(path, currentBody, preview.content)
+  }, [currentBody, path, preview, viewMode])
+  const showListLoadingFeedback = useDelayedFeedback(loading, HISTORY_LOADING_FEEDBACK_DELAY_MS)
+  const showPreviewLoadingFeedback = useDelayedFeedback(previewLoading, HISTORY_LOADING_FEEDBACK_DELAY_MS)
 
   useFocusTrap(open, dialogRef.current, {
     onEscape: () => {
@@ -184,13 +203,25 @@ export function DocumentHistoryDialog({
   })
 
   async function reloadEntries(preferredId?: string): Promise<void> {
-    const next = await listDocumentSnapshots({ rootDir, path })
-    setEntries(next)
-    setSelectedId((prev) => {
-      if (preferredId && next.some((entry) => entry.id === preferredId)) return preferredId
-      if (next.some((entry) => entry.id === prev)) return prev
-      return next[0]?.id || ''
-    })
+    setListLoadError(false)
+    try {
+      const next = await listDocumentSnapshots({ rootDir, path })
+      setEntries(next)
+      setSelectedId((prev) => {
+        if (preferredId && next.some((entry) => entry.id === preferredId)) return preferredId
+        if (next.some((entry) => entry.id === prev)) return prev
+        return next[0]?.id || ''
+      })
+    } catch (error) {
+      setListLoadError(true)
+      setEntries([])
+      setSelectedId('')
+      emitHistoryDialogDebug('warn', 'snapshots_list_failed', {
+        path,
+        rootDir,
+        message: error instanceof Error ? error.message : String(error),
+      })
+    }
   }
 
   useEffect(() => {
@@ -203,6 +234,7 @@ export function DocumentHistoryDialog({
     let cancelled = false
     const startedAt = performance.now()
     setLoading(true)
+    setListLoadError(false)
     emitHistoryDialogDebug('info', 'open', { path })
     emitHistoryDialogDebug('info', 'invoke_list_start', { path, rootDir })
     void listDocumentSnapshots({ rootDir, path })
@@ -213,6 +245,7 @@ export function DocumentHistoryDialog({
           count: next.length,
           elapsedMs: Math.round(performance.now() - startedAt),
         })
+        setListLoadError(false)
         setEntries(next)
         setSelectedId((prev) => next.some((entry) => entry.id === prev) ? prev : (next[0]?.id || ''))
         emitHistoryDialogDebug('info', 'state_update_queued', {
@@ -232,6 +265,9 @@ export function DocumentHistoryDialog({
       })
       .catch((error) => {
         if (cancelled) return
+        setListLoadError(true)
+        setEntries([])
+        setSelectedId('')
         emitHistoryDialogDebug('warn', 'snapshots_list_failed', {
           path,
           rootDir,
@@ -301,9 +337,22 @@ export function DocumentHistoryDialog({
   }, [open])
 
   useEffect(() => {
-    if (!open || !path || viewMode !== 'diff' || !flushEditorToMemory) return
-    void flushEditorToMemory()
-  }, [open, path, viewMode, selectedId, flushEditorToMemory])
+    if (!open || viewMode !== 'diff') {
+      diffFlushKeyRef.current = ''
+      return
+    }
+    if (!path) return
+    if (!shouldFlushEditorBeforeHistoryDiff({ dialogPath: path, activePath })) return
+    const flushKey = `${path}:${activePath ?? ''}`
+    if (diffFlushKeyRef.current === flushKey) return
+    diffFlushKeyRef.current = flushKey
+    const flush = flushEditorToMemoryRef.current
+    if (!flush) return
+    void flush({
+      preserveCodeBlockEditing: true,
+      skipTabSessionCapture: true,
+    })
+  }, [activePath, open, path, viewMode])
 
   useEffect(() => {
     if (!contextMenu) return
@@ -391,19 +440,44 @@ export function DocumentHistoryDialog({
       .finally(() => setDeletingAll(false))
   }
 
-  const handleSplitResizeStart = useCallback((startX: number) => {
+  const handleSplitResizeStart = useCallback((startX: number, handleEl: HTMLElement, pointerId: number) => {
     const startWidth = sidebarWidth
-    const onMove = (moveEvent: MouseEvent) => {
-      const next = startWidth + (moveEvent.clientX - startX)
-      setSidebarWidth(Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, next)))
-    }
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
+    beginVerticalSplitDrag({
+      handle: handleEl,
+      pointerId,
+      onMove: (clientX) => {
+        const next = startWidth + (clientX - startX)
+        setSidebarWidth(Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, next)))
+      },
+    })
   }, [sidebarWidth])
+
+  const handlePreviewModeKeyDown = useCallback(
+    (mode: 'preview' | 'diff') => (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        if (mode === 'diff' && !preview) return
+        setViewMode(mode)
+        return
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        if (mode === 'preview' && preview) {
+          setViewMode('diff')
+          window.requestAnimationFrame(() => document.getElementById(diffTabId)?.focus())
+        }
+        return
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        if (mode === 'diff') {
+          setViewMode('preview')
+          window.requestAnimationFrame(() => document.getElementById(previewTabId)?.focus())
+        }
+      }
+    },
+    [preview, diffTabId, previewTabId],
+  )
 
   const isCurrentRestored = selectedEntry?.id === currentRestoredSnapshotId
   const restoreTitle = isCurrentRestored
@@ -411,6 +485,17 @@ export function DocumentHistoryDialog({
     : t('app.history.dialog.restoreHint')
   const hasSnapshots = entries.length > 0
   const showSplit = !loading && hasSnapshots
+
+  useEffect(() => {
+    if (!showSplit || !historyListRef.current) return
+    return bindOverlayScrollbarReveal(historyListRef.current)
+  }, [showSplit, entries.length, selectedId])
+
+  useEffect(() => {
+    if (!showSplit || !historyPreviewBodyRef.current) return
+    return bindOverlayScrollbarReveal(historyPreviewBodyRef.current)
+  }, [showSplit, viewMode, selectedId])
+
   const handleCloseButtonMouseDown = useCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
     if (event.button !== 0) return
     event.preventDefault()
@@ -477,13 +562,30 @@ export function DocumentHistoryDialog({
           </button>
         </header>
 
-        {loading ? (
-          <div className="document-history-loading-pane" role="status" aria-live="polite">
-            {t('app.history.dialog.loading')}
+        {showListLoadingFeedback ? (
+          <DocumentHistoryListLoadingSkeleton
+            label={t('app.history.dialog.loading')}
+            sidebarWidth={sidebarWidth}
+          />
+        ) : null}
+
+        {!loading && listLoadError ? (
+          <div className="document-history-empty-pane">
+            <p className="document-history-empty-text">{t('app.history.dialog.listFailed')}</p>
+            <SettingsButton
+              type="button"
+              variant="primary"
+              onClick={() => {
+                setLoading(true)
+                void reloadEntries().finally(() => setLoading(false))
+              }}
+            >
+              {t('ai.rail.retry')}
+            </SettingsButton>
           </div>
         ) : null}
 
-        {!loading && !hasSnapshots ? (
+        {!loading && !listLoadError && !hasSnapshots ? (
           <div className="document-history-empty-pane">
             <p className="document-history-empty-text">{t('app.history.noSnapshots')}</p>
             <SettingsButton
@@ -505,6 +607,7 @@ export function DocumentHistoryDialog({
             >
               <aside className="document-history-sidebar" style={{ width: sidebarWidth }}>
                 <div
+                  ref={historyListRef}
                   className="document-history-list"
                   onContextMenu={(e) => {
                     if ((e.target as HTMLElement).closest('.document-history-entry')) return
@@ -525,9 +628,12 @@ export function DocumentHistoryDialog({
                         type="button"
                         onClick={() => setSelectedId(entry.id)}
                         className="document-history-entry-main"
+                        aria-current={entry.id === selectedId ? 'true' : undefined}
                       >
                         <span className="document-history-entry-time">{formatEntryLabel(entry.createdAt)}</span>
-                        <span className="document-history-entry-summary">{entrySummary(t, entry)}</span>
+                        <span className="document-history-entry-summary" title={resolveSnapshotEntrySummary(t, entry)}>
+                          {resolveSnapshotEntrySummary(t, entry)}
+                        </span>
                         {entry.source === 'pre_restore' || entry.id === currentRestoredSnapshotId ? (
                           <span className="document-history-entry-note">
                             {[
@@ -561,9 +667,10 @@ export function DocumentHistoryDialog({
                 aria-valuemax={SIDEBAR_WIDTH_MAX}
                 aria-valuenow={sidebarWidth}
                 tabIndex={0}
-                onMouseDown={(e) => {
+                onPointerDown={(e) => {
+                  if (e.button !== 0) return
                   e.preventDefault()
-                  handleSplitResizeStart(e.clientX)
+                  handleSplitResizeStart(e.clientX, e.currentTarget, e.pointerId)
                 }}
                 onContextMenu={(e) => e.preventDefault()}
                 onKeyDown={(e) => {
@@ -590,18 +697,26 @@ export function DocumentHistoryDialog({
                       <button
                         type="button"
                         role="tab"
+                        id={previewTabId}
                         aria-selected={viewMode === 'preview'}
+                        aria-controls={previewPanelId}
+                        tabIndex={viewMode === 'preview' ? 0 : -1}
                         className={`document-history-preview-mode${viewMode === 'preview' ? ' is-active' : ''}`}
                         onClick={() => setViewMode('preview')}
+                        onKeyDown={handlePreviewModeKeyDown('preview')}
                       >
                         {t('app.history.dialog.preview')}
                       </button>
                       <button
                         type="button"
                         role="tab"
+                        id={diffTabId}
                         aria-selected={viewMode === 'diff'}
+                        aria-controls={previewPanelId}
+                        tabIndex={viewMode === 'diff' ? 0 : -1}
                         className={`document-history-preview-mode${viewMode === 'diff' ? ' is-active' : ''}`}
                         onClick={() => setViewMode('diff')}
+                        onKeyDown={handlePreviewModeKeyDown('diff')}
                         disabled={!preview}
                       >
                         {t('app.history.dialog.diff')}
@@ -610,15 +725,17 @@ export function DocumentHistoryDialog({
                   </div>
                 ) : null}
                 <div
+                  ref={historyPreviewBodyRef}
+                  id={previewPanelId}
+                  role="tabpanel"
+                  aria-labelledby={viewMode === 'preview' ? previewTabId : diffTabId}
                   className={[
                     'document-history-preview-body preview-pane',
                     viewMode === 'diff' ? 'document-history-preview-body--diff' : '',
                   ].filter(Boolean).join(' ')}
                 >
-                  {previewLoading ? (
-                    <div className="document-history-preview-loading" role="status" aria-live="polite">
-                      <span className="document-history-preview-empty">{t('app.history.dialog.loading')}</span>
-                    </div>
+                  {previewLoading && showPreviewLoadingFeedback ? (
+                    <DocumentHistoryPreviewLoadingSkeleton label={t('app.history.dialog.loadingPreview')} />
                   ) : preview && viewMode === 'preview' ? (
                     previewHtml ? (
                       <article className="markdown-body document-history-preview-content" dangerouslySetInnerHTML={{ __html: previewHtml }} />

@@ -169,7 +169,7 @@
   "app.titleBar.welcomeTitle": "Benvenuto in {app}",
   "app.titleBar.welcomeSubtitle": "Apri una cartella per sfogliare e salvare le note",
   "app.titleBar.readySubtitle": "Crea o apri una nota in questo workspace",
-  "app.globalSearch.scopeHint": "Ricerca full-text in tutte le note del workspace aperto.",
+  "app.globalSearch.scopeHint": "Ricerca full-text nel workspace aperto.",
   "app.globalSearch.shortLabel": "Full text",
   "app.sidebar.recent.title": "Recenti",
   "app.sidebar.search.placeholder": "Filtra i nomi file in questo workspace…",

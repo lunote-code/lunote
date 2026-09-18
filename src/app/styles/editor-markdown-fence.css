@@ -49,7 +49,7 @@
   overflow: auto;
   min-width: 0;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
+  scrollbar-width: none;
   scrollbar-color: transparent transparent;
   /*Syntax color is written on .hljs by highlight.js theme; do not set color on pre to avoid overpowering token*/
 }
@@ -58,12 +58,20 @@
 .preview-pane .markdown-pre-figure > pre.markdown-pre-inner:focus-within,
 .markdown-body .markdown-pre-figure > pre.markdown-pre-inner:hover,
 .markdown-body .markdown-pre-figure > pre.markdown-pre-inner:focus-within {
+  scrollbar-width: thin;
   scrollbar-color: var(--luna-code-block-scrollbar-thumb) transparent;
 }
 
 .preview-pane .markdown-pre-figure > pre.markdown-pre-inner::-webkit-scrollbar,
 .markdown-body .markdown-pre-figure > pre.markdown-pre-inner::-webkit-scrollbar {
   width: var(--luna-code-block-scrollbar-size);
+  height: 0;
+}
+
+.preview-pane .markdown-pre-figure > pre.markdown-pre-inner:hover::-webkit-scrollbar,
+.preview-pane .markdown-pre-figure > pre.markdown-pre-inner:focus-within::-webkit-scrollbar,
+.markdown-body .markdown-pre-figure > pre.markdown-pre-inner:hover::-webkit-scrollbar,
+.markdown-body .markdown-pre-figure > pre.markdown-pre-inner:focus-within::-webkit-scrollbar {
   height: var(--luna-code-block-scrollbar-size);
 }
 

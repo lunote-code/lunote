@@ -12,6 +12,13 @@ export type DocumentContentStats = {
   headings: number
 }
 
+/** Selection word count — Latin tokens plus individual CJK characters. */
+export function countSelectionWords(text: string): number {
+  const trimmed = text.trim()
+  if (!trimmed) return 0
+  return trimmed.match(/[\p{L}\p{N}]+|[\p{Script=Han}]/gu)?.length ?? 0
+}
+
 /** Status bar document stats — must stay aligned with the markdown surface being edited. */
 export function computeDocumentContentStats(content: string): DocumentContentStats {
   const normalized = normalizeLineEndings(content)

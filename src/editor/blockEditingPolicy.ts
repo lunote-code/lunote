@@ -100,6 +100,13 @@ const BLOCK_EDITING_POLICIES: readonly BlockEditingPolicy[] = Object.freeze([
     showCodeChrome: true,
   },
   {
+    blockType: 'drawingBlock',
+    primaryPreference: 'visual_preferred',
+    sourceIslandCandidate: false,
+    tabBehavior: 'native',
+    showCodeChrome: false,
+  },
+  {
     blockType: 'blockMath',
     primaryPreference: 'source_preferred',
     sourceIslandCandidate: true,

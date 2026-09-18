@@ -11,6 +11,15 @@ export type WikiLinkSuggestPathCandidate = {
 let pathCandidatesProvider: (() => WikiLinkSuggestPathCandidate[]) | null = null
 let templatesFolderProvider: (() => readonly string[]) | null = null
 
+type WikiSuggestEmptyLabels = { title: string; hint: string }
+
+const DEFAULT_WIKI_SUGGEST_EMPTY: WikiSuggestEmptyLabels = {
+  title: 'No documents available',
+  hint: 'Open a workspace and wait for indexing to finish',
+}
+
+let wikiSuggestEmptyLabels: WikiSuggestEmptyLabels = DEFAULT_WIKI_SUGGEST_EMPTY
+
 /** Workspace file tree fallback (the .md path can still be prompted when the knowledge base index is not completed)*/
 export function setWikiLinkSuggestPathProvider(
   provider: (() => WikiLinkSuggestPathCandidate[]) | null,
@@ -23,6 +32,10 @@ export function setWikiLinkSuggestTemplatesFolderProvider(
   provider: (() => readonly string[]) | null,
 ): void {
   templatesFolderProvider = provider
+}
+
+export function setWikiLinkSuggestEmptyLabels(labels: WikiSuggestEmptyLabels | null): void {
+  wikiSuggestEmptyLabels = labels ?? DEFAULT_WIKI_SUGGEST_EMPTY
 }
 
 function shouldExcludeWikiLinkCandidate(docKey: string): boolean {
@@ -143,8 +156,8 @@ function collectPathFallbackCandidates(query: string): WikiLinkSuggestItem[] {
 function emptyWikiSuggestItem(): WikiLinkSuggestItem {
   return {
     id: WIKI_SUGGEST_EMPTY_ID,
-    title: 'No documents available',
-    hint: 'Open a workspace and wait for indexing to finish',
+    title: wikiSuggestEmptyLabels.title,
+    hint: wikiSuggestEmptyLabels.hint,
     insertTarget: '',
     score: 0,
     disabled: true,

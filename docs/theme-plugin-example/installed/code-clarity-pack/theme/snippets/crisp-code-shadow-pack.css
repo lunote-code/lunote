@@ -1,0 +1,17 @@
+/**
+ * crisp-code-shadow
+ * Sharper fenced code edges for better structure scanning.
+ */
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-surface,
+.preview-pane .markdown-pre-figure {
+  box-shadow:
+    inset 0 0 0 var(--hairline) color-mix(in srgb, var(--border-subtle) 92%, transparent),
+    0 6px 18px color-mix(in srgb, #000 10%, transparent) !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-wrap:hover .pm-code-block-surface {
+  box-shadow:
+    inset 0 0 0 var(--hairline) color-mix(in srgb, var(--accent) 24%, var(--border-subtle)),
+    0 10px 22px color-mix(in srgb, #000 14%, transparent) !important;
+}

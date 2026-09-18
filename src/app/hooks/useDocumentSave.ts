@@ -3,6 +3,7 @@ import { save } from '@tauri-apps/plugin-dialog'
 import { isTauri } from '@tauri-apps/api/core'
 
 import type { TranslateFn } from '../../i18n'
+import { fileDialogFilter } from '../../lib/fileDialogFilters'
 import {
   defaultExportBasename,
   downloadHtmlBlob,
@@ -13,12 +14,19 @@ import {
   openPrintableHtml,
   PrintContentTooLargeError,
   PrintPermissionRequiredError,
+  PrintPopupBlockedError,
+  PrintWindowTimedOutError,
   wrapStandaloneHtml,
   type AppExportFormat,
 } from '../../markdownExport'
 import { buildPdfExportHtml } from '../../export/pdfExportHtml'
 import { downloadBinaryBlob, markdownToPdfBase64, markdownToPngBase64 } from '../../export/renderedDocumentExport'
 import { humanizeExportError } from '../../export/exportUserFacingError'
+import {
+  captureAiRailScrollSnapshotForRestore,
+  preserveAiRailScrollDuring,
+  scheduleAiRailScrollRestoreAfterSideEffects,
+} from '../../editor/ai/ui/aiRailScrollPreserve'
 import { rewriteExportHtmlMediaSources } from '../export/htmlMedia'
 import { exportBinaryPayload, exportNotePayload } from '../../lib/tauriScopedInvoke'
 import {
@@ -32,10 +40,10 @@ import {
 } from '../../lib/editorContentSync'
 import { enqueueSave } from '../../lib/saveQueue'
 import { isPathDirty } from '../../lib/documentDirty'
+import { clearExternalDiskDriftInState } from '../../lib/externalDiskDriftState'
 import { isPathUnderWorkspace } from '../../lib/workspacePathUtils'
 import { dispatchDocumentCommand } from '../../documentRuntime/documentKernel'
-import { setTabBody } from '../document/tabBodiesStore'
-import { resolveDocumentBody } from '../../documentRuntime/documentAuthority'
+import { resolveLatestDocumentBody } from '../../documentRuntime/documentAuthority'
 import { openSaveConflictDialog, type SaveConflictState } from '../document/saveConflictState'
 import { pathsEqual } from '../../lib/workspacePathUtils'
 import { isBufferTabId } from '../workspace/constants'
@@ -46,12 +54,68 @@ import type { AssetStorageConfig } from '../../assets/assetStoragePolicy'
 import { refreshWorkspaceIndex } from '../workspace/workspaceIndexCoordinator'
 import { exportBinaryNote, exportNote } from '../../platform/tauri/documentService'
 import type { AppStatusTone } from './useAppStatus'
+import type { WorkspacePasswordPrompt } from '../../workspace/workspaceEncryptionRuntime'
+import {
+  StaleWorkspaceSaveAbortedError,
+  WorkspaceSaveUnlockCancelledError,
+  dispatchSaveDocumentWithEncryptionRetry,
+} from '../../workspace/encryptedDocumentSave'
+import { formatWorkspaceEncryptionErrorMessage } from '../../workspace/workspaceEncryptionErrors'
+import { isWorkspaceMigratingError } from '../../platform/tauri/workspaceEncryptionService'
+
+async function handleWorkspaceDocumentSaveError(
+  error: unknown,
+  options: {
+    manual: boolean
+    rootAtRequest: string
+    path: string
+    local: string
+    setSaveConflict: React.Dispatch<React.SetStateAction<SaveConflictState | null>>
+    setStatus: (msg: string, toneOverride?: AppStatusTone) => void
+    t: TranslateFn
+  },
+): Promise<void> {
+  if (error instanceof StaleWorkspaceSaveAbortedError) {
+    return
+  }
+  if (error instanceof WorkspaceSaveUnlockCancelledError) {
+    if (options.manual) {
+      options.setStatus(options.t('workspace.encryption.unlock.cancelled'), 'warning')
+    }
+    return
+  }
+  const message = error instanceof Error ? error.message : String(error)
+  if (message.includes('FILE_CONFLICT')) {
+    await openSaveConflictDialog({
+      rootDir: options.rootAtRequest,
+      path: options.path,
+      local: options.local,
+      sourceMode: 'manual',
+      setSaveConflict: options.setSaveConflict,
+      setStatus: options.setStatus,
+      t: options.t,
+    })
+    return
+  }
+  const encryptionMessage = formatWorkspaceEncryptionErrorMessage(error, options.t)
+  if (encryptionMessage || isWorkspaceMigratingError(error)) {
+    if (options.manual) {
+      options.setStatus(encryptionMessage ?? options.t('workspace.encryption.error.migrating'), 'warning')
+    }
+    return
+  }
+  if (options.manual) {
+    options.setStatus(options.t('app.status.saveFailed', { message }), 'error')
+  }
+}
 
 export type DocumentSaveDeps = {
   t: TranslateFn
   activePath: string
   content: string
   rootDir: string
+  rootDirRef: MutableRefObject<string>
+  promptWorkspacePassword?: WorkspacePasswordPrompt
   mainPaneMode: 'visual' | 'source'
   isDark: boolean
   bufferTabLabels: Record<string, string>
@@ -67,9 +131,11 @@ export type DocumentSaveDeps = {
   setSaveConflict: React.Dispatch<React.SetStateAction<SaveConflictState | null>>
   setStatus: (msg: string, toneOverride?: AppStatusTone) => void
   refreshFileTree: () => Promise<void>
+  onWorkspaceDocumentSaved?: (path: string, savedAtMs?: number) => void
   updateRecent: (path: string) => void
   resetModeSwitchEditorBootstrap: () => void
-  cancelPendingKernelContentDebounce: () => void
+  flushPendingKernelContentDebounce: () => Promise<void>
+  setExternalDiskChangedPaths: React.Dispatch<React.SetStateAction<Set<string>>>
 }
 
 export function useDocumentSave(deps: DocumentSaveDeps) {
@@ -77,6 +143,8 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
     t,
     activePath,
     rootDir,
+    rootDirRef,
+    promptWorkspacePassword,
     mainPaneMode,
     isDark,
     bufferTabLabels,
@@ -90,9 +158,11 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
     setSaveConflict,
     setStatus,
     refreshFileTree,
+    onWorkspaceDocumentSaved,
     updateRecent,
     resetModeSwitchEditorBootstrap,
-    cancelPendingKernelContentDebounce,
+    flushPendingKernelContentDebounce,
+    setExternalDiskChangedPaths,
   } = deps
 
   const runAppExportFormat = useCallback(
@@ -205,7 +275,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               const out = await save({
                 title: t('app.dialog.exportPdf'),
                 defaultPath: `${stem}.pdf`,
-                filters: [{ name: 'PDF', extensions: ['pdf'] }],
+                filters: [fileDialogFilter(t, 'pdf', ['pdf'])],
               })
               if (!out) return
               await exportBinaryNote(exportBinaryPayload(out, b64, rootDir || ''))
@@ -227,7 +297,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               const out = await save({
                 title: t('app.dialog.exportHtml'),
                 defaultPath: `${stem}.html`,
-                filters: [{ name: 'HTML', extensions: ['html', 'htm'] }],
+                filters: [fileDialogFilter(t, 'html', ['html', 'htm'])],
               })
               if (!out) return
               await exportNote(exportNotePayload(out, html, rootDir || ''))
@@ -249,7 +319,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               const out = await save({
                 title: t('app.dialog.exportHtmlPlain'),
                 defaultPath: `${stem}.html`,
-                filters: [{ name: 'HTML', extensions: ['html', 'htm'] }],
+                filters: [fileDialogFilter(t, 'html', ['html', 'htm'])],
               })
               if (!out) return
               await exportNote(exportNotePayload(out, html, rootDir || ''))
@@ -266,7 +336,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               const out = await save({
                 title: t('app.dialog.exportImage'),
                 defaultPath: `${stem}.png`,
-                filters: [{ name: 'PNG Image', extensions: ['png'] }],
+                filters: [fileDialogFilter(t, 'png', ['png'])],
               })
               if (!out) return
               await exportBinaryNote(exportBinaryPayload(out, b64, rootDir || ''))
@@ -282,7 +352,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               const out = await save({
                 title: t('app.dialog.exportWord'),
                 defaultPath: `${stem}.docx`,
-                filters: [{ name: 'Word', extensions: ['docx'] }],
+                filters: [fileDialogFilter(t, 'word', ['docx'])],
               })
               if (!out) return
               await exportBinaryNote(exportBinaryPayload(out, b64, rootDir || ''))
@@ -297,7 +367,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
 
   const resolveDocumentBodyForPath = useCallback(
     (path: string, contentFallback?: string) => {
-      return resolveDocumentBody(path, { contentFallback })
+      return resolveLatestDocumentBody(path, { contentFallback })
     },
     [],
   )
@@ -307,10 +377,12 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
           /** Fixed the path when initiating the save to avoid writing to the wrong file due to the tab being cut before the queue is executed.*/
           const pathAtRequest = activePathRef.current ?? ''
           const pathToSave = pathAtRequest || 'scratch'
+          const rootAtRequest = rootDir
           const contentSnapshotAtRequest = contentRef.current
           const tabBodySnapshotAtRequest = resolveDocumentBodyForPath(pathToSave, contentSnapshotAtRequest)
           return enqueueSave(async () => {
-            cancelPendingKernelContentDebounce()
+            captureAiRailScrollSnapshotForRestore()
+            await flushPendingKernelContentDebounce()
             suppressMarkdownSerdeRef.current = false
             const editorBoundToSavePath =
               mainPaneMode !== 'visual' ||
@@ -336,8 +408,6 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               }
               if (resolved != null) {
                 body = resolved
-                const projected = projectSavedMarkdownToEditorSurfaces(mainPaneMode, body)
-                setTabBody(pathToSave, projected.editorSurface)
               } else {
                 body = resolveActiveAwareSaveBodyFallback({
                   pathToSave,
@@ -372,44 +442,98 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
             const diskMarkdown = diskMarkdownForDocumentSave(pathToSave, body)
             const projected = projectSavedMarkdownToEditorSurfaces(mainPaneMode, diskMarkdown)
             if (pathsEqual(activePathRef.current, pathToSave)) {
-              commitLatestDocumentBodyToMemory({
-                path: pathToSave,
-                body: projected.editorSurface,
-                sourceIdentity: projected.sourceIdentity,
-                contentRef,
-                persistBody: setTabBody,
-              })
-              if (projected.editorSurface !== runtimeBodyAtSave) {
-                suppressMarkdownSerdeRef.current = true
-                try {
-                  syncActiveDocumentBodyImmediately({
-                    path: pathToSave,
-                    body: projected.editorSurface,
-                    contentRef,
-                    source: 'save-flush',
-                  })
-                } finally {
-                  suppressMarkdownSerdeRef.current = false
+              preserveAiRailScrollDuring(() => {
+                commitLatestDocumentBodyToMemory({
+                  path: pathToSave,
+                  body: projected.editorSurface,
+                  sourceIdentity: projected.sourceIdentity,
+                  contentRef,
+                })
+                if (projected.editorSurface !== runtimeBodyAtSave) {
+                  suppressMarkdownSerdeRef.current = true
+                  try {
+                    syncActiveDocumentBodyImmediately({
+                      path: pathToSave,
+                      body: projected.editorSurface,
+                      contentRef,
+                      source: 'save-flush',
+                    })
+                  } finally {
+                    suppressMarkdownSerdeRef.current = false
+                  }
                 }
-              }
+              })
             } else {
               commitLatestDocumentBodyToMemory({
                 path: pathToSave,
                 body: projected.editorSurface,
                 sourceIdentity: projected.sourceIdentity,
                 contentRef,
-                persistBody: setTabBody,
               })
             }
             if (canReadBodyFromEditor && mainPaneMode === 'visual') {
               runAfterReactCommit(() => {
-                schedulePrimeEditorDiagramPreviews(() => {
-                  const pm = visualEditorRef.current?.getEditor()
-                  return pm?.view?.dom ?? null
+                preserveAiRailScrollDuring(() => {
+                  schedulePrimeEditorDiagramPreviews(() => {
+                    const pm = visualEditorRef.current?.getEditor()
+                    return pm?.view?.dom ?? null
+                  })
                 })
+                scheduleAiRailScrollRestoreAfterSideEffects()
               })
             }
-            if (!rootDir) {
+            if (pathAtRequest && isBufferTabId(pathAtRequest) && rootAtRequest) {
+              if (!manual) return
+              setStatus(t('app.status.bufferSaveAsHint'), 'info')
+              const base = rootAtRequest.replace(/[/\\]+$/u, '')
+              const picked = await save({
+                title: t('app.dialog.saveAs'),
+                defaultPath: `${base}/${t('app.defaults.newNoteStem')}.md`,
+                filters: [fileDialogFilter(t, 'markdown', ['md', 'markdown'])],
+              })
+              if (!picked) return
+              if (!isPathUnderWorkspace(rootAtRequest, picked)) {
+                setStatus(t('app.status.saveOutsideWorkspace'), 'warning')
+                return
+              }
+              try {
+                await dispatchSaveDocumentWithEncryptionRetry({
+                  rootAtRequest,
+                  getCurrentRootDir: () => rootDirRef.current,
+                  path: picked,
+                  content: diskMarkdown,
+                  source: 'save-current-buffer',
+                  allowUnlockRetry: manual,
+                  promptWorkspacePassword,
+                  t,
+                })
+              } catch (error) {
+                await handleWorkspaceDocumentSaveError(error, {
+                  manual,
+                  rootAtRequest,
+                  path: picked,
+                  local: diskMarkdown,
+                  setSaveConflict,
+                  setStatus,
+                  t,
+                })
+                return
+              }
+              resetModeSwitchEditorBootstrap()
+              await dispatchDocumentCommand({
+                type: 'REPLACE_ACTIVE_DOCUMENT',
+                path: picked,
+                content: diskMarkdown,
+                source: 'save-as',
+              })
+              updateRecent(picked)
+              await refreshFileTree()
+              await refreshWorkspaceIndex(rootAtRequest)
+              setSavedAt(new Date().toLocaleTimeString())
+              setStatus(t('app.status.saved'), 'success')
+              return
+            }
+            if (!rootAtRequest) {
               if (!manual) return
               const canExport =
                 (Boolean(activePath) && isBufferTabId(activePath)) || isPathDirty(activePath)
@@ -420,7 +544,7 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               const picked = await save({
                 title: t('app.dialog.saveMarkdown'),
                 defaultPath: t('app.defaults.untitledMd'),
-                filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
+                filters: [fileDialogFilter(t, 'markdown', ['md', 'markdown'])],
               })
               if (!picked) return
               try {
@@ -439,40 +563,38 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
             }
             if (!pathAtRequest) {
               if (!manual) return
-              const base = rootDir.replace(/[/\\]+$/u, '')
+              const base = rootAtRequest.replace(/[/\\]+$/u, '')
               const picked = await save({
                 title: t('app.dialog.saveAs'),
                 defaultPath: `${base}/${t('app.defaults.newNoteStem')}.md`,
-                filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
+                filters: [fileDialogFilter(t, 'markdown', ['md', 'markdown'])],
               })
               if (!picked) return
-              if (!isPathUnderWorkspace(rootDir, picked)) {
+              if (!isPathUnderWorkspace(rootAtRequest, picked)) {
                 setStatus(t('app.status.saveOutsideWorkspace'), 'warning')
                 return
               }
               try {
-                await dispatchDocumentCommand({
-                  type: 'SAVE_DOCUMENT',
-                  root: rootDir,
+                await dispatchSaveDocumentWithEncryptionRetry({
+                  rootAtRequest,
+                  getCurrentRootDir: () => rootDirRef.current,
                   path: picked,
                   content: diskMarkdown,
                   source: 'saveCurrent',
+                  allowUnlockRetry: manual,
+                  promptWorkspacePassword,
+                  t,
                 })
               } catch (error) {
-                const message = error instanceof Error ? error.message : String(error)
-                if (message.includes('FILE_CONFLICT')) {
-                  await openSaveConflictDialog({
-                    rootDir,
-                    path: picked,
-                    local: diskMarkdown,
-                    sourceMode: 'manual',
-                    setSaveConflict,
-                    setStatus,
-                    t,
-                  })
-                  return
-                }
-                setStatus(t('app.status.saveFailed', { message }), 'error')
+                await handleWorkspaceDocumentSaveError(error, {
+                  manual,
+                  rootAtRequest,
+                  path: picked,
+                  local: diskMarkdown,
+                  setSaveConflict,
+                  setStatus,
+                  t,
+                })
                 return
               }
               resetModeSwitchEditorBootstrap()
@@ -484,50 +606,57 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
               })
               updateRecent(picked)
               await refreshFileTree()
-              await refreshWorkspaceIndex(rootDir)
+              await refreshWorkspaceIndex(rootAtRequest)
               setSavedAt(new Date().toLocaleTimeString())
               setStatus(t('app.status.saved'), 'success')
               return
             }
             if (!isPathDirty(pathAtRequest || pathToSave) && !manual) return
             try {
-              await dispatchDocumentCommand({
-                type: 'SAVE_DOCUMENT',
-                root: rootDir,
+              await dispatchSaveDocumentWithEncryptionRetry({
+                rootAtRequest,
+                getCurrentRootDir: () => rootDirRef.current,
                 path: pathAtRequest || pathToSave,
                 content: diskMarkdown,
                 source: 'saveCurrent',
+                allowUnlockRetry: manual,
+                promptWorkspacePassword,
+                t,
               })
             } catch (error) {
-              const message = error instanceof Error ? error.message : String(error)
-              if (message.includes('FILE_CONFLICT')) {
-                await openSaveConflictDialog({
-                  rootDir,
-                  path: pathAtRequest || pathToSave,
-                  local: diskMarkdown,
-                  sourceMode: 'manual',
-                  setSaveConflict,
-                  setStatus,
-                  t,
-                })
-                return
-              }
-              setStatus(t('app.status.saveFailed', { message }), 'error')
+              await handleWorkspaceDocumentSaveError(error, {
+                manual,
+                rootAtRequest,
+                path: pathAtRequest || pathToSave,
+                local: diskMarkdown,
+                setSaveConflict,
+                setStatus,
+                t,
+              })
               return
             }
             suppressWorkspaceRefreshUntilRef.current = Date.now() + 2500
-            cancelPendingKernelContentDebounce()
-            setSavedAt(new Date().toLocaleTimeString())
-            if (manual) {
-              setStatus(t('app.status.saved'), 'success')
-            }
+            await flushPendingKernelContentDebounce()
+            const savedPath = pathAtRequest || pathToSave
+            const savedAtMs = Date.now()
+            onWorkspaceDocumentSaved?.(savedPath, savedAtMs)
+            setExternalDiskChangedPaths((prev) => clearExternalDiskDriftInState(prev, savedPath))
+            scheduleAiRailScrollRestoreAfterSideEffects()
+            preserveAiRailScrollDuring(() => {
+              setSavedAt(new Date().toLocaleTimeString())
+              if (manual) {
+                setStatus(t('app.status.saved'), 'success')
+              }
+            })
+            scheduleAiRailScrollRestoreAfterSideEffects()
           })
     },
-    [activePath, activePathRef, cancelPendingKernelContentDebounce, contentRef, rootDir, mainPaneMode, refreshFileTree, updateRecent, resetModeSwitchEditorBootstrap, resolveDocumentBodyForPath, setBufferTabLabels, setSaveConflict, setSavedAt, setStatus, suppressMarkdownSerdeRef, suppressWorkspaceRefreshUntilRef, t, visualEditorRef],
+    [activePath, activePathRef, flushPendingKernelContentDebounce, contentRef, promptWorkspacePassword, rootDir, rootDirRef, mainPaneMode, refreshFileTree, onWorkspaceDocumentSaved, updateRecent, resetModeSwitchEditorBootstrap, resolveDocumentBodyForPath, setBufferTabLabels, setExternalDiskChangedPaths, setSaveConflict, setSavedAt, setStatus, suppressMarkdownSerdeRef, suppressWorkspaceRefreshUntilRef, t, visualEditorRef],
   )
 
   const saveAsCurrent = useCallback(async () => {
       const pathToSave = activePathRef.current || 'scratch'
+      const rootAtRequest = rootDir
       const contentSnapshotAtRequest = contentRef.current
       const tabBodySnapshotAtRequest = resolveDocumentBodyForPath(pathToSave, contentSnapshotAtRequest)
       return enqueueSave(async () => {
@@ -555,8 +684,6 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
           }
           if (resolved != null) {
             body = resolved
-            const resolvedProjected = projectSavedMarkdownToEditorSurfaces(mainPaneMode, body)
-            setTabBody(pathToSave, resolvedProjected.editorSurface)
           } else {
             body = resolveActiveAwareSaveBodyFallback({
               pathToSave,
@@ -588,13 +715,12 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
           body: saveAsProjected.editorSurface,
           sourceIdentity: saveAsProjected.sourceIdentity,
           contentRef,
-          persistBody: setTabBody,
         })
-        if (!rootDir) {
+        if (!rootAtRequest) {
           const picked = await save({
             title: t('app.dialog.saveAs'),
             defaultPath: t('app.defaults.untitledMd'),
-            filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
+            filters: [fileDialogFilter(t, 'markdown', ['md', 'markdown'])],
           })
           if (!picked) return
           try {
@@ -607,42 +733,40 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
           setStatus(t('app.status.savedTo', { path: picked }), 'success')
           return
         }
-        const base = rootDir.replace(/[/\\]+$/u, '')
+        const base = rootAtRequest.replace(/[/\\]+$/u, '')
         const defaultPath =
           pathToSave && !isBufferTabId(pathToSave) ? pathToSave : `${base}/${t('app.defaults.newNoteStem')}.md`
         const picked = await save({
           title: t('app.dialog.saveAs'),
           defaultPath,
-          filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
+          filters: [fileDialogFilter(t, 'markdown', ['md', 'markdown'])],
         })
         if (!picked) return
-        if (!isPathUnderWorkspace(rootDir, picked)) {
+        if (!isPathUnderWorkspace(rootAtRequest, picked)) {
           setStatus(t('app.status.saveOutsideWorkspace'), 'warning')
           return
         }
         try {
-          await dispatchDocumentCommand({
-            type: 'SAVE_DOCUMENT',
-            root: rootDir,
+          await dispatchSaveDocumentWithEncryptionRetry({
+            rootAtRequest,
+            getCurrentRootDir: () => rootDirRef.current,
             path: picked,
             content: diskMarkdown,
             source: 'save-as',
+            allowUnlockRetry: true,
+            promptWorkspacePassword,
+            t,
           })
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error)
-          if (message.includes('FILE_CONFLICT')) {
-            await openSaveConflictDialog({
-              rootDir,
-              path: picked,
-              local: diskMarkdown,
-              sourceMode: 'manual',
-              setSaveConflict,
-              setStatus,
-              t,
-            })
-            return
-          }
-          setStatus(t('app.status.saveFailed', { message }), 'error')
+          await handleWorkspaceDocumentSaveError(error, {
+            manual: true,
+            rootAtRequest,
+            path: picked,
+            local: diskMarkdown,
+            setSaveConflict,
+            setStatus,
+            t,
+          })
           return
         }
         resetModeSwitchEditorBootstrap()
@@ -652,18 +776,23 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
           content: diskMarkdown,
           source: 'save-as',
         })
+        const savedAtMs = Date.now()
+        onWorkspaceDocumentSaved?.(picked, savedAtMs)
         updateRecent(picked)
         await refreshFileTree()
-        await refreshWorkspaceIndex(rootDir)
+        await refreshWorkspaceIndex(rootAtRequest)
         setSavedAt(new Date().toLocaleTimeString())
         setStatus(t('app.status.saved'), 'success')
       })
     }, [
       activePathRef,
       contentRef,
+      promptWorkspacePassword,
       rootDir,
+      rootDirRef,
       mainPaneMode,
       refreshFileTree,
+      onWorkspaceDocumentSaved,
       updateRecent,
       resetModeSwitchEditorBootstrap,
       resolveDocumentBodyForPath,
@@ -707,6 +836,14 @@ export function useDocumentSave(deps: DocumentSaveDeps) {
       }
       if (error instanceof PrintContentTooLargeError) {
         setStatus(t('app.status.printContentTooLarge'), 'warning')
+        return
+      }
+      if (error instanceof PrintWindowTimedOutError) {
+        setStatus(t('app.status.printTimedOut'), 'warning')
+        return
+      }
+      if (error instanceof PrintPopupBlockedError) {
+        setStatus(t('app.status.printPopupBlocked'), 'warning')
         return
       }
       const rawMessage = error instanceof Error ? error.message : String(error)

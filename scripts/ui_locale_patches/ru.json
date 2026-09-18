@@ -169,7 +169,7 @@
   "app.titleBar.welcomeTitle": "Добро пожаловать в {app}",
   "app.titleBar.welcomeSubtitle": "Откройте папку для просмотра и сохранения заметок",
   "app.titleBar.readySubtitle": "Создайте или откройте заметку в этой области",
-  "app.globalSearch.scopeHint": "Полнотекстовый поиск по всем заметкам открытой области.",
+  "app.globalSearch.scopeHint": "Полнотекстовый поиск в открытой области.",
   "app.globalSearch.shortLabel": "Полный текст",
   "app.sidebar.recent.title": "Недавние",
   "app.sidebar.search.placeholder": "Фильтровать имена файлов в этой области…",

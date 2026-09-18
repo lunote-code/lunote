@@ -65,6 +65,7 @@ function pickImagesViaBrowserInput(multiple: boolean): Promise<File[]> {
 
 export async function pickLocalImageFiles(options: {
   title: string
+  filterName: string
   multiple?: boolean
 }): Promise<File[]> {
   const multiple = options.multiple ?? true
@@ -72,6 +73,7 @@ export async function pickLocalImageFiles(options: {
   if (isTauri()) {
     const picked = await pickImportFilesBase64({
       title: options.title,
+      filterName: options.filterName,
       multiple,
       extensions: [...IMAGE_FILE_EXTENSIONS],
     })

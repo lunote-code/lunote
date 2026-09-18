@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent as ReactDragEvent } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { getCurrentWebviewWindow } from '../../platform/tauri/webviewWindow'
 
 import {
   pickedImportFileToFile,

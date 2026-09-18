@@ -1,0 +1,504 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-13T12:00:00Z",
+  "minAppVersion": "0.6.0",
+  "catalogUrl": "https://raw.githubusercontent.com/lunote-code/lunote-theme/main/catalog/index.json",
+  "plugins": [
+    {
+      "id": "reading-comfort-pack",
+      "name": "Reading Comfort Pack",
+      "author": "Lunote Examples",
+      "pluginType": "theme-pack",
+      "capabilities": [
+        "theme.style",
+        "theme.snippet",
+        "theme.token"
+      ],
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "requiresRestart": false,
+      "experimental": false,
+      "tagline": {
+        "en": "Literary reading theme with focus snippets",
+        "zh-CN": "文学阅读风格主题与专注阅读片段"
+      },
+      "category": "appearance",
+      "tags": [
+        "theme",
+        "reading",
+        "typography"
+      ],
+      "latestVersion": "1.0.0",
+      "minAppVersion": "0.6.0",
+      "maxAppVersion": null,
+      "downloads": 0,
+      "rating": null,
+      "featured": true,
+      "verified": true,
+      "updatedAt": "2026-06-13",
+      "detailUrl": "./plugins/reading-comfort-pack.json"
+    },
+    {
+      "id": "compact-workspace-pack",
+      "name": "Compact Workspace Pack",
+      "author": "Lunote Examples",
+      "pluginType": "ui-snippet",
+      "capabilities": [
+        "theme.snippet"
+      ],
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "requiresRestart": false,
+      "experimental": false,
+      "tagline": {
+        "en": "Denser sidebar rows for large vaults",
+        "zh-CN": "大型库适用的紧凑侧栏布局"
+      },
+      "category": "workspace",
+      "tags": [
+        "sidebar",
+        "density",
+        "snippet"
+      ],
+      "latestVersion": "1.0.0",
+      "minAppVersion": "0.6.0",
+      "maxAppVersion": null,
+      "downloads": 0,
+      "rating": null,
+      "featured": false,
+      "verified": true,
+      "updatedAt": "2026-06-13",
+      "detailUrl": "./plugins/compact-workspace-pack.json"
+    },
+    {
+      "id": "tokyo-night-pack",
+      "name": "Tokyo Night Pack",
+      "author": "Lunote Examples",
+      "pluginType": "theme-pack",
+      "capabilities": [
+        "theme.style"
+      ],
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "requiresRestart": false,
+      "experimental": false,
+      "tagline": {
+        "en": "Deep blue-purple palette with neon accents",
+        "zh-CN": "深蓝紫配色与霓虹强调色"
+      },
+      "category": "appearance",
+      "tags": [
+        "theme",
+        "style",
+        "tokyo-night"
+      ],
+      "latestVersion": "1.0.0",
+      "minAppVersion": "0.6.0",
+      "maxAppVersion": null,
+      "downloads": 0,
+      "rating": null,
+      "featured": true,
+      "verified": true,
+      "updatedAt": "2026-06-13",
+      "detailUrl": "./plugins/tokyo-night-pack.json"
+    },
+    {
+      "id": "forest-dawn-pack",
+      "name": "Forest Dawn Pack",
+      "author": "Lunote Examples",
+      "pluginType": "theme-pack",
+      "capabilities": [
+        "theme.style"
+      ],
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "requiresRestart": false,
+      "experimental": false,
+      "tagline": {
+        "en": "Calm moss-green daytime palette",
+        "zh-CN": "宁静苔藓绿日间配色"
+      },
+      "category": "appearance",
+      "tags": [
+        "theme",
+        "style",
+        "forest-dawn"
+      ],
+      "latestVersion": "1.0.0",
+      "minAppVersion": "0.6.0",
+      "maxAppVersion": null,
+      "downloads": 0,
+      "rating": null,
+      "featured": false,
+      "verified": true,
+      "updatedAt": "2026-06-13",
+      "detailUrl": "./plugins/forest-dawn-pack.json"
+    },
+    {
+      "id": "midnight-aurora-pack",
+      "name": "Midnight Aurora Pack",
+      "author": "Lunote Examples",
+      "pluginType": "theme-pack",
+      "capabilities": [
+        "theme.style"
+      ],
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "requiresRestart": false,
+      "experimental": false,
+      "tagline": {
+        "en": "Teal and violet aurora dark theme",
+        "zh-CN": "青绿与紫罗兰极光暗色主题"
+      },
+      "category": "appearance",
+      "tags": [
+        "theme",
+        "style",
+        "midnight-aurora"
+      ],
+      "latestVersion": "1.0.0",
+      "minAppVersion": "0.6.0",
+      "maxAppVersion": null,
+      "downloads": 0,
+      "rating": null,
+      "featured": true,
+      "verified": true,
+      "updatedAt": "2026-06-13",
+      "detailUrl": "./plugins/midnight-aurora-pack.json"
+    },
+    {
+      "id": "sakura-breeze-pack",
+      "name": "Sakura Breeze Pack",
+      "author": "Lunote Examples",
+      "pluginType": "theme-pack",
+      "capabilities": [
+        "theme.style"
+      ],
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "requiresRestart": false,
+      "experimental": false,
+      "tagline": {
+        "en": "Soft pink and cream light theme",
+        "zh-CN": "柔和粉奶油浅色主题"
+      },
+      "category": "appearance",
+      "tags": [
+        "theme",
+        "style",
+        "sakura-breeze"
+      ],
+      "latestVersion": "1.0.0",
+      "minAppVersion": "0.6.0",
+      "maxAppVersion": null,
+      "downloads": 0,
+      "rating": null,
+      "featured": false,
+      "verified": true,
+      "updatedAt": "2026-06-13",
+      "detailUrl": "./plugins/sakura-breeze-pack.json"
+    },
+    {
+      "id": "cobalt-dusk-pack",
+      "name": "Cobalt Dusk Pack",
+      "author": "Lunote Examples",
+      "pluginType": "theme-pack",
+      "capabilities": [
+        "theme.style"
+      ],
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "requiresRestart": false,
+      "experimental": false,
+      "tagline": {
+        "en": "High-contrast cobalt dark theme",
+        "zh-CN": "高对比钴蓝暗色主题"
+      },
+      "category": "appearance",
+      "tags": [
+        "theme",
+        "style",
+        "cobalt-dusk"
+      ],
+      "latestVersion": "1.0.0",
+      "minAppVersion": "0.6.0",
+      "maxAppVersion": null,
+      "downloads": 0,
+      "rating": null,
+      "featured": false,
+      "verified": true,
+      "updatedAt": "2026-06-13",
+      "detailUrl": "./plugins/cobalt-dusk-pack.json"
+    },
+    {
+      "id": "graphite-noir-pack",
+      "name": "Graphite Noir Pack",
+      "author": "Lunote Examples",
+      "pluginType": "theme-pack",
+      "capabilities": [
+        "theme.token"
+      ],
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "requiresRestart": false,
+      "experimental": false,
+      "tagline": {
+        "en": "Neutral graphite JSON palette",
+        "zh-CN": "中性石墨色 JSON 配色"
+      },
+      "category": "appearance",
+      "tags": [
+        "theme",
+        "tokens",
+        "json"
+      ],
+      "latestVersion": "1.0.0",
+      "minAppVersion": "0.6.0",
+      "maxAppVersion": null,
+      "downloads": 0,
+      "rating": null,
+      "featured": false,
+      "verified": true,
+      "updatedAt": "2026-06-13",
+      "detailUrl": "./plugins/graphite-noir-pack.json"
+    },
+    {
+      "id": "ocean-glass-pack",
+      "name": "Ocean Glass Pack",
+      "author": "Lunote Examples",
+      "pluginType": "theme-pack",
+      "capabilities": [
+        "theme.token"
+      ],
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "requiresRestart": false,
+      "experimental": false,
+      "tagline": {
+        "en": "Cyan glass light token preset",
+        "zh-CN": "青色玻璃质感浅色令牌"
+      },
+      "category": "appearance",
+      "tags": [
+        "theme",
+        "tokens",
+        "json"
+      ],
+      "latestVersion": "1.0.0",
+      "minAppVersion": "0.6.0",
+      "maxAppVersion": null,
+      "downloads": 0,
+      "rating": null,
+      "featured": false,
+      "verified": true,
+      "updatedAt": "2026-06-13",
+      "detailUrl": "./plugins/ocean-glass-pack.json"
+    },
+    {
+      "id": "link-accent-pack",
+      "name": "Link Accent Pack",
+      "author": "Lunote Examples",
+      "pluginType": "ui-snippet",
+      "capabilities": [
+        "theme.snippet"
+      ],
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "requiresRestart": false,
+      "experimental": false,
+      "tagline": {
+        "en": "Stronger link underlines in the editor",
+        "zh-CN": "编辑区更醒目的链接下划线"
+      },
+      "category": "appearance",
+      "tags": [
+        "snippet",
+        "ui"
+      ],
+      "latestVersion": "1.0.0",
+      "minAppVersion": "0.6.0",
+      "maxAppVersion": null,
+      "downloads": 0,
+      "rating": null,
+      "featured": false,
+      "verified": true,
+      "updatedAt": "2026-06-13",
+      "detailUrl": "./plugins/link-accent-pack.json"
+    },
+    {
+      "id": "serif-headings-pack",
+      "name": "Serif Headings Pack",
+      "author": "Lunote Examples",
+      "pluginType": "ui-snippet",
+      "capabilities": [
+        "theme.snippet"
+      ],
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "requiresRestart": false,
+      "experimental": false,
+      "tagline": {
+        "en": "Serif typography for top-level headings",
+        "zh-CN": "顶级标题衬线字体"
+      },
+      "category": "appearance",
+      "tags": [
+        "snippet",
+        "ui"
+      ],
+      "latestVersion": "1.0.0",
+      "minAppVersion": "0.6.0",
+      "maxAppVersion": null,
+      "downloads": 0,
+      "rating": null,
+      "featured": false,
+      "verified": true,
+      "updatedAt": "2026-06-13",
+      "detailUrl": "./plugins/serif-headings-pack.json"
+    },
+    {
+      "id": "reading-edge-pack",
+      "name": "Reading Edge Pack",
+      "author": "Lunote Examples",
+      "pluginType": "ui-snippet",
+      "capabilities": [
+        "theme.snippet"
+      ],
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "requiresRestart": false,
+      "experimental": false,
+      "tagline": {
+        "en": "Soft top/bottom fade for long reading",
+        "zh-CN": "长文阅读顶部/底部柔和渐隐"
+      },
+      "category": "productivity",
+      "tags": [
+        "snippet",
+        "ui"
+      ],
+      "latestVersion": "1.0.0",
+      "minAppVersion": "0.6.0",
+      "maxAppVersion": null,
+      "downloads": 0,
+      "rating": null,
+      "featured": false,
+      "verified": true,
+      "updatedAt": "2026-06-13",
+      "detailUrl": "./plugins/reading-edge-pack.json"
+    },
+    {
+      "id": "warm-selection-pack",
+      "name": "Warm Selection Pack",
+      "author": "Lunote Examples",
+      "pluginType": "ui-snippet",
+      "capabilities": [
+        "theme.snippet"
+      ],
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "requiresRestart": false,
+      "experimental": false,
+      "tagline": {
+        "en": "Warmer, stronger text selection tint",
+        "zh-CN": "更暖、更明显的文本选中高亮"
+      },
+      "category": "appearance",
+      "tags": [
+        "snippet",
+        "ui"
+      ],
+      "latestVersion": "1.0.0",
+      "minAppVersion": "0.6.0",
+      "maxAppVersion": null,
+      "downloads": 0,
+      "rating": null,
+      "featured": false,
+      "verified": true,
+      "updatedAt": "2026-06-13",
+      "detailUrl": "./plugins/warm-selection-pack.json"
+    },
+    {
+      "id": "code-clarity-pack",
+      "name": "Code Clarity Pack",
+      "author": "Lunote Examples",
+      "pluginType": "ui-snippet",
+      "capabilities": [
+        "theme.snippet"
+      ],
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "requiresRestart": false,
+      "experimental": false,
+      "tagline": {
+        "en": "Stable code gutters and sharper code blocks",
+        "zh-CN": "稳定行号槽与更清晰代码块"
+      },
+      "category": "productivity",
+      "tags": [
+        "snippet",
+        "ui"
+      ],
+      "latestVersion": "1.0.0",
+      "minAppVersion": "0.6.0",
+      "maxAppVersion": null,
+      "downloads": 0,
+      "rating": null,
+      "featured": false,
+      "verified": true,
+      "updatedAt": "2026-06-13",
+      "detailUrl": "./plugins/code-clarity-pack.json"
+    }
+  ],
+  "categories": [
+    {
+      "id": "appearance",
+      "label": {
+        "en": "Appearance",
+        "zh-CN": "外观"
+      }
+    },
+    {
+      "id": "workspace",
+      "label": {
+        "en": "Workspace",
+        "zh-CN": "工作区"
+      }
+    },
+    {
+      "id": "productivity",
+      "label": {
+        "en": "Productivity",
+        "zh-CN": "效率"
+      }
+    }
+  ]
+}

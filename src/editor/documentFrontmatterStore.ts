@@ -1,4 +1,4 @@
-import { pathsEqual } from '../lib/workspacePathUtils'
+import { pathCompareKey, pathsEqual } from '../lib/workspacePathUtils'
 import { joinMarkdownWithFrontmatter, splitDocumentMarkdown } from './documentFrontmatter'
 
 type FrontmatterEntry = {
@@ -34,12 +34,30 @@ export function subscribeDocumentFrontmatter(listener: () => void): () => void {
 }
 
 function normalizeStoreKey(path: string): string {
-  return path.replace(/\\/g, '/')
+  return pathCompareKey(path)
+}
+
+function findStoredKey(path: string): string | undefined {
+  const key = normalizeStoreKey(path)
+  if (byPath.has(key)) return key
+  for (const storedKey of byPath.keys()) {
+    if (pathsEqual(storedKey, path)) return storedKey
+  }
+  return undefined
+}
+
+function getEntry(path: string): FrontmatterEntry | undefined {
+  const key = findStoredKey(path)
+  return key ? byPath.get(key) : undefined
 }
 
 export function syncDocumentFrontmatterFromMarkdown(path: string, markdown: string): void {
   if (!path || path === 'scratch') return
   const key = normalizeStoreKey(path)
+  // Drop any legacy key that compares equal but differs in string form.
+  for (const storedKey of [...byPath.keys()]) {
+    if (storedKey !== key && pathsEqual(storedKey, path)) byPath.delete(storedKey)
+  }
   const { frontmatter, hadLeadingBlock } = splitDocumentMarkdown(markdown)
   byPath.set(key, {
     fields: { ...frontmatter },
@@ -49,17 +67,15 @@ export function syncDocumentFrontmatterFromMarkdown(path: string, markdown: stri
 }
 
 export function hasDocumentFrontmatterCache(path: string): boolean {
-  return byPath.has(normalizeStoreKey(path))
+  return findStoredKey(path) !== undefined
 }
 
 export function getDocumentFrontmatterFields(path: string): Record<string, unknown> | undefined {
-  const key = normalizeStoreKey(path)
-  return byPath.get(key)?.fields
+  return getEntry(path)?.fields
 }
 
 export function getDocumentFrontmatterHadLeadingBlock(path: string): boolean {
-  const key = normalizeStoreKey(path)
-  return byPath.get(key)?.hadLeadingBlock ?? false
+  return getEntry(path)?.hadLeadingBlock ?? false
 }
 
 export function setDocumentFrontmatterFields(
@@ -69,7 +85,10 @@ export function setDocumentFrontmatterFields(
 ): void {
   if (!path || path === 'scratch') return
   const key = normalizeStoreKey(path)
-  const prev = byPath.get(key)
+  const prev = getEntry(path)
+  for (const storedKey of [...byPath.keys()]) {
+    if (storedKey !== key && pathsEqual(storedKey, path)) byPath.delete(storedKey)
+  }
   byPath.set(key, {
     fields: { ...fields },
     hadLeadingBlock: options?.hadLeadingBlock ?? prev?.hadLeadingBlock ?? Object.keys(fields).length > 0,
@@ -82,8 +101,7 @@ const LEADING_YAML_FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/u
 export function attachDocumentFrontmatter(path: string, body: string): string {
   if (!path || path === 'scratch') return body
   if (LEADING_YAML_FRONTMATTER.test(body)) return body
-  const key = normalizeStoreKey(path)
-  const entry = byPath.get(key)
+  const entry = getEntry(path)
   if (!entry) return body
   const { fields, hadLeadingBlock } = entry
   const hasFields = Object.keys(fields).some((k) => {
@@ -97,18 +115,29 @@ export function attachDocumentFrontmatter(path: string, body: string): string {
 }
 
 export function migrateDocumentFrontmatterPath(fromPath: string, toPath: string): void {
-  const fromKey = normalizeStoreKey(fromPath)
-  const toKey = normalizeStoreKey(toPath)
+  const fromKey = findStoredKey(fromPath)
+  if (!fromKey) return
   const entry = byPath.get(fromKey)
   if (!entry) return
-  byPath.set(toKey, entry)
   byPath.delete(fromKey)
+  const toKey = normalizeStoreKey(toPath)
+  for (const storedKey of [...byPath.keys()]) {
+    if (storedKey !== toKey && pathsEqual(storedKey, toPath)) byPath.delete(storedKey)
+  }
+  byPath.set(toKey, entry)
   bumpFrontmatterRevision()
 }
 
 export function clearDocumentFrontmatter(path: string): void {
-  if (!byPath.has(normalizeStoreKey(path))) return
-  byPath.delete(normalizeStoreKey(path))
+  const key = findStoredKey(path)
+  if (!key) return
+  byPath.delete(key)
+  bumpFrontmatterRevision()
+}
+
+export function clearAllDocumentFrontmatter(): void {
+  if (byPath.size === 0) return
+  byPath.clear()
   bumpFrontmatterRevision()
 }
 

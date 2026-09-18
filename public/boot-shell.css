@@ -54,6 +54,7 @@
 }
 
 .boot-shell {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -115,6 +116,20 @@
   flex: 1 1 0;
   min-height: 0;
   background: var(--surface-editor, #0d1117);
+}
+
+.boot-shell-status {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0;
+  font: 500 13px/1.4 var(--font-ui, system-ui, sans-serif);
+  color: color-mix(in srgb, var(--text-primary, #e6edf3) 72%, transparent);
+  letter-spacing: 0.01em;
+  pointer-events: none;
+  user-select: none;
 }
 
 /* Fallback panel colors before theme-presets.css (html attrs set by boot-early-theme.js) */

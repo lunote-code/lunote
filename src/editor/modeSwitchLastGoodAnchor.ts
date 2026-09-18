@@ -3,6 +3,10 @@ import type { Node as PMNode } from 'prosemirror-model'
 /** Press `documentKey` to remember the most recent ⌘/ successfully mapped (pm, cm). It is forbidden to use 0 / as a "hard" rollback at the end of the document.*/
 const lastByDocumentKey = new Map<string, { pm: number; cm: number }>()
 
+export function clearAllModeSwitchAnchors(): void {
+  lastByDocumentKey.clear()
+}
+
 export function recordModeSwitchGoodAnchor(documentKey: string, pm: number, cm: number): void {
   if (!documentKey || !Number.isFinite(pm) || !Number.isFinite(cm)) return
   lastByDocumentKey.set(documentKey, { pm: Math.round(pm), cm: Math.round(cm) })

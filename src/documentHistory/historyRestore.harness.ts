@@ -13,7 +13,13 @@ import {
   resetDocumentRuntimeKernel,
 } from '../documentRuntime/documentKernel'
 import type { DocumentRuntimeCapabilities } from '../documentRuntime/documentTypes'
-import { clearTabBodies, setTabBody } from '../app/document/tabBodiesStore'
+import {
+  clearTabBodies,
+  setTabBody,
+  getTabBody,
+  installTabBodiesKernelSync,
+  projectTabBodyFromKernel,
+} from '../app/document/tabBodiesStore'
 
 type Case = {
   readonly name: string
@@ -30,6 +36,10 @@ function assertEqual<T>(actual: T, expected: T, message: string): void {
   }
 }
 
+async function awaitDocumentEvents(): Promise<void> {
+  await new Promise<void>((resolve) => queueMicrotask(resolve))
+}
+
 function installMockCapabilities(readMap: Record<string, string>): void {
   const capabilities: DocumentRuntimeCapabilities = {
     readDocument: async (_root, path) => readMap[path] ?? '',
@@ -39,6 +49,7 @@ function installMockCapabilities(readMap: Record<string, string>): void {
     setActiveDocument: () => {},
     renderContent: () => {},
     setTabs: () => {},
+    projectOpenDocumentBody: projectTabBodyFromKernel,
   }
   registerDocumentRuntimeCapabilities(capabilities)
 }
@@ -47,9 +58,11 @@ async function withRuntime(run: () => Promise<void> | void): Promise<void> {
   resetDocumentRuntimeKernel()
   clearAllHistoryRestoreState()
   clearTabBodies()
+  const unsubBodies = installTabBodiesKernelSync()
   try {
     await run()
   } finally {
+    unsubBodies()
     registerDocumentRuntimeCapabilities(null)
     resetDocumentRuntimeKernel()
     clearAllHistoryRestoreState()
@@ -139,6 +152,63 @@ const CASES: readonly Case[] = Object.freeze([
     }),
   },
   {
+    name: 'active restore without flush still creates pre_restore backup',
+    run: async () => withRuntime(async () => {
+      installMockCapabilities({ '/vault/note.md': '# disk\n' })
+      await dispatchDocumentCommand({
+        type: 'OPEN_DOCUMENT',
+        root: '/vault',
+        path: '/vault/note.md',
+        source: 'test-open',
+      })
+      await dispatchDocumentCommand({
+        type: 'DOCUMENT_CONTENT_CHANGED',
+        path: '/vault/note.md',
+        content: '# live before restore\n',
+        source: 'test-live',
+      })
+      setTabBody('/vault/note.md', '# live before restore\n')
+      const created: Array<{ source?: string; content: string }> = []
+      await restoreSnapshotToEditor({
+        rootDir: '/vault',
+        path: '/vault/note.md',
+        snapshotId: 'snap-live',
+        dispatchDocumentCommand,
+        createSnapshot: async (input) => {
+          created.push({ source: input.source, content: input.content })
+          return {
+            id: input.source === 'pre_restore' ? 'pre-restore-active-no-flush' : 'unused',
+            workspaceId: 'vault',
+            path: input.path,
+            createdAt: Date.now(),
+            source: input.source ?? 'manual',
+            title: input.title ?? null,
+            excerpt: null,
+            contentHash: 'hash',
+            size: input.content.length,
+          }
+        },
+        readSnapshot: async () => ({
+          entry: {
+            id: 'snap-live',
+            workspaceId: 'vault',
+            path: '/vault/note.md',
+            createdAt: Date.now(),
+            source: 'manual',
+            title: null,
+            excerpt: null,
+            contentHash: 'hash',
+            size: '# snapshot body\n'.length,
+          },
+          content: '# snapshot body\n',
+        }),
+      })
+      assertEqual(created.length, 1, 'pre_restore should be created even without flush hook')
+      assertEqual(created[0]?.source ?? '', 'pre_restore', 'backup source should be pre_restore')
+      assertEqual(created[0]?.content ?? '', '# live before restore\n', 'backup should use latest tab body')
+    }),
+  },
+  {
     name: 'restore pre_restore snapshot resolves target path body when active path differs',
     run: async () => withRuntime(async () => {
       installMockCapabilities({
@@ -202,9 +272,146 @@ const CASES: readonly Case[] = Object.freeze([
         'pre_restore snapshot should use target path body',
       )
       assertEqual(restored.content, '# alpha restored\n', 'restored snapshot content should be returned')
-      assertEqual(getDocumentRuntimeSnapshot().content, '# alpha restored\n', 'restore should update active content')
+      const runtime = getDocumentRuntimeSnapshot()
+      assertEqual(runtime.activePath, '/vault/beta.md', 'inactive restore should keep active tab')
+      assertEqual(runtime.content, '# beta live before restore\n', 'inactive restore should preserve active editor content')
+      assert(Boolean(runtime.dirtyByPath['/vault/alpha.md']), 'inactive restored tab should stay dirty')
       assert(isAutosaveSuspended('/vault/alpha.md'), 'target path should remain autosave suspended')
       assert(!isAutosaveSuspended('/vault/beta.md'), 'non-target path should not be autosave suspended')
+      assertEqual(getTabBody('/vault/alpha.md') ?? '', '# alpha restored\n', 'inactive restore should sync tab body cache')
+    }),
+  },
+  {
+    name: 'inactive manual snapshot skips active flush and uses tab-body cache',
+    run: async () => withRuntime(async () => {
+      installMockCapabilities({
+        '/vault/alpha.md': '# alpha disk\n',
+        '/vault/beta.md': '# beta disk\n',
+      })
+      await dispatchDocumentCommand({
+        type: 'OPEN_DOCUMENT',
+        root: '/vault',
+        path: '/vault/beta.md',
+        source: 'test-open-beta',
+      })
+      await dispatchDocumentCommand({
+        type: 'DOCUMENT_CONTENT_CHANGED',
+        path: '/vault/beta.md',
+        content: '# beta live\n',
+        source: 'test-beta-live',
+      })
+      setTabBody('/vault/alpha.md', '# alpha cached for snapshot\n')
+      let flushCount = 0
+      const entry = await createManualSnapshotForDocument({
+        rootDir: '/vault',
+        path: '/vault/alpha.md',
+        flushEditorToMemory: async () => {
+          flushCount += 1
+          return false
+        },
+        createSnapshot: async (input) => ({
+          id: 'snap-inactive-manual',
+          workspaceId: 'vault',
+          path: input.path,
+          createdAt: Date.now(),
+          source: input.source ?? 'manual',
+          title: input.title ?? null,
+          excerpt: null,
+          contentHash: 'hash',
+          size: input.content.length,
+        }),
+      })
+      assert(entry != null, 'inactive manual snapshot should succeed without active flush')
+      assertEqual(flushCount, 0, 'inactive manual snapshot should not flush active editor')
+      assertEqual(entry?.path ?? '', '/vault/alpha.md', 'snapshot should target inactive path')
+      const runtime = getDocumentRuntimeSnapshot()
+      assertEqual(runtime.content, '# beta live\n', 'inactive manual snapshot should preserve active editor content')
+    }),
+  },
+  {
+    name: 'inactive restore then tab switch loads restored body and preserves prior active tab',
+    run: async () => withRuntime(async () => {
+      installMockCapabilities({
+        '/vault/alpha.md': '# alpha disk\n',
+        '/vault/beta.md': '# beta disk\n',
+      })
+      await dispatchDocumentCommand({
+        type: 'OPEN_DOCUMENT',
+        root: '/vault',
+        path: '/vault/beta.md',
+        source: 'test-open-beta',
+      })
+      await dispatchDocumentCommand({
+        type: 'DOCUMENT_CONTENT_CHANGED',
+        path: '/vault/beta.md',
+        content: '# beta live before restore\n',
+        source: 'test-beta-live',
+      })
+      setTabBody('/vault/alpha.md', '# alpha cached before restore\n')
+      await restoreSnapshotToEditor({
+        rootDir: '/vault',
+        path: '/vault/alpha.md',
+        snapshotId: 'snap-alpha',
+        dispatchDocumentCommand,
+        createSnapshot: async (input) => ({
+          id: 'pre-restore-inactive',
+          workspaceId: 'vault',
+          path: input.path,
+          createdAt: Date.now(),
+          source: input.source ?? 'pre_restore',
+          title: input.title ?? null,
+          excerpt: null,
+          contentHash: 'hash',
+          size: input.content.length,
+        }),
+        readSnapshot: async () => ({
+          entry: {
+            id: 'snap-alpha',
+            workspaceId: 'vault',
+            path: '/vault/alpha.md',
+            createdAt: Date.now(),
+            source: 'manual',
+            title: null,
+            excerpt: null,
+            contentHash: 'hash',
+            size: '# alpha restored\n'.length,
+          },
+          content: '# alpha restored\n',
+        }),
+      })
+      await awaitDocumentEvents()
+      let runtime = getDocumentRuntimeSnapshot()
+      assertEqual(runtime.content, '# beta live before restore\n', 'active tab should stay on beta before switch')
+      await dispatchDocumentCommand({
+        type: 'SET_TABS',
+        tabs: ['/vault/alpha.md', '/vault/beta.md'],
+        activePath: '/vault/alpha.md',
+        source: 'test-switch-to-restored-inactive',
+      })
+      await dispatchDocumentCommand({
+        type: 'REPLACE_ACTIVE_DOCUMENT',
+        path: '/vault/alpha.md',
+        content: getTabBody('/vault/alpha.md') ?? '# alpha restored\n',
+        source: 'test-switch-to-restored-inactive',
+      })
+      runtime = getDocumentRuntimeSnapshot()
+      assertEqual(runtime.activePath, '/vault/alpha.md', 'switch should activate restored tab')
+      assertEqual(runtime.content, '# alpha restored\n', 'switch should load restored tab body')
+      await dispatchDocumentCommand({
+        type: 'SET_TABS',
+        tabs: ['/vault/alpha.md', '/vault/beta.md'],
+        activePath: '/vault/beta.md',
+        source: 'test-switch-back',
+      })
+      await dispatchDocumentCommand({
+        type: 'REPLACE_ACTIVE_DOCUMENT',
+        path: '/vault/beta.md',
+        content: getTabBody('/vault/beta.md') ?? '# beta live before restore\n',
+        source: 'test-switch-back',
+      })
+      runtime = getDocumentRuntimeSnapshot()
+      assertEqual(runtime.content, '# beta live before restore\n', 'switching back should restore prior active body')
+      assert(isAutosaveSuspended('/vault/alpha.md'), 'history restore suspension should survive tab switches')
     }),
   },
   {
@@ -312,6 +519,37 @@ const CASES: readonly Case[] = Object.freeze([
       assertEqual(runtime.content, '# disk latest\n', 'revert should restore disk content')
       assert(!runtime.dirtyByPath['/vault/note.md'], 'revert should clear dirty flag')
       assert(!isAutosaveSuspended('/vault/note.md'), 'revert should clear restore suspension')
+    }),
+  },
+  {
+    name: 'revert keeps current editor when target tab is inactive',
+    run: async () => withRuntime(async () => {
+      installMockCapabilities({
+        '/vault/alpha.md': '# alpha disk\n',
+        '/vault/beta.md': '# beta disk updated\n',
+      })
+      await dispatchDocumentCommand({
+        type: 'OPEN_DOCUMENT',
+        root: '/vault',
+        path: '/vault/beta.md',
+        source: 'test-open-beta',
+      })
+      await dispatchDocumentCommand({
+        type: 'RESTORE_WORKSPACE',
+        root: '/vault',
+        activePath: '/vault/alpha.md',
+        openTabs: ['/vault/alpha.md', '/vault/beta.md'],
+        source: 'test-restore-alpha',
+      })
+      await dispatchDocumentCommand({
+        type: 'REVERT_DOCUMENT',
+        root: '/vault',
+        path: '/vault/beta.md',
+        source: 'test-revert-inactive',
+      })
+      const runtime = getDocumentRuntimeSnapshot()
+      assertEqual(runtime.activePath, '/vault/alpha.md', 'inactive revert should not switch active path')
+      assertEqual(runtime.content, '# alpha disk\n', 'inactive revert should preserve active editor content')
     }),
   },
 ])

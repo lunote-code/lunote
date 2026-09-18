@@ -1,4 +1,4 @@
-import { getTabBody, getTabBodyCacheSnapshot } from '../app/document/tabBodiesStore'
+import { getTabBody, getTabBodyCacheSnapshot } from './tabBodiesStore'
 import { getDocumentRuntimeSnapshot } from './documentKernel'
 import { pathsEqual } from '../lib/workspacePathUtils'
 
@@ -10,7 +10,6 @@ export type DocumentAuthorityProjection = {
 export type ResolveDocumentBodyOptions = {
   projection?: DocumentAuthorityProjection
   contentFallback?: string
-  bufferBodies?: Readonly<Record<string, string>>
 }
 
 export function getDocumentAuthorityProjection(): DocumentAuthorityProjection {
@@ -31,27 +30,18 @@ export function isDocumentAuthorityPath(path: string): boolean {
 
 export function resolveDocumentBody(path: string, options?: ResolveDocumentBodyOptions): string | undefined {
   if (!path) return options?.contentFallback
+  const tabBody = getTabBody(path)
+  if (tabBody !== undefined) return tabBody
   const projection = options?.projection ?? getDocumentAuthorityProjection()
   if (pathsEqual(projection.runtime.activePath, path)) {
-    return projection.runtime.content
+    return projection.runtime.content ?? options?.contentFallback
   }
   const derived = Object.entries(projection.derivedTabBodies).find(([key]) => pathsEqual(key, path))?.[1]
   if (derived !== undefined) return derived
-  if (options?.bufferBodies) {
-    const buffered = Object.entries(options.bufferBodies).find(([key]) => pathsEqual(key, path))?.[1]
-    if (buffered !== undefined) return buffered
-  }
   return options?.contentFallback
 }
 
 /** Prefer tab-body cache over debounced kernel content for live editor comparisons (history diff). */
 export function resolveLatestDocumentBody(path: string, options?: ResolveDocumentBodyOptions): string | undefined {
-  if (!path) return options?.contentFallback
-  const projection = options?.projection ?? getDocumentAuthorityProjection()
-  if (pathsEqual(projection.runtime.activePath, path)) {
-    const tabBody = getTabBody(path)
-    if (tabBody !== undefined) return tabBody
-    return projection.runtime.content
-  }
   return resolveDocumentBody(path, options)
 }

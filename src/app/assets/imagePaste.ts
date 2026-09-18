@@ -3,7 +3,6 @@ import { resolveAssetStoragePath } from '../../assets/assetStorageResolver'
 import type { AssetStorageConfig } from '../../assets/assetStoragePolicy'
 import { normalizeAssetStorageConfig } from '../../assets/assetStoragePolicy'
 import { documentIO } from '../../io/documentIO'
-import { noteAssetExists } from '../../platform/tauri/documentService'
 import {
   canInlinePasteWithoutWorkspace,
   isPasteImageTooLarge,
@@ -27,6 +26,7 @@ export function extForMime(mime: string): string {
   if (m.includes('jpeg') || m.includes('jpg')) return 'jpg'
   if (m.includes('webp')) return 'webp'
   if (m.includes('gif')) return 'gif'
+  if (m.includes('heif') || m.includes('heic')) return 'png'
   if (m.includes('svg')) return 'svg'
   return 'png'
 }
@@ -95,16 +95,6 @@ export async function savePastedImageAsset(
       rootDir,
     )
     await documentIO.copyAssetFile({ root: rootDir, path: activePath, relativePath, dataBase64: b64 })
-    try {
-      const exists = await noteAssetExists(rootDir, activePath, relativePath)
-      if (!exists) {
-        report('app.paste.imageSaveFailed', { message: 'asset missing after save' })
-        if (buf.byteLength <= MAX_INLINE_PASTE_IMAGE_BYTES) return inlineDataUrl()
-        return null
-      }
-    } catch {
-      /* proceed with relative path */
-    }
     report('app.paste.imageSaved')
     return relativePath.startsWith('./') ? relativePath : `./${relativePath}`
   } catch (e) {

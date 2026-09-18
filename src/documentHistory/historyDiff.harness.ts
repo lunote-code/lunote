@@ -6,12 +6,14 @@ import {
 } from './historyDiff'
 import {
   dispatchDocumentCommand,
+  getDocumentRuntimeSnapshot,
   registerDocumentRuntimeCapabilities,
   resetDocumentRuntimeKernel,
 } from '../documentRuntime/documentKernel'
 import type { DocumentRuntimeCapabilities } from '../documentRuntime/documentTypes'
 import { resolveDocumentBody, resolveLatestDocumentBody } from '../documentRuntime/documentAuthority'
 import { clearTabBodies, setTabBody } from '../app/document/tabBodiesStore'
+import { pathsEqual } from '../lib/workspacePathUtils'
 
 type Case = {
   readonly name: string
@@ -139,12 +141,58 @@ const CASES: readonly Case[] = Object.freeze([
         })
         setTabBody(path, '# Current Editor\nTyped after snapshot\n')
         const snapshot = '# Snapshot Two\nBody two\n'
-        const stale = resolveDocumentBody(path) ?? ''
+        const kernelBody = getDocumentRuntimeSnapshot().content
         const latest = resolveLatestDocumentBody(path) ?? ''
-        assertEqual(stale, snapshot, 'kernel body should still match snapshot')
-        assert(latest !== snapshot, 'tab body should reflect unsynced editor edits')
+        const resolved = resolveDocumentBody(path) ?? ''
+        assertEqual(kernelBody, snapshot, 'kernel body should still match snapshot')
+        assertEqual(latest, '# Current Editor\nTyped after snapshot\n', 'tab body should reflect unsynced editor edits')
+        assertEqual(resolved, latest, 'resolveDocumentBody should prefer tab cache like resolveLatestDocumentBody')
+        assert(latest !== snapshot, 'tab body should differ from snapshot baseline')
         assert(!documentHistoryContentEquals(path, latest, snapshot), 'latest body should count as changed')
-        assert(documentHistoryContentEquals(path, stale, snapshot), 'stale kernel incorrectly matches snapshot')
+        assert(documentHistoryContentEquals(path, kernelBody, snapshot), 'kernel body should still match snapshot')
+      }),
+  },
+  {
+    name: 'inactive tab body beats stale kernel for history compare',
+    run: async () =>
+      withRuntime(async () => {
+        const alpha = '/vault/alpha.md'
+        const beta = '/vault/beta.md'
+        installMockCapabilities()
+        await dispatchDocumentCommand({
+          type: 'OPEN_DOCUMENT',
+          root: '/vault',
+          path: alpha,
+          source: 'history-diff-harness-alpha',
+        })
+        await dispatchDocumentCommand({
+          type: 'DOCUMENT_CONTENT_CHANGED',
+          path: alpha,
+          content: '# Alpha stale kernel\n',
+          source: 'history-diff-harness-alpha-kernel',
+        })
+        await dispatchDocumentCommand({
+          type: 'SET_TABS',
+          tabs: [alpha, beta],
+          activePath: beta,
+          source: 'history-diff-harness-tabs',
+        })
+        await dispatchDocumentCommand({
+          type: 'OPEN_DOCUMENT',
+          root: '/vault',
+          path: beta,
+          source: 'history-diff-harness-beta',
+        })
+        await dispatchDocumentCommand({
+          type: 'DOCUMENT_CONTENT_CHANGED',
+          path: beta,
+          content: '# Beta active\n',
+          source: 'history-diff-harness-beta-kernel',
+        })
+        setTabBody(alpha, '# Alpha tab cache\nFresh inactive edits\n')
+        const latest = resolveLatestDocumentBody(alpha) ?? ''
+        assert(!pathsEqual(getDocumentRuntimeSnapshot().activePath, alpha), 'alpha should remain inactive')
+        assert(latest.includes('Fresh inactive edits'), 'inactive tab diff should read tab-body cache')
       }),
   },
 ])

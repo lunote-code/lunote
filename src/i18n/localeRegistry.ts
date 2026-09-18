@@ -1,14 +1,13 @@
 /**
  * Automatically discover available UI locales from `./locales/*.json` on disk (single source of data, avoid handwritten SUPPORTED list drift).
  */
+import enMessagesJson from './locales/en.json'
+
 export type MessageDictionary = Record<string, string>
 
 type LocaleModule = { default: MessageDictionary }
 
-const enLocaleModules = import.meta.glob<LocaleModule>('./locales/en.json', { eager: true })
-const localeLoaders = Object.fromEntries(
-  Object.entries(import.meta.glob<LocaleModule>('./locales/*.json')).filter(([path]) => !path.endsWith('/en.json')),
-)
+const localeLoaders = import.meta.glob<LocaleModule>(['./locales/*.json', '!./locales/en.json'])
 
 function pathToLocaleId(path: string): string {
   const m = path.match(/\.\/locales\/(.+)\.json$/)
@@ -58,9 +57,7 @@ const localeRawCache = new Map<string, MessageDictionary>()
 
 /** en baseline (all UI keys) — eager so bootstrap copy is available immediately. */
 export function getEnMessagesSnapshot(): MessageDictionary {
-  const mod = enLocaleModules['./locales/en.json']
-  if (!mod?.default) throw new Error('Missing locale module: ./locales/en.json')
-  return mod.default
+  return enMessagesJson
 }
 
 /** Load sparse locale JSON on demand (non-en only). */

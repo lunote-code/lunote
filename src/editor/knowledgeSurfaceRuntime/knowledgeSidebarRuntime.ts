@@ -13,6 +13,7 @@ import { scheduleSurfaceTask } from './surfaceScheduler'
 import { computeVirtualWindow, sliceVirtualItems, virtualizeSurface } from './surfaceVirtualization'
 import type { DocKey } from '../knowledgeRuntime/types'
 import type { BacklinkSurfaceGroup } from '../knowledgeInteractionRuntime/types'
+import { resolveBacklinkGroupLabel } from '../knowledgeInteractionRuntime/backlinkGroupLabels'
 
 export type SidebarPanel = 'backlinks' | 'outgoing' | 'graph' | 'tags' | 'related' | 'mentions' | 'recent'
 
@@ -109,10 +110,29 @@ export function getVirtualizedBacklinkItems(surfaceId: string): BacklinkSurfaceG
   const win = computeVirtualWindow(0, 48, 600, flat.length, 6)
   const slice = sliceVirtualItems(flat, win)
   if (!slice.length) return snap.backlinks
-  return [{ id: 'virtual', label: 'Backlinks', items: slice }]
+  return [{ id: 'virtual', label: resolveBacklinkGroupLabel('virtual'), items: slice }]
 }
 
 export function resetKnowledgeSidebarRuntime(): void {
   snapshots.clear()
   listeners.clear()
+}
+
+export function getKnowledgeSidebarSnapshotCountForTests(): number {
+  return snapshots.size
+}
+
+export function seedKnowledgeSidebarSnapshotForTests(surfaceId: string, contextDocKey: DocKey): void {
+  snapshots.set(surfaceId, {
+    surfaceId,
+    contextDocKey,
+    revision: 1,
+    backlinks: [],
+    outgoing: [],
+    related: [],
+    mentions: [],
+    recent: [],
+    graphNodeCount: 0,
+    virtualWindow: { start: 0, end: 0 },
+  })
 }

@@ -378,15 +378,6 @@
   filter: brightness(1.05);
 }
 
-.confirm-modal-confirm-warning {
-  background: var(--luna-color-warning);
-  color: var(--luna-on-warning);
-}
-
-.confirm-modal-confirm-warning:hover {
-  background: color-mix(in srgb, var(--luna-color-warning) 88%, #000);
-}
-
 .confirm-modal-single-ok {
   margin-top: 22px;
   width: 100%;
@@ -394,4 +385,168 @@
 
 .alert-modal-desc {
   white-space: pre-wrap;
+}
+
+.workspace-password-modal {
+  width: 100%;
+  max-width: 420px;
+  padding: 30px 28px 24px;
+  text-align: center;
+}
+
+.workspace-password-modal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-panel));
+  border: var(--hairline) solid color-mix(in srgb, var(--accent) 26%, transparent);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.workspace-password-modal-title {
+  margin: 0 0 6px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.workspace-password-modal-desc {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.workspace-password-modal-form {
+  text-align: left;
+}
+
+.workspace-password-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.workspace-password-modal-field + .workspace-password-modal-field {
+  margin-top: 12px;
+}
+
+.workspace-password-modal-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.workspace-password-modal-input-wrap {
+  position: relative;
+}
+
+.workspace-password-modal-input-icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.workspace-password-modal-input {
+  width: 100%;
+  height: var(--luna-field-height);
+  padding: 0 12px 0 38px;
+  border-radius: var(--luna-field-radius);
+  border: var(--hairline) solid var(--luna-field-border);
+  background: var(--luna-field-bg);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: var(--font-ui);
+  box-sizing: border-box;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.workspace-password-modal-input:hover {
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--luna-field-border));
+}
+
+.workspace-password-modal-input:focus,
+.workspace-password-modal-input:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--luna-field-border));
+  box-shadow: var(--luna-focus-ring);
+}
+
+.workspace-password-modal-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: var(--hairline) solid color-mix(in srgb, var(--luna-color-danger) 24%, transparent);
+  background: color-mix(in srgb, var(--luna-color-danger) 8%, var(--surface-panel));
+  color: var(--luna-danger-fg);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.workspace-password-modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.workspace-password-modal-confirm-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+@media (max-width: 520px) {
+  .about-modal-backdrop,
+  .app-dialog-backdrop {
+    padding: 16px;
+  }
+
+  .about-modal.confirm-modal,
+  .about-modal.delete-modal {
+    width: 100%;
+    max-width: none;
+    padding: 24px 22px 20px;
+  }
+
+  .confirm-modal-actions.rename-modal-actions,
+  .delete-modal-actions,
+  .confirm-modal-actions-multi {
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: unset;
+    gap: 10px;
+  }
+
+  .confirm-modal-actions .settings-button,
+  .delete-modal-actions .settings-button,
+  .confirm-modal-actions-multi .settings-button,
+  .confirm-modal-single-ok.settings-button,
+  .workspace-password-modal-actions .settings-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .workspace-password-modal-actions {
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: unset;
+  }
 }

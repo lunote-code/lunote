@@ -21,6 +21,7 @@ const SIDEBAR_GROUPS: readonly SettingsSidebarGroup<PrefsTabId>[] = [
     items: [
       { id: 'general', label: '', icon: 'settings' },
       { id: 'appearance', label: '', icon: 'appearance' },
+      { id: 'interface', label: '', icon: 'window' },
       { id: 'export', label: '', icon: 'export' },
       { id: 'import', label: '', icon: 'import' },
       { id: 'templates', label: '', icon: 'note-new' },
@@ -30,8 +31,10 @@ const SIDEBAR_GROUPS: readonly SettingsSidebarGroup<PrefsTabId>[] = [
   {
     label: 'settings.sidebar.group.advanced',
     items: [
+      { id: 'encryption', label: '', icon: 'encryption' },
       { id: 'shortcuts', label: '', icon: 'shortcuts' },
       { id: 'plugins', label: '', icon: 'plugins' },
+      { id: 'ai', label: '', icon: 'ai' },
       { id: 'language', label: '', icon: 'language' },
     ],
   },

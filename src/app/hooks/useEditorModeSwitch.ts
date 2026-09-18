@@ -4,10 +4,11 @@ import { reconfigureCmManifestKeymap } from '../../editor/cmManifestBridge'
 import { reconfigureShowLineBreaks } from '../../editor/cmShowLineBreaks'
 import { debugModeSwitch, describeScrollMetrics, describeSelectionInText, summarizeSnapshot } from '../../editor/modeSwitchDebug'
 import { EditorOpenReason } from '../../editor/editorOpenReason'
+import { waitForCodeMirrorCompositionEnd } from '../../editor/sourceCompositionWait'
 import type { ModeSwitchAnchorPayload, ModeSwitchFsmAction, ModeSwitchFsmState } from '../../editor/modeSwitchFSM'
 import { decideModeToggleCommandAction } from '../../editor/modeToggleCommandSemantics'
 import { prepareSourceToVisualTransition, prepareVisualToSourceTransition, type SourceToVisualPrepareResult } from '../../editor/modeSwitchTransitionPrepare'
-import { reportModeSwitchFreezeFailure } from '../../editor/modeSwitchFreezeFailure'
+import { ModeSwitchFreezeError, reportModeSwitchFreezeFailure } from '../../editor/modeSwitchFreezeFailure'
 import { VIEWPORT_DOCUMENT_NODE_ID, viewportAnchorEngine } from '../../editor/viewportAnchorEngine'
 import type { SourceModeEnterAnchor } from '../../editor/viewportModeAnchor'
 import {
@@ -15,8 +16,13 @@ import {
   sourceScrollRatioToBodyScrollRatio,
 } from '../../editor/documentFrontmatterOffsets'
 import { syncActiveDocumentBodyImmediately } from '../../lib/editorContentSync'
+import {
+  captureModeSwitchGeneration,
+  isModeSwitchStale,
+} from '../../lib/modeSwitchGeneration'
 import { pathsEqual } from '../../lib/workspacePathUtils'
 import type { AtomicVisualDocumentEnter, TiptapMarkdownEditorHandle } from '../../editor/TiptapMarkdownEditor'
+import { preserveUndoAcrossModeSwitch } from '../../menu/commandTransaction'
 export type EditorModeSwitchRefs = {
   activePathRef: RefObject<string>
   contentRef: RefObject<string>
@@ -32,6 +38,7 @@ export type EditorModeSwitchRefs = {
   } | null>
   suppressMarkdownSerdeRef: MutableRefObject<boolean>
   modeToggleRetryCountRef: MutableRefObject<number>
+  modeSwitchGenerationRef: MutableRefObject<number>
 }
 
 export type EditorModeSwitchSetters = {
@@ -53,6 +60,9 @@ export type UseEditorModeSwitchParams = {
   onModeSwitchApplyingAnchor: () => void
   logModeSwitchState: (phase: string) => void
   onSourceToVisualPrepared?: (result: SourceToVisualPrepareResult) => void
+  /** When true, notify parent while a visual↔source toggle is in flight (large-doc UX). */
+  onModeSwitchBusyChange?: (busy: boolean) => void
+  onModeSwitchBlocked?: (reason: 'code-block') => void
 }
 
 export function useEditorModeSwitch({
@@ -66,6 +76,8 @@ export function useEditorModeSwitch({
   onModeSwitchApplyingAnchor,
   logModeSwitchState,
   onSourceToVisualPrepared,
+  onModeSwitchBusyChange,
+  onModeSwitchBlocked,
 }: UseEditorModeSwitchParams) {
   const {
     activePathRef,
@@ -77,6 +89,7 @@ export function useEditorModeSwitch({
     sourceCodeMirrorBootSelectionRef,
     suppressMarkdownSerdeRef,
     modeToggleRetryCountRef,
+    modeSwitchGenerationRef,
   } = refs
   const {
     setMainPaneMode,
@@ -87,9 +100,21 @@ export function useEditorModeSwitch({
   } = setters
   const modeToggleInFlightRef = useRef(false)
   const modeToggleCooldownUntilRef = useRef(0)
+  const pendingModeToggleRef = useRef(false)
+  const pendingSourceReadyToggleRef = useRef(false)
   const modeSwitchFsmRef = useRef(modeSwitchFsm)
   modeSwitchFsmRef.current = modeSwitchFsm
   const MODE_TOGGLE_COOLDOWN_MS = 180
+
+  const abortModeSwitchHardFail = useCallback(
+    (phase: string) => {
+      suppressMarkdownSerdeRef.current = false
+      onModeSwitchEnhancementFailed(
+        new ModeSwitchFreezeError(`[mode-switch] ${phase}`, { reason: 'prepare_hard_fail', phase }),
+      )
+    },
+    [onModeSwitchEnhancementFailed, suppressMarkdownSerdeRef],
+  )
 
   const readMainPaneMode = useCallback(
     (): 'visual' | 'source' => mainPaneModeRef.current ?? mainPaneMode,
@@ -113,15 +138,43 @@ export function useEditorModeSwitch({
     return pathsEqual(visual.getBoundDocumentKey(), path)
   }, [activePathRef, mainPaneMode, visualEditorRef])
 
+  const isModeSwitchContextStillValid = useCallback(
+    (capturedGeneration: number, documentKeyAtStart: string, stage: string): boolean => {
+      if (isModeSwitchStale(capturedGeneration, modeSwitchGenerationRef)) {
+        debugModeSwitch('[mode-switch][stale-abort]', {
+          stage,
+          documentKey: documentKeyAtStart,
+          capturedGeneration,
+          currentGeneration: modeSwitchGenerationRef.current,
+        })
+        suppressMarkdownSerdeRef.current = false
+        return false
+      }
+      if (!pathsEqual(activePathRef.current || 'scratch', documentKeyAtStart)) {
+        debugModeSwitch('[mode-switch][path-changed-abort]', {
+          stage,
+          documentKey: documentKeyAtStart,
+          activePath: activePathRef.current || 'scratch',
+        })
+        suppressMarkdownSerdeRef.current = false
+        return false
+      }
+      return true
+    },
+    [activePathRef, modeSwitchGenerationRef, suppressMarkdownSerdeRef],
+  )
+
   const switchToSourceMode = useCallback(async () => {
     const pane = readMainPaneMode()
     if (pane !== 'visual' && modeSwitchFsmRef.current.mode !== 'visual') return
+    const capturedGeneration = captureModeSwitchGeneration(modeSwitchGenerationRef)
     const dk = activePathRef.current || 'scratch'
     if (!isVisualEditorBoundToActivePath()) return
     const visual = visualEditorRef.current
     if (visual?.waitForCompositionEnd) {
       await visual.waitForCompositionEnd()
     }
+    if (!isModeSwitchContextStillValid(capturedGeneration, dk, 'after-composition-end')) return
     suppressMarkdownSerdeRef.current = true
     const prep = prepareVisualToSourceTransition({
       documentKey: dk,
@@ -129,6 +182,12 @@ export function useEditorModeSwitch({
       visualEditor: visual,
       onFailed: onModeSwitchEnhancementFailed,
     })
+    if (prep.resultKind === 'hard_fail') {
+      abortModeSwitchHardFail('visual->source')
+      return
+    }
+    if (!isModeSwitchContextStillValid(capturedGeneration, dk, 'before-apply-source')) return
+    preserveUndoAcrossModeSwitch(dk)
     syncActiveDocumentBodyImmediately({
       path: dk,
       body: prep.editorSurface,
@@ -200,11 +259,14 @@ export function useEditorModeSwitch({
   }, [
     readMainPaneMode,
     isVisualEditorBoundToActivePath,
+    isModeSwitchContextStillValid,
+    modeSwitchGenerationRef,
     activePathRef,
     contentRef,
     visualEditorRef,
     onModeSwitchAnchorPayload,
     onModeSwitchEnhancementFailed,
+    abortModeSwitchHardFail,
     logModeSwitchState,
     setAtomicVisualDocumentEnter,
     setSourceCodeMirrorInstanceKey,
@@ -216,11 +278,14 @@ export function useEditorModeSwitch({
     suppressMarkdownSerdeRef,
   ])
 
-  const switchToVisualMode = useCallback(() => {
+  const switchToVisualMode = useCallback(async () => {
     const pane = readMainPaneMode()
     if (pane !== 'source' && modeSwitchFsmRef.current.mode !== 'source') return
-    suppressMarkdownSerdeRef.current = true
+    const capturedGeneration = captureModeSwitchGeneration(modeSwitchGenerationRef)
     const dk = activePathRef.current || 'scratch'
+    await waitForCodeMirrorCompositionEnd(editorViewRef.current)
+    if (!isModeSwitchContextStillValid(capturedGeneration, dk, 'after-composition-end')) return
+    suppressMarkdownSerdeRef.current = true
     const cmSelectionBeforeSwitch = editorViewRef.current
       ? {
           from: editorViewRef.current.state.selection.main.anchor,
@@ -243,6 +308,17 @@ export function useEditorModeSwitch({
       fallbackSourceEnter: modeSwitchFsmRef.current.pendingAnchor?.sourceEnter ?? null,
       onFailed: onModeSwitchEnhancementFailed,
     })
+    if (prep.resultKind === 'hard_fail') {
+      if (!editorViewRef.current) {
+        pendingSourceReadyToggleRef.current = true
+        suppressMarkdownSerdeRef.current = false
+        return
+      }
+      abortModeSwitchHardFail('source->visual')
+      return
+    }
+    if (!isModeSwitchContextStillValid(capturedGeneration, dk, 'before-sync-visual-body')) return
+    preserveUndoAcrossModeSwitch(dk)
     onSourceToVisualPrepared?.(prep)
     syncActiveDocumentBodyImmediately({
       path: dk,
@@ -302,11 +378,14 @@ export function useEditorModeSwitch({
     })
   }, [
     readMainPaneMode,
+    isModeSwitchContextStillValid,
+    modeSwitchGenerationRef,
     activePathRef,
     contentRef,
     editorViewRef,
     onModeSwitchAnchorPayload,
     onModeSwitchEnhancementFailed,
+    abortModeSwitchHardFail,
     onModeSwitchApplyingAnchor,
     onSourceToVisualPrepared,
     logModeSwitchState,
@@ -349,13 +428,19 @@ export function useEditorModeSwitch({
 
   const dispatchModeToggle = useCallback(() => {
     const now = Date.now()
-    if (modeToggleInFlightRef.current || now < modeToggleCooldownUntilRef.current) return
+    if (modeToggleInFlightRef.current || now < modeToggleCooldownUntilRef.current) {
+      pendingModeToggleRef.current = true
+      return
+    }
     if (readMainPaneMode() === 'visual' && !isVisualEditorBoundToActivePath()) {
       if (modeToggleRetryCountRef.current < 8) {
         modeToggleRetryCountRef.current += 1
         requestAnimationFrame(() => {
           dispatchModeToggle()
         })
+      } else {
+        modeToggleRetryCountRef.current = 0
+        abortModeSwitchHardFail('visual-bind-timeout')
       }
       return
     }
@@ -366,26 +451,49 @@ export function useEditorModeSwitch({
         activeBlockType,
         hasActiveLocalSourceIsland,
       })
-      if (action === 'suppress_in_code_block') return
+      if (action === 'suppress_in_code_block') {
+        onModeSwitchBlocked?.('code-block')
+        return
+      }
       if (action === 'close_local_source_island' && tryCloseSourceIslandForActiveBlock()) {
         modeToggleCooldownUntilRef.current = now + MODE_TOGGLE_COOLDOWN_MS
+        window.setTimeout(() => {
+          if (!pendingModeToggleRef.current || modeToggleInFlightRef.current) return
+          if (Date.now() < modeToggleCooldownUntilRef.current) return
+          pendingModeToggleRef.current = false
+          dispatchModeToggle()
+        }, MODE_TOGGLE_COOLDOWN_MS)
         return
       }
       if (action === 'open_local_source_island' && tryOpenSourceIslandForActiveBlock()) {
         modeToggleCooldownUntilRef.current = now + MODE_TOGGLE_COOLDOWN_MS
+        window.setTimeout(() => {
+          if (!pendingModeToggleRef.current || modeToggleInFlightRef.current) return
+          if (Date.now() < modeToggleCooldownUntilRef.current) return
+          pendingModeToggleRef.current = false
+          dispatchModeToggle()
+        }, MODE_TOGGLE_COOLDOWN_MS)
         return
       }
     }
     modeToggleRetryCountRef.current = 0
     modeToggleInFlightRef.current = true
+    onModeSwitchBusyChange?.(true)
     const runToggle = async () => {
       try {
-        if (modeSwitchFsmRef.current.mode === 'source' || readMainPaneMode() === 'source') switchToVisualMode()
+        if (modeSwitchFsmRef.current.mode === 'source' || readMainPaneMode() === 'source') await switchToVisualMode()
         else await switchToSourceMode()
       } finally {
         requestAnimationFrame(() => {
-          modeToggleCooldownUntilRef.current = Date.now() + MODE_TOGGLE_COOLDOWN_MS
           modeToggleInFlightRef.current = false
+          onModeSwitchBusyChange?.(false)
+          if (pendingModeToggleRef.current) {
+            pendingModeToggleRef.current = false
+            modeToggleCooldownUntilRef.current = 0
+            dispatchModeToggle()
+            return
+          }
+          modeToggleCooldownUntilRef.current = Date.now() + MODE_TOGGLE_COOLDOWN_MS
         })
       }
     }
@@ -399,6 +507,9 @@ export function useEditorModeSwitch({
     tryCloseSourceIslandForActiveBlock,
     tryOpenSourceIslandForActiveBlock,
     modeToggleRetryCountRef,
+    abortModeSwitchHardFail,
+    onModeSwitchBusyChange,
+    onModeSwitchBlocked,
   ])
 
   const handleSourceViewReady = useCallback(
@@ -419,8 +530,19 @@ export function useEditorModeSwitch({
       if (bootSelection) {
         sourceCodeMirrorBootSelectionRef.current = null
       }
+      if (pendingSourceReadyToggleRef.current) {
+        pendingSourceReadyToggleRef.current = false
+        if (modeToggleInFlightRef.current) pendingModeToggleRef.current = true
+        else requestAnimationFrame(() => dispatchModeToggle())
+      }
     },
-    [editorViewRef, onModeSwitchApplyingAnchor, pendingSourceModeAnchorRef, sourceCodeMirrorBootSelectionRef],
+    [
+      editorViewRef,
+      onModeSwitchApplyingAnchor,
+      pendingSourceModeAnchorRef,
+      sourceCodeMirrorBootSelectionRef,
+      dispatchModeToggle,
+    ],
   )
 
   return {

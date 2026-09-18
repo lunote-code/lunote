@@ -40,24 +40,22 @@ fn path_to_file_url(path: &Path) -> Result<String, String> {
 }
 
 fn find_chrome_executable() -> Result<PathBuf, String> {
-  if let Ok(from_env) = std::env::var("CHROME_PATH") {
-    let trimmed = from_env.trim();
-    if !trimmed.is_empty() {
+  for env_key in ["CHROME_PATH", "PUPPETEER_EXECUTABLE_PATH"] {
+    if let Ok(from_env) = std::env::var(env_key) {
+      let trimmed = from_env.trim();
+      if trimmed.is_empty() {
+        continue;
+      }
       let p = PathBuf::from(trimmed);
-      if p.is_file() {
+      if !p.is_file() {
+        return Err(format!("The file pointed to by {env_key} does not exist: {trimmed}"));
+      }
+      if chrome_candidates::is_trusted_chrome_executable(&p) {
         return Ok(p);
       }
-      return Err(format!("The file pointed to by CHROME_PATH does not exist: {trimmed}"));
-    }
-  }
-
-  if let Ok(from_env) = std::env::var("PUPPETEER_EXECUTABLE_PATH") {
-    let trimmed = from_env.trim();
-    if !trimmed.is_empty() {
-      let p = PathBuf::from(trimmed);
-      if p.is_file() {
-        return Ok(p);
-      }
+      return Err(format!(
+        "{env_key} must point to a known Chromium-based browser (Google Chrome, Chromium, Edge, or Brave): {trimmed}"
+      ));
     }
   }
 

@@ -31,10 +31,7 @@ function notify(): void {
 }
 
 export function getWorkspaceSessionSnapshot(): WorkspaceSessionSnapshot {
-  return {
-    ...snapshot,
-    openTabs: [...snapshot.openTabs],
-  }
+  return snapshot
 }
 
 export function subscribeWorkspaceSession(listener: () => void): () => void {

@@ -18,28 +18,6 @@
   cursor: default;
 }
 
-.kos-right-rail.kos-right-rail--split-dragging,
-.main.is-kos-split-dragging .kos-right-rail {
-  width: var(--kos-rail-frozen-width, 100%) !important;
-  min-width: var(--kos-rail-frozen-width, 100%) !important;
-  max-width: var(--kos-rail-frozen-width, 100%) !important;
-  contain: strict;
-  overflow: visible;
-  z-index: 4;
-  will-change: transform;
-  pointer-events: none;
-  transform-origin: right center;
-  box-shadow: none !important;
-  filter: none !important;
-  border-radius: 0;
-}
-
-.main.is-kos-split-dragging .kos-surface-split-divider {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  pointer-events: auto;
-  z-index: 5;
-}
-
 .kos-rail-header {
   --kos-rail-control-height: 34px;
   --kos-rail-tabs-scrollbar-gap: 8px;
@@ -114,7 +92,7 @@
   max-height: calc(var(--kos-rail-control-height) + var(--luna-tabs-scrollbar-size));
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
+  scrollbar-width: none;
   scrollbar-color: transparent transparent;
   scrollbar-gutter: auto;
   -ms-overflow-style: auto;
@@ -126,16 +104,17 @@
 
 .kos-rail-tabs:hover,
 .kos-rail-tabs:focus-within {
+  scrollbar-width: thin;
   scrollbar-color: var(--luna-tabs-scrollbar-thumb) transparent;
 }
 
 .kos-rail-tabs::-webkit-scrollbar {
   width: 0;
-  height: var(--luna-tabs-scrollbar-size);
+  height: 0;
 }
 
 .kos-rail-tabs::-webkit-scrollbar:horizontal {
-  height: var(--luna-tabs-scrollbar-size);
+  height: 0;
 }
 
 .kos-rail-tabs::-webkit-scrollbar-button {
@@ -154,6 +133,16 @@
   border-radius: 999px;
   background: transparent;
   transition: background 0.18s ease;
+}
+
+.kos-rail-tabs:hover::-webkit-scrollbar,
+.kos-rail-tabs:focus-within::-webkit-scrollbar {
+  height: var(--luna-tabs-scrollbar-size);
+}
+
+.kos-rail-tabs:hover::-webkit-scrollbar:horizontal,
+.kos-rail-tabs:focus-within::-webkit-scrollbar:horizontal {
+  height: var(--luna-tabs-scrollbar-size);
 }
 
 .kos-rail-tabs:hover::-webkit-scrollbar-thumb,
@@ -213,6 +202,15 @@
   .kos-rail-tab {
     gap: 0;
     padding: 5px 8px;
+  }
+
+  .kos-rail-tab.active {
+    gap: 6px;
+    padding-inline: 10px;
+  }
+
+  .kos-rail-tab.active .kos-rail-tab-label {
+    display: inline;
   }
 }
 
@@ -383,6 +381,16 @@
   cursor: inherit;
 }
 
+.kos-backlink-preview {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  white-space: normal;
+  text-align: left;
+}
+
 .kos-backlink-items {
   list-style: none;
   margin: 0 0 8px 12px;
@@ -412,6 +420,7 @@
   min-height: 0;
   width: 100%;
   height: 100%;
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -431,20 +440,39 @@
 
 .kos-graph-toolbar {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   flex-shrink: 0;
   min-width: 0;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+}
+
+.kos-graph-toolbar-heading {
+  flex: 1 1 7rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .kos-graph-title {
   flex: 0 1 auto;
   min-width: 0;
-  max-width: 4.5rem;
+  max-width: none;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kos-graph-subtitle {
   margin: 0;
   font-size: 10px;
-  line-height: 1.2;
+  line-height: 1.25;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -610,6 +638,9 @@
 }
 
 .kos-graph-filter-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   border: none;
   background: transparent;
@@ -623,13 +654,33 @@
   transition: background-color 0.12s ease;
 }
 
+.kos-graph-filter-menu-item-check {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: color-mix(in srgb, var(--accent) 88%, var(--text-primary));
+  opacity: 0;
+}
+
+.kos-graph-filter-menu-item-label {
+  flex: 1;
+  min-width: 0;
+}
+
 .kos-graph-filter-menu-item:hover {
   background: var(--reveal-list-item-bg-active, color-mix(in srgb, var(--accent) 14%, transparent));
 }
 
-.kos-graph-filter-menu-item.is-active {
+.kos-graph-filter-menu-item[aria-checked='true'] {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   font-weight: 600;
+}
+
+.kos-graph-filter-menu-item[aria-checked='true'] .kos-graph-filter-menu-item-check {
+  opacity: 1;
 }
 
 .kos-graph-filter-menu-item:focus-visible {
@@ -701,6 +752,26 @@
   );
 }
 
+.kos-graph-more-menu-summary {
+  margin: 0 0 4px;
+  padding: 4px 8px 6px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--text-muted);
+  border-bottom: var(--hairline) solid var(--border-subtle);
+}
+
+.kos-graph-more-menu-topology {
+  display: flex;
+  width: calc(100% - 12px);
+  margin: 0 6px 6px;
+}
+
+.kos-graph-more-menu-topology .kos-graph-segment-btn {
+  flex: 1 1 0;
+  text-align: center;
+}
+
 .kos-graph-more-menu-depth {
   display: flex;
   align-items: center;
@@ -709,11 +780,17 @@
   padding: 6px var(--reveal-field-pad-x, 10px);
 }
 
+.kos-graph-more-menu-depth .luna-reveal-popover-select--compact {
+  flex: 0 1 auto;
+  max-width: min(148px, 52%);
+}
+
 .kos-graph-viewport-controls {
   display: inline-flex;
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
+  margin-left: auto;
   border: var(--hairline) solid var(--border-subtle);
   border-radius: var(--radius-sm);
   background: var(--surface-panel);
@@ -789,6 +866,41 @@
   padding: 0;
 }
 
+@container (max-width: 430px) {
+  .kos-graph-toolbar {
+    gap: 6px;
+  }
+
+  .kos-graph-toolbar-heading {
+    flex-basis: 100%;
+  }
+
+  .kos-graph-toolbar-controls {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .kos-graph-segment {
+    order: 1;
+  }
+
+  .kos-graph-more-menu-trigger {
+    order: 2;
+  }
+
+  .kos-graph-viewport-controls {
+    order: 3;
+    margin-left: auto;
+    max-width: 100%;
+  }
+
+  .kos-graph-toolbar-compact-hidden {
+    display: none;
+  }
+}
+
 .kos-graph-fullscreen-overlay {
   position: fixed;
   inset: 0;
@@ -807,10 +919,25 @@
   border-bottom: var(--hairline) solid var(--border-subtle);
 }
 
+.kos-graph-fullscreen-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .kos-graph-fullscreen-title {
   margin: 0;
   font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.kos-graph-fullscreen-subtitle {
+  margin: 0;
+  font-size: 11px;
   color: var(--text-muted);
+  line-height: 1.35;
 }
 
 .kos-graph-fullscreen-close {
@@ -881,6 +1008,9 @@
 
 .kos-surface-split-divider {
   position: relative;
+  touch-action: none;
+  align-self: stretch;
+  z-index: 2;
 }
 
 .kos-graph-panel--fullscreen .kos-graph-toolbar-controls {
@@ -890,6 +1020,9 @@
 
 .kos-graph-limit-notice {
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin: 0 0 8px;
   padding: 6px 10px;
   border-radius: var(--radius-sm);
@@ -898,6 +1031,354 @@
   color: var(--text-muted);
   background: color-mix(in srgb, var(--surface-muted, var(--surface-panel)) 88%, transparent);
   border: var(--hairline) solid var(--border-subtle);
+}
+
+.kos-graph-limit-notice-text {
+  margin: 0;
+}
+
+.kos-graph-limit-notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.kos-graph-limit-notice-action {
+  appearance: none;
+  border: var(--hairline) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--text-primary);
+  background: var(--surface-panel);
+  cursor: pointer;
+}
+
+.kos-graph-limit-notice-action:hover {
+  background: var(--surface-hover);
+}
+
+.kos-graph-limit-notice-action:focus-visible {
+  outline: none;
+  box-shadow: var(--luna-focus-ring);
+}
+
+.kos-graph-discovery {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-muted, var(--surface-panel)) 88%, transparent);
+  border: var(--hairline) solid var(--border-subtle);
+  max-height: min(42vh, 320px);
+  overflow: auto;
+}
+
+.kos-graph-discovery-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kos-graph-discovery-heading {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.kos-graph-discovery-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.kos-graph-discovery-subtitle {
+  margin: 2px 0 0;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.kos-graph-discovery-close {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.kos-graph-discovery-close:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.kos-graph-discovery-close:focus-visible {
+  outline: none;
+  box-shadow: var(--luna-focus-ring);
+}
+
+.kos-graph-discovery-empty,
+.kos-graph-discovery-feedback,
+.kos-graph-discovery-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.kos-graph-discovery-empty-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.kos-graph-discovery-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kos-graph-discovery-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 4px;
+  border-radius: var(--radius-sm);
+}
+
+.kos-graph-discovery-item:hover {
+  background: var(--surface-hover);
+}
+
+.kos-graph-discovery-link-pair {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 2px 4px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.kos-graph-discovery-link-pair:hover {
+  color: var(--accent);
+}
+
+.kos-graph-discovery-link-pair:focus-visible {
+  outline: none;
+  box-shadow: var(--luna-focus-ring);
+}
+
+.kos-graph-limit-notice-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.kos-graph-search {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 0 1 7rem;
+}
+
+.kos-graph-search-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.kos-graph-search-input {
+  width: 100%;
+  min-width: 0;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  border: var(--hairline) solid var(--border-subtle);
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  font-size: 11px;
+}
+
+.kos-graph-search-input:focus-visible {
+  outline: none;
+  box-shadow: var(--luna-focus-ring);
+}
+
+.kos-graph-filter-menu-item.is-disabled,
+.kos-graph-filter-menu-item:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.kos-graph-node--search-match .kos-graph-node-dot {
+  stroke: color-mix(in srgb, var(--accent) 70%, transparent);
+  stroke-width: 2px;
+}
+
+.kos-graph-node--search-focus .kos-graph-node-dot {
+  stroke: var(--accent);
+  stroke-width: 3px;
+}
+
+.kos-graph-node--path .kos-graph-node-dot {
+  fill: color-mix(in srgb, var(--accent) 72%, var(--surface-panel));
+}
+
+.kos-graph-edge--path {
+  stroke: var(--accent);
+  stroke-width: 2.5px;
+  opacity: 0.95;
+}
+
+.kos-graph-path-find-hint,
+.kos-graph-path-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-panel));
+  border: var(--hairline) solid color-mix(in srgb, var(--accent) 18%, var(--border-subtle));
+}
+
+.kos-graph-path-find-cancel,
+.kos-graph-more-menu-action {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.kos-graph-more-menu-action {
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.kos-graph-more-menu-action:hover {
+  background: var(--surface-hover);
+}
+
+.kos-graph-tooltip-preview,
+.kos-graph-tooltip-tags {
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.kos-graph-tooltip-action {
+  margin-top: 6px;
+  appearance: none;
+  border: var(--hairline) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  font-size: 10px;
+  padding: 2px 8px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.kos-graph-tooltip-action:hover {
+  background: var(--surface-hover);
+}
+
+.kos-graph-preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kos-graph-preset-feedback {
+  margin: 0;
+  padding: 4px 8px;
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+.kos-graph-preset-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.kos-graph-preset-apply {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.kos-graph-preset-delete {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  padding: 0;
+  border: var(--hairline) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.kos-graph-preset-delete:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.kos-tags-docs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kos-tags-view-graph {
+  flex-shrink: 0;
+}
+
+.kos-graph-text-btn.is-active {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-panel));
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
 }
 
 .kos-graph-interaction-hint {
@@ -914,11 +1395,14 @@
 }
 
 .kos-graph-interaction-hint-text {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 11px;
   color: var(--text-muted);
   line-height: 1.4;
 }
 
+.kos-graph-interaction-hint-more,
 .kos-graph-interaction-hint-dismiss {
   flex-shrink: 0;
   border: none;
@@ -931,6 +1415,7 @@
   border-radius: var(--radius-sm);
 }
 
+.kos-graph-interaction-hint-more:hover,
 .kos-graph-interaction-hint-dismiss:hover {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
@@ -944,6 +1429,10 @@
   -webkit-user-select: none;
   -webkit-user-drag: none;
   cursor: default;
+}
+
+.kos-graph-stage:focus {
+  outline: none;
 }
 
 .kos-graph-svg {
@@ -967,10 +1456,153 @@
   cursor: grabbing;
 }
 
+.kos-graph-edge-marker-path {
+  fill: color-mix(in srgb, var(--text-primary) 42%, var(--text-muted));
+  opacity: 0.9;
+}
+
+.kos-graph-edge-marker-path--selected {
+  fill: color-mix(in srgb, var(--accent) 62%, var(--text-muted));
+  opacity: 0.92;
+}
+
+.kos-graph-edge-marker-path--embed {
+  fill: color-mix(in srgb, var(--text-primary) 32%, var(--text-muted));
+  opacity: 0.72;
+}
+
 .kos-graph-edge {
-  stroke: color-mix(in srgb, var(--text-muted) 50%, transparent);
-  stroke-width: 1;
+  fill: none;
+  stroke: color-mix(in srgb, var(--text-primary) 38%, var(--text-muted));
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.78;
   pointer-events: none;
+  transition:
+    stroke 0.2s ease,
+    stroke-width 0.2s ease,
+    opacity 0.2s ease,
+    filter 0.2s ease;
+}
+
+.kos-graph-edge-glow {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.kos-graph-edge--embed {
+  stroke: color-mix(in srgb, var(--accent) 24%, var(--text-muted));
+  opacity: 0.72;
+}
+
+.kos-graph-edge--unresolved {
+  stroke-dasharray: 5 4;
+  opacity: 0.66;
+}
+
+.kos-graph-edge-group:hover .kos-graph-edge {
+  stroke: color-mix(in srgb, var(--accent) 42%, var(--text-muted));
+  stroke-width: 1.55;
+  opacity: 0.88;
+}
+
+.kos-graph-edge-group:hover .kos-graph-edge--unresolved {
+  stroke-dasharray: 4 3;
+}
+
+.kos-graph-edge-group .kos-graph-edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  stroke-linecap: round;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.kos-graph-edge-group.is-selected .kos-graph-edge {
+  stroke: color-mix(in srgb, var(--accent) 58%, var(--text-muted));
+  stroke-width: 1.65;
+  opacity: 0.92;
+  filter: drop-shadow(0 0 1.5px color-mix(in srgb, var(--accent) 18%, transparent));
+}
+
+.kos-graph-edge-group.is-selected .kos-graph-edge--unresolved {
+  stroke-dasharray: 5 4;
+}
+
+.kos-graph-edge-group.is-selected .kos-graph-edge-hit {
+  stroke: transparent;
+}
+
+.kos-graph-edge-group.is-selected .kos-graph-edge-glow {
+  stroke: color-mix(in srgb, var(--accent) 14%, transparent);
+  stroke-width: 4.5;
+  opacity: 0.75;
+}
+
+.kos-graph-edge-selection-bar {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: var(--hairline) solid color-mix(in srgb, var(--accent) 35%, var(--border-subtle));
+  background: color-mix(in srgb, var(--surface-panel) 94%, var(--surface-editor));
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--text-primary) 8%, transparent);
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.kos-graph-edge-selection-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.kos-graph-more-menu-panel--fullscreen {
+  z-index: calc(var(--z-modal, 120) + 20);
+}
+
+.kos-graph-edge--preview {
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+  opacity: 0.92;
+}
+
+.kos-graph-svg.is-link-dragging {
+  cursor: crosshair;
+}
+
+.kos-graph-svg.is-link-dragging .kos-graph-node--navigable {
+  cursor: crosshair;
+}
+
+.kos-graph-svg.is-node-dragging {
+  cursor: grabbing;
+}
+
+.kos-graph-node--dragging {
+  cursor: grabbing;
+}
+
+.kos-graph-node--dragging .kos-graph-node-dot {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.kos-graph-node--link-drop-target .kos-graph-node-dot {
+  stroke: var(--accent);
+  stroke-width: 2.5;
 }
 
 .kos-graph-world {
@@ -993,18 +1625,202 @@
   -webkit-user-drag: none;
 }
 
-.kos-graph-node--center .kos-graph-node-dot {
-  fill: color-mix(in srgb, var(--accent) 85%, var(--surface-panel));
+.kos-graph-node--interactive {
+  pointer-events: all;
+  cursor: pointer;
+  -webkit-user-drag: none;
+}
+
+.kos-graph-node--interactive .kos-graph-node-dot,
+.kos-graph-node--interactive .kos-graph-node-label {
+  cursor: pointer;
+  -webkit-user-drag: none;
+}
+
+.kos-graph-node--interactive.kos-graph-node--dragging,
+.kos-graph-svg.is-node-dragging .kos-graph-node--interactive,
+.kos-graph-svg.is-panning .kos-graph-node--interactive {
+  cursor: grabbing;
+}
+
+.kos-graph-node {
+  --kos-graph-node-tone: var(--accent);
+}
+
+.kos-graph-node--folder-colored {
+  --kos-graph-node-tone: var(--kos-graph-folder-color, var(--accent));
 }
 
 .kos-graph-node-dot {
-  fill: color-mix(in srgb, var(--accent) 70%, var(--surface-panel));
+  fill: color-mix(in srgb, var(--kos-graph-node-tone) 70%, var(--surface-panel));
   stroke: var(--border-subtle);
 }
 
-.kos-graph-node--selected .kos-graph-node-dot {
-  stroke: var(--accent);
+.kos-graph-node-halo {
+  fill: color-mix(in srgb, var(--kos-graph-node-tone) 24%, transparent);
+  stroke: none;
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.kos-graph-node-halo--outer {
+  fill: color-mix(in srgb, var(--kos-graph-node-tone) 32%, transparent);
+}
+
+.kos-graph-node-ring {
+  stroke: var(--kos-graph-node-tone);
   stroke-width: 2;
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes kos-graph-focus-dot-pulse {
+  0%,
+  100% {
+    fill: color-mix(in srgb, var(--kos-graph-node-tone) 58%, var(--surface-panel));
+    stroke: color-mix(in srgb, var(--kos-graph-node-tone) 35%, var(--border-subtle));
+    stroke-width: 1.5;
+  }
+
+  50% {
+    fill: var(--kos-graph-node-tone);
+    stroke: color-mix(in srgb, var(--kos-graph-node-tone) 55%, var(--surface-editor));
+    stroke-width: 2.5;
+  }
+}
+
+@keyframes kos-graph-focus-outer-pulse {
+  0%,
+  100% {
+    opacity: 0.22;
+    transform: scale(0.92);
+  }
+
+  50% {
+    opacity: 0.82;
+    transform: scale(1.12);
+  }
+}
+
+@keyframes kos-graph-focus-ring-pulse {
+  0%,
+  100% {
+    stroke-opacity: 0.35;
+    stroke-width: 1.5;
+    transform: scale(0.96);
+  }
+
+  50% {
+    stroke-opacity: 1;
+    stroke-width: 2.5;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes kos-graph-focus-label-pulse {
+  0%,
+  100% {
+    opacity: 0.72;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+.kos-graph-node--selected .kos-graph-node-dot {
+  animation: kos-graph-focus-dot-pulse 1.8s ease-in-out infinite;
+}
+
+.kos-graph-node--selected .kos-graph-node-halo--outer {
+  animation: kos-graph-focus-outer-pulse 1.8s ease-in-out infinite;
+}
+
+.kos-graph-node--selected .kos-graph-node-ring {
+  animation: kos-graph-focus-ring-pulse 1.8s ease-in-out infinite;
+}
+
+.kos-graph-node--selected .kos-graph-node-label {
+  fill: var(--text-primary);
+  font-weight: 600;
+  animation: kos-graph-focus-label-pulse 1.8s ease-in-out infinite;
+}
+
+.kos-graph-folder-legend {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  max-width: min(72%, 320px);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-panel) 88%, transparent);
+  border: var(--hairline) solid var(--border-subtle);
+  pointer-events: none;
+}
+
+.kos-graph-folder-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--text-muted);
+}
+
+.kos-graph-folder-legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text-primary) 10%, transparent);
+  flex-shrink: 0;
+}
+
+.kos-graph-folder-legend-swatch--unresolved {
+  background: color-mix(in srgb, var(--text-muted) 32%, var(--surface-panel));
+  box-shadow: none;
+  border: 1px dashed color-mix(in srgb, var(--text-muted) 55%, transparent);
+}
+
+.kos-graph-folder-legend-swatch--heading {
+  width: 6px;
+  height: 6px;
+  background: color-mix(in srgb, var(--accent) 55%, var(--surface-panel));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kos-graph-node--selected .kos-graph-node-dot,
+  .kos-graph-node--selected .kos-graph-node-halo--outer,
+  .kos-graph-node--selected .kos-graph-node-ring,
+  .kos-graph-node--selected .kos-graph-node-label {
+    animation: none;
+  }
+
+  .kos-graph-node--selected .kos-graph-node-dot {
+    fill: var(--kos-graph-node-tone);
+    stroke: color-mix(in srgb, var(--kos-graph-node-tone) 45%, var(--surface-editor));
+    stroke-width: 2;
+  }
+
+  .kos-graph-node--selected .kos-graph-node-halo--outer {
+    opacity: 0.55;
+    transform: none;
+  }
+
+  .kos-graph-node--selected .kos-graph-node-ring {
+    stroke-opacity: 0.85;
+    stroke-width: 2;
+    transform: none;
+  }
+
+  .kos-graph-node--selected .kos-graph-node-label {
+    opacity: 1;
+  }
 }
 
 .kos-graph-node--unresolved .kos-graph-node-dot {
@@ -1022,6 +1838,15 @@
   fill: var(--text-muted);
   pointer-events: none;
   user-select: none;
+  paint-order: stroke fill;
+  stroke: color-mix(in srgb, var(--surface-panel) 88%, transparent);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.kos-graph-node--center .kos-graph-node-label,
+.kos-graph-node--selected .kos-graph-node-label {
+  stroke-width: 3.5px;
 }
 
 .kos-graph-tooltip {
@@ -1191,6 +2016,26 @@
 .kos-tags-panel,
 .kos-frontmatter-panel .settings-help-popover-panel--fixed {
   z-index: var(--z-overlay-surface-popover-floating);
+}
+
+.kos-tags-panel {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.kos-tags-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .kos-frontmatter-panel,
@@ -1379,12 +2224,12 @@
   left: 0;
   right: 0;
   margin: 0;
-  padding: 4px;
+  padding: 6px;
   list-style: none;
-  border-radius: 8px;
-  border: var(--hairline) solid var(--border-subtle);
-  background: var(--surface-panel);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--text-primary) 12%, transparent);
+  border-radius: var(--reveal-popover-radius, 10px);
+  border: var(--hairline) solid var(--reveal-popover-border);
+  background: var(--reveal-popover-bg);
+  box-shadow: var(--reveal-popover-shadow);
   max-height: 180px;
   overflow: auto;
 }
@@ -1404,7 +2249,7 @@
 
 .kos-frontmatter-suggestion:hover,
 .kos-frontmatter-suggestion--active {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: var(--luna-menu-item-hover-bg);
 }
 
 .kos-frontmatter-tag-input,
@@ -1503,6 +2348,12 @@
   margin: 0 0 4px;
 }
 
+.kos-hover-status {
+  margin: 0 0 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 .kos-hover-excerpt {
   font-size: 12px;
   color: var(--text-muted);
@@ -1527,58 +2378,48 @@
 }
 
 .main.main-with-rail.has-kos-rail {
-  grid-template-columns: minmax(0, 1fr) 4px var(--kos-rail-width, 300px);
+  grid-template-columns: minmax(0, 1fr) 6px var(--kos-rail-width, 300px);
 }
 
-/*Drag-and-drop segmentation: Freeze editor column grid, rail only use transform preview to avoid ProseMirror / CM reflow*/
-.main.is-kos-split-dragging {
-  contain: layout style;
+.main.main-with-rail.has-kos-rail > .main-editor-stack {
+  grid-column: 1;
+  min-width: 0;
 }
 
-.main.is-kos-split-dragging,
-.main.is-kos-split-dragging * {
-  scroll-behavior: auto !important;
+.main.main-with-rail.has-kos-rail > .kos-surface-split-divider {
+  grid-column: 2;
 }
 
-.main.is-kos-split-dragging .main-editor-stack {
-  contain: strict;
+.main.main-with-rail.has-kos-rail > .editor-right-rail-container {
+  grid-column: 3;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
-  isolation: isolate;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  will-change: transform;
-  pointer-events: none;
 }
 
-.main.is-kos-split-dragging .main-editor-stack .panes,
-.main.is-kos-split-dragging .main-editor-stack .editor-body-surface,
-.main.is-kos-split-dragging .main-editor-stack .editor-pane,
-.main.is-kos-split-dragging .main-editor-stack .preview-pane {
-  contain: layout paint style;
-  pointer-events: none;
+@media (max-width: 1100px) {
+  .main.main-with-rail.has-kos-rail {
+    position: relative;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .main.main-with-rail.has-kos-rail > .kos-surface-split-divider {
+    display: none;
+  }
+
+  .main.main-with-rail.has-kos-rail > .editor-right-rail-container {
+    grid-column: auto;
+  }
 }
 
-.main.is-kos-split-dragging .kos-backlink-scroll,
-.main.is-kos-split-dragging .kos-graph-stage {
-  overflow: hidden !important;
-}
-
-.kos-surface-split-divider {
-  width: 4px;
-  min-width: 4px;
-  cursor: col-resize;
-  touch-action: none;
-  align-self: stretch;
-  z-index: 2;
-}
-
-.kos-surface-split-divider--active,
-.kos-surface-split-divider:active {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.resize-handle-knowledge::after {
-  height: 48px;
+.qa-app-knowledge-rail {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .main-editor-stack {

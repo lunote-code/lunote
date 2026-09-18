@@ -43,6 +43,9 @@ export type PMStepEntry = {
   forwardSteps: readonly Step[]
   selectionBefore: { from: number; to: number }
   selectionAfter: { from: number; to: number }
+  /** Canonical markdown before this unit — used after a visual↔source remount. */
+  bodyBefore?: string
+  bodyAfter?: string
 }
 
 /**
@@ -57,9 +60,19 @@ export type CMChangeEntry = {
   forwardChanges: ChangeSet
   selectionBefore: { from: number; to: number }
   selectionAfter: { from: number; to: number }
+  bodyBefore?: string
+  bodyAfter?: string
 }
 
-export type StepLogEntry = PMStepEntry | CMChangeEntry
+/** Mode-agnostic undo unit after a pane remount. PM/CM steps cannot be replayed on the other surface. */
+export type MarkdownBodyEntry = {
+  kind: 'markdown-body'
+  before: string
+  after: string
+  surface: 'visual' | 'source'
+}
+
+export type StepLogEntry = PMStepEntry | CMChangeEntry | MarkdownBodyEntry
 
 // ─────────────────────────────────────────────────────────────
 // Per-document log (LIFO undo stack with redo tail)
@@ -156,7 +169,7 @@ export function peekForRedo(docId: string): StepLogEntry | null {
 /** Restore the most recently popped redo entry after a failed apply. */
 export function restoreRedoneEntry(docId: string): void {
   const log = getLog(docId)
-  if (log.index > 0) {
+  if (log.index >= 0) {
     log.index -= 1
   }
 }
@@ -186,4 +199,31 @@ export function getUndoDepth(docId: string): number {
 export function getRedoDepth(docId: string): number {
   const log = getLog(docId)
   return log.log.length - (log.index + 1)
+}
+
+function toMarkdownBodyEntry(entry: StepLogEntry): MarkdownBodyEntry | null {
+  if (entry.kind === 'markdown-body') return entry
+  if (entry.bodyBefore == null || entry.bodyAfter == null) return null
+  return {
+    kind: 'markdown-body',
+    before: entry.bodyBefore,
+    after: entry.bodyAfter,
+    surface: entry.kind === 'pm-steps' ? 'visual' : 'source',
+  }
+}
+
+/**
+ * After a pane remount, PM steps / CM changesets no longer apply.
+ * Keep only markdown snapshots so Cmd+Z still restores the last edit.
+ */
+export function freezeStepLogBodiesForModeSwitch(docId: string): void {
+  const log = getLog(docId)
+  log.log.splice(log.index + 1)
+  const converted: MarkdownBodyEntry[] = []
+  for (const entry of log.log) {
+    const next = toMarkdownBodyEntry(entry)
+    if (next) converted.push(next)
+  }
+  log.log = converted
+  log.index = converted.length - 1
 }

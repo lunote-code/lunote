@@ -4,7 +4,7 @@ import type { AtomicVisualDocumentEnter } from './tiptapEditorTypes'
 import type { PmTocHeading } from './pmHeadingNav'
 
 import { canonicalMarkdownSemantics } from '../markdown/canonicalMarkdownSemantics'
-import { flushMermaidSourceForSerialize } from './mermaid/mermaidSourceBridge'
+import { flushVisualEditorLocalEdits } from './visualEditorPreSerializeFlush'
 import { logPasteScrollPropSync } from './pasteScrollDebug'
 import { preserveProseMirrorScrollDuring } from './preserveProseMirrorScroll'
 import {
@@ -123,7 +123,7 @@ export function syncTiptapEditorFromProps(args: TiptapEditorPropSyncArgs): void 
     return
   }
 
-  flushMermaidSourceForSerialize(args.editor)
+  flushVisualEditorLocalEdits(args.editor)
   const serialized = canonicalMarkdownSemantics.trySerialize(
     args.editor.state.doc,
     args.editor.schema,

@@ -8,6 +8,8 @@ export const MAC_MENU_SEMANTIC_LUCIDE_STEM: Partial<Record<SemanticIconName, str
   'workspace-tree': 'folder-tree',
   note: 'file-text',
   'note-new': 'file-plus',
+  files: 'files',
+  ai: 'bot',
   graph: 'network',
   backlinks: 'corner-down-left',
   assets: 'paperclip',

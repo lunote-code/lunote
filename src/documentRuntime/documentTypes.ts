@@ -29,6 +29,7 @@ export type DocumentCommand =
     docKey?: string
     heading?: string
     blockId?: string
+    linkBodyOffset?: number
     source?: string
     traceId?: string
   }
@@ -62,6 +63,8 @@ export type DocumentCommand =
     content: string
     source?: string
     forceOverwrite?: boolean
+    /** Last-known disk mtime (seconds). Native save_note uses this for FILE_CONFLICT. */
+    expectedModifiedSecs?: number
   }
   | {
     type: 'SAVE_DOCUMENT_BATCH'
@@ -69,6 +72,7 @@ export type DocumentCommand =
     documents: Array<{
       path: string
       content: string
+      expectedModifiedSecs?: number
     }>
     source?: string
     forceOverwrite?: boolean
@@ -151,6 +155,7 @@ export type DocumentEvent =
     docKey?: string
     heading?: string
     blockId?: string
+    linkBodyOffset?: number
     content: string
     source?: string
     traceId?: string
@@ -200,6 +205,13 @@ export type DocumentRuntimeCapabilities = {
   readDocument: (root: string, path: string) => Promise<string>
   /** Raw disk read for diagnostics; must not trigger UI side effects. */
   readDocumentForVerify?: (root: string, path: string) => Promise<string>
+  /** Skip cold read during workspace restore when tab cache already holds body text. */
+  readCachedDocumentForRestore?: (path: string) => string | undefined
+  /** Invoked by kernel after readDocument completes and before applying content to the editor. */
+  invalidateEditorBootstrapBeforeDocumentRead?: (
+    path: string,
+    options?: { bumpColdOpen?: boolean },
+  ) => void
   writeDocument: (
     root: string,
     path: string,
@@ -210,8 +222,9 @@ export type DocumentRuntimeCapabilities = {
   renderContent: (content: string) => void
   setTabs: (tabs: string[] | ((prev: string[]) => string[])) => void
   onDocumentOpened?: (root: string, path: string, content: string) => void
-  onDocumentSaved?: (root: string, path: string, content: string) => void
+  onDocumentSaved?: (root: string, path: string, content: string, source?: string) => void
   onAfterOpen?: (path: string, content: string) => void
-  /** User attempted to open more document tabs than the app allows (see openTabLimits). */
+  /** Keep the tab-body cache aligned with kernel body mutations (synchronous projection). */
+  projectOpenDocumentBody?: (path: string, content: string) => void
   onOpenTabLimitReached?: () => void
 }

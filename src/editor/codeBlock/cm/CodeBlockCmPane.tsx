@@ -88,7 +88,7 @@ export function CodeBlockCmPane({
         if (id) activateNativeInput(id)
         debugCodeBlockCmFocus('cm-onFocus', {
           nativeInputId: id,
-          blockId,
+          blockId: blockIdRef.current,
           activeElement: describeDomTarget(document.activeElement),
         })
       },
@@ -97,7 +97,7 @@ export function CodeBlockCmPane({
         if (id) deactivateNativeInput(id)
         debugCodeBlockCmFocus('cm-onBlur', {
           nativeInputId: id,
-          blockId,
+          blockId: blockIdRef.current,
           activeElement: describeDomTarget(document.activeElement),
           relatedTarget: describeDomTarget(relatedTarget),
         })
@@ -114,6 +114,7 @@ export function CodeBlockCmPane({
   const buildExtensionsRef = useRef(buildExtensions)
   buildExtensionsRef.current = buildExtensions
 
+  // Remount CM only when mountKey changes; doc/language updates use dedicated effects below.
   useLayoutEffect(() => {
     const root = rootRef.current
     if (!root) return
@@ -133,7 +134,7 @@ export function CodeBlockCmPane({
       blockId: blockIdRef.current,
     })
     nativeInputIdRef.current = inputId
-    debugCodeBlockCmFocus('cm-mount', { mountKey, blockId, nativeInputId: inputId })
+    debugCodeBlockCmFocus('cm-mount', { mountKey, blockId: blockIdRef.current, nativeInputId: inputId })
     onViewReadyRef.current?.(view)
 
     let cancelled = false
@@ -148,7 +149,7 @@ export function CodeBlockCmPane({
       cancelled = true
       debugCodeBlockCmFocus('cm-unmount', {
       mountKey,
-      blockId,
+      blockId: blockIdRef.current,
       nativeInputId: nativeInputIdRef.current,
       foldedMountKey: mountKey.endsWith(':1'),
       activeElement: describeDomTarget(document.activeElement),
@@ -161,6 +162,7 @@ export function CodeBlockCmPane({
       viewRef.current = null
       delete (root as CmRootHost).__lunaCmView
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- remount only on mountKey; doc/lang patched separately
   }, [mountKey])
 
   useEffect(() => {

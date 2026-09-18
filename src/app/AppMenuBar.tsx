@@ -22,18 +22,20 @@ import {
   isSubmenu,
 } from '../menu'
 import type { MenuBarGroup, MenuLeaf, MenuNode, MenuSubmenu } from '../menu'
-import { isValidRecentFilePath } from '../lib/workspacePathUtils'
+import { buildRecentMenuChildren, hasRecentMenuItems } from '../lib/recentMenuNodes'
 import './appMenuBar.css'
 
 type AppMenuBarProps = {
+  recentWorkspaces: readonly string[]
   recentFiles: readonly string[]
   /** manifest command id → executeManifestCommand */
   onRunAction: (commandId: string) => void
   onOpenRecent: (path: string) => void
+  onOpenRecentWorkspace: (path: string) => void
 }
 
 const MENU_LAYER_ATTR = 'data-app-menubar-layer'
-const SUBMENU_HOVER_CLOSE_MS = 100
+const SUBMENU_HOVER_CLOSE_MS = 200
 
 function basename(path: string): string {
   const norm = path.replace(/\\/g, '/')
@@ -154,14 +156,18 @@ const FloatingMenuPanel = memo(function FloatingMenuPanel({
 
 function MenuNodes({
   nodes,
+  recentWorkspaces,
   recentFiles,
   onRunAction,
   onOpenRecent,
+  onOpenRecentWorkspace,
 }: {
   nodes: readonly MenuNode[]
+  recentWorkspaces: readonly string[]
   recentFiles: readonly string[]
   onRunAction: (action: string) => void
   onOpenRecent: (path: string) => void
+  onOpenRecentWorkspace: (path: string) => void
 }) {
   const { t } = useI18n()
   const [activeSubmenu, setActiveSubmenu] = useState<MenuSubmenu | null>(null)
@@ -245,7 +251,7 @@ function MenuNodes({
           return renderSubmenu(node)
         }
         if (isLeaf(node) && node.id === 'file-recent-placeholder') {
-          if (recentFiles.length === 0) {
+          if (!hasRecentMenuItems(recentWorkspaces, recentFiles)) {
             return (
               <button key={node.id} type="button" className="app-menubar-item" disabled>
                 <span className="app-menubar-item-label">{t('menu.native.recentEmpty')}</span>
@@ -257,27 +263,34 @@ function MenuNodes({
             id: 'sub-recent-dynamic',
             labelKey: 'menu.file.recent',
             semanticIcon: 'sort-time',
-            children: [
-              ...recentFiles.filter(isValidRecentFilePath).map((path, i) => ({
-                kind: 'item' as const,
-                id: `recent-${i}`,
-                labelKey: 'menu.file.recent',
-                action: `recent:${path}`,
-              })),
-              { kind: 'separator' as const },
-              {
-                kind: 'item' as const,
-                id: 'file-clear-recent',
-                labelKey: 'menu.file.clearRecent',
-                action: 'file-clear-recent',
-                semanticIcon: 'delete',
-              },
-            ],
+            children: buildRecentMenuChildren(recentWorkspaces, recentFiles),
           })
         }
-        if (isLeaf(node) && node.id.startsWith('recent-')) {
-          const path = node.action?.startsWith('recent:') ? node.action.slice('recent:'.length) : ''
+        if (isLeaf(node) && node.id.startsWith('recent-ws-')) {
+          const path = node.action?.startsWith('recent-workspace:')
+            ? node.action.slice('recent-workspace:'.length)
+            : ''
           if (!path) return null
+          return (
+            <button
+              key={node.id}
+              type="button"
+              role="menuitem"
+              className="app-menubar-item"
+              title={path}
+              onMouseDown={preventMenuMouseDown}
+              onClick={() => onOpenRecentWorkspace(path)}
+            >
+              <span className="app-menubar-item-leading">
+                <MenuItemLeading semanticIcon="workspace-open" />
+              </span>
+              <span className="app-menubar-item-label">{basename(path) || path}</span>
+            </button>
+          )
+        }
+        if (isLeaf(node) && (node.id.startsWith('recent-file-') || node.id.startsWith('recent-'))) {
+          const path = node.action?.startsWith('recent:') ? node.action.slice('recent:'.length) : ''
+          if (!path || node.action?.startsWith('recent-workspace:')) return null
           return (
             <button
               key={node.id}
@@ -311,9 +324,11 @@ function MenuNodes({
         {activeSubmenu ? (
           <MenuNodes
             nodes={activeSubmenu.children}
+            recentWorkspaces={recentWorkspaces}
             recentFiles={recentFiles}
             onRunAction={onRunAction}
             onOpenRecent={onOpenRecent}
+            onOpenRecentWorkspace={onOpenRecentWorkspace}
           />
         ) : null}
       </FloatingMenuPanel>
@@ -369,18 +384,22 @@ function MenuGroup({
   anyOpen,
   onOpen,
   onClose,
+  recentWorkspaces,
   recentFiles,
   onRunAction,
   onOpenRecent,
+  onOpenRecentWorkspace,
 }: {
   group: MenuBarGroup
   isOpen: boolean
   anyOpen: boolean
   onOpen: () => void
   onClose: () => void
+  recentWorkspaces: readonly string[]
   recentFiles: readonly string[]
   onRunAction: (action: string) => void
   onOpenRecent: (path: string) => void
+  onOpenRecentWorkspace: (path: string) => void
 }) {
   const { t } = useI18n()
   const groupRef = useRef<HTMLDivElement | null>(null)
@@ -421,6 +440,14 @@ function MenuGroup({
     [onClose, onOpenRecent],
   )
 
+  const handleRecentWorkspace = useCallback(
+    (path: string) => {
+      onClose()
+      onOpenRecentWorkspace(path)
+    },
+    [onClose, onOpenRecentWorkspace],
+  )
+
   return (
     <div ref={groupRef} className={`app-menubar-group${isOpen ? ' is-open' : ''}`}>
       <button
@@ -448,9 +475,11 @@ function MenuGroup({
       >
         <MenuNodes
           nodes={group.children}
+          recentWorkspaces={recentWorkspaces}
           recentFiles={recentFiles}
           onRunAction={handleAction}
           onOpenRecent={handleRecent}
+          onOpenRecentWorkspace={handleRecentWorkspace}
         />
       </FloatingMenuPanel>
     </div>
@@ -500,7 +529,13 @@ function MenuItemLeading({
   return <span className="app-menubar-item-icon app-menubar-item-icon--placeholder" aria-hidden />
 }
 
-export function AppMenuBar({ recentFiles, onRunAction, onOpenRecent }: AppMenuBarProps) {
+export function AppMenuBar({
+  recentWorkspaces,
+  recentFiles,
+  onRunAction,
+  onOpenRecent,
+  onOpenRecentWorkspace,
+}: AppMenuBarProps) {
   const menuId = useId()
   const { t } = useI18n()
   const [openGroupId, setOpenGroupId] = useState<string | null>(null)
@@ -539,9 +574,11 @@ export function AppMenuBar({ recentFiles, onRunAction, onOpenRecent }: AppMenuBa
           anyOpen={openGroupId != null}
           onOpen={() => setOpenGroupId(group.id)}
           onClose={() => setOpenGroupId(null)}
+          recentWorkspaces={recentWorkspaces}
           recentFiles={recentFiles}
           onRunAction={onRunAction}
           onOpenRecent={onOpenRecent}
+          onOpenRecentWorkspace={onOpenRecentWorkspace}
         />
       ))}
     </nav>

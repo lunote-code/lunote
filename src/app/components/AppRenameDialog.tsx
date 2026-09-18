@@ -1,6 +1,8 @@
 import { useRef, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 
 import { SettingsButton } from '../../components/settings'
+import { resolveOverlayPortalRoot } from '../../lib/overlayPortalRoot'
 import type { TranslateFn } from '../../i18n'
 import { WorkspaceTemplateSelect } from '../../templates/workspaceTemplateSelect'
 import { useImeCompositionGuard } from '../../lib/keyboardIme'
@@ -43,7 +45,7 @@ export function AppRenameDialog({
 
   if (!renameDialog) return null
 
-  return (
+  const shell = (
     <div
       className="about-modal-backdrop"
       role="presentation"
@@ -113,7 +115,11 @@ export function AppRenameDialog({
             }}
           />
         </label>
-        {renameError ? <p className="rename-modal-error">{renameError}</p> : null}
+        {renameError ? (
+          <p className="rename-modal-error" role="alert">
+            {renameError}
+          </p>
+        ) : null}
         <div
           className={
             renameDialog.mode === 'newNoteFromTemplate'
@@ -140,4 +146,6 @@ export function AppRenameDialog({
       </div>
     </div>
   )
+
+  return typeof document !== 'undefined' ? createPortal(shell, resolveOverlayPortalRoot()) : shell
 }

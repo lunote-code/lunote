@@ -1,3 +1,5 @@
+mod ai_secrets;
+mod ai_http;
 mod app_settings;
 mod chrome_candidates;
 mod clipboard;
@@ -17,7 +19,8 @@ mod mac_window;
 pub(crate) use app_menu::handle_native_shell_menu;
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex};
 
 use rusqlite::Connection;
 use tauri::image::Image;
@@ -83,10 +86,20 @@ pub struct AppState {
   pub note_index_fingerprints: Mutex<HashMap<String, (u64, u64)>>,
   /// Serialize index_notes to avoid concurrent FTS rebuilds.
   pub index_notes_lock: Mutex<()>,
+  /// Set by cancel_index_notes; honoured during parallel reads and before FTS writes.
+  pub index_notes_cancel: Arc<AtomicBool>,
 }
 
-/// Path list synchronized with the "File → Recent Files" submenu (full path, consistent with front-end localStorage)
-pub struct RecentMenuPaths(pub Mutex<Vec<String>>);
+pub use crate::core::workspace_encryption::WorkspaceCryptoState;
+
+/// Workspace + file paths synchronized with the "File → Recent" submenu.
+pub struct RecentMenuSnapshot {
+  pub workspaces: Vec<String>,
+  pub files: Vec<String>,
+}
+
+/// Path list synchronized with the "File → Recent" submenu (full path, consistent with front-end localStorage)
+pub struct RecentMenuPaths(pub Mutex<RecentMenuSnapshot>);
 
 /// List of file names synchronized with the "Theme → Theme/*.css" sub-item (consistent with the front-end scan results)
 pub struct ThemeMenuCssNames(pub Mutex<Vec<String>>);
@@ -94,27 +107,85 @@ pub struct ThemeMenuCssNames(pub Mutex<Vec<String>>);
 /// Runtime guard: only hide the main window when a tray entry is actually available.
 pub struct CloseToTrayState(pub Mutex<bool>);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CloseRequestAction {
+  AllowClose,
+  HideToBackground,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CloseRequestPlatform {
+  MacLike,
+  #[cfg_attr(target_os = "macos", allow(dead_code))]
+  TrayDependentDesktop,
+}
+
 #[cfg(not(target_os = "macos"))]
-fn close_to_tray_ready<R: Runtime>(app: &AppHandle<R>) -> bool {
+fn close_to_tray_allowed<R: Runtime>(app: &AppHandle<R>) -> bool {
   app
     .try_state::<CloseToTrayState>()
     .and_then(|state| state.0.lock().ok().map(|ready| *ready))
     .unwrap_or(false)
 }
 
-fn close_to_tray_allowed<R: Runtime>(app: &AppHandle<R>, settings: &app_settings::AppSettings) -> bool {
-  if !settings.close_to_tray_enabled() {
-    return false;
-  }
+fn close_request_platform() -> CloseRequestPlatform {
   #[cfg(target_os = "macos")]
   {
-    let _ = app;
-    return true;
+    CloseRequestPlatform::MacLike
   }
   #[cfg(not(target_os = "macos"))]
   {
-    close_to_tray_ready(app)
+    CloseRequestPlatform::TrayDependentDesktop
   }
+}
+
+fn resolve_close_request_action_for_platform(
+  platform: CloseRequestPlatform,
+  close_to_tray_enabled: bool,
+  close_to_tray_allowed: bool,
+) -> CloseRequestAction {
+  if !close_to_tray_enabled {
+    return CloseRequestAction::AllowClose;
+  }
+  match platform {
+    CloseRequestPlatform::MacLike => CloseRequestAction::HideToBackground,
+    CloseRequestPlatform::TrayDependentDesktop => {
+      if close_to_tray_allowed {
+        CloseRequestAction::HideToBackground
+      } else {
+        CloseRequestAction::AllowClose
+      }
+    }
+  }
+}
+
+fn resolve_close_request_action<R: Runtime>(
+  app: &AppHandle<R>,
+  settings: &app_settings::AppSettings,
+) -> CloseRequestAction {
+  resolve_close_request_action_for_platform(
+    close_request_platform(),
+    settings.close_to_tray_enabled(),
+    {
+      #[cfg(target_os = "macos")]
+      {
+        let _ = app;
+        true
+      }
+      #[cfg(not(target_os = "macos"))]
+      {
+        close_to_tray_allowed(app)
+      }
+    },
+  )
+}
+
+fn hide_main_window_to_background<R: Runtime>(window: &tauri::Window<R>) {
+  #[cfg(target_os = "macos")]
+  {
+    let _ = window.app_handle().hide();
+  }
+  let _ = window.hide();
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -135,9 +206,9 @@ pub fn run() {
       }
       if let WindowEvent::CloseRequested { api, .. } = event {
         let settings = app_settings::read_app_settings(window.app_handle());
-        if close_to_tray_allowed(window.app_handle(), &settings) {
+        if resolve_close_request_action(window.app_handle(), &settings) == CloseRequestAction::HideToBackground {
           api.prevent_close();
-          let _ = window.hide();
+          hide_main_window_to_background(window);
         }
       }
     })
@@ -156,11 +227,17 @@ pub fn run() {
         indexed_root: Mutex::new(None),
         note_index_fingerprints: Mutex::new(HashMap::new()),
         index_notes_lock: Mutex::new(()),
+        index_notes_cancel: Arc::new(AtomicBool::new(false)),
       });
+      app.manage(WorkspaceCryptoState::new());
       app.manage(core::workspace_watch::WorkspaceWatchState::new());
-      app.manage(RecentMenuPaths(Mutex::new(Vec::new())));
+      app.manage(RecentMenuPaths(Mutex::new(RecentMenuSnapshot {
+        workspaces: Vec::new(),
+        files: Vec::new(),
+      })));
       app.manage(ThemeMenuCssNames(Mutex::new(Vec::new())));
       app.manage(CloseToTrayState(Mutex::new(false)));
+      app.manage(ai_http::AiHttpCancelRegistry::default());
 
       #[cfg(target_os = "macos")]
       if let Err(e) = mac_boot_menu::install_startup_menu(app.handle()) {
@@ -232,6 +309,38 @@ pub fn run() {
         if id == "recent-placeholder" {
           return;
         }
+        if let Some(rest) = id.strip_prefix("recent-ws-") {
+          if let Ok(idx) = rest.parse::<usize>() {
+            let recent_state = app.state::<RecentMenuPaths>();
+            let paths = match recent_state.0.lock() {
+              Ok(g) => g,
+              Err(_) => return,
+            };
+            if let Some(p) = paths.workspaces.get(idx) {
+              emit_app_menu(
+                app,
+                serde_json::json!({ "action": "open-recent-workspace", "path": p }),
+              );
+            }
+          }
+          return;
+        }
+        if let Some(rest) = id.strip_prefix("recent-file-") {
+          if let Ok(idx) = rest.parse::<usize>() {
+            let recent_state = app.state::<RecentMenuPaths>();
+            let paths = match recent_state.0.lock() {
+              Ok(g) => g,
+              Err(_) => return,
+            };
+            if let Some(p) = paths.files.get(idx) {
+              emit_app_menu(
+                app,
+                serde_json::json!({ "action": "open-recent", "path": p }),
+              );
+            }
+          }
+          return;
+        }
         if let Some(rest) = id.strip_prefix("recent-") {
           if let Ok(idx) = rest.parse::<usize>() {
             let recent_state = app.state::<RecentMenuPaths>();
@@ -239,7 +348,7 @@ pub fn run() {
               Ok(g) => g,
               Err(_) => return,
             };
-            if let Some(p) = paths.get(idx) {
+            if let Some(p) = paths.files.get(idx) {
               emit_app_menu(
                 app,
                 serde_json::json!({ "action": "open-recent", "path": p }),
@@ -263,6 +372,9 @@ pub fn run() {
       commands::get_luna_paths,
       commands::read_luna_workspace,
       commands::write_luna_workspace,
+      commands::read_ai_conversation,
+      commands::write_ai_conversation,
+      commands::delete_ai_conversation,
       commands::append_luna_log,
       commands::document_history::create_document_snapshot,
       commands::document_history::list_document_snapshots,
@@ -273,8 +385,11 @@ pub fn run() {
       commands::read_luna_asset_index,
       commands::write_luna_asset_index,
       commands::scan_luna_asset_index,
+      commands::read_luna_note_calendar_edits,
+      commands::write_luna_note_calendar_edits,
       commands::path_exists,
       commands::register_workspace_asset_scope,
+      commands::forbid_workspace_asset_scope,
       commands::watch_workspace,
       commands::unwatch_workspace,
       commands::note_file_stat,
@@ -301,7 +416,24 @@ pub fn run() {
       mac_window::sync_mac_native_titlebar_theme,
       commands::get_app_settings,
       commands::save_app_settings,
+      commands::workspace_encryption::get_workspace_encryption_status,
+      commands::workspace_encryption::unlock_workspace,
+      commands::workspace_encryption::decrypt_legacy_encrypted_images,
+      commands::workspace_encryption::set_workspace_encrypt_images,
+      commands::workspace_encryption::lock_workspace,
+      commands::workspace_encryption::cancel_workspace_encryption_migration,
+      commands::workspace_encryption::enable_workspace_encryption,
+      commands::workspace_encryption::disable_workspace_encryption,
+      commands::workspace_encryption::change_workspace_encryption_password,
+      ai_secrets::get_ai_api_key,
+      ai_secrets::set_ai_api_key,
+      ai_secrets::delete_ai_api_key,
+      ai_secrets::has_ai_api_key,
+      ai_http::ai_http_request,
+      ai_http::ai_http_stream,
+      ai_http::ai_http_stream_cancel,
       commands::index_notes,
+      commands::cancel_index_notes,
       commands::search_notes,
       commands::delete_note,
       commands::rename_note,
@@ -347,4 +479,47 @@ pub fn run() {
     .run(|app, event| {
       handle_run_event(app, event);
     });
+}
+
+#[cfg(test)]
+mod tests {
+  use super::{
+    resolve_close_request_action_for_platform, CloseRequestAction, CloseRequestPlatform,
+  };
+
+  #[test]
+  fn close_to_tray_disabled_allows_close() {
+    assert_eq!(
+      resolve_close_request_action_for_platform(CloseRequestPlatform::MacLike, false, false),
+      CloseRequestAction::AllowClose
+    );
+    assert_eq!(
+      resolve_close_request_action_for_platform(CloseRequestPlatform::TrayDependentDesktop, false, true),
+      CloseRequestAction::AllowClose
+    );
+  }
+
+  #[test]
+  fn mac_like_enabled_close_hides_without_tray_dependency() {
+    assert_eq!(
+      resolve_close_request_action_for_platform(CloseRequestPlatform::MacLike, true, false),
+      CloseRequestAction::HideToBackground
+    );
+    assert_eq!(
+      resolve_close_request_action_for_platform(CloseRequestPlatform::MacLike, true, true),
+      CloseRequestAction::HideToBackground
+    );
+  }
+
+  #[test]
+  fn tray_dependent_desktop_requires_tray_ready() {
+    assert_eq!(
+      resolve_close_request_action_for_platform(CloseRequestPlatform::TrayDependentDesktop, true, false),
+      CloseRequestAction::AllowClose
+    );
+    assert_eq!(
+      resolve_close_request_action_for_platform(CloseRequestPlatform::TrayDependentDesktop, true, true),
+      CloseRequestAction::HideToBackground
+    );
+  }
 }

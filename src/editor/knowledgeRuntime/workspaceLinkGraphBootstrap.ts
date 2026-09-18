@@ -9,8 +9,8 @@ import {
 } from './linkGraphIndex'
 import { getLinkIndexState, setLinkIndexState } from './linkIndexState'
 import { rebuildSearchIndexFromRegistry } from './searchRuntime'
-import { vaultIdFromRoot } from './vaultRuntime'
-import type { AbsoluteDocPath } from './types'
+import { absolutePathToDocKey, vaultIdFromRoot } from './vaultRuntime'
+import type { AbsoluteDocPath, DocKey } from './types'
 
 export type { LinkIndexState } from './linkIndexState'
 export {
@@ -21,12 +21,18 @@ export {
 } from './linkIndexState'
 
 const CHUNK_SIZE = 50
+const READ_CONCURRENCY = 6
 
 let bootstrapGeneration = 0
 
 export function resetWorkspaceLinkGraphBootstrap(): void {
   bootstrapGeneration += 1
   setLinkIndexState('UNINITIALIZED')
+}
+
+/** @internal test helper */
+export function getWorkspaceLinkGraphBootstrapGenerationForTests(): number {
+  return bootstrapGeneration
 }
 
 function buildCacheRevision(paths: readonly AbsoluteDocPath[]): string {
@@ -50,6 +56,43 @@ function scheduleIdle(): Promise<void> {
 
 function logLinkGraphBootstrap(docsParsed: number): void {
   void docsParsed
+}
+
+function prioritizeBootstrapPaths(
+  paths: readonly AbsoluteDocPath[],
+  activeDocKey: DocKey | null | undefined,
+  rootDir: string,
+): AbsoluteDocPath[] {
+  if (!activeDocKey) return [...paths]
+  const prioritized: AbsoluteDocPath[] = []
+  const rest: AbsoluteDocPath[] = []
+  for (const path of paths) {
+    if (absolutePathToDocKey(rootDir, path) === activeDocKey) {
+      prioritized.push(path)
+    } else {
+      rest.push(path)
+    }
+  }
+  return [...prioritized, ...rest]
+}
+
+async function mapWithConcurrency<T>(
+  items: readonly T[],
+  limit: number,
+  worker: (item: T) => Promise<void>,
+  isCancelled?: () => boolean,
+): Promise<void> {
+  if (items.length === 0) return
+  let cursor = 0
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      if (isCancelled?.()) return
+      const index = cursor
+      cursor += 1
+      await worker(items[index]!)
+    }
+  })
+  await Promise.all(runners)
 }
 
 async function finishBootstrap(
@@ -82,19 +125,30 @@ export async function scanAllDocuments(
   rootDir: string,
   paths: readonly AbsoluteDocPath[],
   readContent: (path: AbsoluteDocPath) => Promise<string>,
+  isCancelled?: () => boolean,
 ): Promise<number> {
   let parsed = 0
   for (let i = 0; i < paths.length; i += CHUNK_SIZE) {
+    if (isCancelled?.()) return parsed
     const chunk = paths.slice(i, i + CHUNK_SIZE)
-    for (const path of chunk) {
-      try {
-        const content = await readContent(path)
-        await indexDocumentContent(path, content, rootDir, { force: true })
-        parsed += 1
-      } catch {
-        /* skip unreadable */
-      }
-    }
+    const indexedInChunk: AbsoluteDocPath[] = []
+    await mapWithConcurrency(
+      chunk,
+      READ_CONCURRENCY,
+      async (path) => {
+        if (isCancelled?.()) return
+        try {
+          const content = await readContent(path)
+          if (isCancelled?.()) return
+          await indexDocumentContent(path, content, rootDir, { force: true })
+          indexedInChunk.push(path)
+        } catch {
+          /* skip unreadable */
+        }
+      },
+      isCancelled,
+    )
+    parsed += indexedInChunk.length
     await scheduleIdle()
   }
   return parsed
@@ -109,10 +163,10 @@ export function bootstrapWorkspaceLinkGraphIndex(
   readContent: (path: AbsoluteDocPath) => Promise<string>,
   options?: { activeDocKey?: string | null },
 ): Promise<number> {
-  void options
   const gen = ++bootstrapGeneration
   const vaultId = vaultIdFromRoot(rootDir)
-  const revision = buildCacheRevision(paths)
+  const orderedPaths = prioritizeBootstrapPaths(paths, options?.activeDocKey ?? null, rootDir)
+  const revision = buildCacheRevision(orderedPaths)
   setLinkIndexState('BOOTSTRAPPING')
   return (async () => {
     resetLinkGraphIndex()
@@ -120,7 +174,12 @@ export function bootstrapWorkspaceLinkGraphIndex(
 
     if (gen !== bootstrapGeneration) return 0
 
-    const docsParsed = await scanAllDocuments(rootDir, paths, readContent)
+    const docsParsed = await scanAllDocuments(
+      rootDir,
+      orderedPaths,
+      readContent,
+      () => gen !== bootstrapGeneration,
+    )
 
     if (gen !== bootstrapGeneration) return 0
     await finishBootstrap(vaultId, revision, docsParsed)

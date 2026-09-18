@@ -1,13 +1,24 @@
-/** Mermaid / code-block native source editors live inside ProseMirror but must keep browser editing shortcuts. */
+import { isTauri } from '@tauri-apps/api/core'
+
+import { readTauriClipboardText } from './tauriClipboardRead'
+
+/** Mermaid / code-block / image-card / HTML / math native source editors live inside ProseMirror but must keep browser editing shortcuts. */
 export function isBlockNativeSourceTextarea(el: HTMLElement | null): boolean {
   if (!(el instanceof HTMLTextAreaElement)) return false
-  return !!el.dataset.mermaidBlockId || el.hasAttribute('data-code-block-input')
+  return (
+    !!el.dataset.mermaidBlockId ||
+    el.hasAttribute('data-code-block-input') ||
+    el.classList.contains('pm-image-card-source-input') ||
+    el.classList.contains('pm-luna-html-source-input') ||
+    el.classList.contains('pm-math-quick-textarea')
+  )
 }
 
 /** For auxiliary input such as CM search/replace panel, visual mode search bar, etc., you should use the browser's native editing shortcut keys.*/
 function isAuxiliaryEditorChromeInput(el: HTMLElement): boolean {
   if (el.closest('.cm-panel')) return true
   if (el.closest('.editor-search-overlay')) return true
+  if (el.closest('.ai-rail-composer')) return true
   if (isBlockNativeSourceTextarea(el)) return true
   return false
 }
@@ -73,7 +84,11 @@ export async function pasteIntoFocusedNativeTextInput(text?: string): Promise<bo
   if (!(active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement)) return false
   if (!isNonEditorTextInputTarget()) return false
 
-  const payload = text ?? (await navigator.clipboard.readText().catch(() => ''))
+  const payload =
+    text ??
+    (isTauri()
+      ? ((await readTauriClipboardText()) ?? '')
+      : (await navigator.clipboard.readText().catch(() => '')))
   if (!payload) {
     // execCommand('paste') triggers WebKit/Tauri "Paste" affordance banners — avoid for block source editors.
     if (isBlockNativeSourceTextarea(active)) return false
@@ -83,6 +98,15 @@ export async function pasteIntoFocusedNativeTextInput(text?: string): Promise<bo
 
   insertTextIntoNativeTextInput(active, payload)
   active.focus()
+  return true
+}
+
+export function selectAllInFocusedNativeTextInput(): boolean {
+  if (!isNonEditorTextInputTarget()) return false
+  const active = document.activeElement
+  if (!(active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement)) return false
+  active.focus()
+  active.select()
   return true
 }
 

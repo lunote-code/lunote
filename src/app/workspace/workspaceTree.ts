@@ -177,3 +177,26 @@ export function filterWorkspaceTreeByQuery(nodes: FsTreeNode[], rawQuery: string
 export function countFilesInTree(nodes: FsTreeNode[]): number {
   return nodes.reduce((acc, n) => acc + (n.kind === 'file' ? 1 : countFilesInTree(n.children)), 0)
 }
+
+export function patchFileTreeModifiedAt(
+  tree: FsTreeNode[],
+  filePath: string,
+  modifiedAtMs: number,
+): FsTreeNode[] {
+  let changed = false
+  const next = tree.map((node) => {
+    if (node.kind === 'file' && pathsEqual(node.path, filePath)) {
+      changed = true
+      return { ...node, modifiedAtMs }
+    }
+    if (node.children.length > 0) {
+      const children = patchFileTreeModifiedAt(node.children, filePath, modifiedAtMs)
+      if (children !== node.children) {
+        changed = true
+        return { ...node, children }
+      }
+    }
+    return node
+  })
+  return changed ? next : tree
+}

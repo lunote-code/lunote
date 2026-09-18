@@ -2,6 +2,7 @@ import { useMemo, type Dispatch, type MutableRefObject, type SetStateAction } fr
 
 import { getBridgeEditorContext } from '../../editor/editorMutationBridge'
 import type { AppMenuContext, AppMenuFileTreeNode, AppMenuUiDeps } from '../../menu'
+import type { SidebarListMode, SidebarPanelView } from '../workspace/sidebarPanelView'
 import { buildNullEditorContext } from '../../menu/commandContext'
 import { dispatchDocumentCommand } from '../../documentRuntime/documentKernel'
 import { openPreferencesDialog } from '../../preferences/preferencesDialogStore'
@@ -19,6 +20,7 @@ export function createInitialAppMenuContext(): AppMenuContext {
     activePath: '',
     content: '',
     recentFiles: [],
+    recentWorkspaces: [],
     setRootDir: (u: SetStateAction<string>) => {
       void u
     },
@@ -28,6 +30,7 @@ export function createInitialAppMenuContext(): AppMenuContext {
     loadNotes: async (root: string, prefer?: string | null, _tabs?: string[] | null) => {
       void root
       void prefer
+      return false
     },
     chooseFolder: async () => {},
     closeWorkspace: async () => {},
@@ -55,6 +58,9 @@ export function createInitialAppMenuContext(): AppMenuContext {
       void p
     },
     setRecentFiles: (u: SetStateAction<string[]>) => {
+      void u
+    },
+    setRecentWorkspaces: (u: SetStateAction<string[]>) => {
       void u
     },
     openRenameDialog: (root: string, oldPath: string, isDirectory: boolean) => {
@@ -101,8 +107,13 @@ export function createInitialAppMenuUiDeps(): AppMenuUiDeps {
     setFocusMode: () => {},
     setSidebarVisible: () => {},
     setSidebarListMode: () => {},
+    setSidebarPanelView: () => {},
     getSidebarState: () => ({ visible: false, mode: 'files' }),
     openGlobalSearchModal: () => {},
+    openQuickSwitcherModal: () => {},
+    openTabSwitcherModal: () => {},
+    openKnowledgeSearchModal: () => {},
+    openShortcutsCheatsheet: () => {},
     setStatusbarVisible: () => {},
     setAboutOpen: () => {},
     setCommandPaletteOpen: () => {},
@@ -125,8 +136,9 @@ export type AppCommandHostsDeps = {
   activePath: string
   content: string
   recentFiles: string[]
+  recentWorkspaces: string[]
   setRootDir: Dispatch<SetStateAction<string>>
-  loadNotes: (root: string, prefer?: string | null, tabs?: string[] | null) => Promise<void>
+  loadNotes: (root: string, prefer?: string | null, tabs?: string[] | null) => Promise<boolean>
   chooseFolder: () => Promise<void>
   closeWorkspace: () => Promise<void>
   saveCurrent: (manual?: boolean) => Promise<void>
@@ -139,6 +151,7 @@ export type AppCommandHostsDeps = {
   setStatus: (msg: string) => void
   updateRecent: (path: string) => void
   setRecentFiles: Dispatch<SetStateAction<string[]>>
+  setRecentWorkspaces: Dispatch<SetStateAction<string[]>>
   openRenameDialog: (root: string, oldPath: string, isDirectory: boolean) => void
   openNewNoteDialog: (root: string, parentPath: string, openInTab?: boolean, templatePath?: string) => void
   openNewNoteFromTemplateDialog: (root: string, parentPath: string, openInTab?: boolean) => void
@@ -168,10 +181,15 @@ export type AppCommandHostsDeps = {
   setMainPaneMode: (mode: 'visual' | 'source') => void
   setFocusMode: Dispatch<SetStateAction<boolean>>
   setSidebarVisible: Dispatch<SetStateAction<boolean>>
-  setSidebarListMode: Dispatch<SetStateAction<'files' | 'outline'>>
+  setSidebarListMode: Dispatch<SetStateAction<SidebarListMode>>
+  setSidebarPanelView: Dispatch<SetStateAction<SidebarPanelView>>
   sidebarVisible: boolean
-  sidebarListMode: 'files' | 'outline'
+  sidebarListMode: SidebarListMode
   openGlobalSearchModal: () => void
+  openQuickSwitcherModal: () => void
+  openTabSwitcherModal: () => void
+  openKnowledgeSearchModal: () => void
+  openShortcutsCheatsheet: () => void
   setStatusbarVisible: Dispatch<SetStateAction<boolean>>
   setAboutOpen: Dispatch<SetStateAction<boolean>>
   setCommandPaletteOpen: Dispatch<SetStateAction<boolean>>
@@ -192,6 +210,7 @@ export function useAppCommandHosts({
   activePath,
   content,
   recentFiles,
+  recentWorkspaces,
   setRootDir,
   loadNotes,
   chooseFolder,
@@ -206,6 +225,7 @@ export function useAppCommandHosts({
   setStatus,
   updateRecent,
   setRecentFiles,
+  setRecentWorkspaces,
   openRenameDialog,
   openNewNoteDialog,
   openNewNoteFromTemplateDialog,
@@ -230,9 +250,14 @@ export function useAppCommandHosts({
   setFocusMode,
   setSidebarVisible,
   setSidebarListMode,
+  setSidebarPanelView,
   sidebarVisible,
   sidebarListMode,
   openGlobalSearchModal,
+  openQuickSwitcherModal,
+  openTabSwitcherModal,
+  openKnowledgeSearchModal,
+  openShortcutsCheatsheet,
   setStatusbarVisible,
   setAboutOpen,
   setCommandPaletteOpen,
@@ -250,6 +275,7 @@ export function useAppCommandHosts({
       activePath,
       content,
       recentFiles,
+      recentWorkspaces,
       setRootDir,
       dispatchDocumentCommand,
       loadNotes,
@@ -266,6 +292,7 @@ export function useAppCommandHosts({
       t,
       updateRecent,
       setRecentFiles,
+      setRecentWorkspaces,
       openRenameDialog,
       openNewNoteDialog,
       openNewNoteFromTemplateDialog,
@@ -293,6 +320,7 @@ export function useAppCommandHosts({
       activePath,
       content,
       recentFiles,
+      recentWorkspaces,
       setRootDir,
       loadNotes,
       chooseFolder,
@@ -308,6 +336,7 @@ export function useAppCommandHosts({
       t,
       updateRecent,
       setRecentFiles,
+      setRecentWorkspaces,
       openRenameDialog,
       openNewNoteDialog,
       openNewNoteFromTemplateDialog,
@@ -336,8 +365,13 @@ export function useAppCommandHosts({
       setFocusMode,
       setSidebarVisible,
       setSidebarListMode,
+      setSidebarPanelView,
       getSidebarState: () => ({ visible: sidebarVisible, mode: sidebarListMode }),
       openGlobalSearchModal,
+      openQuickSwitcherModal,
+      openTabSwitcherModal,
+      openKnowledgeSearchModal,
+      openShortcutsCheatsheet,
       setStatusbarVisible,
       setAboutOpen,
       setCommandPaletteOpen,
@@ -360,9 +394,14 @@ export function useAppCommandHosts({
       setFocusMode,
       setSidebarVisible,
       setSidebarListMode,
+      setSidebarPanelView,
       sidebarVisible,
       sidebarListMode,
       openGlobalSearchModal,
+      openQuickSwitcherModal,
+      openTabSwitcherModal,
+      openKnowledgeSearchModal,
+      openShortcutsCheatsheet,
       setStatusbarVisible,
       setAboutOpen,
       setCommandPaletteOpen,

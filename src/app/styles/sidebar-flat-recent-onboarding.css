@@ -199,6 +199,30 @@
   border-top: var(--hairline) solid var(--border-subtle);
 }
 
+.sidebar-recent-files--collapsible.is-collapsed .sidebar-recent-files-title {
+  margin-bottom: 0;
+}
+
+.sidebar-recent-files-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.sidebar-recent-files-chevron {
+  transition: transform 0.16s ease;
+}
+
+.sidebar-recent-files--collapsible:not(.is-collapsed) .sidebar-recent-files-chevron {
+  transform: rotate(90deg);
+}
+
 .sidebar-recent-files-title {
   display: flex;
   align-items: center;
@@ -248,9 +272,9 @@
 .sidebar-recent-files-item {
   width: 100%;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: flex-start;
-  gap: 1px;
+  gap: 8px;
   padding: 7px 8px;
   border: none;
   border-radius: var(--radius-sm);
@@ -259,6 +283,32 @@
   cursor: pointer;
   font-family: var(--font-ui);
   text-align: left;
+}
+
+.sidebar-recent-files-leading {
+  flex-shrink: 0;
+  margin-top: 1px;
+  opacity: 0.72;
+}
+
+.sidebar-recent-files-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.sidebar-recent-files-divider {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--border-subtle);
+  list-style: none;
+}
+
+.sidebar-recent-files-item--folder .sidebar-recent-files-name {
+  font-weight: 600;
 }
 
 .sidebar-recent-files-item:hover {

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 2,
+  "id": "cobalt-dusk-pack",
+  "version": "1.0.0",
+  "manifest": {
+    "schemaVersion": 2,
+    "id": "cobalt-dusk-pack",
+    "name": "Cobalt Dusk Pack",
+    "version": "1.0.0",
+    "entry": null,
+    "pluginType": "theme-pack",
+    "capabilities": [
+      "theme.style"
+    ],
+    "platforms": [
+      "desktop",
+      "web"
+    ],
+    "requiresRestart": false,
+    "experimental": false,
+    "minAppVersion": "0.6.0",
+    "maxAppVersion": null,
+    "permissions": {
+      "theme": {
+        "register": true
+      }
+    },
+    "contributes": {
+      "theme": {
+        "style": [
+          {
+            "file": "theme/style/cobalt-dusk-pack.css",
+            "label": "Cobalt Dusk",
+            "description": "Crisp cobalt palette tuned for code-heavy notes."
+          }
+        ],
+        "snippets": [],
+        "tokens": [],
+        "defaultEnable": {
+          "style": false
+        }
+      },
+      "commands": [],
+      "preferencesSections": [],
+      "panels": []
+    }
+  },
+  "files": [
+    {
+      "path": "plugin.json",
+      "content": "{\n  \"schemaVersion\": 2,\n  \"id\": \"cobalt-dusk-pack\",\n  \"name\": \"Cobalt Dusk Pack\",\n  \"version\": \"1.0.0\",\n  \"entry\": null,\n  \"pluginType\": \"theme-pack\",\n  \"capabilities\": [\n    \"theme.style\"\n  ],\n  \"platforms\": [\n    \"desktop\",\n    \"web\"\n  ],\n  \"requiresRestart\": false,\n  \"experimental\": false,\n  \"minAppVersion\": \"0.6.0\",\n  \"maxAppVersion\": null,\n  \"permissions\": {\n    \"theme\": {\n      \"register\": true\n    }\n  },\n  \"contributes\": {\n    \"theme\": {\n      \"style\": [\n        {\n          \"file\": \"theme/style/cobalt-dusk-pack.css\",\n          \"label\": \"Cobalt Dusk\",\n          \"description\": \"Crisp cobalt palette tuned for code-heavy notes.\"\n        }\n      ],\n      \"snippets\": [],\n      \"tokens\": [],\n      \"defaultEnable\": {\n        \"style\": false\n      }\n    },\n    \"commands\": [],\n    \"preferencesSections\": [],\n    \"panels\": []\n  }\n}\n"
+    },
+    {
+      "path": "theme/style/cobalt-dusk-pack.css",
+      "content": "/**\n * Cobalt Dusk — external CSS theme\n *\n * Deep cobalt dark palette with crisp code blocks and contrasty links.\n */\n\nhtml[data-theme='dark'] {\n  --surface-app: #111827;\n  --surface-panel: rgba(17, 24, 39, 0.94);\n  --surface-editor: #0f172a;\n  --surface-preview: #0b1222;\n  --surface-hover: rgba(96, 165, 250, 0.12);\n  --surface-elevated: #1e293b;\n  --text-primary: #e5ecff;\n  --text-secondary: #a9b9d6;\n  --text-muted: #8ea0bd;\n  --text-tertiary: #8ea0bd;\n  --border-subtle: rgba(229, 236, 255, 0.11);\n  --border-strong: rgba(229, 236, 255, 0.18);\n  --accent: #60a5fa;\n  --link: #7db6ff;\n  --link-hover: #a6cbff;\n  --link-visited: #c4b5fd;\n  --focus-ring: rgba(125, 177, 255, 0.26);\n  --code-bg: #0e1a31;\n  --code-gutter-fg: #8ea0bd;\n  --code-gutter-bg: #0a1428;\n  --inline-code-bg: #1a2a49;\n  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.45);\n  --shadow-panel: 0 14px 42px rgba(0, 0, 0, 0.55);\n}\n\nhtml[data-theme='light'] {\n  --surface-app: #eef4ff;\n  --surface-panel: rgba(255, 255, 255, 0.94);\n  --surface-editor: #ffffff;\n  --surface-preview: #f5f8ff;\n  --surface-hover: rgba(37, 99, 235, 0.08);\n  --surface-elevated: #ffffff;\n  --text-primary: #1a2742;\n  --text-secondary: #4e6285;\n  --text-muted: #6f83a3;\n  --text-tertiary: #6f83a3;\n  --border-subtle: rgba(26, 39, 66, 0.11);\n  --border-strong: rgba(26, 39, 66, 0.17);\n  --accent: #2563eb;\n  --link: #1d4ed8;\n  --link-hover: #1e40af;\n  --link-visited: #6d28d9;\n  --focus-ring: rgba(37, 99, 235, 0.22);\n  --code-bg: #eff4ff;\n  --code-gutter-fg: #6f83a3;\n  --code-gutter-bg: #e3ecff;\n  --inline-code-bg: #e8f0ff;\n  --shadow-soft: 0 1px 2px rgba(26, 39, 66, 0.08);\n  --shadow-panel: 0 10px 30px rgba(26, 39, 66, 0.12);\n}\n\n.editor-tabs-strip {\n  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--border-subtle) 92%, transparent);\n}\n\n.preview-pane.markdown-visual-editor .ProseMirror a.pm-link-inline {\n  text-decoration-thickness: 1.5px;\n  text-underline-offset: 3px;\n}\n\n.preview-pane.markdown-visual-editor .ProseMirror .pm-code-block-surface {\n  box-shadow:\n    inset 0 0 0 var(--hairline) color-mix(in srgb, var(--accent) 18%, var(--border-subtle)),\n    var(--shadow-panel);\n}\n"
+    }
+  ]
+}

@@ -1,0 +1,160 @@
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-block-surface--hidden {
+  display: none !important;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-block--source-open {
+  margin-top: 0.85rem;
+  margin-bottom: 0.85rem;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-editor {
+  position: relative;
+  width: 100%;
+  max-width: min(var(--editor-column-width), 100%);
+  margin-inline: auto;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-badge {
+  position: absolute;
+  top: -11px;
+  right: 14px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  padding: 0 9px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 86%, transparent);
+  background: color-mix(in srgb, var(--surface-panel) 94%, var(--surface-editor));
+  color: var(--text-secondary);
+  font-family: var(--font-ui, var(--font-reading));
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  user-select: none;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text-primary) 5%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-badge-mark {
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 500;
+  opacity: 0.92;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-panel {
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 3.8%, var(--surface-panel));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface-hover) 48%, transparent);
+  transition:
+    border-color 140ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-block--source-open .pm-luna-html-source-panel:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border-subtle));
+  background: color-mix(in srgb, var(--text-primary) 4.2%, var(--surface-panel));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-field {
+  position: relative;
+  min-height: 48px;
+  box-sizing: border-box;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-highlight,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-input {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 16px 18px;
+  border: none;
+  border-radius: 12px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.58;
+  letter-spacing: 0.01em;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-highlight {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: transparent;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-highlight code {
+  display: block;
+  font: inherit;
+  white-space: inherit;
+  word-break: inherit;
+  overflow-wrap: inherit;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-input {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: var(--accent);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-input::selection {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-input::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* XML/HTML syntax palette (Fig. 2 — tags / attrs / values / text) */
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-highlight code.hljs {
+  color: color-mix(in srgb, var(--link-visited) 90%, var(--text-primary));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-highlight code.hljs .hljs-tag,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-highlight code.hljs .hljs-name {
+  color: color-mix(in srgb, var(--luna-color-danger) 84%, var(--text-primary));
+  font-weight: 500;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-highlight code.hljs .hljs-attr,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-highlight code.hljs .hljs-attribute {
+  color: color-mix(in srgb, var(--luna-color-warning) 90%, var(--text-primary));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-highlight code.hljs .hljs-string {
+  color: color-mix(in srgb, var(--luna-color-success) 84%, var(--text-primary));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-highlight code.hljs .hljs-meta {
+  color: color-mix(in srgb, var(--luna-color-danger) 70%, var(--text-secondary));
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-luna-html-source-highlight code.hljs .hljs-subst {
+  color: color-mix(in srgb, var(--link-visited) 90%, var(--text-primary));
+}

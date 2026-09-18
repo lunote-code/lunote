@@ -6,7 +6,7 @@ import type {
   RefObject,
   SetStateAction,
 } from 'react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Icon } from '../../design-system/icons'
 import { EmptyState } from '../../design-system/EmptyState'
 import { formatCommandShortcutDisplay } from '../../menu'
@@ -25,12 +25,21 @@ import type { AssetMeta } from '../../assets/workspaceAssetStore'
 import type { EditorDocMenuState, FileContextMenuState } from '../workspace/contextMenuTypes'
 import type { TranslateFn } from '../../i18n'
 import { isPathDirty } from '../../lib/documentDirty'
-import { pathsEqual } from '../../lib/workspacePathUtils'
 import type { AppStatusTone } from '../hooks/useAppStatus'
+import type { EditorRightRailView } from './EditorRightRailContainer'
 import type { TocHeading } from './DocumentOutlineBlock'
-import { getHistoryRestoreState } from '../../documentHistory/historyRestoreState'
+import {
+  getHistoryRestoreRevision,
+  getHistoryRestoreState,
+  subscribeHistoryRestoreState,
+} from '../../documentHistory/historyRestoreState'
 import type { ToolbarItemDef } from '../../menu/menu.types'
+import type { WorkspaceSessionState } from '../../documentRuntime/workspaceSessionRuntime'
 import { EditorFormatToolbar } from './EditorFormatToolbar'
+import { EditorAiSelectionToolbar } from './EditorAiSelectionToolbar'
+import { EditorBlockAiHandle } from './EditorBlockAiHandle'
+import { EditorAiInsertUndoChip } from './EditorAiInsertUndoChip'
+import { EditorBlockAiStatusChip } from './EditorBlockAiStatusChip'
 import { EditorDocumentLoadingOverlay } from './EditorDocumentLoadingOverlay'
 import { KnowledgeGraphToolbarHint } from './KnowledgeGraphToolbarHint'
 import {
@@ -38,11 +47,17 @@ import {
   isKnowledgeGraphToolbarHintDismissed,
 } from '../knowledgeGraphToolbarHintStorage'
 import { bridgeCaptureEditorSelection } from '../../editor/editorMutationBridge'
+import { useEditorUiChromeSettings } from '../hooks/useEditorUiChromeSettings'
+import { pushAppToast } from '../toast/appToastStore'
+import { isCodeBlockCmFocused } from '../../editor/codeBlock/cm/codeBlockCmFocus'
+import { isEditorFormatMenuPortalNode } from './editorFormatMenuPortal'
 
-function hasExternalDiskDrift(path: string, externalDiskChangedPaths: ReadonlySet<string>): boolean {
-  if (!path) return false
-  return [...externalDiskChangedPaths].some((candidate) => pathsEqual(candidate, path))
-}
+import { hasExternalDiskDriftInState } from '../../lib/externalDiskDriftState'
+import {
+  resolveEditorOverlayChrome,
+  resolveEditorPersistentStatusMessage,
+} from '../../lib/editorRestoreExternalChrome'
+import type { SidebarListMode } from '../workspace/sidebarPanelView'
 
 export type AppEditorMainProps = {
   t: TranslateFn
@@ -55,10 +70,14 @@ export type AppEditorMainProps = {
   workspaceFolderName: string
   tabLabel: (path: string) => string
   setFocusMode: Dispatch<SetStateAction<boolean>>
-  sidebarListMode: 'files' | 'outline'
+  sidebarListMode: SidebarListMode
   rootDir: string
   knowledgeRailVisible: boolean
   setKnowledgeRailVisible: Dispatch<SetStateAction<boolean>>
+  aiPanelVisible: boolean
+  setAiPanelVisible: Dispatch<SetStateAction<boolean>>
+  setEditorRightRailView: (view: EditorRightRailView) => void
+  onReloadFromDisk: (path: string) => void | Promise<void | boolean>
   openedTabs: string[]
   externalDiskChangedPaths: Set<string>
   activateTab: (path: string) => void | Promise<void>
@@ -87,6 +106,8 @@ export type AppEditorMainProps = {
   handleLunaAssetLinkClick: (href: string, event: globalThis.MouseEvent) => void
   getLunaAssetTooltip: (href: string) => string | null
   onWikiLinkNavigate: (target: unknown) => void
+  onEmbeddedHtmlLinkNavigate?: (target: import('../../editor/resolveWorkspaceMarkdownHref').EmbeddedHtmlWorkspaceNoteTarget) => void
+  onEmbeddedHtmlHashNavigate?: (fragment: string) => void
   atomicVisualDocumentEnter: AtomicVisualDocumentEnter | null
   onAtomicVisualDocumentEnterConsumed: () => void
   editorOpenReason: EditorOpenReason
@@ -99,8 +120,10 @@ export type AppEditorMainProps = {
   statusbarVisible: boolean
   status: string
   statusTone: AppStatusTone
+  workspaceSessionState: WorkspaceSessionState
   savedAt: string
   contentStats: { lines: number; chars: number; headings: number }
+  selectionStats: { chars: number; words: number }
   isLargeDoc: boolean
   knowledgeRailSlot: React.ReactNode
   createNewNote: () => void | Promise<void>
@@ -112,7 +135,11 @@ export type AppEditorMainProps = {
   isFormatCommandActive?: (commandId: string) => boolean
   onEditorTextColorPick: (color: string | null) => void
   onVisualSelectionActivity?: () => void
+  visualSelectionTick?: number
   editorDocumentLoading: boolean
+  modeSwitchLoading?: boolean
+  onOpenGlobalSearch?: () => void
+  onSaveActiveDocument?: () => void | Promise<void>
 }
 
 export function AppEditorMain(props: AppEditorMainProps) {
@@ -130,6 +157,10 @@ export function AppEditorMain(props: AppEditorMainProps) {
     rootDir,
     knowledgeRailVisible,
     setKnowledgeRailVisible,
+    aiPanelVisible,
+    setAiPanelVisible,
+    setEditorRightRailView,
+    onReloadFromDisk,
     openedTabs,
     externalDiskChangedPaths,
     activateTab,
@@ -156,6 +187,8 @@ export function AppEditorMain(props: AppEditorMainProps) {
     onAtomicVisualDocumentEnterConsumed,
     editorOpenReason,
     onWikiLinkNavigate,
+    onEmbeddedHtmlLinkNavigate,
+    onEmbeddedHtmlHashNavigate,
     handleWikiHover,
     suppressMarkdownSerdeRef,
     cmMountKey,
@@ -165,8 +198,10 @@ export function AppEditorMain(props: AppEditorMainProps) {
     statusbarVisible,
     status,
     statusTone,
+    workspaceSessionState,
     savedAt,
     contentStats,
+    selectionStats,
     isLargeDoc,
     knowledgeRailSlot,
     createNewNote,
@@ -178,22 +213,75 @@ export function AppEditorMain(props: AppEditorMainProps) {
     isFormatCommandActive,
     onEditorTextColorPick,
     onVisualSelectionActivity,
+    visualSelectionTick = 0,
     editorDocumentLoading,
+    modeSwitchLoading = false,
+    onOpenGlobalSearch,
+    onSaveActiveDocument,
   } = props
 
   const activeDocumentDirty = isPathDirty(activePath)
-  const activeDocumentExternal = hasExternalDiskDrift(activePath, externalDiskChangedPaths)
-  const activeDocumentHistoryRestore = activePath ? getHistoryRestoreState(activePath) : null
+  const activeDocumentExternal = hasExternalDiskDriftInState(activePath, externalDiskChangedPaths)
+  const historyRestoreRevision = useSyncExternalStore(
+    subscribeHistoryRestoreState,
+    getHistoryRestoreRevision,
+    getHistoryRestoreRevision,
+  )
+  const activeDocumentHistoryRestore =
+    historyRestoreRevision >= 0 && activePath ? getHistoryRestoreState(activePath) : null
+  const workspaceLoadingLabelKey =
+    workspaceSessionState === 'restoring'
+      ? 'app.editor.workspaceRestoring'
+      : workspaceSessionState === 'indexing'
+        ? 'app.editor.workspaceIndexing'
+        : workspaceSessionState === 'openingInitialDocument'
+          ? 'app.editor.loading'
+          : null
+  const showWorkspaceLoadingOverlay = workspaceLoadingLabelKey != null
+  const activeDocumentHistoryRestorePending = Boolean(activeDocumentHistoryRestore)
+  const {
+    showBothRestoreAndExternal,
+    showHistoryRestoreBanner,
+    showExternalChangedBanner,
+    showHistorySaveCta,
+    showExternalReloadCta,
+  } = resolveEditorOverlayChrome({
+    statusbarVisible,
+    historyRestorePending: activeDocumentHistoryRestorePending,
+    externalDrift: activeDocumentExternal,
+  })
+  const persistentStatusMessage = resolveEditorPersistentStatusMessage({
+    t,
+    statusbarVisible,
+    historyRestorePending: activeDocumentHistoryRestorePending,
+    externalDrift: activeDocumentExternal,
+    dirty: activeDocumentDirty,
+    workspaceLoadingLabelKey,
+    savedAt,
+  })
   const showEmptyState = !activePath && openedTabs.length === 0
   const graphButtonRef = useRef<HTMLButtonElement>(null)
+  const editorPanelRef = useRef<HTMLDivElement | null>(null)
   const [graphToolbarHintOpen, setGraphToolbarHintOpen] = useState(
     () => !isKnowledgeGraphToolbarHintDismissed(),
   )
+  const [codeBlockCmFocused, setCodeBlockCmFocused] = useState(false)
+  const [formatMenuOpen, setFormatMenuOpen] = useState(false)
+  const showEditorBodyFocusChrome = editorBodyFocused || formatMenuOpen
 
   const dismissGraphToolbarHint = useCallback(() => {
     dismissKnowledgeGraphToolbarHint()
     setGraphToolbarHintOpen(false)
   }, [])
+
+  const {
+    focusButtonEnabled,
+    graphButtonEnabled,
+    aiButtonEnabled,
+    globalSearchButtonEnabled,
+    aiConfigured,
+    focusExitButtonEnabled,
+  } = useEditorUiChromeSettings()
 
   useEffect(() => {
     if (knowledgeRailVisible && graphToolbarHintOpen) {
@@ -201,18 +289,96 @@ export function AppEditorMain(props: AppEditorMainProps) {
     }
   }, [knowledgeRailVisible, graphToolbarHintOpen, dismissGraphToolbarHint])
 
-  const showGraphToolbarHint = Boolean(rootDir) && !focusMode && graphToolbarHintOpen
+  useEffect(() => {
+    let frame = 0
+    const sync = () => {
+      const next = isCodeBlockCmFocused()
+      setCodeBlockCmFocused((prev) => (prev === next ? prev : next))
+    }
+    const scheduleSync = () => {
+      if (frame) cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        sync()
+      })
+    }
+    sync()
+    document.addEventListener('focusin', scheduleSync, true)
+    document.addEventListener('focusout', scheduleSync, true)
+    document.addEventListener('pointerup', scheduleSync, true)
+    document.addEventListener('selectionchange', scheduleSync)
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      document.removeEventListener('focusin', scheduleSync, true)
+      document.removeEventListener('focusout', scheduleSync, true)
+      document.removeEventListener('pointerup', scheduleSync, true)
+      document.removeEventListener('selectionchange', scheduleSync)
+    }
+  }, [])
+
+  const showGraphToolbarHint =
+    Boolean(rootDir) &&
+    !focusMode &&
+    graphToolbarHintOpen &&
+    graphButtonEnabled
+
+  const showAiSelectionToolbar =
+    aiButtonEnabled &&
+    aiConfigured &&
+    Boolean(rootDir) &&
+    !focusMode &&
+    !showEmptyState &&
+    mainPaneMode === 'visual' &&
+    !codeBlockCmFocused &&
+    editorHasTextSelection
+
+  const showBlockAiHandle =
+    aiButtonEnabled &&
+    aiConfigured &&
+    Boolean(rootDir) &&
+    !focusMode &&
+    !showEmptyState &&
+    mainPaneMode === 'visual' &&
+    !codeBlockCmFocused &&
+    !editorHasTextSelection
+
+  const prevMainPaneModeRef = useRef(mainPaneMode)
+  const sourceModeBlockAiHintShownRef = useRef(false)
+  const showDocumentLoadingOverlay = editorDocumentLoading || modeSwitchLoading
+  const showLoadingOverlay =
+    (showWorkspaceLoadingOverlay || showDocumentLoadingOverlay) && !showEmptyState
+  useEffect(() => {
+    const prev = prevMainPaneModeRef.current
+    prevMainPaneModeRef.current = mainPaneMode
+    if (prev !== 'visual' || mainPaneMode !== 'source') return
+    if (sourceModeBlockAiHintShownRef.current) return
+    if (!aiButtonEnabled || !aiConfigured || !rootDir || focusMode || showEmptyState) return
+    sourceModeBlockAiHintShownRef.current = true
+    pushAppToast(t('editor.sourceMode.blockAiUnavailable'), 'info')
+  }, [aiButtonEnabled, aiConfigured, focusMode, mainPaneMode, rootDir, showEmptyState, t])
+
+  const knowledgePanelToggleTitle = knowledgeRailVisible
+    ? t('app.knowledge.hidePanel')
+    : `${t('app.knowledge.showPanel')} · ${t('knowledge.rail.tab.backlinks')} / ${t('knowledge.rail.tab.graph')} / ${t('knowledge.rail.tab.tags')}`
 
   return (
       <main
         ref={mainWithRailRef}
-        className={`main main-with-rail workspace-leaf mod-active${knowledgeRailOpen ? ' has-kos-rail' : ''}${editorBodyFocused ? ' editor-body-focused' : ''}`}
+        className={`main main-with-rail workspace-leaf mod-active${knowledgeRailOpen ? ' has-kos-rail' : ''}${showEditorBodyFocusChrome ? ' editor-body-focused' : ''}`}
         data-drop-zone="editor"
       >
         <div
           className="main-editor-stack workspace-leaf-content"
           data-type="markdown"
           data-mode={mainPaneMode === 'source' ? 'source' : 'preview'}
+          onFocusCapture={() => {
+            setEditorBodyFocused(true)
+          }}
+          onBlurCapture={(e) => {
+            const next = e.relatedTarget as Node | null
+            if (isEditorFormatMenuPortalNode(next)) return
+            if (!e.currentTarget.contains(next)) setEditorBodyFocused(false)
+          }}
         >
         {!focusMode && (
           <EditorTabBar
@@ -225,42 +391,70 @@ export function AppEditorMain(props: AppEditorMainProps) {
             onClose={closeTab}
             onReorder={onReorderOpenedTabs}
             onContextMenu={onTabContextMenu}
+            onExternalBadgeClick={(path) => void onReloadFromDisk(path)}
+            onOpenGlobalSearch={globalSearchButtonEnabled ? onOpenGlobalSearch : undefined}
             trailingActions={
-              <>
-                <button
-                  type="button"
-                  className="luna-chrome-icon-btn editor-chrome-action-btn"
-                  onClick={() => {
-                    setFocusMode(true)
-                  }}
-                  title={`${t('app.focusMode.title')} (${formatCommandShortcutDisplay('toggle-focus')})`}
-                  aria-label={t('app.focusMode.title')}
-                  data-testid="editor-focus-toggle"
-                >
-                  <Icon name="focus" size="sm" stroke="strong" />
-                </button>
-                {rootDir ? (
-                  <button
-                    ref={graphButtonRef}
-                    type="button"
-                    className={`luna-chrome-icon-btn editor-chrome-action-btn${knowledgeRailVisible ? ' luna-chrome-icon-btn--active' : ''}`}
-                    onClick={() => {
-                      dismissGraphToolbarHint()
-                      setKnowledgeRailVisible((v) => !v)
-                    }}
-                    title={
-                      knowledgeRailVisible ? t('app.knowledge.hidePanel') : t('app.knowledge.showPanel')
-                    }
-                    aria-pressed={knowledgeRailVisible}
-                    aria-label={
-                      knowledgeRailVisible ? t('app.knowledge.hidePanel') : t('app.knowledge.showPanel')
-                    }
-                    data-testid="editor-knowledge-toggle"
-                  >
-                    <Icon name="graph" size="sm" stroke="strong" />
-                  </button>
-                ) : null}
-              </>
+              focusButtonEnabled || (graphButtonEnabled && rootDir) || (aiButtonEnabled && rootDir) ? (
+                <>
+                  {focusButtonEnabled ? (
+                    <button
+                      type="button"
+                      className="luna-chrome-icon-btn editor-chrome-action-btn"
+                      onClick={() => {
+                        setFocusMode(true)
+                      }}
+                      title={`${t('app.focusMode.title')} (${formatCommandShortcutDisplay('toggle-focus')})`}
+                      aria-label={t('app.focusMode.title')}
+                      data-testid="editor-focus-toggle"
+                    >
+                      <Icon name="focus" size="sm" stroke="strong" />
+                    </button>
+                  ) : null}
+                  {graphButtonEnabled && rootDir ? (
+                    <button
+                      ref={graphButtonRef}
+                      type="button"
+                      className={`luna-chrome-icon-btn editor-chrome-action-btn${knowledgeRailVisible ? ' luna-chrome-icon-btn--active' : ''}`}
+                      onClick={() => {
+                        dismissGraphToolbarHint()
+                        setKnowledgeRailVisible((visible) => {
+                          const next = !visible
+                          if (next) setEditorRightRailView('knowledge')
+                          return next
+                        })
+                      }}
+                      title={knowledgePanelToggleTitle}
+                      aria-pressed={knowledgeRailVisible}
+                      aria-label={knowledgePanelToggleTitle}
+                      data-testid="editor-knowledge-toggle"
+                    >
+                      <Icon name="graph" size="sm" stroke="strong" />
+                    </button>
+                  ) : null}
+                  {aiButtonEnabled && rootDir ? (
+                    <button
+                      type="button"
+                      className={`luna-chrome-icon-btn editor-chrome-action-btn${aiPanelVisible ? ' luna-chrome-icon-btn--active' : ''}`}
+                      onClick={() => {
+                        setAiPanelVisible((visible) => {
+                          const next = !visible
+                          if (next) {
+                            dismissGraphToolbarHint()
+                            setEditorRightRailView('ai')
+                          }
+                          return next
+                        })
+                      }}
+                      title={aiPanelVisible ? t('app.ai.hidePanel') : t('app.ai.showPanel')}
+                      aria-pressed={aiPanelVisible}
+                      aria-label={aiPanelVisible ? t('app.ai.hidePanel') : t('app.ai.showPanel')}
+                      data-testid="editor-ai-toggle"
+                    >
+                      <Icon name="ai" size="sm" stroke="strong" />
+                    </button>
+                  ) : null}
+                </>
+              ) : null
             }
           />
         )}
@@ -278,19 +472,49 @@ export function AppEditorMain(props: AppEditorMainProps) {
             hasTextSelection={editorHasTextSelection}
             isCommandActive={isFormatCommandActive}
             onTextColorPick={onEditorTextColorPick}
+            onMenuOpenChange={setFormatMenuOpen}
           />
         ) : null}
-        {activeDocumentHistoryRestore ? (
+        {showHistoryRestoreBanner ? (
           <div
             className={`editor-history-restore-banner${focusMode ? ' editor-history-restore-banner--focus' : ''}`}
             role="status"
             aria-live="polite"
           >
             <Icon name="history" size="sm" />
-            <span>{t('app.history.banner')}</span>
+            <span>{showBothRestoreAndExternal ? `${t('app.history.banner')} · ${t('app.tabs.externalAria')}` : t('app.history.banner')}</span>
+            {onSaveActiveDocument ? (
+              <button
+                type="button"
+                className="editor-history-restore-banner-action"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => void onSaveActiveDocument()}
+                data-testid="editor-history-restore-save"
+              >
+                {t('menu.file.save')}
+              </button>
+            ) : null}
           </div>
         ) : null}
-        {focusMode && (
+        {showExternalChangedBanner ? (
+          <div
+            className={`editor-history-restore-banner editor-history-restore-banner--external${focusMode ? ' editor-history-restore-banner--focus' : ''}`}
+            role="status"
+            aria-live="polite"
+          >
+            <Icon name="refresh" size="sm" />
+            <span>{t('app.statusbar.externalChanged')}</span>
+            <button
+              type="button"
+              className="editor-history-restore-banner-action"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => void onReloadFromDisk(activePath)}
+            >
+              {t('app.statusbar.reloadFromDisk')}
+            </button>
+          </div>
+        ) : null}
+        {focusMode && focusExitButtonEnabled ? (
           <div className="focus-mode-actions">
             <button
               type="button"
@@ -303,25 +527,21 @@ export function AppEditorMain(props: AppEditorMainProps) {
               {t('app.focus.exitLabel')}
             </button>
           </div>
-        )}
+        ) : null}
         <section ref={panesRef} className="panes editor-only">
           <div
-            className="editor-body-surface view-content"
+            className={`editor-body-surface view-content${!statusbarVisible ? ' editor-body-surface--floating-chips' : ''}`}
             style={editorSurfaceStyle}
-            onFocusCapture={() => setEditorBodyFocused(true)}
-            onBlurCapture={(e) => {
-              const next = e.relatedTarget as Node | null
-              if (!e.currentTarget.contains(next)) setEditorBodyFocused(false)
-            }}
           >
           <div
+            ref={editorPanelRef}
             data-testid="editor-main"
             id="editor-main-panel"
             role="tabpanel"
             className={
               mainPaneMode === 'source'
-                ? 'editor-pane markdown-source-view mod-cm6 is-live-preview'
-                : 'preview-pane markdown-visual-editor markdown-preview-view markdown-reading-view'
+                ? `editor-pane markdown-source-view mod-cm6 is-live-preview${showDocumentLoadingOverlay ? ' editor-pane--document-loading' : ''}`
+                : `preview-pane markdown-visual-editor markdown-preview-view markdown-reading-view${showDocumentLoadingOverlay ? ' editor-pane--document-loading' : ''}`
             }
             style={{ position: 'relative' }}
             onMouseDownCapture={(e) => {
@@ -350,13 +570,26 @@ export function AppEditorMain(props: AppEditorMainProps) {
               })
             }}
           >
-            <EditorDocumentLoadingOverlay t={t} visible={editorDocumentLoading && !showEmptyState} />
+            <EditorDocumentLoadingOverlay
+              t={t}
+              visible={showLoadingOverlay}
+              labelKey={
+                modeSwitchLoading
+                  ? 'app.editor.modeSwitchLoading'
+                  : workspaceLoadingLabelKey ?? 'app.editor.loading'
+              }
+              showProgress={showDocumentLoadingOverlay || showWorkspaceLoadingOverlay}
+              prominent={editorDocumentLoading && !modeSwitchLoading && !showWorkspaceLoadingOverlay}
+            />
             {showEmptyState ? (
               <EmptyState
                 variant="page"
                 icon={rootDir ? 'note' : 'workspace-open'}
                 title={rootDir ? t('app.editor.empty.noNoteTitle') : t('app.sidebar.empty.title')}
-                description={rootDir ? t('app.editor.empty.noNoteDesc') : undefined}
+                description={
+                  rootDir ? t('app.editor.empty.noNoteDesc') : t('app.sidebar.empty.scratchDesc')
+                }
+                hint={rootDir ? undefined : t('app.sidebar.empty.scratchHint')}
                 actions={
                   rootDir ? (
                     <button type="button" className="focus-exit-btn" onClick={() => void createNewNote()}>
@@ -397,6 +630,8 @@ export function AppEditorMain(props: AppEditorMainProps) {
                 onAtomicVisualDocumentEnterConsumed={onAtomicVisualDocumentEnterConsumed}
                 openReason={editorOpenReason}
                 onWikiLinkNavigate={onWikiLinkNavigate}
+                onEmbeddedHtmlLinkNavigate={onEmbeddedHtmlLinkNavigate}
+                onEmbeddedHtmlHashNavigate={onEmbeddedHtmlHashNavigate}
                 onWikiLinkHover={handleWikiHover}
                 suppressMarkdownSyncRef={suppressMarkdownSerdeRef}
               />
@@ -423,29 +658,81 @@ export function AppEditorMain(props: AppEditorMainProps) {
                 style={{ height: '100%' }}
               />
             )}
+            <EditorAiSelectionToolbar
+              t={t}
+              visualEditorRef={visualEditorRef}
+              shellRef={editorPanelRef}
+              visible={showAiSelectionToolbar}
+              selectionTick={visualSelectionTick}
+            />
+            <EditorBlockAiHandle
+              t={t}
+              visualEditorRef={visualEditorRef}
+              shellRef={editorPanelRef}
+              visible={showBlockAiHandle}
+              selectionTick={visualSelectionTick}
+            />
+            {!statusbarVisible ? (
+              <div className="editor-ai-insert-undo-host">
+                <div className="editor-footer-ai-chips">
+                  <EditorBlockAiStatusChip t={t} />
+                  <EditorAiInsertUndoChip t={t} activePath={activePath} />
+                </div>
+              </div>
+            ) : null}
           </div>
           </div>
         </section>
         {statusbarVisible ? (
           <footer
-            className={`editor-footer${status ? ' has-status' : ''}${statusTone !== 'neutral' ? ` editor-footer--${statusTone}` : ''}${focusMode ? ' editor-footer--focus-minimal' : ''}`}
+            className={`editor-footer editor-footer--stats-enabled${status ? ' has-transient' : ''}${status && statusTone !== 'neutral' ? ` editor-footer--${statusTone}` : ''}${focusMode ? ' editor-footer--focus-minimal' : ''}`}
           >
-            <span className="editor-footer-message" aria-live="polite">
-              {status ||
-                (activeDocumentHistoryRestore
-                  ? t('app.history.banner')
-                  : activeDocumentExternal
-                  ? t('app.statusbar.externalChanged')
-                  : activeDocumentDirty
-                    ? t('app.statusbar.unsaved')
-                    : savedAt
-                      ? t('app.search.savedAt', { time: savedAt })
-                      : t('app.statusbar.ready'))}
+            <span className="editor-footer-message editor-footer-persistent" aria-live="polite">
+              {persistentStatusMessage}
+              {showHistorySaveCta && onSaveActiveDocument ? (
+                <button
+                  type="button"
+                  className="editor-footer-reload-cta"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => void onSaveActiveDocument()}
+                  data-testid="editor-history-restore-save"
+                >
+                  {t('menu.file.save')}
+                </button>
+              ) : null}
+              {showExternalReloadCta ? (
+                <button
+                  type="button"
+                  className="editor-footer-reload-cta"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => void onReloadFromDisk(activePath)}
+                  data-testid="editor-reload-from-disk"
+                >
+                  {t('app.statusbar.reloadFromDisk')}
+                </button>
+              ) : null}
+              <span className="editor-footer-ai-chips">
+                <EditorBlockAiStatusChip t={t} />
+                <EditorAiInsertUndoChip t={t} activePath={activePath} />
+              </span>
             </span>
+            {status ? (
+              <span className="editor-footer-transient" role="status" aria-live="polite">
+                {status}
+              </span>
+            ) : null}
             <span className="editor-footer-stats">
               <span>{t('app.statusbar.lines', { n: contentStats.lines })}</span>
               <span>{t('app.statusbar.chars', { n: contentStats.chars })}</span>
               <span>{t('app.statusbar.headings', { n: contentStats.headings })}</span>
+              {selectionStats.chars > 0 ? (
+                <span>
+                  {t('app.statusbar.selection', {
+                    chars: selectionStats.chars,
+                    words: selectionStats.words,
+                  })}
+                </span>
+              ) : null}
               {isLargeDoc ? (
                 <button
                   type="button"
@@ -466,6 +753,18 @@ export function AppEditorMain(props: AppEditorMainProps) {
           </footer>
         ) : null}
         </div>
+        {knowledgeRailOpen ? (
+          <button
+            type="button"
+            className="editor-right-rail-backdrop"
+            aria-label={t('app.rightRail.dismissOverlay')}
+            onClick={() => {
+              setKnowledgeRailVisible(false)
+              setAiPanelVisible(false)
+            }}
+            data-testid="editor-right-rail-backdrop"
+          />
+        ) : null}
         {knowledgeRailSlot}
       </main>
   )

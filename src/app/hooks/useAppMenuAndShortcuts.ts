@@ -14,9 +14,75 @@ import {
   syncViewFullscreenMenuChecked,
 } from '../../menu'
 import { openPreferencesDialog } from '../../preferences/preferencesDialogStore'
+import { sliceRecentMenuItems } from '../../lib/recentMenuNodes'
 import { syncRecentMenu } from '../../platform/tauri/platformShellService'
 
+const COMMAND_PALETTE_RECENT_STORAGE_KEY = 'luna.commandPaletteRecent'
+const COMMAND_PALETTE_RECENT_LIMIT = 8
+const COMMAND_PALETTE_DEFAULT_PRIORITY = [
+  'view-knowledge-search',
+  'view-search',
+  'view-quick-switcher',
+  'view-tab-switcher',
+  'daily-note-open',
+  'toggle-source-mode',
+  'view-ai-panel',
+] as const
+
+function readRecentPaletteCommandIds(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(COMMAND_PALETTE_RECENT_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((value): value is string => typeof value === 'string')
+  } catch {
+    return []
+  }
+}
+
+function recordRecentPaletteCommandId(id: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    const next = [id, ...readRecentPaletteCommandIds().filter((existing) => existing !== id)].slice(
+      0,
+      COMMAND_PALETTE_RECENT_LIMIT,
+    )
+    window.localStorage.setItem(COMMAND_PALETTE_RECENT_STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    // ignore
+  }
+}
+
+function scorePaletteCommand(command: PaletteCommandDef, query: string, recentIds: readonly string[]): number {
+  const normalizedQuery = query.trim().toLowerCase()
+  const recentIndex = recentIds.indexOf(command.id)
+  const priorityIndex = COMMAND_PALETTE_DEFAULT_PRIORITY.indexOf(
+    command.id as (typeof COMMAND_PALETTE_DEFAULT_PRIORITY)[number],
+  )
+  let score = 0
+
+  if (recentIndex >= 0) score += 200 - recentIndex * 12
+  if (priorityIndex >= 0) score += 120 - priorityIndex * 8
+  if (!normalizedQuery) return score
+
+  const label = command.label.toLowerCase()
+  const hint = command.hint.toLowerCase()
+  const keywords = command.keywords.map((keyword) => keyword.toLowerCase())
+  if (command.id === normalizedQuery) score += 180
+  if (label === normalizedQuery) score += 160
+  if (label.startsWith(normalizedQuery)) score += 120
+  if (keywords.some((keyword) => keyword === normalizedQuery)) score += 110
+  if (keywords.some((keyword) => keyword.startsWith(normalizedQuery))) score += 90
+  if (label.includes(normalizedQuery)) score += 60
+  if (hint.includes(normalizedQuery)) score += 40
+  if (keywords.some((keyword) => keyword.includes(normalizedQuery))) score += 30
+  return score
+}
+
 export type AppMenuAndShortcutsDeps = {
+  recentWorkspaces: string[]
   recentFiles: string[]
   saveCurrent: (manual?: boolean) => Promise<void>
   saveAsCurrent: () => Promise<void>
@@ -24,6 +90,8 @@ export type AppMenuAndShortcutsDeps = {
   pastePlainFromClipboard: (plainOnly?: boolean) => Promise<void>
   setFocusMode: Dispatch<SetStateAction<boolean>>
   globalSearchOpen: boolean
+  quickSwitcherOpen: boolean
+  tabSwitcherOpen: boolean
   knowledgeSearchOpen: boolean
   aboutOpen: boolean
   setAboutOpen: Dispatch<SetStateAction<boolean>>
@@ -36,15 +104,16 @@ export type AppMenuAndShortcutsDeps = {
   setCommandPaletteIndex: Dispatch<SetStateAction<number>>
   commandPaletteInputRef: RefObject<HTMLInputElement | null>
   globalSearchInputRef: RefObject<HTMLInputElement | null>
+  quickSwitcherInputRef: RefObject<HTMLInputElement | null>
   paletteCommandDefs: PaletteCommandDef[]
   activePathRef: RefObject<string>
-  documentHistoryOpen: boolean
   appMenuCtxRef: MutableRefObject<AppMenuContext>
   paletteUiDepsRef: MutableRefObject<AppMenuUiDeps>
 }
 
 export function useAppMenuAndShortcuts(deps: AppMenuAndShortcutsDeps) {
   const {
+    recentWorkspaces,
     recentFiles,
     saveCurrent,
     saveAsCurrent,
@@ -52,6 +121,8 @@ export function useAppMenuAndShortcuts(deps: AppMenuAndShortcutsDeps) {
     pastePlainFromClipboard,
     setFocusMode,
     globalSearchOpen,
+    quickSwitcherOpen,
+    tabSwitcherOpen,
     knowledgeSearchOpen,
     aboutOpen,
     setAboutOpen,
@@ -64,23 +135,26 @@ export function useAppMenuAndShortcuts(deps: AppMenuAndShortcutsDeps) {
     setCommandPaletteIndex,
     commandPaletteInputRef,
     globalSearchInputRef,
+    quickSwitcherInputRef,
     paletteCommandDefs,
     activePathRef,
-    documentHistoryOpen,
     appMenuCtxRef,
     paletteUiDepsRef,
   } = deps
 
   const paletteFiltered = useMemo(() => {
     const q = commandPaletteQuery.trim().toLowerCase()
-    if (!q) return [...paletteCommandDefs]
-    return paletteCommandDefs.filter(
-      (c) =>
-        c.label.toLowerCase().includes(q) ||
-        c.id.includes(q) ||
-        c.hint.toLowerCase().includes(q) ||
-        c.keywords.some((k) => k.toLowerCase().includes(q)),
-    )
+    const recentIds = readRecentPaletteCommandIds()
+    const filtered = !q
+      ? [...paletteCommandDefs]
+      : paletteCommandDefs.filter(
+          (c) =>
+            c.label.toLowerCase().includes(q) ||
+            c.id.includes(q) ||
+            c.hint.toLowerCase().includes(q) ||
+            c.keywords.some((k) => k.toLowerCase().includes(q)),
+        )
+    return filtered.sort((a, b) => scorePaletteCommand(b, q, recentIds) - scorePaletteCommand(a, q, recentIds))
   }, [commandPaletteQuery, paletteCommandDefs])
 
   const runPaletteCommand = useCallback(
@@ -88,6 +162,7 @@ export function useAppMenuAndShortcuts(deps: AppMenuAndShortcutsDeps) {
       setCommandPaletteOpen(false)
       setCommandPaletteQuery('')
       setCommandPaletteIndex(0)
+      recordRecentPaletteCommandId(id)
       await executeManifestCommand(resolvePaletteCommandId(id), appMenuCtxRef.current, paletteUiDepsRef.current)
     },
     [
@@ -108,6 +183,11 @@ export function useAppMenuAndShortcuts(deps: AppMenuAndShortcutsDeps) {
     if (!globalSearchOpen) return
     globalSearchInputRef.current?.focus()
   }, [globalSearchInputRef, globalSearchOpen])
+
+  useEffect(() => {
+    if (!quickSwitcherOpen) return
+    quickSwitcherInputRef.current?.focus()
+  }, [quickSwitcherInputRef, quickSwitcherOpen])
 
   useEffect(() => {
     setCommandPaletteIndex((i) => {
@@ -182,7 +262,11 @@ export function useAppMenuAndShortcuts(deps: AppMenuAndShortcutsDeps) {
       },
       onEditorPaste: (plainOnly) => pastePlainFromClipboard(plainOnly),
       isBlocked: () =>
-        commandPaletteOpen || globalSearchOpen || knowledgeSearchOpen || documentHistoryOpen,
+        commandPaletteOpen ||
+        globalSearchOpen ||
+        quickSwitcherOpen ||
+        tabSwitcherOpen ||
+        knowledgeSearchOpen,
     })
     window.addEventListener('keydown', onRegistryShortcut, true)
     return () => window.removeEventListener('keydown', onRegistryShortcut, true)
@@ -191,8 +275,9 @@ export function useAppMenuAndShortcuts(deps: AppMenuAndShortcutsDeps) {
     appMenuCtxRef,
     closeTab,
     commandPaletteOpen,
-    documentHistoryOpen,
     globalSearchOpen,
+    quickSwitcherOpen,
+    tabSwitcherOpen,
     knowledgeSearchOpen,
     paletteUiDepsRef,
     pastePlainFromClipboard,
@@ -205,8 +290,9 @@ export function useAppMenuAndShortcuts(deps: AppMenuAndShortcutsDeps) {
 
   useEffect(() => {
     if (!isTauri()) return
-    void syncRecentMenu(recentFiles)
-  }, [recentFiles])
+    const slice = sliceRecentMenuItems(recentWorkspaces, recentFiles, 8)
+    void syncRecentMenu(slice.workspaces, slice.files)
+  }, [recentFiles, recentWorkspaces])
 
   useEffect(() => {
     if (!aboutOpen) return
@@ -233,7 +319,6 @@ export function useAppMenuAndShortcuts(deps: AppMenuAndShortcutsDeps) {
       const offMenu = await win.listen<{ action: string; path?: string; name?: string; url?: string }>(
         'app-menu',
         (event) => {
-          if (documentHistoryOpen) return
           void dispatchAppMenuFromTauri(() => appMenuCtxRef.current, event.payload, paletteUiDepsRef.current)
         },
       )
@@ -259,7 +344,7 @@ export function useAppMenuAndShortcuts(deps: AppMenuAndShortcutsDeps) {
       cancelled = true
       disposeListeners()
     }
-  }, [appMenuCtxRef, documentHistoryOpen, paletteUiDepsRef])
+  }, [appMenuCtxRef, paletteUiDepsRef])
 
   return { paletteFiltered, runPaletteCommand }
 }

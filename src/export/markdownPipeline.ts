@@ -12,7 +12,9 @@ import { createUnifiedExportProcessor, normalizeMarkdownForExport } from '../mar
 const exportPurify = (html: string) =>
   DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true },
+    FORBID_TAGS: LUNA_EMBEDDED_HTML_PURIFY.FORBID_TAGS,
     FORBID_ATTR: LUNA_EMBEDDED_HTML_PURIFY.FORBID_ATTR,
+    ALLOW_DATA_ATTR: false,
     ADD_TAGS: ['table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'colgroup', 'col', 'caption'],
     ADD_ATTR: ['class', 'id', 'colspan', 'rowspan', 'align', 'style', 'data-language', 'data-luna-callout', 'aria-hidden'],
   })

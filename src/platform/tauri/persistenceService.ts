@@ -1,10 +1,16 @@
 import { invoke } from '@tauri-apps/api/core'
 
+export type LunaRecoveryDraftRecord = {
+  content: string
+  updatedAt: number
+}
+
 export type LunaWorkspaceSnapshotRecord = {
   workspaceId: string
   rootDir: string
   activePath: string | null
   openTabs: string[]
+  recoveryDrafts?: Record<string, LunaRecoveryDraftRecord>
   graphViewport?: { x: number; y: number; zoom: number } | null
   lastNavigationTarget?: string | null
   updatedAt: number
@@ -25,6 +31,32 @@ export type AssetMetaRecord = {
 
 export type AssetIndexRecord = {
   assets: Record<string, AssetMetaRecord>
+}
+
+export type NoteCalendarEditsIndexRecord = {
+  version: number
+  edits: Record<string, number>
+  updatedAt: number
+}
+
+export async function readLunaNoteCalendarEdits(
+  workspaceId: string,
+): Promise<NoteCalendarEditsIndexRecord> {
+  return invoke<NoteCalendarEditsIndexRecord>('read_luna_note_calendar_edits', {
+    payload: { workspaceId },
+  })
+}
+
+export async function writeLunaNoteCalendarEdits(
+  workspaceId: string,
+  index: NoteCalendarEditsIndexRecord,
+): Promise<void> {
+  await invoke('write_luna_note_calendar_edits', {
+    payload: {
+      workspaceId,
+      index,
+    },
+  })
 }
 
 export async function readLunaWorkspace(

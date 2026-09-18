@@ -13,6 +13,8 @@ import { applyTrayIcon, loadTrayIconForCreate } from './trayIcon'
 export type QuickCaptureDeps = {
   t: (key: string) => string
   onOpenTodayDailyNote: () => void | Promise<void>
+  onQuit?: () => void | Promise<void>
+  onStatus?: (message: string, tone?: 'info' | 'warning' | 'error' | 'success' | 'neutral') => void
 }
 
 /** i18n keys for tray context menu labels (reuse native/file menu semantics). */
@@ -71,6 +73,27 @@ export function isCloseToTrayAvailable(): boolean {
   return trayState().trayReady
 }
 
+function dispatchTrayMenuAction(actionId: string): void {
+  const deps = trayState().deps
+  if (!deps) return
+  switch (actionId) {
+    case 'daily-note-open':
+      void (async () => {
+        await raiseMainWindow()
+        await deps.onOpenTodayDailyNote()
+      })()
+      return
+    case 'quick-capture-show':
+      void raiseMainWindow()
+      return
+    case 'app-quit':
+      void deps.onQuit?.()
+      return
+    default:
+      return
+  }
+}
+
 async function buildTrayMenu(deps: QuickCaptureDeps): Promise<Menu> {
   return Menu.new({
     items: [
@@ -80,24 +103,27 @@ async function buildTrayMenu(deps: QuickCaptureDeps): Promise<Menu> {
         accelerator: toGlobalShortcutAccelerator(
           getEffectiveAccelerator(GLOBAL_SHORTCUT_COMMAND) ?? 'Mod+Shift+d',
         ),
+        action: () => dispatchTrayMenuAction('daily-note-open'),
       }),
       await MenuItem.new({
         id: 'quick-capture-show',
         text: deps.t(TRAY_MENU_LABEL_KEYS.showWindow),
+        action: () => dispatchTrayMenuAction('quick-capture-show'),
       }),
       await PredefinedMenuItem.new({ item: 'Separator' }),
       await MenuItem.new({
         id: 'app-quit',
         text: deps.t(TRAY_MENU_LABEL_KEYS.quit),
+        action: () => dispatchTrayMenuAction('app-quit'),
       }),
     ],
   })
 }
 
 function onTrayLeftClick(event: TrayIconEvent): void {
-  if (event.type !== 'Click') return
+  if (event.type !== 'Click' && event.type !== 'DoubleClick') return
   if (event.button !== 'Left') return
-  if (event.buttonState !== 'Down' && event.buttonState !== 'Up') return
+  if (event.type === 'Click' && event.buttonState !== 'Down' && event.buttonState !== 'Up') return
   void raiseMainWindow()
 }
 
@@ -157,6 +183,7 @@ async function installQuickCaptureInternal(deps: QuickCaptureDeps): Promise<void
       state.registeredShortcut = accelerator
     } catch (error) {
       console.warn('[quick-capture] global shortcut registration failed', { accelerator, error })
+      deps.onStatus?.(deps.t('app.status.globalShortcutUnavailable'), 'warning')
     }
   }
 

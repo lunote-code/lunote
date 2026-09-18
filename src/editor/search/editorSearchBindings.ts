@@ -10,6 +10,7 @@ import {
   scrollToSearchMatch,
   type EditorSearchMeta,
 } from './editorSearchRuntime'
+import { pickBestSearchResultCandidateIndex } from './searchResultReveal'
 
 const openCodeMirrorSearchBinding: KeyBinding = {
   key: 'Mod-f',
@@ -33,6 +34,55 @@ function dispatchSearchMeta(editor: Editor, meta: EditorSearchMeta): void {
 
 export function setTiptapSearchQuery(editor: Editor, query: string): void {
   dispatchSearchMeta(editor, { type: 'setQuery', query })
+}
+
+export function revealTiptapSearchQuery(editor: Editor, query: string): boolean {
+  const trimmed = query.trim()
+  if (!trimmed) return false
+  setTiptapSearchQuery(editor, trimmed)
+  const nextState = getEditorSearchState(editor.state)
+  const firstMatch = nextState.matches[0]
+  if (!firstMatch) return true
+  const tr = scrollToSearchMatch(editor.state, editor.state.tr, firstMatch)
+  editor.view.dispatch(tr)
+  return true
+}
+
+export function revealTiptapSearchResult(editor: Editor, query: string, snippetHtml?: string): boolean {
+  const trimmed = query.trim()
+  if (!trimmed) return false
+  setTiptapSearchQuery(editor, trimmed)
+  const nextState = getEditorSearchState(editor.state)
+  if (nextState.matches.length === 0) return true
+  if (!snippetHtml?.trim()) {
+    const firstMatch = nextState.matches[0]
+    if (!firstMatch) return true
+    editor.view.dispatch(scrollToSearchMatch(editor.state, editor.state.tr, firstMatch))
+    return true
+  }
+
+  const doc = editor.state.doc
+  const candidateIndex = pickBestSearchResultCandidateIndex(
+    snippetHtml,
+    trimmed,
+    nextState.matches.map((match) => ({
+      before: doc.textBetween(Math.max(0, match.from - 120), match.from, '\n', '\n'),
+      match: doc.textBetween(match.from, match.to, '\n', '\n'),
+      after: doc.textBetween(match.to, Math.min(doc.content.size, match.to + 120), '\n', '\n'),
+    })),
+  )
+  const bestMatch = nextState.matches[candidateIndex] ?? nextState.matches[0]
+  if (!bestMatch) return true
+  const tr = scrollToSearchMatch(
+    editor.state,
+    editor.state.tr.setMeta(
+      editorSearchPluginKey,
+      { type: 'setActiveIndex', activeIndex: candidateIndex } satisfies EditorSearchMeta,
+    ),
+    bestMatch,
+  )
+  editor.view.dispatch(tr)
+  return true
 }
 
 export function clearTiptapSearch(editor: Editor): void {

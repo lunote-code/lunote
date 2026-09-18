@@ -7,6 +7,8 @@ import {
   resolveEditorAnchor,
   type EditorAnchorRevealRequest,
 } from '../../editor/knowledgeOS/editorAnchorNavigation'
+import { sourceLineForBodyOffset } from '../../editor/knowledgeOS/graphUnresolvedNavigation'
+import { parseFrontmatter } from '../../editor/knowledgeRuntime/wikiLinkParser'
 import {
   waitUntilEditorNavigationReady,
   type EditorNavigationReadinessProbe,
@@ -110,6 +112,16 @@ export function useEditorNavigationReveal(deps: EditorNavigationRevealDeps) {
       }
 
       if (!anchor) {
+        if (request.linkBodyOffset != null) {
+          const body = parseFrontmatter(request.markdown).body
+          const line = sourceLineForBodyOffset(body, request.linkBodyOffset)
+          if (paneMode === 'visual') {
+            const handled = await visualEditorRef.current?.revealNavigationAnchor({ line })
+            return Boolean(handled)
+          }
+          scrollSourceEditorToMarkdownLine(line)
+          return true
+        }
         if (paneMode === 'visual') {
           const handled = await visualEditorRef.current?.revealNavigationAnchor({ line: 1 })
           return Boolean(handled)

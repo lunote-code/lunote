@@ -3,6 +3,7 @@ import {
   scanLunaAssetIndex,
   writeLunaAssetIndex,
 } from '../platform/tauri/persistenceService'
+import { workspaceIdFromRoot } from '../lib/workspacePathUtils'
 
 export type AssetMeta = {
   id: string
@@ -117,6 +118,38 @@ export async function getAssetMeta(assetId: string): Promise<AssetMeta | null> {
 export function getCachedAssetMeta(assetId: string, workspaceId = activeWorkspaceId): AssetMeta | null {
   if (!workspaceId) return null
   return indexes.get(workspaceId)?.assets[assetId] ?? null
+}
+
+export function evictWorkspaceAssetIndexCache(workspaceRoot: string): void {
+  const workspaceId = workspaceIdFromRoot(workspaceRoot)
+  if (!workspaceId) return
+  indexes.delete(workspaceId)
+  if (activeWorkspaceId === workspaceId) {
+    activeWorkspaceId = null
+    activeWorkspaceRoot = null
+  }
+}
+
+export function evictAllWorkspaceAssetIndexCachesExcept(keepWorkspaceRoot?: string | null): void {
+  const keepId = keepWorkspaceRoot?.trim() ? workspaceIdFromRoot(keepWorkspaceRoot) : null
+  for (const workspaceId of indexes.keys()) {
+    if (keepId && workspaceId === keepId) continue
+    indexes.delete(workspaceId)
+  }
+}
+
+export function getWorkspaceAssetIndexCacheSizeForTests(): number {
+  return indexes.size
+}
+
+export function resetWorkspaceAssetStoreForTests(): void {
+  indexes.clear()
+  activeWorkspaceId = null
+  activeWorkspaceRoot = null
+}
+
+export function seedWorkspaceAssetIndexCacheForTests(workspaceRoot: string, index: AssetIndex = { assets: {} }): void {
+  indexes.set(workspaceIdFromRoot(workspaceRoot), normalizeAssetIndex(index))
 }
 
 export async function scanWorkspaceAssets(workspaceId = getActiveAssetWorkspace()): Promise<AssetIndex> {

@@ -23,7 +23,8 @@ import { bridgeOpenSearchPanel, bridgeReplaceNextInDocument, bridgeRunEditorComm
 import { toggleShowLineBreaks } from '../editor/cmShowLineBreaks'
 import { insertPrefixLine } from '../editor/markdownInsertHelpers'
 import { openLunaEmojiPickerFromSourceView } from '../editor/lunaEmojiPicker'
-import { deleteNote, exportBinaryNote, readWorkspaceFileBase64, renameNote } from '../platform/tauri/documentService'
+import { deleteNote, exportBinaryNote, renameNote } from '../platform/tauri/documentService'
+import { readWorkspaceImageBase64PreferAsset } from '../export/workspaceMediaBlob'
 import { revealInExplorer, syncViewFullscreenMenuCheckedByHost } from '../platform/tauri/platformShellService'
 import { usesNativeMacAppMenu } from '../app/shellPlatform'
 import { syncMacNativeFullscreenMenu } from '../platform/tauri/macNativeAppMenu'
@@ -516,6 +517,10 @@ async function uploadLocalImagesFromMarkdown(args: {
   matches?: MarkdownImageMatch[]
 }): Promise<{ uploaded: number; deleted: number; failed: number; touched: number }> {
   const { m, onlyFirst, deleteOriginal } = args
+  if (!isTauri()) {
+    m.setStatus(m.t('app.ext.windowLayoutDesktopOnly'))
+    return { uploaded: 0, deleted: 0, failed: 0, touched: 0 }
+  }
   if (!m.rootDir || !m.activePath) return { uploaded: 0, deleted: 0, failed: 0, touched: 0 }
   const matches = args.matches ?? collectMarkdownImages(m.content)
   const replacements: Array<{ start: number; end: number; text: string }> = []
@@ -528,7 +533,8 @@ async function uploadLocalImagesFromMarkdown(args: {
     if (!localPath) continue
     touched += 1
     try {
-      const dataBase64 = await readWorkspaceFileBase64(m.rootDir, localPath)
+      const dataBase64 = await readWorkspaceImageBase64PreferAsset(m.rootDir, m.activePath, match.src)
+      if (!dataBase64) throw new Error('read failed')
       const name = basename(localPath) || 'image.bin'
       const file = fileFromBase64(dataBase64, name, guessImageMime(name))
       const asset = await importAsset(file, {
@@ -707,6 +713,7 @@ export async function tryDispatchExtendedMenuAction(
     case 'para-table-row-above':
     case 'para-table-row-below':
     case 'para-math-block':
+    case 'para-drawing-canvas':
     case 'para-callout-tip':
     case 'para-callout-suggestion':
     case 'para-callout-important':
@@ -874,6 +881,10 @@ export async function tryDispatchExtendedMenuAction(
       return true
     }
     case 'fmt-image-reveal': {
+      if (!isTauri()) {
+        m.setStatus(m.t('app.status.revealDesktopOnly'))
+        return true
+      }
       const preferred = preferMatchesBySourceSelection(m, collectMarkdownImages(m.content))
       const first = preferred.matches.find((img) =>
         resolveWorkspaceImagePath(m.rootDir, m.activePath, img.src))
@@ -922,7 +933,8 @@ export async function tryDispatchExtendedMenuAction(
         const srcPath = resolveWorkspaceImagePath(m.rootDir, m.activePath, img.src)
         if (!srcPath) continue
         try {
-          const dataBase64 = await readWorkspaceFileBase64(m.rootDir, srcPath)
+          const dataBase64 = await readWorkspaceImageBase64PreferAsset(m.rootDir, m.activePath, img.src)
+          if (!dataBase64) throw new Error('read failed')
           let name = basename(srcPath)
           if (!name) name = `image-${copied + 1}.bin`
           if (copiedNames.has(name)) {
@@ -1073,7 +1085,9 @@ export async function tryDispatchExtendedMenuAction(
       ui.openPreferencesDialog('import')
       return true
     case 'view-word-count': {
-      ui.setStatusbarVisible((v) => !v)
+      const next = !getSetting('ui.documentStatsEnabled')
+      void setSetting('ui.documentStatsEnabled', next)
+      ui.setStatusbarVisible(next)
       m.setStatus(m.t('menu.view.wordCount'))
       return true
     }

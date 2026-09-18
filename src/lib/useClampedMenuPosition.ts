@@ -13,6 +13,7 @@ export function useClampedMenuPosition(
 
   useLayoutEffect(() => {
     setPosition(anchor)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- anchor.x/y only; full anchor object is unstable inline literal
   }, [anchor.x, anchor.y])
 
   useLayoutEffect(() => {

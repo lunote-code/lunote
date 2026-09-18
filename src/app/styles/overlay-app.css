@@ -57,3 +57,139 @@
   outline: none;
   box-shadow: var(--luna-focus-ring);
 }
+
+/* Shared reveal popover shell (dropdowns, inline pickers) */
+.luna-reveal-popover-shell {
+  box-sizing: border-box;
+  border-radius: var(--reveal-popover-radius, 10px);
+  border: var(--hairline) solid var(--reveal-popover-border);
+  background: var(--reveal-popover-bg);
+  box-shadow: var(--reveal-popover-shadow);
+}
+
+.luna-reveal-popover-shell--above {
+  box-shadow: var(--reveal-popover-shadow-above);
+}
+
+.luna-reveal-popover-list-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--reveal-field-radius, 8px);
+  padding: 7px var(--reveal-field-pad-x, 10px);
+  font-size: 12px;
+  line-height: 1.35;
+  transition: background-color 0.12s ease;
+}
+
+.luna-reveal-popover-list-item:hover,
+.luna-reveal-popover-list-item.is-active {
+  background: var(--reveal-list-item-bg-active, color-mix(in srgb, var(--accent) 14%, transparent));
+}
+
+.luna-reveal-popover-list-item:focus-visible {
+  outline: none;
+  background: var(--luna-menu-item-focus-bg);
+}
+
+.luna-reveal-popover-select {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+
+.luna-reveal-popover-select.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.luna-reveal-popover-select__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  border: var(--hairline) solid var(--reveal-popover-border);
+  border-radius: var(--reveal-field-radius, 8px);
+  background: var(--reveal-popover-bg);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+
+.luna-reveal-popover-select__trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--luna-focus-ring);
+}
+
+.luna-reveal-popover-select__trigger-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.luna-reveal-popover-select__chevron {
+  flex-shrink: 0;
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.65;
+}
+
+.luna-reveal-popover-select__panel {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  top: calc(100% + 4px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 100%;
+  max-width: min(280px, calc(100vw - 24px));
+  max-height: min(240px, 42vh);
+  overflow: auto;
+  padding: 6px;
+}
+
+.luna-reveal-popover-select--compact {
+  flex: 0 1 auto;
+  max-width: min(140px, 42vw);
+}
+
+.luna-reveal-popover-select--compact .luna-reveal-popover-select__trigger {
+  min-height: 24px;
+  padding: 3px 6px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.luna-reveal-popover-list-item:hover,
+.luna-reveal-popover-list-item.is-active,
+.settings-select-option:hover,
+.settings-select-option:focus-visible,
+.settings-combobox-option:hover,
+.settings-combobox-option:focus-visible,
+.ai-rail-mention-option.is-active,
+.ai-rail-mention-option:hover,
+.ai-rail-quick-actions-menu-item:hover:not(:disabled),
+.editor-format-callout-menu-item:hover,
+.kos-frontmatter-suggestion:hover,
+.kos-frontmatter-suggestion--active {
+  background: var(--luna-menu-item-hover-bg);
+}
+
+.settings-select-option.active,
+.settings-combobox-option.active,
+.ai-rail-mention-option.is-active,
+.kos-frontmatter-suggestion--active {
+  background: var(--reveal-list-item-bg-active, color-mix(in srgb, var(--accent) 14%, transparent));
+}

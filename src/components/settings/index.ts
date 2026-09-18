@@ -1,3 +1,4 @@
+export { SettingsCombobox } from './SettingsCombobox'
 export { SettingsButton } from './SettingsButton'
 export { SettingsCard } from './SettingsCard'
 export { SettingsControl } from './SettingsControl'

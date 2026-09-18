@@ -15,6 +15,7 @@ import {
   openVault,
 } from './vaultRuntime'
 import { bindWorkspaceVault, openDocumentTab } from './workspaceRuntime'
+import { pathsEqual } from '../../lib/workspacePathUtils'
 import type { AbsoluteDocPath } from './types'
 
 export function onKnowledgeWorkspaceOpened(rootDir: string): void {
@@ -34,9 +35,14 @@ export function onKnowledgeDocumentOpened(absolutePath: AbsoluteDocPath, content
   }
 }
 
-export function onKnowledgeDocumentSaved(absolutePath: AbsoluteDocPath, content: string): void {
+export function onKnowledgeDocumentSaved(
+  absolutePath: AbsoluteDocPath,
+  content: string,
+  rootDir?: string,
+): void {
   const root = getVaultRootDir()
   if (!root) return
+  if (rootDir && !pathsEqual(rootDir, root)) return
   parseChangedDocument(absolutePath, content, root)
 }
 

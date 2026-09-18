@@ -30,17 +30,36 @@ import { registerLunaFootnoteMarkdownRules } from './lunaFootnoteMarkdown'
 import { formatLinkReferenceDefLine } from './lunaLinkReferenceDef'
 import { registerLunaLinkReferenceDefMarkdownRules } from './lunaLinkReferenceDefMarkdown'
 import { registerLunaEqualHighlightMarkdownRules } from './lunaEqualHighlightMarkdown'
+import { registerLunaHiddenCommentMarkdownRules } from './lunaHiddenCommentMarkdown'
+import { registerLunaInlineTagMarkdownRules } from './lunaInlineTagMarkdown'
+import { registerLunaWikiEmbedMarkdownRules } from './lunaWikiEmbedMarkdown'
+import { wikiEmbedAttrsFromMeta } from './lunaWikiEmbed'
+import { liftPlainTextWikiEmbeds, promoteImageWikiEmbeds, liftStandaloneWikiEmbedParagraphs } from './liftWikiEmbeds'
+import { liftPlainTextInlineTags } from './liftInlineTags'
 import { isLunaAssetHref } from '../assets/markdownLinkTransformer'
 import { normalizeLunaRawSource, type LunaRawSource } from './lunaRawBlock'
 import { parseCellTextAlign, type LunaCellTextAlign } from './lunaTableCellAlign'
 import { validateASTBeforeCommit } from './astGuardrails'
 import { liftInlineHtmlFormattingMarksIterated } from './lunaInlineHtmlMarkLift'
+import { liftHtmlInlineImages } from './liftHtmlInlineImages'
 import { newMermaidBlockId } from './extensions/MermaidNode'
+import { newDrawingBlockId } from './extensions/DrawingNode'
+import {
+  drawingDocumentFromNodeAttrs,
+  parseDrawingFenceBody,
+  serializeDrawingFenceBody,
+} from './drawing/drawingDocument'
 import {
   alignSerializedTrailingBlankLines,
   countTrailingEmptyParagraphs,
   liftBlankLineParagraphs,
 } from './liftBlankLineParagraphs'
+import {
+  LIST_GAP_MARK,
+  normalizeListGapParagraphs,
+  shouldWriteListGapMarker,
+  splitMergedListsAtBlankGaps,
+} from './listGapMarkdown'
 import type {
   ProductionMarkdown,
   RenderMode,
@@ -235,6 +254,30 @@ if (!mdWithEqualHighlight[LUNA_EQUAL_HIGHLIGHT_RULER]) {
   registerLunaEqualHighlightMarkdownRules(markdownIt)
 }
 
+const LUNA_WIKI_EMBED_RULER = Symbol('lunaWikiEmbedRuler')
+type MarkdownItWithWikiEmbed = MarkdownIt & { [LUNA_WIKI_EMBED_RULER]?: true }
+const mdWithWikiEmbed = markdownIt as MarkdownItWithWikiEmbed
+if (!mdWithWikiEmbed[LUNA_WIKI_EMBED_RULER]) {
+  mdWithWikiEmbed[LUNA_WIKI_EMBED_RULER] = true
+  registerLunaWikiEmbedMarkdownRules(markdownIt)
+}
+
+const LUNA_HIDDEN_COMMENT_RULER = Symbol('lunaHiddenCommentRuler')
+type MarkdownItWithHiddenComment = MarkdownIt & { [LUNA_HIDDEN_COMMENT_RULER]?: true }
+const mdWithHiddenComment = markdownIt as MarkdownItWithHiddenComment
+if (!mdWithHiddenComment[LUNA_HIDDEN_COMMENT_RULER]) {
+  mdWithHiddenComment[LUNA_HIDDEN_COMMENT_RULER] = true
+  registerLunaHiddenCommentMarkdownRules(markdownIt)
+}
+
+const LUNA_INLINE_TAG_RULER = Symbol('lunaInlineTagRuler')
+type MarkdownItWithInlineTag = MarkdownIt & { [LUNA_INLINE_TAG_RULER]?: true }
+const mdWithInlineTag = markdownIt as MarkdownItWithInlineTag
+if (!mdWithInlineTag[LUNA_INLINE_TAG_RULER]) {
+  mdWithInlineTag[LUNA_INLINE_TAG_RULER] = true
+  registerLunaInlineTagMarkdownRules(markdownIt)
+}
+
 /** [toc] on a single line: intercepted before paragraph to avoid being parsed into a link reference paragraph*/
 const LUNA_TOC_RULER = Symbol('lunaTocDirectiveRuler')
 type MarkdownItWithLuna = MarkdownIt & { [LUNA_TOC_RULER]?: true }
@@ -404,7 +447,7 @@ export function activeHeadingIdBeforeMarkdownOffset(markdown: string, cursorOffs
 }
 
 /** Incremented to invalidate cached MarkdownParser in WeakMap after token/getAttrs logic changes (to avoid HMR stale handlers).*/
-const LUNA_MARKDOWN_PARSER_CACHE_REV = 12
+const LUNA_MARKDOWN_PARSER_CACHE_REV = 13
 type CachedMarkdownParser = { rev: number; parser: MarkdownParser }
 const markdownParserCache = new WeakMap<Schema, CachedMarkdownParser>()
 const markdownSerializerCache = new WeakMap<Schema, MarkdownSerializer>()
@@ -452,6 +495,51 @@ const tiptapMarkdownTokens: Record<string, ParseSpec> = {
     getAttrs: (tok) => {
       const meta = (tok as Token & { meta?: { label?: string } }).meta
       return { label: String(meta?.label ?? '').trim() }
+    },
+  },
+  wiki_embed_block: {
+    node: 'wikiEmbed',
+    noCloseToken: true,
+    getAttrs: (tok) => {
+      const meta = (tok as Token & { meta?: Record<string, string> }).meta
+      return wikiEmbedAttrsFromMeta(meta, tok.content)
+    },
+  },
+  wiki_embed: {
+    node: 'wikiEmbedInline',
+    noCloseToken: true,
+    getAttrs: (tok) => {
+      const meta = (tok as Token & { meta?: Record<string, string> }).meta
+      return wikiEmbedAttrsFromMeta(meta, tok.content)
+    },
+  },
+  hidden_comment_block: {
+    node: 'hiddenCommentBlock',
+    noCloseToken: true,
+    getAttrs: (tok) => {
+      const meta = (tok as Token & { meta?: Record<string, string> }).meta
+      return {
+        body: String(meta?.body ?? tok.content ?? ''),
+        raw: String(meta?.raw ?? `%%\n${tok.content ?? ''}\n%%`),
+      }
+    },
+  },
+  hidden_comment: {
+    node: 'hiddenComment',
+    noCloseToken: true,
+    getAttrs: (tok) => {
+      const meta = (tok as Token & { meta?: Record<string, string> }).meta
+      const body = String(meta?.body ?? tok.content ?? '')
+      return { body, raw: String(meta?.raw ?? `%%${body}%%`) }
+    },
+  },
+  inline_tag: {
+    node: 'inlineTag',
+    noCloseToken: true,
+    getAttrs: (tok) => {
+      const meta = (tok as Token & { meta?: Record<string, string> }).meta
+      const tag = String(meta?.tag ?? tok.content ?? '').trim()
+      return { tag, raw: `#${tag}` }
     },
   },
   link_reference_def: {
@@ -570,6 +658,39 @@ function liftMermaidCodeBlocks(doc: ProseMirrorNode, schema: Schema): ProseMirro
   for (const { pos, node } of hits) {
     const source = node.textContent
     const next = mermaidType.create({ source, blockId: newMermaidBlockId() })
+    tr = tr.replaceWith(pos, pos + node.nodeSize, next)
+  }
+  return tr.doc
+}
+
+function liftDrawingCodeBlocks(doc: ProseMirrorNode, schema: Schema): ProseMirrorNode {
+  const drawingType = schema.nodes.drawingBlock
+  const codeBlock = schema.nodes.codeBlock
+  if (!drawingType || !codeBlock) return doc
+
+  type Hit = { pos: number; node: ProseMirrorNode }
+  const hits: Hit[] = []
+  doc.descendants((node, pos) => {
+    if (node.type !== codeBlock) return
+    const lang = String(node.attrs.language ?? '')
+      .trim()
+      .toLowerCase()
+    if (lang !== 'drawing') return
+    hits.push({ pos, node })
+  })
+  if (hits.length === 0) return doc
+  hits.sort((a, b) => b.pos - a.pos)
+  let tr = new Transform(doc)
+  for (const { pos, node } of hits) {
+    const parsed = parseDrawingFenceBody(node.textContent)
+    const next = drawingType.create({
+      blockId: newDrawingBlockId(),
+      width: parsed.w,
+      height: parsed.h,
+      originX: parsed.ox ?? 0,
+      originY: parsed.oy ?? 0,
+      strokes: JSON.stringify(parsed.strokes),
+    })
     tr = tr.replaceWith(pos, pos + node.nodeSize, next)
   }
   return tr.doc
@@ -890,6 +1011,19 @@ function getMarkdownSerializer(schema: Schema): MarkdownSerializer {
         state.write('\n```')
         state.closeBlock(node)
       },
+      drawingBlock(state, node) {
+        const doc = drawingDocumentFromNodeAttrs(node.attrs as {
+          width?: number
+          height?: number
+          originX?: number
+          originY?: number
+          strokes?: string
+        })
+        state.write('```drawing\n')
+        state.text(serializeDrawingFenceBody(doc), false)
+        state.write('\n```')
+        state.closeBlock(node)
+      },
       codeBlock(state, node) {
         const backticks = node.textContent.match(/`{3,}/gmu)
         const fence = backticks ? `${backticks.sort().slice(-1)[0]}\`` : '```'
@@ -962,6 +1096,42 @@ function getMarkdownSerializer(schema: Schema): MarkdownSerializer {
       footnoteRef(state, node) {
         const label = String(node.attrs.label ?? '').trim()
         if (label) state.write(`[^${label}]`)
+      },
+      wikiEmbed(state, node) {
+        const raw = String(node.attrs.raw ?? '').trim()
+        if (raw) {
+          state.write(raw)
+        } else {
+          const docKey = String(node.attrs.docKey ?? '').trim()
+          if (docKey) state.write(`![[${docKey}]]`)
+        }
+        state.closeBlock(node)
+      },
+      wikiEmbedInline(state, node) {
+        const raw = String(node.attrs.raw ?? '').trim()
+        if (raw) state.write(raw)
+        else {
+          const docKey = String(node.attrs.docKey ?? '').trim()
+          if (docKey) state.write(`![[${docKey}]]`)
+        }
+      },
+      hiddenCommentBlock(state, node) {
+        const body = String(node.attrs.body ?? '')
+        state.write('%%\n')
+        if (body) {
+          state.text(body, false)
+          if (!body.endsWith('\n')) state.write('\n')
+        }
+        state.write('%%')
+        state.closeBlock(node)
+      },
+      hiddenComment(state, node) {
+        const body = String(node.attrs.body ?? '')
+        state.write(`%%${body}%%`)
+      },
+      inlineTag(state, node) {
+        const tag = String(node.attrs.tag ?? '').trim()
+        if (tag) state.write(`#${tag}`)
       },
       linkReferenceDef(state, node) {
         const line = formatLinkReferenceDefLine(
@@ -1050,7 +1220,7 @@ function getMarkdownSerializer(schema: Schema): MarkdownSerializer {
         const checked = node.attrs.checked ? 'x' : ' '
         state.wrapBlock('  ', `- [${checked}] `, node, () => state.renderContent(node))
       },
-      paragraph(state, node, parent) {
+      paragraph(state, node, parent, index) {
         const st = state as LunaMarkdownSerializerState
         st.lunaSerParagraphParent = parent
         const isEmpty = node.content.size === 0
@@ -1064,7 +1234,13 @@ function getMarkdownSerializer(schema: Schema): MarkdownSerializer {
           LUNA_STANDALONE_TOC_LINE.test(node.child(0).text ?? '')
         try {
           if (isEmpty) {
-            if (!inQuotedContainer) {
+            if (
+              parent.type.name === 'doc' &&
+              typeof index === 'number' &&
+              shouldWriteListGapMarker(parent, index)
+            ) {
+              state.write(LIST_GAP_MARK)
+            } else if (!inQuotedContainer) {
               // Flush the previous block delimiter before replacing `closed`; otherwise
               // prosemirror-markdown drops the empty paragraph and blank lines vanish on save.
               state.write()
@@ -1230,6 +1406,8 @@ function createFallbackMarkdownDoc(schema: Schema, source: string): ProseMirrorN
 export type ParseMarkdownToDocOptions = {
   /** When false, skip re-inserting empty paragraphs from source blank-line layout (compare / round-trip paths). */
   liftBlankLines?: boolean
+  rootDir?: string | null
+  activePath?: string | null
 }
 
 export function parseMarkdownToDoc(
@@ -1256,6 +1434,18 @@ export function parseMarkdownToDoc(
     doc = liftMermaidCodeBlocks(doc, schema)
   } catch {
     /*Keep codeBlock parsing results*/
+  }
+
+  try {
+    doc = liftDrawingCodeBlocks(doc, schema)
+  } catch {
+    /*Keep codeBlock parsing results*/
+  }
+
+  try {
+    doc = liftHtmlInlineImages(doc, schema)
+  } catch {
+    /*Keep rawInline HTML images*/
   }
 
   try {
@@ -1295,11 +1485,48 @@ export function parseMarkdownToDoc(
   }
 
   try {
+    doc = splitMergedListsAtBlankGaps(doc, schema, markdown)
+  } catch {
+    /*Keep merged list structure*/
+  }
+
+  try {
+    doc = normalizeListGapParagraphs(doc, schema)
+  } catch {
+    /*Keep list-gap marker paragraphs*/
+  }
+
+  try {
     if (options?.liftBlankLines !== false) {
       doc = liftBlankLineParagraphs(doc, schema, markdown)
     }
   } catch {
     /*Keep doc without blank-line lift*/
+  }
+
+  const pathOpts = {
+    rootDir: options?.rootDir ?? null,
+    activePath: options?.activePath ?? null,
+  }
+  try {
+    doc = promoteImageWikiEmbeds(doc, schema, pathOpts)
+  } catch {
+    /*Keep wiki embed nodes*/
+  }
+  try {
+    doc = liftPlainTextWikiEmbeds(doc, schema, pathOpts)
+  } catch {
+    /*Keep plain wiki embed text*/
+  }
+  try {
+    doc = liftStandaloneWikiEmbedParagraphs(doc, schema)
+  } catch {
+    /*Keep wiki embed paragraph structure*/
+  }
+  try {
+    doc = liftPlainTextInlineTags(doc, schema)
+  } catch {
+    /*Keep plain inline tags*/
   }
 
   return doc
@@ -1318,6 +1545,16 @@ export function serializeDocToMarkdownStrict(doc: ProseMirrorNode, schema: Schem
   }
   try {
     lifted = liftPlainTextFootnoteRefs(lifted, schema)
+  } catch {
+    /*Keep original doc*/
+  }
+  try {
+    lifted = liftPlainTextWikiEmbeds(lifted, schema)
+  } catch {
+    /*Keep original doc*/
+  }
+  try {
+    lifted = liftPlainTextInlineTags(lifted, schema)
   } catch {
     /*Keep original doc*/
   }

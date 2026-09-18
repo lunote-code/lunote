@@ -61,9 +61,11 @@
   margin: 2.25rem 0;
   background: linear-gradient(
     90deg,
-    transparent,
-    color-mix(in srgb, var(--border-strong) 55%, transparent),
-    transparent
+    transparent 0%,
+    color-mix(in srgb, var(--border-subtle) 22%, transparent) 18%,
+    color-mix(in srgb, var(--border-subtle) 58%, transparent) 50%,
+    color-mix(in srgb, var(--border-subtle) 22%, transparent) 82%,
+    transparent 100%
   );
 }
 
@@ -176,8 +178,10 @@
   line-height: 1.25;
   letter-spacing: -0.03em;
   margin: 0.25rem 0 1.1rem;
+  padding-bottom: 0.32rem;
   color: var(--text-primary);
   font-weight: 700;
+  border-bottom: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 42%, transparent);
 }
 
 .preview-pane:not(.markdown-visual-editor) h2,
@@ -189,7 +193,7 @@
   padding-bottom: 0.45rem;
   color: var(--text-primary);
   font-weight: 650;
-  border-bottom: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 85%, transparent);
+  border-bottom: var(--hairline) solid color-mix(in srgb, var(--border-subtle) 58%, transparent);
 }
 
 .preview-pane:not(.markdown-visual-editor) h3,

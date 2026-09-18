@@ -9,6 +9,7 @@ export const EDITOR_FORMAT_TOOLBAR_ICONS: Record<string, SemanticIconName> = {
   'fmt-strike': 'text-strike',
   'fmt-highlight': 'text-highlight',
   'fmt-link': 'link',
+  'fmt-toc': 'outline',
   'toolbar-callout': 'callout',
 }
 

@@ -41,3 +41,11 @@ export function enqueueSave<T>(task: () => Promise<T>): Promise<T> {
 export function enqueueDocumentCommand<T>(task: () => Promise<T>): Promise<T> {
   return enqueueSerial(task)
 }
+
+/** Wait until all queued save/kernel serial tasks finish (used before workspace switch). */
+export function awaitPendingSerialTasks(): Promise<void> {
+  return serialChain.then(
+    () => undefined,
+    () => undefined,
+  )
+}

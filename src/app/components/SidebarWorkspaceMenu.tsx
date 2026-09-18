@@ -21,6 +21,7 @@ export type SidebarWorkspaceMenuProps = {
   setFileSortMode: Dispatch<SetStateAction<FileSortMode>>
   createNewNote: () => void | Promise<void>
   createNewNoteFromTemplate: () => void | Promise<void>
+  createNewFolder: () => void | Promise<void>
   chooseFolder: () => void | Promise<void>
   refreshFileTree: () => void | Promise<void>
   setStatus: (msg: string) => void
@@ -39,6 +40,7 @@ export function SidebarWorkspaceMenu({
   setFileSortMode,
   createNewNote,
   createNewNoteFromTemplate,
+  createNewFolder,
   chooseFolder,
   refreshFileTree,
   setStatus,
@@ -107,6 +109,14 @@ export function SidebarWorkspaceMenu({
                 onClick={() => {
                   closeMenu()
                   void createNewNoteFromTemplate()
+                }}
+              />
+              <FileContextMenuItem
+                icon="workspace"
+                label={t('app.sidebar.workspaceMenu.newFolder')}
+                onClick={() => {
+                  closeMenu()
+                  void createNewFolder()
                 }}
               />
               <FileContextMenuItem

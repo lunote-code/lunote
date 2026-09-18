@@ -23,6 +23,7 @@ export function installRevealProjection(): () => void {
       absolutePath: event.path,
       heading: event.heading,
       blockId: event.blockId,
+      linkBodyOffset: event.linkBodyOffset,
       source: toInteractionSource(event.source),
       markdown: event.content,
     })).catch(() => {

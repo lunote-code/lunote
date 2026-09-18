@@ -169,7 +169,7 @@
   "app.titleBar.welcomeTitle": "{app} へようこそ",
   "app.titleBar.welcomeSubtitle": "フォルダーを開いてノートを閲覧・保存",
   "app.titleBar.readySubtitle": "このワークスペースでノートを作成または開く",
-  "app.globalSearch.scopeHint": "開いているワークスペース内のすべてのノートを全文検索します。",
+  "app.globalSearch.scopeHint": "開いているワークスペース内でノートを全文検索します。",
   "app.globalSearch.shortLabel": "全文",
   "app.sidebar.recent.title": "最近開いた項目",
   "app.sidebar.search.placeholder": "このワークスペース内のファイル名を絞り込み…",

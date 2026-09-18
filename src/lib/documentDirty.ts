@@ -1,10 +1,35 @@
-import { getDocumentRuntimeSnapshot } from '../documentRuntime/documentKernel'
+import {
+  getDocumentRuntimeSnapshot,
+  getDocumentSavedContent,
+  isDocumentContentDirty,
+} from '../documentRuntime/documentKernel'
+import { getActiveKernelContent, peekTabBody } from '../app/document/tabBodiesStore'
 import { pathsEqual } from './workspacePathUtils'
 
-export function isPathDirty(path: string): boolean {
+function hasKernelDirtyFlag(path: string): boolean {
   if (!path) return false
   const dirtyByPath = getDocumentRuntimeSnapshot().dirtyByPath
   return Object.entries(dirtyByPath).some(([key, dirty]) => dirty && pathsEqual(key, path))
+}
+
+function resolveLatestKnownContent(path: string): string | undefined {
+  if (!path) return undefined
+  const tabBody = peekTabBody(path)
+  if (tabBody != null) return tabBody
+  const snapshot = getDocumentRuntimeSnapshot()
+  if (pathsEqual(snapshot.activePath, path)) {
+    return getActiveKernelContent()
+  }
+  return undefined
+}
+
+export function isPathDirty(path: string): boolean {
+  if (!path) return false
+  if (hasKernelDirtyFlag(path)) return true
+  if (getDocumentSavedContent(path) === undefined) return false
+  const latestContent = resolveLatestKnownContent(path)
+  if (latestContent == null) return false
+  return isDocumentContentDirty(path, latestContent)
 }
 
 export function hasAnyDirtyDocument(): boolean {

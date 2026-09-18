@@ -18,24 +18,16 @@ import {
   resolveBootEarlyThemeMarkup,
 } from '../platform/bootEarlyTheme'
 import { applyInitialThemeFromSettings } from '../theme-runtime/themeRuntime'
+import { I18nProvider, useI18n, type I18nBootstrap } from '../i18n'
+import { ensureLocaleRawLoaded, getEnMessagesSnapshot, isUiLocaleId, type UiLocaleId } from '../i18n/localeRegistry'
+import { AiRightRail } from '../editor/ai/ui/AiRightRail'
+import '../editor/ai/ui/aiPanel.css'
+import { markAppSettingsHydratedForTests } from '../settings/appSettingsStore'
+import { DEFAULT_APP_SETTINGS } from '../settings/appSettingsTypes'
 
 const QA_TABS = ['/qa-vault/welcome.md', '/qa-vault/notes.md', '/qa-vault/readme.md'] as const
 
 const UI_MESSAGES: Record<string, string> = {
-  'app.tabs.aria': 'Document tabs',
-  'app.tabs.unsavedAria': 'unsaved changes',
-  'app.tabs.externalAria': 'changed on disk',
-  'app.tabs.historyRestoreAria': 'restored from history',
-  'app.tabs.close': 'Close tab',
-  'app.tabs.closeTab': 'Close tab',
-  'app.tabs.closeOthers': 'Close other tabs',
-  'app.tabs.closeAll': 'Close all tabs',
-  'app.tabs.countAria': '{current} of {max} tabs open',
-  'app.tabs.limitHint': 'Tab limit approaching',
-  'app.tabs.limitReached': 'Tab limit reached',
-  'app.commandPalette.aria': 'Command palette',
-  'app.commandPalette.placeholder': 'Type a command…',
-  'commandPalette.empty': 'No matching commands',
   'app.about.close': 'Close',
   'app.about.desc': 'A local Markdown notebook application for offline writing, editing, and document management.',
   'app.about.title': '{name} · Version {version}',
@@ -81,7 +73,12 @@ const PALETTE_COMMANDS: PaletteCommandDef[] = [
   },
 ]
 
-function t(key: string, vars?: Record<string, string | number>): string {
+function resolveQaLocale(): UiLocaleId {
+  const raw = new URLSearchParams(window.location.search).get('locale')
+  return raw && isUiLocaleId(raw) ? raw : 'en'
+}
+
+function qaT(key: string, vars?: Record<string, string | number>): string {
   let value = UI_MESSAGES[key] ?? key
   if (!vars) return value
   for (const [name, replacement] of Object.entries(vars)) {
@@ -125,7 +122,8 @@ declare global {
   }
 }
 
-function QaUiInner() {
+function QaUiInner({ locale }: { locale: UiLocaleId }) {
+  const { t } = useI18n()
   const paletteInputRef = useRef<HTMLInputElement | null>(null)
   const [status, setStatus] = useState('ready')
   const [openedTabs, setOpenedTabs] = useState<string[]>([...QA_TABS])
@@ -145,6 +143,7 @@ function QaUiInner() {
   const renameInputRef = useRef<HTMLInputElement | null>(null)
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>('dark')
   const [focusMode, setFocusModeState] = useState(false)
+  const [aiPanelVisible, setAiPanelVisible] = useState(false)
   const focusModeRef = useRef(false)
   const lastCommandRef = useRef<string | null>(null)
   const dialogActionRef = useRef<string | null>(null)
@@ -167,6 +166,10 @@ function QaUiInner() {
     applyInitialThemeFromSettings()
     setThemeMode(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark')
   }, [])
+
+  useEffect(() => {
+    markAppSettingsHydratedForTests({ ...DEFAULT_APP_SETTINGS, language: locale })
+  }, [locale])
 
   const paletteFiltered = useMemo(() => {
     const q = paletteQuery.trim().toLowerCase()
@@ -307,9 +310,12 @@ function QaUiInner() {
   }, [focusMode, paletteFiltered, paletteIndex, setFocusMode, setTheme, themeMode])
 
   return (
-    <div className="qa-ui-shell" style={{ padding: 24, minHeight: '100vh' }}>
+    <div className="qa-ui-shell" style={{ padding: 24, minHeight: '100vh', background: 'var(--surface-app)' }}>
       <h1 data-testid="qa-ready">UI QA</h1>
       <p data-testid="qa-status">{status}</p>
+      <p data-testid="qa-locale" style={{ color: 'var(--text-secondary)' }}>
+        locale={locale}
+      </p>
       <p data-testid="qa-theme-mode">{themeMode}</p>
 
       <div
@@ -373,13 +379,13 @@ function QaUiInner() {
         className={`qa-focus-layout layout workspace-split mod-root ${
           focusMode ? 'focus-mode without-sidebar' : 'with-sidebar'
         }`}
-        style={{ marginBottom: 16, minHeight: 260, border: '1px solid var(--border-subtle, #333)' }}
+        style={{ marginBottom: 16, minHeight: 260, border: '1px solid var(--border-subtle)' }}
       >
         {!focusMode ? (
           <aside
             data-testid="qa-focus-sidebar"
             className="sidebar"
-            style={{ width: 180, padding: 12, background: 'var(--surface-panel, #1a1d24)' }}
+            style={{ width: 180, padding: 12, background: 'var(--surface-panel)' }}
           >
             Workspace sidebar
           </aside>
@@ -478,8 +484,29 @@ function QaUiInner() {
             >
               <Icon name="graph" size="sm" stroke="strong" />
             </button>
+            <button
+              type="button"
+              className={`luna-chrome-icon-btn editor-chrome-action-btn${aiPanelVisible ? ' luna-chrome-icon-btn--active' : ''}`}
+              data-testid="editor-ai-toggle"
+              aria-label="AI panel"
+              aria-pressed={aiPanelVisible}
+              onClick={() => {
+                setAiPanelVisible((visible) => !visible)
+                setStatus((current) => (current.startsWith('ai:') ? current : 'ai:toggle'))
+              }}
+            >
+              <Icon name="ai" size="sm" stroke="strong" />
+            </button>
           </>
         }
+      />
+
+      <AiRightRail
+        visible={aiPanelVisible}
+        onClose={() => setAiPanelVisible(false)}
+        activeDocKey={activePath}
+        activePath={activePath}
+        content="# QA note\n\nSample content for AI context."
       />
 
       <AppCommandPaletteOverlay
@@ -572,10 +599,10 @@ function QaUiInner() {
         }}
       />
 
-      {aboutOpen ? <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} t={t} /> : null}
+      {aboutOpen ? <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} t={qaT} /> : null}
 
       <AppRenameDialog
-        t={t}
+        t={qaT}
         renameDialog={renameDialog}
         renameInputValue={renameInputValue}
         renameError={renameError}
@@ -601,5 +628,40 @@ function QaUiInner() {
 }
 
 export function QaUiPlayground() {
-  return <QaUiInner />
+  const locale = resolveQaLocale()
+  const [bootstrap, setBootstrap] = useState<I18nBootstrap | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const enMessages = getEnMessagesSnapshot()
+      const rawLocale = locale === 'en' ? enMessages : await ensureLocaleRawLoaded(locale)
+      if (cancelled) return
+      setBootstrap({
+        mergedMessages: locale === 'en' ? enMessages : { ...enMessages, ...rawLocale },
+        enMessages,
+        rawLocale,
+        languageSetting: locale,
+        effectiveLocale: locale,
+      })
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [locale])
+
+  if (!bootstrap) {
+    return (
+      <div style={{ padding: 24, background: 'var(--surface-app)', minHeight: '100vh' }}>
+        <h1 data-testid="qa-ready">UI QA</h1>
+        <p data-testid="qa-status">booting</p>
+      </div>
+    )
+  }
+
+  return (
+    <I18nProvider bootstrap={bootstrap}>
+      <QaUiInner locale={locale} />
+    </I18nProvider>
+  )
 }

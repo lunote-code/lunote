@@ -14,6 +14,7 @@ import { createRegistryShortcutHandler } from '../menu/shortcutRuntime'
 import { markAppSettingsHydratedForTests } from '../settings/appSettingsStore'
 import { DEFAULT_APP_SETTINGS } from '../settings/appSettingsTypes'
 import type { FileSortMode, FlatWorkspaceFile, FsTreeNode } from './workspace/types'
+import type { SidebarPanelView } from './workspace/sidebarPanelView'
 
 const QA_ROOT = '/qa-first-run-vault'
 const QA_WELCOME = `${QA_ROOT}/welcome.md`
@@ -104,8 +105,7 @@ function QaFirstRunInner() {
   const [mainPaneMode, setMainPaneMode] = useState<'visual' | 'source'>('visual')
   const [knowledgeRailVisible, setKnowledgeRailVisible] = useState(false)
   const [searchText, setSearchText] = useState('')
-  const [sidebarListMode, setSidebarListMode] = useState<'files' | 'outline'>('files')
-  const [sidebarFileView, setSidebarFileView] = useState<'tree' | 'list'>('tree')
+  const [sidebarPanelView, setSidebarPanelView] = useState<SidebarPanelView>('files-tree')
   const [fileSortMode, setFileSortMode] = useState<FileSortMode>('group')
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false)
   const [status, setStatus] = useState('ready')
@@ -262,7 +262,8 @@ function QaFirstRunInner() {
             setSearchText={setSearchText}
             isSidebarFiltering={Boolean(searchText.trim())}
             sidebarFilterMatchCount={flatFiles.length}
-            sidebarListMode={sidebarListMode}
+            sidebarPanelView={sidebarPanelView}
+            setSidebarPanelView={setSidebarPanelView}
             draggingWorkspaceFile={null}
             dragOverTarget={null}
             setDragOverTarget={() => undefined}
@@ -272,8 +273,6 @@ function QaFirstRunInner() {
             activeOutlineId={null}
             scrollPreviewToHeading={() => undefined}
             fileTree={fileTree}
-            sidebarFileView={sidebarFileView}
-            setSidebarFileView={setSidebarFileView}
             workspaceFolderNodes={fileTree}
             sortedFlatWorkspaceFiles={flatFiles}
             sortedFileTree={fileTree}
@@ -292,6 +291,7 @@ function QaFirstRunInner() {
             handleMoveFileToFolder={() => undefined}
             createNewNote={createNewNote}
             createNewNoteFromTemplate={createNewNote}
+            createNewFolder={() => undefined}
             workspaceFolderName={workspaceFolderName}
             workspaceMenuRef={workspaceMenuRef}
             workspaceMenuPopRef={workspaceMenuPopRef}
@@ -300,13 +300,9 @@ function QaFirstRunInner() {
             workspaceMenuPopStyle={workspaceMenuPopStyle}
             fileSortMode={fileSortMode}
             setFileSortMode={setFileSortMode}
-            setSidebarListMode={setSidebarListMode}
             setStatus={setStatus}
             chooseFolder={openFolder}
             refreshFileTree={async () => setStatus('refreshed')}
-            recentFiles={[]}
-            onOpenRecent={() => undefined}
-            onClearRecent={async () => undefined}
             sidebarStatusLine=""
           />
         ) : null}

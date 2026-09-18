@@ -94,6 +94,85 @@ fn read_image_from_file_list() -> FileListImageOutcome {
   FileListImageOutcome::Missing
 }
 
+fn encode_heic_file(path: &Path) -> Option<ClipboardImageDto> {
+  let meta = std::fs::metadata(path).ok()?;
+  security::ensure_clipboard_image_file_size(meta.len()).ok()?;
+  let bytes = std::fs::read(path).ok()?;
+  security::ensure_binary_payload_size(&bytes, "clipboard image").ok()?;
+  if let Some(dto) = encode_image_bytes(&bytes) {
+    return Some(dto);
+  }
+  convert_heic_file_to_png(path).map(|png| encode_dto(png, "image/png"))
+}
+
+#[cfg(target_os = "macos")]
+fn convert_heic_file_to_png(path: &Path) -> Option<Vec<u8>> {
+  use std::process::Command;
+  let out_path = std::env::temp_dir().join(format!(
+    "lunote-heic-{}.png",
+    uuid::Uuid::new_v4()
+  ));
+  let status = Command::new("sips")
+    .args([
+      "-s",
+      "format",
+      "png",
+      path.to_str()?,
+      "--out",
+      out_path.to_str()?,
+    ])
+    .status()
+    .ok()?;
+  if !status.success() {
+    let _ = std::fs::remove_file(&out_path);
+    return None;
+  }
+  let png = std::fs::read(&out_path).ok()?;
+  let _ = std::fs::remove_file(&out_path);
+  security::ensure_binary_payload_size(&png, "clipboard image").ok()?;
+  Some(png)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn convert_heic_file_to_png(path: &Path) -> Option<Vec<u8>> {
+  convert_heic_via_external_tool(path)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn convert_heic_via_external_tool(path: &Path) -> Option<Vec<u8>> {
+  use std::process::Command;
+  let out_path = std::env::temp_dir().join(format!(
+    "lunote-heic-{}.png",
+    uuid::Uuid::new_v4()
+  ));
+  for (cmd, args) in [
+    (
+      "heif-convert",
+      vec![path.to_string_lossy().to_string(), out_path.to_string_lossy().to_string()],
+    ),
+    (
+      "magick",
+      vec![
+        "convert".to_string(),
+        path.to_string_lossy().to_string(),
+        out_path.to_string_lossy().to_string(),
+      ],
+    ),
+  ] {
+    let status = Command::new(cmd).args(args).status().ok();
+    if status.is_some_and(|s| s.success()) {
+      if let Ok(png) = std::fs::read(&out_path) {
+        let _ = std::fs::remove_file(&out_path);
+        if security::ensure_binary_payload_size(&png, "clipboard image").is_ok() {
+          return Some(png);
+        }
+      }
+    }
+    let _ = std::fs::remove_file(&out_path);
+  }
+  None
+}
+
 fn is_heic_path(path: &Path) -> bool {
   path
     .extension()
@@ -144,6 +223,9 @@ fn encode_image_file(path: &Path) -> Option<ClipboardImageDto> {
   //Preserve original JPEG/PNG and other formats to avoid unnecessary transcoding
   if let Some(mime) = mime_for_image_bytes(&bytes) {
     return Some(encode_dto(bytes, mime));
+  }
+  if is_heic_path(path) {
+    return encode_heic_file(path);
   }
   encode_image_bytes(&bytes)
 }

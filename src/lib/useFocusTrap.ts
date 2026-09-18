@@ -77,10 +77,10 @@ export function useFocusTrap(
         first.focus({ preventScroll: true })
       }
     }
-    container.addEventListener('keydown', onKeyDown)
+    document.addEventListener('keydown', onKeyDown, true)
     return () => {
       window.cancelAnimationFrame(frame)
-      container.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('keydown', onKeyDown, true)
     }
-  }, [container, initialFocus, open])
+  }, [container, initialFocus, initialFocusRef, open])
 }

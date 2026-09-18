@@ -2,13 +2,33 @@ import { invoke } from '@tauri-apps/api/core'
 
 import type { FsTreeNode } from '../../app/workspace/types'
 
+export const WORKSPACE_INDEX_PROGRESS_EVENT = 'luna:workspace-index-progress'
+
+export type WorkspaceIndexProgress = {
+  root: string
+  phase: 'reading' | 'writing' | string
+  processed: number
+  total: number
+}
+
+export const WORKSPACE_INDEX_CANCELLED = 'WORKSPACE_INDEX_CANCELLED'
+
 export async function listWorkspaceTree(root: string): Promise<FsTreeNode[]> {
   return invoke<FsTreeNode[]>('list_workspace_tree', { payload: { root } })
 }
 
-export async function indexWorkspaceNotes(root: string): Promise<number> {
-  const result = await invoke<{ count: number }>('index_notes', { payload: { root } })
+export async function indexWorkspaceNotes(
+  root: string,
+  prefetched: Array<{ path: string; content: string }> = [],
+): Promise<number> {
+  const result = await invoke<{ count: number }>('index_notes', {
+    payload: { root, prefetched },
+  })
   return result.count
+}
+
+export async function cancelWorkspaceIndexNotes(): Promise<void> {
+  await invoke('cancel_index_notes')
 }
 
 export async function watchWorkspace(root: string): Promise<void> {

@@ -5,7 +5,7 @@
 import type { OSKernelTickId } from '../osKernelClock'
 import { bumpLiveKernelTick, getCurrentOSKernelTick } from '../osKernelClock'
 
-export const SURFACE_SPLITTER_WIDTH_PX = 4
+export const SURFACE_SPLITTER_WIDTH_PX = 6
 export const SURFACE_RAIL_MIN_PX = 260
 export const SURFACE_RAIL_MAX_PX = 560
 export const SURFACE_RAIL_DEFAULT_PX = 380
@@ -37,11 +37,15 @@ let isDragging = false
 let layoutRevision = 0
 const listeners = new Set<() => void>()
 
-function notifyCommitted(): void {
-  layoutRevision += 1
+function notifySurfaceSplitLayout(): void {
   for (const fn of listeners) {
     fn()
   }
+}
+
+function notifyCommitted(): void {
+  layoutRevision += 1
+  notifySurfaceSplitLayout()
 }
 
 function clampRatio(ratio: number): number {
@@ -157,6 +161,7 @@ export function beginSurfaceSplitDrag(session?: SurfaceSplitDragSession): void {
   isDragging = true
   previewRatio = committedRatio
   dragSession = session ?? null
+  notifySurfaceSplitLayout()
 }
 
 export function getSurfaceSplitDragSession(): SurfaceSplitDragSession | null {
@@ -194,6 +199,7 @@ export function cancelSurfaceSplitDrag(): void {
   previewRatio = null
   isDragging = false
   dragSession = null
+  notifySurfaceSplitLayout()
 }
 
 /** Layout committed (used by OS snapshot/Graph). Unchanged during dragging.*/
@@ -238,7 +244,7 @@ export function initSurfaceSplitLayoutRuntime(): void {
 }
 
 export function applyKosRailWidthCss(el: HTMLElement | null, widthPx: number): void {
-  if (!el || isDragging) return
+  if (!el) return
   el.style.setProperty('--kos-rail-width', `${Math.round(widthPx)}px`)
 }
 

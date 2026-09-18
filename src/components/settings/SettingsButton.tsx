@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { forwardRef } from 'react'
 
 type SettingsButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'destructive'
+  variant?: 'primary' | 'secondary' | 'ghost' | 'destructive'
   children: ReactNode
 }
 

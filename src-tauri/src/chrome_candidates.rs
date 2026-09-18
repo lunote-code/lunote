@@ -123,6 +123,57 @@ pub fn find_existing_chrome_executable() -> Option<PathBuf> {
   None
 }
 
+/// Reject arbitrary binaries when `CHROME_PATH` / `PUPPETEER_EXECUTABLE_PATH` is set.
+pub fn is_trusted_chrome_executable(path: &std::path::Path) -> bool {
+  if !path.is_file() {
+    return false;
+  }
+  let canonical = path
+    .canonicalize()
+    .unwrap_or_else(|_| path.to_path_buf());
+
+  for candidate in chrome_executable_candidates() {
+    if !candidate.is_file() {
+      continue;
+    }
+    let resolved = candidate
+      .canonicalize()
+      .unwrap_or_else(|_| candidate.clone());
+    if resolved == canonical {
+      return true;
+    }
+  }
+
+  #[cfg(target_os = "linux")]
+  {
+    if let Some(which) = linux_which_chrome_executable() {
+      let resolved = which
+        .canonicalize()
+        .unwrap_or_else(|_| which.clone());
+      if resolved == canonical {
+        return true;
+      }
+    }
+  }
+
+  let Some(base) = path.file_name().and_then(|n| n.to_str()) else {
+    return false;
+  };
+  let base_lower = base.to_lowercase();
+  let file = load_candidates_file();
+  if file
+    .linux_which_binaries
+    .iter()
+    .any(|name| base_lower == name.to_lowercase())
+  {
+    return true;
+  }
+  matches!(
+    base_lower.as_str(),
+    "google chrome" | "chromium" | "microsoft edge" | "brave browser" | "chrome.exe" | "msedge.exe"
+  )
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -152,5 +203,31 @@ mod tests {
 
     let rel = file.linux_relative_home.join("\n");
     assert!(rel.contains(".nix-profile/bin/chromium"));
+  }
+
+  #[test]
+  fn trusted_chrome_rejects_unknown_binary_name() {
+    let fake = std::env::temp_dir().join("lunote-fake-chrome-bin");
+    let _ = std::fs::write(&fake, b"#!/bin/sh\n");
+    #[cfg(unix)]
+    {
+      use std::os::unix::fs::PermissionsExt;
+      let _ = std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755));
+    }
+    assert!(!is_trusted_chrome_executable(&fake));
+    let _ = std::fs::remove_file(fake);
+  }
+
+  #[test]
+  fn trusted_chrome_accepts_known_linux_binary_names() {
+    let fake = std::env::temp_dir().join("google-chrome-stable");
+    let _ = std::fs::write(&fake, b"#!/bin/sh\n");
+    #[cfg(unix)]
+    {
+      use std::os::unix::fs::PermissionsExt;
+      let _ = std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755));
+    }
+    assert!(is_trusted_chrome_executable(&fake));
+    let _ = std::fs::remove_file(fake);
   }
 }

@@ -13,10 +13,15 @@ import {
   shouldAllowExplicitViewportCenter,
   shouldAllowNavigationViewportCenter,
 } from './graphCameraLock'
+import { getIsKnowledgeNavigating } from './graphInteractionGuard'
 import { markLayoutPhysicsActivity } from './graphLayoutPhysicsHeartbeat'
 import { computeGraphBounds } from './layout/graphBounds'
+import { resolveGraphFitBounds, type GraphFitNodeBounds } from './layout/graphFitBounds'
 import { shouldSuppressAutoGraphViewportCenter } from './graphViewportFocusRuntime'
 import { getPanelLayoutForType } from './surfaceLayoutRuntime'
+import { isGraphInteracting } from './noteGraphRuntime'
+
+export type { GraphFitNodeBounds } from './layout/graphFitBounds'
 
 export type GraphViewportCenterSource = 'auto' | 'explicit' | 'navigation'
 
@@ -58,6 +63,7 @@ const ZOOM_MAX = 2.5
 let liveViewport: GraphViewport = { x: 0, y: 0, zoom: 1 }
 let liveRouteCenterDocKey: DocKey | null = null
 let viewportRevision = 0
+let graphPanelMountGeneration = 0
 
 const viewportByTick = new Map<OSKernelTickId, GraphViewportSnapshot>()
 const listeners = new Set<() => void>()
@@ -126,7 +132,7 @@ export function computeViewportCenterOnNode(
 
 /** @deprecated Test/compatibility only; use centerOn intent for production paths.*/
 export function computeDeterministicFitView(
-  nodes: readonly GraphViewportNodeBounds[],
+  nodes: readonly GraphViewportNodeBounds[] | readonly GraphFitNodeBounds[],
   width: number,
   height: number,
   padding = 48,
@@ -135,25 +141,19 @@ export function computeDeterministicFitView(
     return { x: 0, y: 0, zoom: 1 }
   }
 
-  let minX = Infinity
-  let maxX = -Infinity
-  let minY = Infinity
-  let maxY = -Infinity
-
-  for (const n of nodes) {
-    minX = Math.min(minX, n.x)
-    maxX = Math.max(maxX, n.x)
-    minY = Math.min(minY, n.y)
-    maxY = Math.max(maxY, n.y)
+  const bounds = resolveGraphFitBounds(nodes)
+  if (!bounds) {
+    return { x: 0, y: 0, zoom: 1 }
   }
 
-  const graphW = Math.max(maxX - minX, 1)
-  const graphH = Math.max(maxY - minY, 1)
+  const graphW = Math.max(bounds.maxX - bounds.minX, 1)
+  const graphH = Math.max(bounds.maxY - bounds.minY, 1)
   const innerW = Math.max(width - padding * 2, 1)
   const innerH = Math.max(height - padding * 2, 1)
-  const zoom = clampZoom(Math.min(innerW / graphW, innerH / graphH))
-  const cx = (minX + maxX) / 2
-  const cy = (minY + maxY) / 2
+  // Auto-fit only zooms out to show content; never zoom in beyond 100% (avoids ZOOM_MAX on tiny/single-node bounds).
+  const zoom = clampZoom(Math.min(innerW / graphW, innerH / graphH, 1))
+  const cx = (bounds.minX + bounds.maxX) / 2
+  const cy = (bounds.minY + bounds.maxY) / 2
 
   return {
     x: -cx * zoom,
@@ -179,6 +179,37 @@ export function fitGraphViewToNodes(
   })
 }
 
+/** BOOT: fit all nodes once and advance camera lock (embedded + fullscreen). */
+export function autoFitGraphViewportOnBoot(
+  nodes: readonly GraphViewportNodeBounds[],
+  width: number,
+  height: number,
+  padding = 48,
+): GraphViewport | null {
+  if (!shouldAllowAutoViewportCenter()) return null
+  if (shouldSuppressAutoGraphViewportCenter()) return null
+  if (nodes.length === 0 || width <= 0 || height <= 0) return null
+
+  const viewport = fitGraphViewToNodes(nodes, width, height, padding)
+  onAutoViewportBoundsCentered()
+  return viewport
+}
+
+/** Topology config change: fit unless navigating, panning, or node focus suppresses auto center. */
+export function autoFitGraphViewportOnTopologyChange(
+  nodes: readonly GraphViewportNodeBounds[],
+  width: number,
+  height: number,
+  padding = 48,
+): GraphViewport | null {
+  if (getIsKnowledgeNavigating()) return null
+  if (isGraphInteracting()) return null
+  if (shouldSuppressAutoGraphViewportCenter()) return null
+  if (nodes.length === 0 || width <= 0 || height <= 0) return null
+
+  return fitGraphViewToNodes(nodes, width, height, padding)
+}
+
 export function resetGraphViewToDefault(): GraphViewport {
   return setGraphViewportIntent({ kind: 'reset' })
 }
@@ -191,9 +222,18 @@ export function resetGraphViewportRuntime(): void {
   liveViewport = { x: 0, y: 0, zoom: 1 }
   liveRouteCenterDocKey = null
   viewportRevision = 0
+  graphPanelMountGeneration = 0
   viewportByTick.clear()
   listeners.clear()
   resetGraphCameraLock()
+}
+
+export function bumpGraphPanelMountGeneration(): void {
+  graphPanelMountGeneration += 1
+}
+
+export function getGraphPanelMountGeneration(): number {
+  return graphPanelMountGeneration
 }
 
 export function subscribeGraphViewport(listener: () => void): () => void {
@@ -359,7 +399,10 @@ export function projectGraphViewportAtTick(tick: OSKernelTickId): GraphViewport 
 }
 
 export function getGraphViewport(kernelTick?: OSKernelTickId): GraphViewport {
-  return projectGraphViewportAtTick(kernelTick ?? getCurrentOSKernelTick())
+  if (kernelTick === undefined) {
+    return { ...liveViewport }
+  }
+  return projectGraphViewportAtTick(kernelTick)
 }
 
 export function getGraphViewportSnapshot(kernelTick?: OSKernelTickId): GraphViewportSnapshot {

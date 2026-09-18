@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { buildHeadingOutlineTree } from '../../editor/outlineHeadingTree'
 import { DocumentOutlineTree } from '../../components/DocumentOutlineTree'
+import { EmptyState } from '../../design-system/EmptyState'
 import { useI18n } from '../../i18n'
 import { getCachedSidebarOutlineHeadings } from '../hooks/useSidebarOutlineHeadings'
 
@@ -50,7 +51,11 @@ export function DocumentOutlineBlock({
   )
 
   if (displayHeadings.length === 0) {
-    return <p className="document-outline-empty">{t('outline.empty')}</p>
+    return (
+      <div className="document-outline-empty-state">
+        <EmptyState variant="compact" icon="note" title={t('outline.empty')} />
+      </div>
+    )
   }
 
   return (

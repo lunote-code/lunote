@@ -3,6 +3,12 @@ import { memo, type MouseEvent, type ReactNode } from 'react'
 import type { CodeBlockMode, CodeBlockType } from '../../editor/codeBlockRuntime'
 import { useI18n } from '../../i18n'
 
+function resolveCodeBlockTypeLabel(type: CodeBlockType, t: (key: string) => string): string {
+  const key = `editor.codeBlock.type.${type}`
+  const localized = t(key)
+  return localized !== key ? localized : type.toUpperCase()
+}
+
 function stopPmPointer(e: MouseEvent): void {
   e.stopPropagation()
   e.preventDefault()
@@ -33,7 +39,7 @@ export const CodeBlockShell = memo(function CodeBlockShell({
   className,
 }: Props) {
   const { t } = useI18n()
-  const typeLabel = type === 'mermaid' ? 'Mermaid' : type.toUpperCase()
+  const typeLabel = resolveCodeBlockTypeLabel(type, t)
 
   return (
     <div

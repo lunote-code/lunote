@@ -1,5 +1,6 @@
 import { isTauri } from '@tauri-apps/api/core'
-import { readDocument, writeDocument } from '../../../io/documentIO'
+import { readDocument } from '../../../io/documentIO'
+import { writeDocumentWithConflictGuard } from '../../../io/writeDocumentWithConflictGuard'
 import { relativePathUnderRoot } from '../../../lib/workspacePathUtils'
 import { deleteNote, moveNote, renameNote } from '../../../platform/tauri/documentService'
 import {
@@ -15,6 +16,7 @@ import {
   migrateDocumentFrontmatterPath,
   syncDocumentFrontmatterFromMarkdown,
 } from '../../documentFrontmatterStore'
+import { getLinkIndexState } from '../../knowledgeRuntime/linkIndexState'
 import { persistKnowledgeUILayout } from '../knowledgeWorkspaceRuntime'
 import {
   absolutePathToDocKeyOs,
@@ -41,10 +43,20 @@ export function createTauriVaultFileAdapter(rootDir: string): VaultFileAdapter {
   return {
     read: async (path) => readDocument(root, path),
     write: async (path, content) => {
-      await writeDocument(root, path, content)
+      await writeDocumentWithConflictGuard({
+        root,
+        path,
+        content,
+        source: 'knowledge-vault-write',
+      })
     },
     create: async (path, content = '') => {
-      await writeDocument(root, path, content)
+      await writeDocumentWithConflictGuard({
+        root,
+        path,
+        content,
+        source: 'knowledge-vault-create',
+      })
     },
     delete: async (path) => {
       await deleteNote(root, path)
@@ -106,22 +118,31 @@ export function teardownKnowledgeOS(rootDir: string): void {
 export function indexWorkspaceFiles(
   rootDir: string,
   paths: AbsoluteDocPath[],
-  options?: { activeDocKey?: string | null },
+  options?: {
+    activeDocKey?: string | null
+    readContent?: (path: AbsoluteDocPath) => Promise<string>
+  },
 ): Promise<number> {
   const root = rootDir.replace(/[/\\]+$/u, '')
-  const readContent = (path: AbsoluteDocPath) => readDocument(root, path)
+  const readContent =
+    options?.readContent ?? ((path: AbsoluteDocPath) => readDocument(root, path))
   return bootstrapWorkspaceLinkGraphIndex(rootDir, paths, readContent, options)
 }
 
 export function notifyKnowledgeDocumentOpen(path: AbsoluteDocPath, content: string, rootDir: string): void {
-  syncDocumentFrontmatterFromMarkdown(path, content)
-  parseChangedDocument(path, content, rootDir)
+  if (getLinkIndexState() !== 'UNINITIALIZED') {
+    parseChangedDocument(path, content, rootDir)
+  }
   openNoteInWorkspace(path, absolutePathToDocKeyOs(path, rootDir))
 }
 
-export function notifyKnowledgeDocumentSave(path: AbsoluteDocPath, content: string): void {
+export function notifyKnowledgeDocumentSave(
+  path: AbsoluteDocPath,
+  content: string,
+  rootDir?: string,
+): void {
   syncDocumentFrontmatterFromMarkdown(path, content)
-  onKnowledgeDocumentSaved(path, content)
+  onKnowledgeDocumentSaved(path, content, rootDir)
 }
 
 export function notifyKnowledgeDocumentRename(fromPath: AbsoluteDocPath, toPath: AbsoluteDocPath): void {

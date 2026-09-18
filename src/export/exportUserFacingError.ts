@@ -3,6 +3,12 @@ import type { TranslateFn } from '../i18n'
 export function humanizeExportError(error: unknown, t: TranslateFn): string {
   const message = error instanceof Error ? error.message : String(error)
 
+  if (message === 'print-window-timed-out') {
+    return t('app.status.printTimedOut')
+  }
+  if (message === 'print-popup-blocked') {
+    return t('app.status.printPopupBlocked')
+  }
   if (/Direct PDF file write is only supported on desktop|desktop app/i.test(message)) {
     return t('app.status.exportNeedDesktop')
   }

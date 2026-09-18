@@ -2,7 +2,9 @@ import type { Editor } from '@tiptap/core'
 import { TextSelection } from '@tiptap/pm/state'
 import type { MutableRefObject } from 'react'
 
+import type { CompileEditorMarkdownOptions } from './tiptapEditorMarkdownSync'
 import { focusTiptapProseMirrorSurface } from './tiptapEditorFocus'
+import type { PmTocHeading } from './pmHeadingNav'
 import type {
   PendingMarkdownSyncResult,
   TiptapMarkdownEditorHandle,
@@ -20,9 +22,14 @@ type TiptapEditorHandleCoreArgs = {
   setSearchOpen: (open: boolean) => void
   bumpSearchVersion: () => void
   searchOpenRef: MutableRefObject<boolean>
+  revealSearchQuery: (editor: Editor, query: string, snippetHtml?: string) => boolean
+  clearSearch: (editor: Editor) => void
   moveSearch: (editor: Editor, direction: 1 | -1) => void
   replaceSearchNext: (editor: Editor, replacement: string) => boolean
-  compileEditorMarkdownForSync: (editor: Editor) => PendingMarkdownSyncResult
+  compileEditorMarkdownForSync: (
+    editor: Editor,
+    options?: CompileEditorMarkdownOptions,
+  ) => PendingMarkdownSyncResult
   lastExternalMarkdownRef: MutableRefObject<string>
   lastNormalizedExternalMarkdownRef: MutableRefObject<string>
   serializeTimerRef: MutableRefObject<number | null>
@@ -32,6 +39,10 @@ type TiptapEditorHandleCoreArgs = {
   normalizeMarkdown: (input: string, editor: Editor) => string
   toPendingMarkdownSyncError: (error: unknown) => Error
   composingRef: MutableRefObject<boolean>
+  headingParseTimerRef: MutableRefObject<number | null>
+  onOutlineHeadingsChangeRef: MutableRefObject<((headings: PmTocHeading[]) => void) | undefined>
+  parseHeadingsFromPmDoc: (doc: Editor['state']['doc']) => PmTocHeading[]
+  markUserEditIntent: () => void
 }
 
 export function createTiptapEditorHandleCore(
@@ -42,6 +53,9 @@ export function createTiptapEditorHandleCore(
   | 'getBoundDocumentKey'
   | 'focus'
   | 'openSearchPanel'
+  | 'revealSearchQuery'
+  | 'clearSearchHighlight'
+  | 'isSearchPanelOpen'
   | 'moveSearch'
   | 'replaceSearchNext'
   | 'collapseSelectionForNavigation'
@@ -51,6 +65,8 @@ export function createTiptapEditorHandleCore(
   | 'normalizeMarkdownForCompare'
   | 'hasUserEditedSinceDocumentLoad'
   | 'waitForCompositionEnd'
+  | 'syncOutlineHeadings'
+  | 'markUserEdited'
 > {
   const clearPendingSerialize = () => {
     if (args.serializeTimerRef.current != null) {
@@ -82,6 +98,23 @@ export function createTiptapEditorHandleCore(
       args.setSearchOpen(true)
       args.bumpSearchVersion()
       return true
+    },
+    revealSearchQuery(query: string, snippetHtml?: string) {
+      if (!args.editor) return false
+      const ok = args.revealSearchQuery(args.editor, query, snippetHtml)
+      if (!ok) return false
+      args.bumpSearchVersion()
+      return true
+    },
+    clearSearchHighlight() {
+      if (!args.editor) return false
+      args.setSearchMode('find')
+      args.clearSearch(args.editor)
+      args.bumpSearchVersion()
+      return true
+    },
+    isSearchPanelOpen() {
+      return args.searchOpenRef.current
     },
     moveSearch(direction: 1 | -1) {
       if (!args.editor) return false
@@ -132,13 +165,17 @@ export function createTiptapEditorHandleCore(
       }
       return { ok: true, markdown: next }
     },
-    flushPendingMarkdownSync(force = false, emitChange = true) {
+    flushPendingMarkdownSync(
+      force = false,
+      emitChange = true,
+      options?: { preserveCodeBlockEditing?: boolean },
+    ) {
       if (!args.editor) return args.markdown
       clearPendingSerialize()
       if (!force && (args.suppressMarkdownSyncRef?.current || !args.hasUserEditedSinceDocumentLoadRef.current)) {
         return args.lastExternalMarkdownRef.current
       }
-      const result = args.compileEditorMarkdownForSync(args.editor)
+      const result = args.compileEditorMarkdownForSync(args.editor, options)
       if (result.ok === false) {
         throw args.toPendingMarkdownSyncError(result.error)
       }
@@ -179,6 +216,19 @@ export function createTiptapEditorHandleCore(
         view.dom.addEventListener('compositionend', finish, { once: true })
         const timerId = window.setTimeout(finish, 3000)
       })
+    },
+    syncOutlineHeadings() {
+      if (!args.editor) return
+      if (args.headingParseTimerRef.current != null) {
+        window.clearTimeout(args.headingParseTimerRef.current)
+        args.headingParseTimerRef.current = null
+      }
+      args.onOutlineHeadingsChangeRef.current?.(
+        args.parseHeadingsFromPmDoc(args.editor.state.doc),
+      )
+    },
+    markUserEdited() {
+      args.markUserEditIntent()
     },
   }
 }

@@ -1,0 +1,91 @@
+.app-toast-host {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 12000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 24px));
+  pointer-events: none;
+}
+
+.app-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: min(320px, calc(100vw - 24px));
+  max-width: min(420px, calc(100vw - 24px));
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 10px);
+  border: var(--hairline) solid var(--luna-overlay-panel-border);
+  background: var(--luna-overlay-panel-bg);
+  box-shadow: var(--luna-overlay-panel-shadow);
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.app-toast-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.app-toast-message {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.app-toast-dismiss {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin: -2px -2px -2px 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.app-toast-dismiss:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface-hover) 88%, transparent);
+}
+
+.app-toast--success {
+  border-color: color-mix(in srgb, var(--luna-color-success) 34%, var(--border-subtle));
+}
+
+.app-toast--success .app-toast-icon {
+  color: var(--luna-color-success);
+}
+
+.app-toast--warning {
+  border-color: color-mix(in srgb, var(--luna-color-warning-muted) 34%, var(--border-subtle));
+}
+
+.app-toast--warning .app-toast-icon {
+  color: var(--luna-color-warning-muted);
+}
+
+.app-toast--error {
+  border-color: color-mix(in srgb, var(--luna-color-danger) 34%, var(--border-subtle));
+}
+
+.app-toast--error .app-toast-icon {
+  color: var(--luna-color-danger);
+}
+
+.app-toast--info {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+}
+
+.app-toast--info .app-toast-icon {
+  color: var(--accent);
+}

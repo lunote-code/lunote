@@ -1,4 +1,5 @@
 import { bridgeRefocusActiveEditor } from '../editor/editorMutationBridge'
+import { selectAllInFocusedNativeTextInput } from '../editor/webviewPasteFocus'
 import { dispatchAppMenuAction } from './dispatchAppMenu'
 import { COMMAND_MANIFEST } from './commandManifest.entries'
 import type { AppMenuContext, AppMenuUiDeps } from './menu.types'
@@ -83,6 +84,9 @@ export async function executeResolvedCommand(
     case 'source-command': {
       if (!VM_MUTATION_KINDS.has(resolved.kind)) {
         console.error(`[CommandVM] BUG: unknown mutation kind "${resolved.kind}" bypasses VM`)
+        return
+      }
+      if (resolved.commandId === 'edit-select-all' && selectAllInFocusedNativeTextInput()) {
         return
       }
       await runEditorMutation(resolved, m)

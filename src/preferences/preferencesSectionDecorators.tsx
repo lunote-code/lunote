@@ -7,6 +7,8 @@ import type { PrefsTabId } from './types'
 import { renderAppearanceAfterSection } from './appearance/renderAppearanceSections'
 import { EditorPerformanceCallout } from './editor/EditorPerformanceCallout'
 import { WorkspaceNotesSettings } from './workspace/WorkspaceNotesSettings'
+import { AiConnectionTestPanel } from './ai/AiConnectionTestPanel'
+import { AiApiKeySecurityCallout } from './ai/AiApiKeySecurityCallout'
 
 type ThemeCatalogEntry = { name: string }
 type SectionRenderer = (args: Args, group: GroupSetting) => ReactNode
@@ -70,6 +72,9 @@ export function createPreferencesSectionDecorators({
         <WorkspaceNotesSettings t={t} rootDir={workspaceRoot} highlightQuery={searchQuery} />
       ),
     },
+    ai: {
+      'ai.connection': () => (activeTab === 'ai' ? <AiApiKeySecurityCallout t={t} /> : null),
+    },
   }
 
   const afterSectionRenderersById: Partial<Record<string, SectionRenderer>> = {
@@ -88,6 +93,7 @@ export function createPreferencesSectionDecorators({
         </SettingsCard>
       ) : null,
     'editor.autosave': () => (activeTab === 'editor' ? <EditorPerformanceCallout t={t} /> : null),
+    'ai.connection': () => (activeTab === 'ai' ? <AiConnectionTestPanel t={t} /> : null),
   }
 
   const afterSectionRenderersBySection: Partial<Record<GroupSetting['section'], SectionRenderer>> = {

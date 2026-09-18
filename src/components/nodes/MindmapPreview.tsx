@@ -5,6 +5,7 @@ import { layoutMindmapTree } from '../../editor/mindmap/layoutMindmap'
 import { parseMindmapSource } from '../../editor/mindmap/parseMindmap'
 import { mindmapNodeShapeMarkup } from '../../editor/mindmap/renderMindmapNode'
 import { mindmapTheme } from '../../theme/mindmapTheme'
+import { useI18n } from '../../i18n'
 
 function levelColor(level: number): { fill: string; stroke: string; text: string } {
   if (level <= 0) {
@@ -21,6 +22,7 @@ type MindmapPreviewProps = {
 }
 
 export const MindmapPreview = memo(function MindmapPreview({ source }: MindmapPreviewProps) {
+  const { t } = useI18n()
   const layout = useMemo(() => {
     const root = parseMindmapSource(source)
     if (!root) return null
@@ -28,7 +30,7 @@ export const MindmapPreview = memo(function MindmapPreview({ source }: MindmapPr
   }, [source])
 
   if (!layout) {
-    return <div className="pm-mindmap-empty">Unable to parse mindmap structure</div>
+    return <div className="pm-mindmap-empty">{t('editor.mindmap.parseFailed')}</div>
   }
 
   const nodeById = new Map(layout.nodes.map((n) => [n.id, n]))
@@ -41,7 +43,7 @@ export const MindmapPreview = memo(function MindmapPreview({ source }: MindmapPr
         height={layout.height}
         viewBox={`0 0 ${layout.width} ${layout.height}`}
         role="img"
-        aria-label="Mind map preview"
+        aria-label={t('editor.mindmap.previewAria')}
       >
         <g className="pm-mindmap-edges">
           {layout.edges.map((e) => {

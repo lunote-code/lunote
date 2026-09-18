@@ -1,6 +1,8 @@
 # Lunote documentation
 
-What you see on GitHub under `docs/` — **user-facing docs only**. Start with the root [README.md](../README.md) or pick a language below.
+Product overview and user docs. Start with the root [README.md](../README.md) (English) or pick a language below.
+
+**Positioning:** AI-powered personal knowledge base — an **AI-native knowledge management workspace** where connected notes, knowledge discovery, graph visualization, and optional **workspace encryption** (AES-256-GCM, idle auto-lock) work together locally. Current app version: **1.0.3**.
 
 ## What is in this repository
 
@@ -19,7 +21,7 @@ docs/
 |------|-------------|
 | [guide/](guide/README.md) | How to use the desktop app |
 | [theme/](theme/README.md) | `~/.luna/theme/` layout, starters, [external CSS](theme/external-css.md) |
-| **[theme-example/](theme-example/README.md)** | **38 sample files** (7 CSS themes, 15 JSON tokens, 16 snippets) |
+| **[theme-example/](theme-example/README.md)** | **39 sample files** (7 CSS themes, 15 JSON tokens, 16 snippets, 1 export style) |
 | [README.en.md](README.en.md) etc. | Localized product pages |
 
 ## User guide (English)
@@ -29,7 +31,10 @@ docs/
 | [Guide index](guide/README.md) | Entry point |
 | [Themes](guide/themes.md) | Built-in themes, Theme folder, CSS, snippets, export |
 | [Shortcuts & menus](guide/shortcuts-and-menus.md) | Command Palette, shortcuts, **`/`** slash commands |
-| [Templates](Templates/README.md) | Default and daily note templates, variables |
+| [Workspace encryption](guide/workspace-encryption.md) | AES-256-GCM, optional image encryption, idle auto-lock |
+| [Knowledge graph](guide/knowledge-graph.md) | Local subgraph, Global / fullscreen, performance caps |
+| [Editor Tab semantics](guide/editor-tab-semantics.md) | Visual vs source Tab, block-level Select All |
+| [Templates](Templates/README.md) | Default and daily note templates, variables, optional new-note templates |
 | [Platform differences](guide/platform-differences.md) | PDF, print, reveal in file manager, OS notes |
 | [Packaging & signing](packaging-strategy.md) | Release workflow, GitHub Secrets, installers |
 
@@ -57,14 +62,16 @@ READMEs expect media under `docs/assets/`:
 
 ```text
 assets/demo/lunote-demo.gif
-assets/screenshots/head-view.png
+assets/screenshots/AI.png
+assets/screenshots/graph.png
+assets/screenshots/ai+code-view.png
 assets/screenshots/code-view.png
 assets/screenshots/source-view.png
-assets/screenshots/graph.png
+assets/screenshots/mermaid.png
 assets/screenshots/search.png
-assets/screenshots/snipaste.png
 assets/screenshots/theme.png
-assets/screenshots/language/*.png   ← localized hero per README locale
+assets/screenshots/head-view.png
+assets/screenshots/snipaste.png
 ```
 
 Root [README.md](../README.md) uses the `docs/assets/` prefix; files in `docs/README.*.md` use `assets/` (relative to `docs/`).

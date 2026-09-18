@@ -24,8 +24,8 @@ export default defineConfig(() => {
         }
       : undefined,
     build: {
-      //Desktop Tauri application; mainly includes editor/Mermaid, etc. The larger size is expected
-      chunkSizeWarningLimit: 5000,
+      // Desktop Tauri app; app-root includes editor stack (~5.1 MB minified).
+      chunkSizeWarningLimit: 5200,
       rollupOptions: {
         input: {
           main: resolve(__dirname, 'index.html'),

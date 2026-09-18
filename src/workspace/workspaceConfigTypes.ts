@@ -1,4 +1,6 @@
 export type WorkspaceTemplatesConfig = {
+  /** When false, New uses the built-in note and Lunote does not auto-create the templates folder. */
+  enabled?: boolean
   folder?: string
   defaultNewNote?: string
   /** Most recently selected templates in this workspace, newest first. */
@@ -25,6 +27,7 @@ export const WORKSPACE_CONFIG_RELATIVE_PATH = '.lunote/workspace.json'
 export const DEFAULT_WORKSPACE_CONFIG: WorkspaceConfig = {
   version: 1,
   templates: {
+    enabled: true,
     folder: 'Templates',
     defaultNewNote: 'Templates/Default.md',
     recentlyUsed: [],

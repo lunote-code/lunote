@@ -95,6 +95,7 @@ async function loadDevQaPlayground(qa: string): Promise<ComponentType | null> {
     menu: 'QaMenuPlayground',
     'multi-tab': 'QaMultiTabPlayground',
     'sidebar-search': 'QaSidebarSearchPlayground',
+    'note-calendar': 'QaNoteCalendarPlayground',
     'workspace-tree': 'QaWorkspaceTreePlayground',
     'window-title': 'QaWindowTitlePlayground',
     'context-menu': 'QaContextMenuPlayground',
@@ -104,6 +105,15 @@ async function loadDevQaPlayground(qa: string): Promise<ComponentType | null> {
     'workspace-bulk': 'QaBulkWorkspacePlayground',
     'native-input-clipboard': 'QaNativeInputClipboardPlayground',
     'plugin-catalog-media': 'QaPluginCatalogMediaPlayground',
+    'daily-note': 'QaDailyNotePlayground',
+    'external-sync': 'QaExternalSyncPlayground',
+    'workspace-overlays': 'QaWorkspaceOverlaysPlayground',
+    ai: 'QaAiPlayground',
+    'app-ux-p1': 'QaAppUxP1Playground',
+    'app-ux-p2': 'QaAppUxP2Playground',
+    'app-root-outline': 'QaAppRootOutlinePlayground',
+    'template-picker': 'QaTemplatePickerPlayground',
+    'encrypted-workspace-image': 'QaEncryptedWorkspaceImagePlayground',
   }
 
   const routes: Record<string, QaPlaygroundLoader> = {
@@ -123,6 +133,7 @@ async function loadDevQaPlayground(qa: string): Promise<ComponentType | null> {
     menu: () => import('./app/QaMenuPlayground'),
     'multi-tab': () => import('./app/QaMultiTabPlayground'),
     'sidebar-search': () => import('./app/QaSidebarSearchPlayground'),
+    'note-calendar': () => import('./app/QaNoteCalendarPlayground'),
     'workspace-tree': () => import('./app/QaWorkspaceTreePlayground'),
     'window-title': () => import('./app/QaWindowTitlePlayground'),
     'context-menu': () => import('./app/QaContextMenuPlayground'),
@@ -132,6 +143,15 @@ async function loadDevQaPlayground(qa: string): Promise<ComponentType | null> {
     'workspace-bulk': () => import('./app/QaBulkWorkspacePlayground'),
     'native-input-clipboard': () => import('./app/QaNativeInputClipboardPlayground'),
     'plugin-catalog-media': () => import('./app/QaPluginCatalogMediaPlayground'),
+    'daily-note': () => import('./app/QaDailyNotePlayground'),
+    'external-sync': () => import('./app/QaExternalSyncPlayground'),
+    'workspace-overlays': () => import('./app/QaWorkspaceOverlaysPlayground'),
+    ai: () => import('./app/QaAiPlayground'),
+    'app-ux-p1': () => import('./app/QaAppUxP1Playground'),
+    'app-ux-p2': () => import('./app/QaAppUxP2Playground'),
+    'app-root-outline': () => import('./app/QaAppRootOutlinePlayground'),
+    'template-picker': () => import('./app/QaTemplatePickerPlayground'),
+    'encrypted-workspace-image': () => import('./app/QaEncryptedWorkspaceImagePlayground'),
   }
 
   const loader = routes[qa]

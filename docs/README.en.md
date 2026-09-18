@@ -5,9 +5,9 @@
 <h1 align="center">Lunote</h1>
 
 <p align="center">
-  <strong>Open your Markdown folder—write, link, and explore a knowledge graph—with built-in tools and optional theme plugins.</strong><br />
-  <em>Free, open source, offline. Every note stays a plain <code>.md</code> file on your disk.</em><br />
-  <em>Your notes stay on your computer. No account, no upload—sync the folder yourself if you want.</em>
+  <strong>Build a connected knowledge system with AI.</strong><br />
+  <em>Lunote combines Markdown notes, wiki links, knowledge graph visualization, and AI-powered knowledge discovery to help you think, learn, and create more effectively.</em><br />
+  <em>Turn scattered notes into connected knowledge — local-first, optional AES-256 workspace encryption, and fully under your control.</em>
 </p>
 
 <p align="center">
@@ -19,15 +19,16 @@
   <a href="https://github.com/lunote-code/lunote/releases"><img src="https://img.shields.io/github/v/release/lunote-code/lunote?include_prereleases" alt="latest release" /></a>
   <a href="#download"><img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue" alt="platform" /></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-Open%20Source-lightgrey" alt="license" /></a>
+  <a href="#key-features"><img src="https://img.shields.io/badge/workspace%20encryption-AES--256--GCM-green" alt="AES-256 workspace encryption" /></a>
 </p>
 
 <h3 align="center">
-  <a href="#preview">Screenshot</a> &nbsp;|&nbsp;
-  <a href="#overview">What is Lunote</a> &nbsp;|&nbsp;
-  <a href="#capabilities">Features</a> &nbsp;|&nbsp;
+  <a href="#preview">Screenshots</a> &nbsp;|&nbsp;
+  <a href="#why-lunote">Why Lunote</a> &nbsp;|&nbsp;
+  <a href="#key-features">Features</a> &nbsp;|&nbsp;
+  <a href="#getting-started">Getting Started</a> &nbsp;|&nbsp;
   <a href="#download">Download</a> &nbsp;|&nbsp;
-  <a href="#development">Development</a> &nbsp;|&nbsp;
-  <a href="#contribution">Contribution</a>
+  <a href="#contributing">Contributing</a>
 </h3>
 
 <p align="center">
@@ -36,24 +37,21 @@
 
 <p align="center">
   <strong>Translations:</strong>
-  <a href="docs/README.zh-CN.md">🇨🇳</a>
-  <a href="docs/README.zh-TW.md">🇹🇼</a>
-  <a href="docs/README.ja.md">🇯🇵</a>
-  <a href="docs/README.ko.md">🇰🇷</a>
-  <a href="docs/README.de.md">🇩🇪</a>
-  <a href="docs/README.fr.md">🇫🇷</a>
-  <a href="docs/README.es.md">🇪🇸</a>
-  <a href="docs/README.pt.md">🇵🇹</a>
-  <a href="docs/README.it.md">🇮🇹</a>
-  <a href="docs/README.ru.md">🇷🇺</a>
+  <a href="../README.md">🇬🇧</a>
+  <a href="README.zh-CN.md">🇨🇳</a>
+  <a href="README.zh-TW.md">🇹🇼</a>
+  <a href="README.ja.md">🇯🇵</a>
+  <a href="README.ko.md">🇰🇷</a>
+  <a href="README.de.md">🇩🇪</a>
+  <a href="README.fr.md">🇫🇷</a>
+  <a href="README.es.md">🇪🇸</a>
+  <a href="README.pt.md">🇵🇹</a>
+  <a href="README.it.md">🇮🇹</a>
+  <a href="README.ru.md">🇷🇺</a>
 </p>
 
 <p align="center">
   <strong>Guide:</strong> <a href="guide/themes.md">Themes</a> · <a href="guide/shortcuts-and-menus.md">Shortcuts & slash (/) commands</a> · <a href="guide/README.md">All guides</a>
-</p>
-
-<p align="center">
-  <strong>Typora-style writing + Obsidian-style linking — built in, plus a theme plugin catalog.</strong>
 </p>
 
 <p align="center">
@@ -63,106 +61,169 @@
 </p>
 
 <p align="center">
-  <a href="#preview">Screenshot</a> · <a href="#overview">What is Lunote</a> · <a href="#capabilities">Features</a> · <a href="#download">Download</a> · <a href="#quick-start">Quick start</a> · <a href="#user-guide">User guide</a> · <a href="#faq">FAQ</a>
+  <a href="#preview">Screenshots</a> · <a href="#why-lunote">Why Lunote</a> · <a href="#key-features">Features</a> · <a href="#compare">Compare</a> · <a href="#download">Download</a> · <a href="#getting-started">Getting Started</a> · <a href="#faq">FAQ</a>
 </p>
 
 <!-- readme-demo-gif -->
 <p align="center">
-  <a href="#preview">
-    <img src="assets/demo/lunote-demo.gif" alt="Lunote — demo: writing, wiki links, knowledge graph, themes, plugins" width="720" />
-  </a>
+  <img src="assets/demo/lunote-demo.gif" alt="Lunote — demo: connected knowledge, wiki links, AI, knowledge graph visualization" width="720" />
 </p>
-<p align="center"><sub>Write · `[[wiki links]]` · backlinks · graph · export · themes · plugins</sub></p>
+<p align="center"><sub>Connected knowledge · `[[wiki links]]` · AI discovery · graph visualization · local-first · optional encryption</sub></p>
 
 ---
 
-<a id="preview"></a>
-
-## Screenshot
-
-<p align="center">
-  <img src="assets/screenshots/language/en.png" alt="Lunote — first launch" width="720" />
-</p>
-
-| Code editor | Source view | Knowledge graph |
-| :---: | :---: | :---: |
-| <img src="assets/screenshots/code-view.png" alt="Code editor" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/source-view.png" alt="Source view" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/graph.png" alt="Knowledge graph" width="240" style="max-width: 100%; height: auto;" /> |
-
-| Global search | History snapshots | Theme settings |
-| :---: | :---: | :---: |
-| <img src="assets/screenshots/search.png" alt="Global search" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/snipaste.png" alt="History snapshots" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="Theme settings" width="240" style="max-width: 100%; height: auto;" /> |
-
----
-
-<!-- readme-body-start -->
-<a id="overview"></a>
-
-## What is Lunote
-
-Lunote is a **local-first** Markdown notes app for macOS, Windows, and Linux. Open any folder of **`.md` files** as your workspace to write, connect notes with `[[wiki links]]`, and explore backlinks and a knowledge graph—**no account required**; optional theme packs are available in **Preferences → Plugins**.
-
-- Open any folder of **`.md` files** as your workspace
-- **Visual and source** editing with one shortcut to switch modes
-- Built-in **wiki links**, backlinks, graph, outline, and search
-- **Preferences → Plugins**: browse theme packs (CSS, snippets, tokens) from the [lunote-theme](https://github.com/lunote-code/lunote-theme) catalog
+Lunote is an **AI-native knowledge management workspace** — a personal knowledge base where ideas connect, grow, and become something AI can truly understand. Open any folder of `.md` files and start building a system, not just a pile of notes.
 
 | | |
 |---|---|
 | **Platforms** | macOS, Windows, Linux |
 | **UI languages** | English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Français, Español, Русский, Português (Brasil), Italiano |
 | **Export** | PDF, Word (DOCX), HTML, PNG · print |
+| **Security** | Optional workspace encryption (AES-256-GCM) · passwords never saved on disk |
+
+See [CHANGELOG.md](../CHANGELOG.md) for release notes. **v1.0.3** patch: idle auto-lock for encrypted workspaces, optional new-note templates (turning them off no longer auto-creates a `Templates/` folder), and editor caret / source-mode / version-history fixes.
 
 ---
 
-<a id="capabilities"></a>
+<a id="why-lunote"></a>
 
-## Core features
+## Why Lunote
 
-Pick your workflow—these capabilities ship in the app:
+Most note apps help you **capture** information. Few help you **build knowledge**.
 
-### Write
+- **Ordinary notes become silos** — ideas pile up in folders, but relationships stay invisible. You remember writing something, but not how it connects to everything else.
+- **Connections are how knowledge compounds** — wiki links, backlinks, and related notes turn isolated pages into a network you can navigate, revisit, and extend.
+- **AI should understand your whole knowledge base** — not just the open document. When AI reads your workspace context, linked notes, and search results, it can synthesize, suggest links, surface gaps, and help you form new insights.
+- **Your notes can stay encrypted at rest** — optional AES-256-GCM workspace encryption protects Markdown on disk; image attachments stay plaintext unless you enable **Encrypt images**; unlock with your password each session; idle auto-lock can lock after inactivity; passwords are never saved.
 
-*For essays, docs, and daily notes—you see formatted text or raw Markdown.*
+Lunote is built for this: a **local-first personal knowledge base** with optional **workspace encryption**, where connected thinking and AI understanding work together — without cloud lock-in, accounts, or a plugin maze.
 
-- Visual editor and **Markdown source**; `Cmd+/` / `Ctrl+/` to switch
-- **`/` slash menu** for headings, lists, tables, code, Mermaid, callouts, wiki links
-- Tables, math, images, Mermaid, **focus mode**, Command Palette (`Cmd+Shift+P`)
-- **Code blocks** with line numbers, syntax highlighting, language picker, fold, and copy
-- **Formatting toolbar** (Callout, colors, etc.); hide via **File → Preferences → Typography**
-- Adjust **reading column width**, font family, and font size in **Preferences → Typography**
+---
 
-### Link notes
+<a id="key-features"></a>
 
-*For a second brain: `[[links]]`, backlinks, and a graph—built in.*
+## Key Features
 
-- `[[wiki links]]` with autocomplete and safe navigation
-- **Knowledge panel**: backlinks, local graph, embeds, tags, and **YAML frontmatter**
-- Renaming a note updates `[[links]]` across the folder
+<!-- readme-body-start -->
 
-### Organize
+### AI-Powered Knowledge Base
 
-*When the vault grows: tabs, outline, and search across every note.*
+AI that understands and works with your notes — not a sidecar chat window.
 
-- Sidebar file tree, tabs, and **global search** (`Cmd+Shift+F`)
-- Per-note **outline** and external file change detection
-- Save, conflict handling, reveal in file manager
+- **Workspace-aware conversations** — chat with context from the current note, selection, `@`-mentioned notes, linked neighbors, and workspace search
+- **AI search** — retrieve relevant snippets across your vault when you ask
+- **Summaries & synthesis** — condense notes, selections, or themes into clear takeaways
+- **Writing assistance** — continue, rewrite, translate, and structure content in Lunote Markdown
+- **Knowledge synthesis** — cross-note analysis, workspace overviews, and topic-level insight
 
-### Export & look
+Bring your own API key (OpenAI, Anthropic, Google, DeepSeek, OpenRouter, Ollama, and more) in **Preferences → AI**.
 
-*Share or print: PDF, Word, HTML—plus themes and optional plugin packs.*
+### Connected Knowledge
 
-- Export to **PDF, HTML, DOCX, PNG**; system **print**
-- Light/dark themes, **Theme folder**, external CSS
-- **Reading column width** presets (Narrow / Standard / Wide) for visual mode and preview
-- **Preferences → Plugins**: install theme packs from the [lunote-theme](https://github.com/lunote-code/lunote-theme) catalog
+Build relationships between ideas — the foundation of a living knowledge system.
 
-### History
+- **Wiki links** — `[[link notes]]` naturally as you write; rename a note and links update across the vault
+- **Backlinks** — see what points to the note you're reading
+- **Related notes** — follow threads without losing context
+- **Bidirectional linking** — connections work both ways, automatically
 
-*Try bold edits—snapshots let you preview before saving to disk.*
+### Knowledge Discovery
 
-- Per-note **snapshots**; restore to the editor without overwriting disk until you save
+Find related ideas, patterns, and hidden connections across your workspace.
+
+- **Link suggestions** — AI proposes `[[wiki links]]` based on your existing notes
+- **Relationship discovery** — surface how topics cluster and relate
+- **Topic exploration** — map what you know, what's missing, and what to write next
+- **Missing connection detection** — spot gaps, orphans, and underlinked ideas
+
+### Knowledge Graph Visualization
+
+The graph is a **view of your knowledge network** — how ideas connect around what you're thinking about right now.
+
+- **Local subgraph** centered on the open note — choose depth and filters
+- **Navigate by connection** — jump between linked notes from the graph
+- **See knowledge evolve** — watch clusters form as you link more ideas
+
+> The default view is a **local subgraph** around the active note. Use **Global** or fullscreen for a workspace-wide link graph. Performance caps: **extended** (default) 400 nodes / 700 edges, **standard** 250 / 400, **compact** 120 / 200 — not an unlimited vault graph like Obsidian.
+
+### Markdown Native
+
+Future-proof notes in an open, portable format.
+
+- **Markdown first** — write in visual or source mode; focus mode when you need depth
+- **Open format** — plain `.md` files on disk; no proprietary database
+- **Portable notes** — open the same folder in Obsidian, Typora, or any Markdown tool
+- **Rich content** — code blocks, tables, math, Mermaid, callouts; export to PDF, Word, HTML, PNG
+
+### Workspace Encryption
+
+Protect sensitive notes at rest — built in, no plugin required.
+
+- **AES-256-GCM** — Markdown note bodies encrypted on disk
+- **Password per session** — unlock when opening the workspace; never saved to disk
+- **Optional per workspace** — enable in **Preferences → Security**
+- **Images optional** — attachments stay plaintext by default; enable **Encrypt images** to encrypt common image files (PNG, JPEG, WebP, GIF, HEIC, SVG, etc.)
+- **Idle auto-lock** — after inactivity (default 5 minutes; off, 1–60 minutes, or Never), save then lock an unlocked encrypted workspace; leftover dirty work skips the lock
+
+### Local First
+
+Your knowledge stays under your control.
+
+- **You own the data** — notes live on your machine in a workspace folder
+- **Workspace based** — open any vault; sync with Git, Syncthing, or iCloud on your terms
+- **Privacy friendly** — offline-first, no account required; AI calls only what you configure
+- **Encryption when you need it** — see [Workspace Encryption](#key-features) above; passwords never saved on disk
+- **Lightweight** — core knowledge tools built in; [theme packs](https://github.com/lunote-code/lunote-theme) optional
+
+### Productivity essentials
+
+- Tabs, outline, Command Palette (`Cmd+Shift+P`), per-note snapshots and version history
+- Global search (`Cmd+Shift+F` / `Ctrl+Shift+F`), `/` slash menu (AI continue / summarize / improve, drawing canvas, mindmap)
+- Daily notes, optional new-note templates, system-tray quick capture
+- Light/dark themes and optional packs in **Preferences → Plugins**
 
 <!-- readme-body-end -->
+
+---
+
+<a id="preview"></a>
+
+## Screenshots
+
+<p align="center">
+  <img src="assets/screenshots/ai+code-view.png" alt="AI + code view — workspace-aware writing" width="720" />
+</p>
+<p align="center"><sub>AI + code view — workspace-aware writing</sub></p>
+
+<p align="center">
+  <img src="assets/screenshots/graph.png" alt="Knowledge graph — explore connected ideas" width="720" />
+</p>
+<p align="center"><sub>Knowledge graph — explore connected ideas</sub></p>
+
+### More
+
+| AI assistant | Code editor | Source view |
+| :---: | :---: | :---: |
+| <img src="assets/screenshots/AI.png" alt="AI assistant" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/code-view.png" alt="Code editor" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/source-view.png" alt="Source view" width="240" style="max-width: 100%; height: auto;" /> |
+
+| Mermaid diagrams | Global search | Theme settings |
+| :---: | :---: | :---: |
+| <img src="assets/screenshots/mermaid.png" alt="Mermaid diagrams" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/search.png" alt="Global search" width="240" style="max-width: 100%; height: auto;" /> | <img src="assets/screenshots/theme.png" alt="Theme settings" width="240" style="max-width: 100%; height: auto;" /> |
+
+---
+
+<a id="getting-started"></a>
+
+## Getting Started
+
+1. **[Download](#download)** Lunote for macOS, Windows, or Linux.
+2. **Open your workspace** — an Obsidian vault, Notion export folder, Typora directory, or any `.md` folder. No import step.
+3. **Build connections** — type `[[` to link notes; check backlinks and the knowledge graph around your current note.
+4. **Enable AI** — add your API key in **Preferences → AI**, then ask about your note or whole workspace.
+5. **Discover & grow** — use AI link suggestions, workspace overviews, and search to find patterns and gaps.
+6. **Optional: encrypt your workspace** — in **Preferences → Security**, enable workspace encryption to protect Markdown notes at rest. Enter your password when opening the workspace. Turn on **Encrypt images** if you want attachments encrypted too; set **Auto-lock after inactivity** if you want the session to lock when idle.
+
+> **Switching tools?** Your files never move. Any Markdown app can read the same folder.
 
 ---
 
@@ -172,7 +233,7 @@ Pick your workflow—these capabilities ship in the app:
 
 **[Download latest release →](https://github.com/lunote-code/lunote/releases)**
 
-No sign-up · local `.md` files only · works offline
+No sign-up · local `.md` files only · works offline · **optional workspace encryption**
 
 <details>
 <summary><strong>macOS first launch (Gatekeeper)</strong></summary>
@@ -192,38 +253,55 @@ No sign-up · local `.md` files only · works offline
 
 ---
 
-<a id="quick-start"></a>
+<a id="compare"></a>
 
-## Quick start
+## Lunote vs Notion vs Obsidian
 
-1. **[Download](#download)** Lunote for your platform.
-2. **Open your existing vault**—Obsidian, Logseq, Typora, or any folder of `.md` files. No import step.
-3. Write, type `[[` to link notes, use `Cmd+Shift+F` / `Ctrl+Shift+F` to search, and export when you need PDF or Word.
-
-> **Migrating?** Your files stay where they are. You can switch back to other tools anytime—they read the same Markdown.
-
----
-
-<a id="why-lunote"></a>
-
-## Why Lunote
-
-- **Your files**: notes stay as normal `.md` in folders you control.
-- **One app**: comfortable writing, wiki links, graph, and optional theme packs—core features work out of the box.
-
----
-
-<a id="typora-vs-obsidian-vs-lunote"></a>
-
-## How it compares
-
-Already on Typora or Obsidian? Lunote is for people who want **comfortable writing and wiki links in one desktop app**, with optional theme packs when you want more.
-
-| | Typora | Obsidian | Lunote |
+| | Notion | Obsidian | Lunote |
 |---|---|---|---|
-| **Writing** | Excellent | Good | Excellent, built-in |
-| **Wiki links & graph** | Limited | Strong (often via plugins) | Strong, built-in |
-| **Plugins to get started** | Few | Many | **Optional** (theme catalog) |
+| **Your data** | Cloud account | Local `.md` files | Local `.md` files |
+| **Knowledge model** | Pages in a workspace | Vault + plugins | Connected workspace, built in |
+| **AI** | Cloud AI on their data | Plugin-dependent | Workspace-aware AI (your API key) |
+| **Wiki links & graph** | Basic | Full-vault graph (often plugin) | **Local subgraph** + discovery, built in |
+| **Time to first note** | Sign up, then write | Tune plugins (optional) | Open folder → connect ideas |
+| **Workspace encryption** | No | Plugin / OS-level | **Built-in** (AES-256-GCM, optional) |
+| **Offline & privacy** | Partial | Full offline | Full offline, no account |
+
+---
+
+<a id="use-cases"></a>
+
+## Use cases
+
+- **Personal knowledge base** — grow a second brain with wiki links, backlinks, and AI synthesis
+- **Research & learning** — connect readings, summaries, and insights across topics
+- **Developer docs** — ADRs, runbooks, and snippets with code blocks and PDF export
+- **Leaving Notion or Obsidian** — same Markdown folders, less overhead, no upload
+- **Sensitive notes & journals** — optional workspace encryption keeps Markdown notes protected at rest; enable **Encrypt images** for common image attachments
+- **Team async docs** — share a workspace via Git; everyone keeps plain `.md` files
+
+---
+
+<a id="roadmap"></a>
+
+## Roadmap
+
+Lunote is actively evolving toward a deeper **AI-native knowledge management** experience. Direction includes:
+
+- Richer **knowledge discovery** — smarter link suggestions, topic maps, and gap detection
+- Deeper **AI workspace understanding** — better context, synthesis, and cross-note reasoning
+- Expanded **graph visualization** — more ways to explore how knowledge connects
+- Continued **local-first** polish — performance, export, and cross-platform reliability
+
+Track progress and propose ideas in [GitHub Discussions](https://github.com/lunote-code/lunote/discussions) and [Issues](https://github.com/lunote-code/lunote/issues).
+
+---
+
+<a id="star"></a>
+
+## Star Lunote on GitHub
+
+If Lunote helps you build connected knowledge, **[star the repository](https://github.com/lunote-code/lunote)** — it helps others discover an AI-powered personal knowledge base. Stories and ideas welcome in [Discussions](https://github.com/lunote-code/lunote/discussions).
 
 ---
 
@@ -231,10 +309,12 @@ Already on Typora or Obsidian? Lunote is for people who want **comfortable writi
 
 ## User guide
 
-English how-to guides (themes, shortcuts, and the full **`/`** slash command list):
+English how-to guides (themes, shortcuts, encryption, graph, and the full **`/`** slash command list):
 
 - [Themes](guide/themes.md) — built-in themes, Theme folder, external CSS, snippets, export styles, **Preferences → Plugins** catalog
 - [Shortcuts & quick menus](guide/shortcuts-and-menus.md) — Command Palette, keyboard shortcuts, full **`/`** slash command list
+- [Workspace encryption](guide/workspace-encryption.md) — AES-256-GCM, optional image encryption, idle auto-lock
+- [Knowledge graph](guide/knowledge-graph.md) — local subgraph, Global / fullscreen, performance caps
 - [Platform differences](guide/platform-differences.md) — OS-specific PDF, print, reveal, and troubleshooting
 - [Guide index](guide/README.md) — all guide pages
 
@@ -255,9 +335,9 @@ Questions? [Open an issue](https://github.com/lunote-code/lunote/issues). Pull r
 
 ---
 
-<a id="contribution"></a>
+<a id="contributing"></a>
 
-## Contribution
+## Contributing
 
 Before a pull request:
 
@@ -272,22 +352,31 @@ Ideas and migration stories: [Discussions](https://github.com/lunote-code/lunote
 ## FAQ
 
 **Do I need an account or internet?**  
-No. Lunote works offline. Notes stay local unless you sync the folder yourself (Git, Syncthing, iCloud Drive, etc.).
+No. Lunote is offline-first. Notes stay local until you sync the folder yourself. AI features require your own API key and network when you use them.
 
-**Can I open my Obsidian or Typora folder?**  
-Yes. Open the folder as your workspace—same `.md` files, no import.
+**Is Lunote an AI note app or a Markdown editor?**  
+Lunote is a **personal knowledge base** — Markdown is how your notes are stored, and AI is how your workspace becomes understandable and discoverable. The editor serves the knowledge system, not the other way around.
 
-**Can I use Lunote alongside Obsidian?**  
-Yes. Both can point at the same folder. Lunote does not lock your data.
+**Can I open my Obsidian vault?**  
+Yes. Point Lunote at the same folder. No migration step.
 
 **Does it replace Obsidian or Notion entirely?**  
-Not always. Lunote focuses on desktop writing + built-in linking. If you need mobile apps or a large plugin ecosystem, you may still pair other tools.
+Not always. Lunote focuses on connected knowledge, workspace-aware AI, and local-first desktop workflows. Pair it with mobile or specialized plugins if you need them.
+
+**Full vault graph like Obsidian Graph view?**  
+Partially. Lunote defaults to a **local subgraph** around the open note. You can switch to a **workspace graph** in the knowledge rail or open it fullscreen — all linked notes in the workspace, up to performance caps (default **extended** tier: 400 nodes / 700 edges; **standard**: 250 / 400; **compact**: 120 / 200). It is not an unlimited whole-vault graph like Obsidian’s Graph view.
+
+**How does AI use my notes?**  
+AI context includes the current note, selection, `@`-mentioned notes, linked neighbors, and workspace search snippets — only what you send in a conversation. Configure your provider in **Preferences → AI**.
+
+**Can I encrypt my workspace?**  
+Yes. In **Preferences → Security**, you can optionally enable **workspace encryption**. Markdown notes are stored encrypted on disk; enter your password when opening the workspace. Image attachments stay plaintext unless you enable **Encrypt images**. Idle **auto-lock** can lock an unlocked session after inactivity. Passwords stay in memory only and are never saved — if you lose the password, encrypted notes cannot be recovered.
 
 **Are there plugins?**  
-Yes—for themes. Open **Preferences → Plugins** to browse packs from the [lunote-theme](https://github.com/lunote-code/lunote-theme) catalog (CSS, snippets, JSON tokens). Wiki links, graph, and export work without installing anything.
+Only for themes — optional packs in **Preferences → Plugins** from [lunote-theme](https://github.com/lunote-code/lunote-theme). Wiki links, knowledge graph, AI, and export work without installing anything.
 
-**How do I report bugs or share ideas?**  
-[Open an issue](https://github.com/lunote-code/lunote/issues) or join a [discussion](https://github.com/lunote-code/lunote/discussions)—migration stories help others find Lunote.
+**Feedback?**  
+[Open an issue](https://github.com/lunote-code/lunote/issues) or [start a discussion](https://github.com/lunote-code/lunote/discussions).
 
 ---
 

@@ -1,4 +1,4 @@
-import versionConfig from '../../../version.json'
+import versionConfig from '../../../version.json' with { type: 'json' }
 
 /** Installation package/executable file name (short name), consistent with tauri.conf productName*/
 export const APP_SHORT_NAME = 'Lunote'
@@ -28,3 +28,6 @@ export const LARGE_DOC_THRESHOLD = 400_000
 
 /** Maximum recent workspace files shown in the sidebar empty state. */
 export const RECENT_FILES_LIMIT = 16
+
+/** Maximum recent workspace folders in sidebar and menus. */
+export const RECENT_WORKSPACES_LIMIT = 8

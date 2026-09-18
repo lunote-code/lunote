@@ -16,6 +16,9 @@ import {
   type ParagraphChild,
 } from 'docx'
 import { loadImageForWord, svgElementToWordImage } from './wordExportMedia'
+import { resolveExportUiLocale } from './exportLocaleTypography'
+import { resolveExportTocTitle } from './exportTocHtml'
+import { getEnMessagesSnapshot, getLocaleMessagesSnapshot, type UiLocaleId } from '../i18n'
 
 const HEADINGS = [
   HeadingLevel.HEADING_1,
@@ -47,6 +50,52 @@ const CALLOUT_LABEL: Record<string, string> = {
   caution: 'CAUTION',
   danger: 'DANGER',
 }
+
+function resolveMermaidExportLabels(localeId?: UiLocaleId): {
+  diagramLabel: string
+  diagramAltName: string
+} {
+  const locale = localeId ?? resolveExportUiLocale()
+  const en = getEnMessagesSnapshot()
+  let messages = en
+  try {
+    messages = getLocaleMessagesSnapshot(locale)
+  } catch {
+    /* locale not warmed yet */
+  }
+  return {
+    diagramLabel:
+      messages['export.mermaid.diagramLabel'] ??
+      en['export.mermaid.diagramLabel'] ??
+      'Mermaid diagram',
+    diagramAltName:
+      messages['export.mermaid.diagramAltName'] ?? en['export.mermaid.diagramAltName'] ?? 'Mermaid',
+  }
+}
+
+function resolveDocxExportCopy(localeId?: UiLocaleId): {
+  tocTitle: string
+  footnotesTitle: string
+  formulaPlaceholder: string
+} {
+  const locale = localeId ?? activeDocxExportLocaleId ?? resolveExportUiLocale()
+  const en = getEnMessagesSnapshot()
+  let messages = en
+  try {
+    messages = getLocaleMessagesSnapshot(locale)
+  } catch {
+    /* locale not warmed yet */
+  }
+  return {
+    tocTitle: resolveExportTocTitle(locale),
+    footnotesTitle:
+      messages['export.footnotes.title'] ?? en['export.footnotes.title'] ?? 'Footnotes',
+    formulaPlaceholder:
+      messages['export.formula.placeholder'] ?? en['export.formula.placeholder'] ?? '[Formula]',
+  }
+}
+
+let activeDocxExportLocaleId: UiLocaleId | undefined
 
 type InlineDeco = {
   bold?: boolean
@@ -242,6 +291,7 @@ async function tableFromHtml(table: HTMLTableElement): Promise<Table> {
 }
 
 async function mermaidBlockToParagraphs(el: Element): Promise<Paragraph[]> {
+  const { diagramLabel, diagramAltName } = resolveMermaidExportLabels(activeDocxExportLocaleId)
   const svg = el.querySelector('svg')
   if (svg) {
     const payload = await svgElementToWordImage(svg)
@@ -254,14 +304,18 @@ async function mermaidBlockToParagraphs(el: Element): Promise<Paragraph[]> {
               type: 'png',
               data: payload.data,
               transformation: { width: payload.width, height: payload.height },
-              altText: { title: 'Mermaid diagram', description: 'Mermaid diagram', name: 'Mermaid' },
+              altText: {
+                title: diagramLabel,
+                description: diagramLabel,
+                name: diagramAltName,
+              },
             }),
           ],
         }),
       ]
     }
   }
-  return [paragraphFromChildren([textRun('[Mermaid diagram]')], { spacing: { after: 120 } })]
+  return [paragraphFromChildren([textRun(`[${diagramLabel}]`)], { spacing: { after: 120 } })]
 }
 
 async function calloutToParagraphs(el: Element): Promise<Paragraph[]> {
@@ -302,11 +356,12 @@ async function definitionListToParagraphs(el: Element): Promise<Paragraph[]> {
 }
 
 async function tocToParagraphs(nav: Element): Promise<Paragraph[]> {
+  const { tocTitle } = resolveDocxExportCopy()
   const out: Paragraph[] = [
     new Paragraph({
       heading: HeadingLevel.HEADING_2,
       spacing: { after: 120 },
-      children: [textRun(nav.querySelector('.md-export-toc-title')?.textContent?.trim() || 'Table of contents')],
+      children: [textRun(nav.querySelector('.md-export-toc-title')?.textContent?.trim() || tocTitle)],
     }),
   ]
   for (const item of Array.from(nav.querySelectorAll('.md-export-toc-item'))) {
@@ -328,11 +383,12 @@ async function tocToParagraphs(nav: Element): Promise<Paragraph[]> {
 }
 
 async function footnotesSectionToParagraphs(section: Element): Promise<Paragraph[]> {
+  const { footnotesTitle } = resolveDocxExportCopy()
   const out: Paragraph[] = [
     new Paragraph({
       heading: HeadingLevel.HEADING_2,
       spacing: { before: 240, after: 120 },
-      children: [textRun(section.querySelector('h2')?.textContent?.trim() || 'Footnotes')],
+      children: [textRun(section.querySelector('h2')?.textContent?.trim() || footnotesTitle)],
     }),
   ]
   const items = section.querySelectorAll('li[id]')
@@ -369,11 +425,12 @@ async function blockElementToDocx(el: Element): Promise<(Paragraph | Table)[]> {
     if (el.classList.contains('katex-display') || el.querySelector('.katex-display')) {
       const katex = el.classList.contains('katex-display') ? el : el.querySelector('.katex-display')
       const tex = katex ? katexPlainText(katex) : el.textContent?.trim() ?? ''
+      const { formulaPlaceholder } = resolveDocxExportCopy()
       return [
         new Paragraph({
           spacing: { before: 120, after: 120 },
           alignment: 'center',
-          children: [textRun(tex || '[Formula]', { font: 'Cambria Math', italics: true })],
+          children: [textRun(tex || formulaPlaceholder, { font: 'Cambria Math', italics: true })],
         }),
       ]
     }
@@ -506,24 +563,30 @@ export type WordExportHtmlOptions = {
   sourcePath?: string
   rootDir?: string
   dark?: boolean
+  localeId?: UiLocaleId
 }
 
 /** Convert exported HTML snippets to .docx Base64 (same HTML as unified pipeline).*/
 export async function htmlFragmentToDocxBase64(
   htmlFragment: string,
-  _opts?: WordExportHtmlOptions,
+  opts?: WordExportHtmlOptions,
 ): Promise<string> {
-  const wrapped = `<div id="lunote-export-root">${htmlFragment}</div>`
-  const dom = new DOMParser().parseFromString(wrapped, 'text/html')
-  const root = dom.getElementById('lunote-export-root')
-  const blocks = root ? await htmlRootToDocxBlocks(root) : []
-  const doc = new Document({
-    sections: [
-      {
-        properties: {},
-        children: blocks.length > 0 ? blocks : [new Paragraph({ children: [new TextRun('')] })],
-      },
-    ],
-  })
-  return Packer.toBase64String(doc)
+  activeDocxExportLocaleId = opts?.localeId
+  try {
+    const wrapped = `<div id="lunote-export-root">${htmlFragment}</div>`
+    const dom = new DOMParser().parseFromString(wrapped, 'text/html')
+    const root = dom.getElementById('lunote-export-root')
+    const blocks = root ? await htmlRootToDocxBlocks(root) : []
+    const doc = new Document({
+      sections: [
+        {
+          properties: {},
+          children: blocks.length > 0 ? blocks : [new Paragraph({ children: [new TextRun('')] })],
+        },
+      ],
+    })
+    return Packer.toBase64String(doc)
+  } finally {
+    activeDocxExportLocaleId = undefined
+  }
 }

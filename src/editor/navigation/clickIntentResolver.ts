@@ -45,15 +45,26 @@ export function resolveClickIntent(input: ResolveClickIntentInput): NavigationCl
     allowDispatch = false
     reason = 'hit_miss'
   } else if (type === 'graph' && hitTestResult != null) {
-    const navigable =
+    const status =
       typeof hitTestResult === 'object' &&
       hitTestResult !== null &&
-      'navigable' in hitTestResult
-        ? Boolean((hitTestResult as { navigable?: boolean }).navigable)
-        : true
-    if (!navigable) {
-      allowDispatch = false
-      reason = 'hit_miss'
+      'status' in hitTestResult
+        ? (hitTestResult as { status?: string }).status
+        : undefined
+    if (status === 'unresolved') {
+      allowDispatch = true
+      reason = 'valid_click'
+    } else {
+      const navigable =
+        typeof hitTestResult === 'object' &&
+        hitTestResult !== null &&
+        'navigable' in hitTestResult
+          ? Boolean((hitTestResult as { navigable?: boolean }).navigable)
+          : true
+      if (!navigable) {
+        allowDispatch = false
+        reason = 'hit_miss'
+      }
     }
   }
 

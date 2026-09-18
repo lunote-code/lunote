@@ -64,9 +64,15 @@ export function runCodeBlockCmCutKeymap(view: EditorView): boolean {
   return true
 }
 
+export const CODE_BLOCK_PASTE_FAILED_EVENT = 'luna-code-block-paste-failed'
+
 export function runCodeBlockCmPasteKeymap(view: EditorView): boolean {
   if (!view.hasFocus) focusCodeBlockCmView(view)
-  void codeBlockCmPaste(view)
+  void codeBlockCmPaste(view).then((ok) => {
+    if (ok) return
+    const wrap = view.dom.closest('[data-luna-code-block-wrap]')
+    wrap?.dispatchEvent(new CustomEvent(CODE_BLOCK_PASTE_FAILED_EVENT, { bubbles: true }))
+  })
   return true
 }
 

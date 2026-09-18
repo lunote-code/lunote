@@ -4,7 +4,7 @@ import type { Menu } from '@tauri-apps/api/menu'
 
 import type { TranslateFn } from '../../i18n'
 import type { UiLocaleId } from '../../i18n/resolveLocale'
-import { isValidRecentFilePath } from '../../lib/workspacePathUtils'
+import { sliceRecentMenuItems } from '../../lib/recentMenuNodes'
 import {
   getRegisteredMacNativeAppMenu,
   installMacNativeAppMenu,
@@ -17,24 +17,27 @@ import { syncRecentMenu } from '../../platform/tauri/platformShellService'
 export type UseMacNativeAppMenuOptions = {
   enabled: boolean
   t: TranslateFn
+  recentWorkspaces: readonly string[]
   recentFiles: readonly string[]
   locale: UiLocaleId
 }
 
-function recentKey(files: readonly string[]): string {
-  return files.filter(isValidRecentFilePath).slice(0, 8).join('\0')
+function recentKey(workspaces: readonly string[], files: readonly string[]): string {
+  const slice = sliceRecentMenuItems(workspaces, files, 8)
+  return `${slice.workspaces.join('\0')}\n${slice.files.join('\0')}`
 }
 
 export function useMacNativeAppMenu({
   enabled,
   t,
+  recentWorkspaces,
   recentFiles,
   locale,
 }: UseMacNativeAppMenuOptions): void {
   const menuRef = useRef<Menu | null>(null)
   const installGenRef = useRef(0)
   const prevLocaleRef = useRef(locale)
-  const prevRecentKeyRef = useRef(recentKey(recentFiles))
+  const prevRecentKeyRef = useRef(recentKey(recentWorkspaces, recentFiles))
 
   useLayoutEffect(() => {
     if (!enabled) {
@@ -47,16 +50,22 @@ export function useMacNativeAppMenu({
     let cancelled = false
 
     void (async () => {
-      const trimmedRecent = recentFiles.filter(isValidRecentFilePath).slice(0, 8)
-      await syncRecentMenu(trimmedRecent)
+      const slice = sliceRecentMenuItems(recentWorkspaces, recentFiles, 8)
+      await syncRecentMenu(slice.workspaces, slice.files)
 
       const fullscreenChecked = await getCurrentWindow().isFullscreen()
-      const deps = { t, recentFiles: trimmedRecent, fullscreenChecked }
+      const deps = {
+        t,
+        recentWorkspaces: slice.workspaces,
+        recentFiles: slice.files,
+        fullscreenChecked,
+      }
 
       const localeChanged = prevLocaleRef.current !== locale
-      const recentChanged = prevRecentKeyRef.current !== recentKey(trimmedRecent)
+      const nextRecentKey = recentKey(recentWorkspaces, recentFiles)
+      const recentChanged = prevRecentKeyRef.current !== nextRecentKey
       prevLocaleRef.current = locale
-      prevRecentKeyRef.current = recentKey(trimmedRecent)
+      prevRecentKeyRef.current = nextRecentKey
 
       const existing = getRegisteredMacNativeAppMenu() ?? menuRef.current
 
@@ -82,5 +91,5 @@ export function useMacNativeAppMenu({
     return () => {
       cancelled = true
     }
-  }, [enabled, locale, recentFiles, t])
+  }, [enabled, locale, recentFiles, recentWorkspaces, t])
 }

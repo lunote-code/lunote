@@ -21,6 +21,7 @@ import {
   bridgeApplyForwardPmSteps,
   bridgeApplyInverseCmChanges,
   bridgeApplyForwardCmChanges,
+  bridgeApplyMarkdownBody,
 } from '../editor/editorMutationBridge'
 import type { TiptapEditorCommand } from '../editor/TiptapMarkdownEditor'
 import type { ResolvedCommand } from './commandResolution.types'
@@ -36,9 +37,11 @@ import {
   restoreUndoneEntry,
   restoreRedoneEntry,
   resetStepLog,
+  freezeStepLogBodiesForModeSwitch,
 } from '../vm/vmStepLog'
 import { flushVmTiptapRecorderBatch, setVmTiptapRecorderDocId } from '../vm/vmTiptapRecorder'
 import { flushVmCmRecorderBatch, setVmCmRecorderDocId } from '../vm/vmCmRecorder'
+import { projectStepLogMarkdownForPane } from '../vm/modeSwitchUndoBridge'
 
 // ─────────────────────────────────────────────────────────────
 // Public types
@@ -76,6 +79,13 @@ export function setActiveTransactionDoc(docId: string): void {
  */
 export function resetTransactionLog(docId?: string): void {
   resetStepLog(docId)
+}
+
+/** Flush in-flight typing and convert native steps into markdown bodies before a pane remount. */
+export function preserveUndoAcrossModeSwitch(docId: string): void {
+  flushVmTiptapRecorderBatch(docId)
+  flushVmCmRecorderBatch(docId)
+  freezeStepLogBodiesForModeSwitch(docId)
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -179,27 +189,50 @@ export function executeOps(transaction: CommandTransaction): void {
 // ─────────────────────────────────────────────────────────────
 
 function stepEntryAppliesInMode(entry: StepLogEntry, mode: EditorPaneMode): boolean {
+  if (entry.kind === 'markdown-body') {
+    return mode === 'visual' ? bridgeHasVisualEditor() : bridgeHasSourceView()
+  }
   if (mode === 'visual') {
     return entry.kind === 'pm-steps' && bridgeHasVisualEditor()
   }
   return entry.kind === 'cm-change' && bridgeHasSourceView()
 }
 
-function applyUndoEntry(entry: StepLogEntry): boolean {
+function applyUndoEntry(entry: StepLogEntry, docId: string, mode: EditorPaneMode): boolean {
   switch (entry.kind) {
     case 'pm-steps':
       return bridgeApplyInvertedPmSteps(entry.invertedSteps, entry.selectionBefore)
     case 'cm-change':
       return bridgeApplyInverseCmChanges(entry.inverseChanges, entry.selectionBefore)
+    case 'markdown-body':
+      return bridgeApplyMarkdownBody(
+        projectStepLogMarkdownForPane({
+          markdown: entry.before,
+          surface: entry.surface,
+          pane: mode,
+          docId,
+        }),
+        'undo',
+      )
   }
 }
 
-function applyRedoEntry(entry: StepLogEntry): boolean {
+function applyRedoEntry(entry: StepLogEntry, docId: string, mode: EditorPaneMode): boolean {
   switch (entry.kind) {
     case 'pm-steps':
       return bridgeApplyForwardPmSteps(entry.forwardSteps, entry.selectionAfter)
     case 'cm-change':
       return bridgeApplyForwardCmChanges(entry.forwardChanges, entry.selectionAfter)
+    case 'markdown-body':
+      return bridgeApplyMarkdownBody(
+        projectStepLogMarkdownForPane({
+          markdown: entry.after,
+          surface: entry.surface,
+          pane: mode,
+          docId,
+        }),
+        'redo',
+      )
   }
 }
 
@@ -211,7 +244,7 @@ export function undoLastTransaction(docId: string): boolean {
   if (!entry || !stepEntryAppliesInMode(entry, mode)) return false
 
   popForUndo(docId)
-  const ok = applyUndoEntry(entry)
+  const ok = applyUndoEntry(entry, docId, mode)
   if (!ok) restoreUndoneEntry(docId)
   return ok
 }
@@ -224,7 +257,7 @@ export function redoLastTransaction(docId: string): boolean {
   if (!entry || !stepEntryAppliesInMode(entry, mode)) return false
 
   popForRedo(docId)
-  const ok = applyRedoEntry(entry)
+  const ok = applyRedoEntry(entry, docId, mode)
   if (!ok) restoreRedoneEntry(docId)
   return ok
 }

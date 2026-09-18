@@ -6,6 +6,7 @@ import katex from 'katex'
 import { LUNA_KATEX_HTML_OPTIONS } from './lunaKatexOptions'
 import { registerLunaFootnoteMarkdownRules } from './lunaFootnoteMarkdown'
 import { registerLunaLinkReferenceDefMarkdownRules } from './lunaLinkReferenceDefMarkdown'
+import { registerLunaWikiEmbedMarkdownRules } from './lunaWikiEmbedMarkdown'
 import type { SemanticSliceKind } from './modeSwitchStructuralIRTypes'
 import { type MdSemTok, mergeAdjacentMdTokens } from './modeSwitchSemanticZip'
 
@@ -42,6 +43,7 @@ function createModeSwitchIrMarkdownIt(): MarkdownIt {
   md.enable(['table', 'strikethrough'], true)
   registerLunaFootnoteMarkdownRules(md)
   registerLunaLinkReferenceDefMarkdownRules(md)
+  registerLunaWikiEmbedMarkdownRules(md)
   md.block.ruler.before('paragraph', 'luna_toc_directive', (state, startLine, _endLine, silent) => {
     const pos = state.bMarks[startLine] + state.tShift[startLine]
     const max = state.eMarks[startLine]

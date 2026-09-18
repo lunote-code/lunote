@@ -14,6 +14,7 @@ import { type Editor } from '@tiptap/core'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { runAfterReactCommitWhen } from './reactCommitScheduler'
 import { bindOverlayScrollbarReveal } from '../app/overlayScrollbarReveal'
+import type { SidebarListMode } from '../app/workspace/sidebarPanelView'
 import { applyPlainTextInsertion } from './inputLayer/inputLayerPaste'
 import {
   shouldShowCodeChromeForBlockType,
@@ -47,6 +48,8 @@ import {
   buildWikiLinkInsertText,
   isWikiSuggestItemSelectable,
 } from './lunaWikiLinkSuggest'
+import { setTablePickerLabels } from './lunaTableInsertPicker'
+import { setTableToolbarLabels } from './lunaTable'
 import { emitLunaSurface } from './lunaEditorSurfaceState'
 import { isModifierHintMacLike, isOpenableExternalHref } from './openExternalLink'
 import { resolveMarkdownMediaSrc, buildMediaSourceResolveOptions } from '../export/mediaSources'
@@ -59,8 +62,9 @@ import {
   bridgeCaptureEditorSelection,
   bridgeRememberCurrentSelection,
 } from './editorMutationBridge'
-import { type EditorOpenReason as EditorOpenReasonType } from './editorOpenReason'
+import { shouldPreserveUndoLogOnVisualCreate, type EditorOpenReason as EditorOpenReasonType } from './editorOpenReason'
 import { useI18n } from '../i18n'
+import { requestEditorAiSlashAction } from './ai/editorAiActions'
 import { getAppSettingsSnapshot, subscribeAppSettings } from '../settings/appSettingsStore'
 import {
   EDITOR_SPELLCHECK_ENABLED_DEFAULT,
@@ -71,7 +75,7 @@ import { canonicalMarkdownSemantics } from '../markdown/canonicalMarkdownSemanti
 import type { WikiLinkTarget } from './knowledgeRuntime/types'
 import { MermaidSourceSessionProvider } from './mermaid/MermaidSourceSession'
 import { ensurePmInputUnlockedOnBoot } from './mermaid/mermaidSourceInputFocus'
-import { flushMermaidSourceForDocumentSwitch, flushMermaidSourceForSerialize } from './mermaid/mermaidSourceBridge'
+import { flushMermaidSourceForDocumentSwitch } from './mermaid/mermaidSourceBridge'
 import { installMermaidClipboardCapture } from './mermaid/mermaidSourceClipboard'
 import type { AssetMeta } from '../assets/workspaceAssetStore'
 import {
@@ -83,6 +87,7 @@ import {
   clearTiptapSearch,
   getTiptapSearchSnapshot,
   moveTiptapSearch,
+  revealTiptapSearchResult,
   replaceAllTiptapMatches,
   replaceCurrentTiptapMatch,
   replaceNextTiptapMatch,
@@ -91,6 +96,7 @@ import {
 import { EditorLocalSearchExtension } from './search/editorSearchRuntime'
 import {
   firstExecutableSlashRowIndex,
+  recordRecentSlashCommandId,
   SLASH_FILE_LINK_ID,
   slashMenuFrameEquals,
   shouldProbeSlashMenu,
@@ -175,7 +181,7 @@ type Props = {
   documentKey: string
   activePath: string
   rootDir: string
-  sidebarListMode: 'files' | 'outline'
+  sidebarListMode: SidebarListMode
   onMarkdownChange: (markdown: string) => void
   onActiveHeadingChange: (id: string) => void
   /** Fired on every PM selection change (toolbar text-color gating, etc.). */
@@ -196,6 +202,10 @@ type Props = {
   /** [[wiki]] Click → Knowledge OS Navigation*/
   onWikiLinkNavigate?: (target: WikiLinkTarget) => void
   onWikiLinkHover?: (target: WikiLinkTarget | null, client: { x: number; y: number }) => void
+  /** Embedded HTML `<a href>` → open workspace note */
+  onEmbeddedHtmlLinkNavigate?: (target: import('./resolveWorkspaceMarkdownHref').EmbeddedHtmlWorkspaceNoteTarget) => void
+  /** Embedded HTML `<a href="#...">` → scroll within current note */
+  onEmbeddedHtmlHashNavigate?: (fragment: string) => void
   /**⌘/ Disable PM→MD writeback during switching (to avoid \\ escaping from contaminating the true value of the source code)*/
   suppressMarkdownSyncRef?: React.MutableRefObject<boolean>
 }
@@ -245,6 +255,8 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
       openReason,
       onWikiLinkNavigate,
       onWikiLinkHover,
+      onEmbeddedHtmlLinkNavigate,
+      onEmbeddedHtmlHashNavigate,
       suppressMarkdownSyncRef,
     },
     ref,
@@ -327,8 +339,14 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
     const onOutlineHeadingsChangeRef = useRef(onOutlineHeadingsChange)
     const onWikiLinkNavigateRef = useRef(onWikiLinkNavigate)
     const onWikiLinkHoverRef = useRef(onWikiLinkHover)
+    const onEmbeddedHtmlLinkNavigateRef = useRef(onEmbeddedHtmlLinkNavigate)
+    const onEmbeddedHtmlHashNavigateRef = useRef(onEmbeddedHtmlHashNavigate)
     const openReasonRef = useRef(openReason)
     openReasonRef.current = openReason
+    const resetTransactionLogForOpen = useCallback((documentKey: string) => {
+      if (shouldPreserveUndoLogOnVisualCreate(openReasonRef.current)) return
+      resetTransactionLog(documentKey)
+    }, [])
     /** After `onCreate` completes atomic replace, skip `setContent` synchronized with props once*/
     const didAtomicVisualBootstrapRef = useRef(false)
     /**
@@ -365,6 +383,7 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
           focusNoScroll: TI_FOCUS_NO_SCROLL,
           runTiptapCommand,
           runEphemeralCommand: runEphemeralEditorCommand,
+          onAiSlashAction: (actionId) => requestEditorAiSlashAction(actionId, tRef.current),
         }),
       [],
     )
@@ -383,6 +402,8 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
       onOutlineHeadingsChangeRef.current = onOutlineHeadingsChange
       onWikiLinkNavigateRef.current = onWikiLinkNavigate
       onWikiLinkHoverRef.current = onWikiLinkHover
+      onEmbeddedHtmlLinkNavigateRef.current = onEmbeddedHtmlLinkNavigate
+      onEmbeddedHtmlHashNavigateRef.current = onEmbeddedHtmlHashNavigate
       activePathRef.current = activePath
       rootDirRef.current = rootDir
       markdownRef.current = markdown
@@ -401,6 +422,8 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
       onOutlineHeadingsChange,
       onWikiLinkNavigate,
       onWikiLinkHover,
+      onEmbeddedHtmlLinkNavigate,
+      onEmbeddedHtmlHashNavigate,
       activePath,
       rootDir,
       markdown,
@@ -537,11 +560,23 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
 
     const applySlashCommandAt = useCallback(
       async (index: number): Promise<boolean> => {
-        const session = slashMenuRef.current
-        if (!session) return false
+        if (!slashMenuRef.current) return false
         let liveEditor = resolveLiveTiptapEditor(editorHookRef.current, editorInstanceRef)
         if (!liveEditor) return false
-        const row = session.rows[index]
+        const shell = shellRef.current
+        if (!shell) return false
+
+        const session = buildTiptapSlashMenuState(liveEditor, shell, slashCommandsRef.current)
+        if (!session) return false
+
+        const hoverIdx = slashHoverIndexRef.current
+        const pickIndex =
+          hoverIdx >= 0 && hoverIdx < session.rows.length && session.rows[hoverIdx]?.executable
+            ? hoverIdx
+            : index >= 0 && index < session.rows.length && session.rows[index]?.executable
+              ? index
+              : session.activeIndex
+        const row = session.rows[pickIndex]
         if (!row?.executable) return false
         markUserEditIntent()
 
@@ -556,11 +591,13 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
           if (isFileLink) {
             setSlashMenu(null)
             const range = { from: session.from, to: session.to }
-            return await applySlashFileLinkCommand(
+            const ok = await applySlashFileLinkCommand(
               () => resolveLiveTiptapEditor(editorHookRef.current, editorInstanceRef),
               range,
               () => onPickLunaAssetRef.current?.() ?? Promise.resolve(null),
             )
+            if (ok) recordRecentSlashCommandId(row.id)
+            return ok
           }
 
           const deleted = liveEditor
@@ -583,13 +620,16 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
           if (!liveEditor) return false
 
           if (row.run) {
-            return row.run(liveEditor)
+            const ok = row.run(liveEditor)
+            if (ok) recordRecentSlashCommandId(row.id)
+            return ok
           }
 
           if (row.manifestCommandId) {
             const executor = getLunaManifestCommandExecutor()
             if (!executor) return false
             await executor(row.manifestCommandId)
+            recordRecentSlashCommandId(row.id)
             return true
           }
 
@@ -648,6 +688,7 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
               activePathRef.current,
               buildMediaSourceResolveOptions(rootDirRef.current),
             ),
+          getMediaRenderScope: () => `${rootDirRef.current}|${activePathRef.current}`,
           getNoteAssetContext,
           onPasteImage: pasteImageForExtensions,
           placeholderText: tRef.current('editor.placeholder'),
@@ -686,6 +727,8 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
           clearLinkModifierHint,
           onWikiLinkNavigateRef,
           onLunaAssetLinkClickRef,
+          onEmbeddedHtmlLinkNavigateRef,
+          onEmbeddedHtmlHashNavigateRef,
           reportLinkOpenFailed,
           markUserEditIntent,
         }),
@@ -716,7 +759,7 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
           syncExternalMarkdownRefs,
           lastDocumentKeyRef,
           flushVmTiptapRecorderBatch,
-          resetTransactionLog,
+          resetTransactionLog: resetTransactionLogForOpen,
           scheduleVisualTailTrace,
           scheduleVisualBlockGapTrace,
           scheduleRefreshSlashMenu,
@@ -744,6 +787,7 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
         scheduleMarkdownSync,
         syncExternalMarkdownRefs,
         scheduleOutlineHeadingsSync,
+        resetTransactionLogForOpen,
       ],
     )
 
@@ -769,6 +813,26 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
       editorInteractionProps,
       editorLifecycleHandlers,
     ])
+
+    useEffect(() => {
+      setTablePickerLabels({
+        insertTitle: t('editor.tablePicker.insertTitle'),
+        insertHint: t('editor.tablePicker.insertHint'),
+        structureTitle: t('editor.tablePicker.structureTitle'),
+        structureHint: t('editor.tablePicker.structureHint'),
+      })
+      setTableToolbarLabels({
+        structure: t('editor.table.toolbar.structure'),
+        alignLeft: t('editor.table.toolbar.alignLeft'),
+        alignCenter: t('editor.table.toolbar.alignCenter'),
+        alignRight: t('editor.table.toolbar.alignRight'),
+        delete: t('editor.table.toolbar.delete'),
+      })
+      return () => {
+        setTablePickerLabels(null)
+        setTableToolbarLabels(null)
+      }
+    }, [t])
 
     useEffect(() => {
       if (!editor || editor.isDestroyed || !editor.view?.dom) return
@@ -896,7 +960,7 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
           scheduleVisualTailTrace,
           scheduleVisualBlockGapTrace,
           flushVmTiptapRecorderBatch,
-          resetTransactionLog,
+          resetTransactionLog: resetTransactionLogForOpen,
           applyVisualTabViewportRestore,
           onAtomicVisualDocumentEnterConsumedRef,
           onOutlineHeadingsChangeRef,
@@ -920,7 +984,15 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
         cancelled = true
         pendingInitialHydrationRef.current = null
       }
-    }, [documentKey, editor, markdown, clearLinkModifierHint, suppressMarkdownSyncRef, syncExternalMarkdownRefs])
+    }, [
+      documentKey,
+      editor,
+      markdown,
+      clearLinkModifierHint,
+      suppressMarkdownSyncRef,
+      syncExternalMarkdownRefs,
+      resetTransactionLogForOpen,
+    ])
 
     useEffect(() => {
       if (!editor || !searchOpen) return
@@ -932,8 +1004,10 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
     }, [editor, searchOpen])
 
     useEffect(() => {
+      const serializeTimerRefValue = serializeTimerRef
+      const headingParseTimerRefValue = headingParseTimerRef
       return () => {
-        if (serializeTimerRef.current != null) window.clearTimeout(serializeTimerRef.current)
+        if (serializeTimerRefValue.current != null) window.clearTimeout(serializeTimerRefValue.current)
         if (
           serializeIdleCallbackRef.current != null &&
           typeof cancelIdleCallback === 'function'
@@ -941,7 +1015,9 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
           cancelIdleCallback(serializeIdleCallbackRef.current)
           serializeIdleCallbackRef.current = null
         }
-        if (headingParseTimerRef.current != null) window.clearTimeout(headingParseTimerRef.current)
+        if (headingParseTimerRefValue.current != null) {
+          window.clearTimeout(headingParseTimerRefValue.current)
+        }
       }
     }, [])
 
@@ -968,6 +1044,8 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
           setSearchOpen,
           bumpSearchVersion,
           searchOpenRef,
+          revealSearchQuery: revealTiptapSearchResult,
+          clearSearch: clearTiptapSearch,
           moveSearch: moveTiptapSearch,
           replaceSearchNext: replaceNextTiptapMatch,
           compileEditorMarkdownForSync,
@@ -980,6 +1058,10 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
           normalizeMarkdown,
           toPendingMarkdownSyncError,
           composingRef,
+          headingParseTimerRef,
+          onOutlineHeadingsChangeRef,
+          parseHeadingsFromPmDoc,
+          markUserEditIntent,
         }),
         ...createTiptapEditorHandleActions({
           editor,
@@ -1016,7 +1098,6 @@ export const TiptapMarkdownEditor = forwardRef<TiptapMarkdownEditorHandle, Props
           editor,
           boundDocumentKey: lastDocumentKeyRef.current,
           markdown,
-          flushMermaidSourceForSerialize,
           trySerialize: canonicalMarkdownSemantics.trySerialize,
           normalizeSerializedMarkdownForSource,
           allocModeSwitchCaptureFrameId,

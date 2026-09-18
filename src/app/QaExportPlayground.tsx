@@ -255,14 +255,14 @@ function QaExportInner() {
   }, [analyzeHtml, buildHtml, buildPngBase64, buildRasterHtml, buildWordBase64, countInPreview, mountPreview, previewComputedStyle, setExportSettings])
 
   return (
-    <div style={{ padding: 24, background: '#0f1115', minHeight: '100vh' }}>
+    <div style={{ padding: 24, background: 'var(--surface-app)', minHeight: '100vh' }}>
       <h1 data-testid="qa-ready">Export QA</h1>
       <p data-testid="qa-status">{status}</p>
       <iframe
         ref={iframeRef}
         data-testid="qa-export-preview"
         title="Export preview"
-        style={{ width: '100%', maxWidth: 980, height: 720, border: '1px solid #334155', background: '#fff' }}
+        style={{ width: '100%', maxWidth: 980, height: 720, border: '1px solid var(--border-subtle)', background: 'var(--surface-editor)' }}
       />
     </div>
   )

@@ -40,6 +40,14 @@ function testUiLocaleKeyParity() {
       assert(String(value).trim().length > 0, `${locale}.json has empty UI value for ${key}`)
     }
 
+    const missing = [...enKeys].filter((k) => !(k in raw) || !String(raw[k]).trim())
+    assert(
+      missing.length === 0,
+      `${locale}.json missing ${missing.length} en key(s): ${missing.slice(0, 8).join(', ')}${
+        missing.length > 8 ? '…' : ''
+      }`,
+    )
+
     const extra = Object.keys(raw).filter((k) => !k.startsWith('meta.') && !(k in en))
     assert(
       extra.length === 0,
@@ -78,6 +86,14 @@ function testApplyLocaleGapScriptExists() {
   assert(
     script.includes('ui_locale_gaps_supplement_2026b.json'),
     'apply_ui_locale_gaps_2026 must merge supplement gap batch',
+  )
+  assert(
+    script.includes('sparse_locale_common_gaps_2026.json'),
+    'apply_ui_locale_gaps_2026 must merge sparse common gap batch',
+  )
+  assert(
+    script.includes('sparse_locale_common_gaps_supplement_2026b.json'),
+    'apply_ui_locale_gaps_2026 must merge sparse common supplement batch',
   )
 }
 

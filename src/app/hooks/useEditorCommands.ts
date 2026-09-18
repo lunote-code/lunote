@@ -1,9 +1,10 @@
-import { useCallback, type MutableRefObject, type RefObject } from 'react'
+import { useCallback, useRef, type MutableRefObject, type RefObject } from 'react'
 import { findNext as cmFindNext, findPrevious as cmFindPrevious, openSearchPanel } from '@codemirror/search'
 import { markdownToPlainHtmlFragment } from '../../markdownExport'
 import { attachDocumentFrontmatter, syncDocumentFrontmatterFromMarkdown } from '../../editor/documentFrontmatterStore'
 import { setSourceModeIdentity } from '../../editor/sourceModeIdentity'
 import { dispatchDocumentCommand, getDocumentSavedContent } from '../../documentRuntime/documentKernel'
+import { shouldIgnoreEditorMarkdownSync } from '../../lib/memoryFlushDirty'
 import {
   checkBlankContentSuspect,
   isTabNavLogEnabled,
@@ -11,7 +12,7 @@ import {
   snapshotDocumentBodyMeta,
 } from '../../lib/tabNavigationDebug'
 import { pathsEqual } from '../../lib/workspacePathUtils'
-import { setTabBody } from '../document/tabBodiesStore'
+import { setLiveTabBody } from '../document/tabBodiesStore'
 import {
   bridgeDeleteSelection,
   bridgeOpenSearchPanel,
@@ -67,6 +68,8 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
     pasteImageIntoVisualEditor,
     setStatus,
   } = deps
+
+  const kernelContentDebouncePayloadRef = useRef<{ path: string; value: string } | null>(null)
 
   const focusActiveEditor = useCallback(() => {
     if (mainPaneMode === 'visual') {
@@ -249,7 +252,10 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
   )
 
   const insertImagesFromPicker = useCallback(async () => {
-    const files = await pickLocalImageFiles({ title: t('app.dialog.pickImage') })
+    const files = await pickLocalImageFiles({
+      title: t('app.dialog.pickImage'),
+      filterName: t('app.dialog.filter.files'),
+    })
     if (!files.length) return
     bridgeRefocusActiveEditor()
     let inserted = 0
@@ -266,13 +272,6 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
     }
   }, [pasteImageIntoVisualEditor, setStatus, t])
 
-  const cancelPendingKernelContentDebounce = useCallback(() => {
-    if (kernelContentDebounceRef.current != null) {
-      clearTimeout(kernelContentDebounceRef.current)
-      kernelContentDebounceRef.current = null
-    }
-  }, [kernelContentDebounceRef])
-
   const shouldNormalizeEditorValueAgainstSaved = useCallback(
     (path: string, value: string): boolean => {
       if (mainPaneModeRef.current !== 'visual') return false
@@ -287,6 +286,99 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
     },
     [mainPaneModeRef, visualEditorRef],
   )
+
+  const cancelPendingKernelContentDebounce = useCallback(() => {
+    if (kernelContentDebounceRef.current != null) {
+      clearTimeout(kernelContentDebounceRef.current)
+      kernelContentDebounceRef.current = null
+    }
+    kernelContentDebouncePayloadRef.current = null
+  }, [kernelContentDebounceRef])
+
+  const dispatchDebouncedKernelContent = useCallback(
+    async (scheduledPath: string, scheduledValue: string, debounceMs: number) => {
+      const currentPath = activePathRef.current || 'scratch'
+      if (!pathsEqual(currentPath, scheduledPath)) {
+        if (isTabNavLogEnabled()) {
+          logTabNav('editor-content-change-skipped', {
+            reason: 'scheduled-path-stale',
+            scheduledPath,
+            currentPath,
+            scheduled: snapshotDocumentBodyMeta(scheduledPath, scheduledValue),
+          })
+        }
+        return
+      }
+
+      if (mainPaneModeRef.current === 'visual' && visualEditorRef.current) {
+        const bound = visualEditorRef.current.getBoundDocumentKey()
+        if (!pathsEqual(bound, scheduledPath)) {
+          if (isTabNavLogEnabled()) {
+            logTabNav('editor-content-change-skipped', {
+              reason: 'scheduled-visual-bound-mismatch',
+              scheduledPath,
+              currentPath,
+              boundDocumentKey: bound,
+              scheduled: snapshotDocumentBodyMeta(scheduledPath, scheduledValue),
+            })
+          }
+          return
+        }
+      }
+
+      const shouldNormalize = shouldNormalizeEditorValueAgainstSaved(scheduledPath, scheduledValue)
+      const savedContent = getDocumentSavedContent(scheduledPath)
+      const kernelContent = shouldNormalize && savedContent != null ? savedContent : scheduledValue
+      if (import.meta.env.DEV) {
+        console.debug('[editor-dirty-probe]', {
+          path: scheduledPath,
+          source: shouldNormalize ? 'normalize-on-editor-sync' : 'editor',
+          debounceMs,
+          shouldNormalize,
+          content: snapshotDocumentBodyMeta(scheduledPath, scheduledValue),
+          saved: snapshotDocumentBodyMeta(scheduledPath, getDocumentSavedContent(scheduledPath)),
+        })
+      }
+      if (isTabNavLogEnabled()) {
+        logTabNav('editor-kernel-dispatch', {
+          path: scheduledPath,
+          source: shouldNormalize ? 'normalize-on-editor-sync' : 'editor',
+          debounceMs,
+          content: snapshotDocumentBodyMeta(scheduledPath, scheduledValue),
+          saved: snapshotDocumentBodyMeta(scheduledPath, getDocumentSavedContent(scheduledPath)),
+          shouldNormalize,
+        })
+      }
+      checkBlankContentSuspect('editor-kernel-dispatch', scheduledPath, scheduledValue, {
+        source: shouldNormalize ? 'normalize-on-editor-sync' : 'editor',
+        debounceMs,
+        saved: snapshotDocumentBodyMeta(scheduledPath, getDocumentSavedContent(scheduledPath)),
+        shouldNormalize,
+      })
+      await dispatchDocumentCommand({
+        type: shouldNormalize ? 'NORMALIZE_DOCUMENT_CONTENT' : 'DOCUMENT_CONTENT_CHANGED',
+        path: scheduledPath,
+        content: kernelContent,
+        source: shouldNormalize ? 'normalize-on-editor-sync' : 'editor',
+      })
+    },
+    [activePathRef, mainPaneModeRef, shouldNormalizeEditorValueAgainstSaved, visualEditorRef],
+  )
+
+  const flushPendingKernelContentDebounce = useCallback(async (): Promise<void> => {
+    if (kernelContentDebounceRef.current != null) {
+      clearTimeout(kernelContentDebounceRef.current)
+      kernelContentDebounceRef.current = null
+    }
+    const payload = kernelContentDebouncePayloadRef.current
+    kernelContentDebouncePayloadRef.current = null
+    if (!payload) return
+    try {
+      await dispatchDebouncedKernelContent(payload.path, payload.value, 0)
+    } catch (error) {
+      console.error('[DOCUMENT KERNEL] content change failed', error)
+    }
+  }, [dispatchDebouncedKernelContent, kernelContentDebounceRef])
 
   const isSuspiciousNavigationShrink = useCallback(
     (path: string, previousValue: string, nextValue: string) => {
@@ -314,6 +406,39 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
           }
           return
         }
+      }
+      const visual = visualEditorRef.current
+      if (
+        shouldIgnoreEditorMarkdownSync({
+          path: pathAtChange,
+          nextMarkdown: value,
+          savedContent: getDocumentSavedContent(pathAtChange),
+          hasUserEdited: mainPaneMode === 'visual' ? visual?.hasUserEditedSinceDocumentLoad?.() : true,
+          normalizeMarkdownForCompare: visual?.normalizeMarkdownForCompare,
+        })
+      ) {
+        if (isTabNavLogEnabled()) {
+          logTabNav('editor-content-change-skipped', {
+            reason: 'equivalent-to-saved',
+            path: pathAtChange,
+            mode: mainPaneMode,
+            next: snapshotDocumentBodyMeta(pathAtChange, value),
+            saved: snapshotDocumentBodyMeta(pathAtChange, getDocumentSavedContent(pathAtChange)),
+          })
+        }
+        const savedContent = getDocumentSavedContent(pathAtChange)
+        if (savedContent != null && shouldNormalizeEditorValueAgainstSaved(pathAtChange, value)) {
+          cancelPendingKernelContentDebounce()
+          void dispatchDocumentCommand({
+            type: 'NORMALIZE_DOCUMENT_CONTENT',
+            path: pathAtChange,
+            content: savedContent,
+            source: 'normalize-on-editor-sync',
+          }).catch((error) => {
+            console.error('[DOCUMENT KERNEL] content normalize failed', error)
+          })
+        }
+        return
       }
       const previousValue = contentRef.current
       if (isSuspiciousNavigationShrink(pathAtChange, previousValue, value)) {
@@ -346,7 +471,7 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
       })
       contentRef.current = value
       if (pathAtChange !== 'scratch') {
-        setTabBody(pathAtChange, value)
+        setLiveTabBody(pathAtChange, value)
         if (mainPaneMode === 'source') {
           syncDocumentFrontmatterFromMarkdown(pathAtChange, value)
           setSourceModeIdentity(pathAtChange, value)
@@ -358,71 +483,11 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
       const debounceMs = value.length >= LARGE_DOC_THRESHOLD ? 200 : 80
       const scheduledPath = pathAtChange
       const scheduledValue = value
+      kernelContentDebouncePayloadRef.current = { path: scheduledPath, value: scheduledValue }
       kernelContentDebounceRef.current = setTimeout(() => {
         kernelContentDebounceRef.current = null
-
-        // Drop stale dispatches once tab/path changed; prevents path-content mismatch.
-        const currentPath = activePathRef.current || 'scratch'
-        if (!pathsEqual(currentPath, scheduledPath)) {
-          if (isTabNavLogEnabled()) {
-            logTabNav('editor-content-change-skipped', {
-              reason: 'scheduled-path-stale',
-              scheduledPath,
-              currentPath,
-              scheduled: snapshotDocumentBodyMeta(scheduledPath, scheduledValue),
-            })
-          }
-          return
-        }
-
-        if (mainPaneModeRef.current === 'visual' && visualEditorRef.current) {
-          const bound = visualEditorRef.current.getBoundDocumentKey()
-          if (!pathsEqual(bound, scheduledPath)) {
-            if (isTabNavLogEnabled()) {
-              logTabNav('editor-content-change-skipped', {
-                reason: 'scheduled-visual-bound-mismatch',
-                scheduledPath,
-                currentPath,
-                boundDocumentKey: bound,
-                scheduled: snapshotDocumentBodyMeta(scheduledPath, scheduledValue),
-              })
-            }
-            return
-          }
-        }
-        const shouldNormalize = shouldNormalizeEditorValueAgainstSaved(scheduledPath, scheduledValue)
-        if (import.meta.env.DEV) {
-          console.debug('[editor-dirty-probe]', {
-            path: scheduledPath,
-            source: shouldNormalize ? 'normalize-on-editor-sync' : 'editor',
-            debounceMs,
-            shouldNormalize,
-            content: snapshotDocumentBodyMeta(scheduledPath, scheduledValue),
-            saved: snapshotDocumentBodyMeta(scheduledPath, getDocumentSavedContent(scheduledPath)),
-          })
-        }
-        if (isTabNavLogEnabled()) {
-          logTabNav('editor-kernel-dispatch', {
-            path: scheduledPath,
-            source: shouldNormalize ? 'normalize-on-editor-sync' : 'editor',
-            debounceMs,
-            content: snapshotDocumentBodyMeta(scheduledPath, scheduledValue),
-            saved: snapshotDocumentBodyMeta(scheduledPath, getDocumentSavedContent(scheduledPath)),
-            shouldNormalize,
-          })
-        }
-        checkBlankContentSuspect('editor-kernel-dispatch', scheduledPath, scheduledValue, {
-          source: shouldNormalize ? 'normalize-on-editor-sync' : 'editor',
-          debounceMs,
-          saved: snapshotDocumentBodyMeta(scheduledPath, getDocumentSavedContent(scheduledPath)),
-          shouldNormalize,
-        })
-        void dispatchDocumentCommand({
-          type: shouldNormalize ? 'NORMALIZE_DOCUMENT_CONTENT' : 'DOCUMENT_CONTENT_CHANGED',
-          path: scheduledPath,
-          content: scheduledValue,
-          source: shouldNormalize ? 'normalize-on-editor-sync' : 'editor',
-        }).catch((error) => {
+        kernelContentDebouncePayloadRef.current = null
+        void dispatchDebouncedKernelContent(scheduledPath, scheduledValue, debounceMs).catch((error) => {
           console.error('[DOCUMENT KERNEL] content change failed', error)
         })
       }, debounceMs)
@@ -431,6 +496,7 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
       activePathRef,
       contentRef,
       cancelPendingKernelContentDebounce,
+      dispatchDebouncedKernelContent,
       documentNavigationInProgressRef,
       isSuspiciousNavigationShrink,
       kernelContentDebounceRef,
@@ -452,5 +518,6 @@ export function useEditorCommands(deps: EditorCommandsDeps) {
     insertImagesFromPicker,
     handleEditorContentChange,
     cancelPendingKernelContentDebounce,
+    flushPendingKernelContentDebounce,
   }
 }

@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Check } from 'lucide-react'
+import { debounce } from '../../lib/debounce'
+
+const DEFAULT_PREVIEW_DEBOUNCE_MS = 200
+const SCROLL_PREVIEW_COOLDOWN_MS = 150
 
 export type SettingsSelectOption<T extends string> = {
   value: T
@@ -15,7 +19,9 @@ type SettingsSelectProps<T extends string> = {
   onValueChange: (value: T) => void | Promise<void>
   onPreviewValue?: (value: T) => void
   onClearPreview?: () => void
+  previewDebounceMs?: number
   ariaLabel?: string
+  disabled?: boolean
 }
 
 export function SettingsSelect<T extends string>({
@@ -25,13 +31,21 @@ export function SettingsSelect<T extends string>({
   onValueChange,
   onPreviewValue,
   onClearPreview,
+  previewDebounceMs = DEFAULT_PREVIEW_DEBOUNCE_MS,
   ariaLabel,
+  disabled = false,
 }: SettingsSelectProps<T>) {
   const reactId = useId()
   const id = `settings-select-${reactId.replace(/:/g, '')}`
   const rootRef = useRef<HTMLDivElement | null>(null)
   const onClearPreviewRef = useRef(onClearPreview)
   onClearPreviewRef.current = onClearPreview
+  const onPreviewValueRef = useRef(onPreviewValue)
+  onPreviewValueRef.current = onPreviewValue
+  const isListScrollingRef = useRef(false)
+  const scrollEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debouncedPreviewRef = useRef<ReturnType<typeof debounce<(value: T) => void>> | null>(null)
+  const lastPointerPreviewRef = useRef<T | null>(null)
   const [open, setOpen] = useState(false)
   const wasOpenRef = useRef(false)
   const selected = useMemo(
@@ -64,9 +78,66 @@ export function SettingsSelect<T extends string>({
     return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [open])
 
+  const previewEnabled = onPreviewValue != null
+
+  useEffect(() => {
+    if (!previewEnabled) {
+      debouncedPreviewRef.current?.cancel()
+      debouncedPreviewRef.current = null
+      return undefined
+    }
+    const debounced = debounce((next: T) => {
+      onPreviewValueRef.current?.(next)
+    }, previewDebounceMs)
+    debouncedPreviewRef.current = debounced
+    return () => {
+      debounced.cancel()
+      if (debouncedPreviewRef.current === debounced) {
+        debouncedPreviewRef.current = null
+      }
+    }
+  }, [previewEnabled, previewDebounceMs])
+
   const clearPreview = useCallback(() => {
+    debouncedPreviewRef.current?.cancel()
+    lastPointerPreviewRef.current = null
     onClearPreviewRef.current?.()
   }, [])
+
+  const queuePreview = useCallback((next: T) => {
+    if (!onPreviewValueRef.current) return
+    debouncedPreviewRef.current?.(next)
+  }, [])
+
+  const handleListScroll = useCallback(() => {
+    isListScrollingRef.current = true
+    debouncedPreviewRef.current?.cancel()
+    if (scrollEndTimerRef.current) clearTimeout(scrollEndTimerRef.current)
+    scrollEndTimerRef.current = setTimeout(() => {
+      isListScrollingRef.current = false
+      scrollEndTimerRef.current = null
+      const pending = lastPointerPreviewRef.current
+      if (pending != null) queuePreview(pending)
+    }, SCROLL_PREVIEW_COOLDOWN_MS)
+  }, [queuePreview])
+
+  const previewOption = useCallback(
+    (value: T, source: 'pointer' | 'focus') => {
+      if (source === 'pointer') {
+        lastPointerPreviewRef.current = value
+        if (isListScrollingRef.current) return
+      }
+      queuePreview(value)
+    },
+    [queuePreview],
+  )
+
+  useEffect(
+    () => () => {
+      if (scrollEndTimerRef.current) clearTimeout(scrollEndTimerRef.current)
+    },
+    [],
+  )
 
   useEffect(() => {
     const wasOpen = wasOpenRef.current
@@ -111,7 +182,7 @@ export function SettingsSelect<T extends string>({
   }, [focusOption, options])
 
   return (
-    <div ref={rootRef} className="settings-select">
+    <div ref={rootRef} className={`settings-select${disabled ? ' is-disabled' : ''}`}>
       <button
         type="button"
         className="settings-select-trigger"
@@ -119,7 +190,11 @@ export function SettingsSelect<T extends string>({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={`${id}-listbox`}
-        onClick={() => setOpen((next) => !next)}
+        disabled={disabled}
+        onClick={() => {
+          if (disabled) return
+          setOpen((next) => !next)
+        }}
         onKeyDown={(event) => {
           if (event.key === 'Escape') setOpen(false)
           if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
@@ -142,6 +217,7 @@ export function SettingsSelect<T extends string>({
           role="listbox"
           aria-activedescendant={`${id}-item-${value}`}
           onMouseLeave={clearPreview}
+          onScroll={handleListScroll}
         >
           {renderedOptions.map((row) => {
             if (row.type === 'group') {
@@ -162,8 +238,8 @@ export function SettingsSelect<T extends string>({
                 role="option"
                 aria-selected={isActive}
                 title={option.description}
-                onMouseEnter={() => onPreviewValue?.(option.value)}
-                onFocus={() => onPreviewValue?.(option.value)}
+                onMouseEnter={() => previewOption(option.value, 'pointer')}
+                onFocus={() => previewOption(option.value, 'focus')}
                 onBlur={clearPreviewUnlessFocusStaysInSelect}
                 onClick={() => selectValue(option.value)}
                 onKeyDown={(event) => {

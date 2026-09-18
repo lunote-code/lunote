@@ -67,6 +67,8 @@ body.markdown-export-root {
   max-width: 100%;
   box-sizing: border-box;
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-gutter: auto;
   -webkit-overflow-scrolling: touch;
   border-radius: var(--luna-md-table-radius);
   border: var(--hairline, 1px) solid var(--luna-md-table-card-border);
@@ -293,6 +295,143 @@ body.markdown-export-root {
   max-width: 100%;
   height: auto;
   vertical-align: middle;
+}
+
+/* Table cells: compact embedded images — avoid margin overflow that lets body text flash through on hover */
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table .pm-image-node-root.pm-image-card,
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table .pm-image-node-root.pm-image-card--table-embed {
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
+  margin: 0 auto;
+  vertical-align: middle;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  transition: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table .pm-image-card--open,
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table .pm-image-card--table-embed {
+  width: auto;
+  max-width: 100%;
+  margin: 0 auto;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  transition: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table .pm-image-card-preview,
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table .pm-image-card-preview > .pm-image-block-img,
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table .pm-image-card-preview > .pm-markdown-image-preview {
+  padding: 0;
+  line-height: 0;
+  transition: none;
+}
+
+@media (hover: hover) {
+  .preview-pane.markdown-visual-editor
+    .ProseMirror
+    .tableWrapper.pm-luna-table-wrap
+    table.pm-luna-table
+    .pm-image-card--open:hover
+    .pm-image-card-preview
+    > .pm-image-block-img,
+  .preview-pane.markdown-visual-editor
+    .ProseMirror
+    .tableWrapper.pm-luna-table-wrap
+    table.pm-luna-table
+    .pm-image-card--open:hover
+    .pm-image-card-preview
+    > .pm-markdown-image-preview,
+  .preview-pane.markdown-visual-editor
+    .ProseMirror
+    .tableWrapper.pm-luna-table-wrap
+    table.pm-luna-table
+    .pm-image-card--table-embed:hover
+    .pm-image-card-preview
+    > .pm-image-block-img,
+  .preview-pane.markdown-visual-editor
+    .ProseMirror
+    .tableWrapper.pm-luna-table-wrap
+    table.pm-luna-table
+    .pm-image-card--table-embed:hover
+    .pm-image-card-preview
+    > .pm-markdown-image-preview {
+    opacity: 1;
+  }
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table :is(td, th):has(.pm-image-node-root, img) {
+  overflow: hidden;
+  vertical-align: middle;
+  isolation: isolate;
+  contain: paint;
+  transition: none;
+}
+
+/* Icon rows: always use opaque cell backgrounds (never transparent / inherit). */
+.preview-pane.markdown-visual-editor
+  .ProseMirror
+  .tableWrapper.pm-luna-table-wrap
+  table.pm-luna-table
+  tbody
+  tr:has(:is(td, th) .pm-image-node-root, :is(td, th) img)
+  > :is(td, th) {
+  background-color: var(--surface-editor);
+}
+
+.preview-pane.markdown-visual-editor
+  .ProseMirror
+  .tableWrapper.pm-luna-table-wrap
+  table.pm-luna-table
+  tbody
+  tr:nth-child(even):has(:is(td, th) .pm-image-node-root, :is(td, th) img)
+  > :is(td, th) {
+  background-color: var(--luna-md-table-zebra);
+}
+
+/* Icon rows: disable inactive row-hover tint entirely. */
+.preview-pane.markdown-visual-editor
+  .ProseMirror
+  .tableWrapper.pm-luna-table-wrap:not(.pm-luna-table-wrap--active)
+  table.pm-luna-table
+  tbody
+  tr:has(:is(td, th) .pm-image-node-root, :is(td, th) img):hover
+  > :is(td, th) {
+  background-color: var(--surface-editor);
+}
+
+.preview-pane.markdown-visual-editor
+  .ProseMirror
+  .tableWrapper.pm-luna-table-wrap:not(.pm-luna-table-wrap--active)
+  table.pm-luna-table
+  tbody
+  tr:nth-child(even):has(:is(td, th) .pm-image-node-root, :is(td, th) img):hover
+  > :is(td, th) {
+  background-color: var(--luna-md-table-zebra);
+}
+
+.preview-pane.markdown-visual-editor
+  .ProseMirror
+  .tableWrapper.pm-luna-table-wrap
+  table.pm-luna-table
+  .pm-image-card--table-embed,
+.preview-pane.markdown-visual-editor
+  .ProseMirror
+  .tableWrapper.pm-luna-table-wrap
+  table.pm-luna-table
+  .pm-image-card--table-embed
+  .pm-image-block-img,
+.preview-pane.markdown-visual-editor
+  .ProseMirror
+  .tableWrapper.pm-luna-table-wrap
+  table.pm-luna-table
+  .pm-image-card--table-embed
+  .pm-markdown-image-preview {
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 .preview-pane.markdown-visual-editor .ProseMirror .tableWrapper.pm-luna-table-wrap table.pm-luna-table p {

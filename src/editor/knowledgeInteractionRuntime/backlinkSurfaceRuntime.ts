@@ -6,6 +6,7 @@ import { scheduleInteractionTask } from './interactionScheduler'
 import { rankSemanticHit } from './semanticRankRuntime'
 import type { BacklinkSurfaceGroup, BacklinkSurfaceItem } from './types'
 import type { DocKey } from '../knowledgeRuntime/types'
+import { resolveBacklinkGroupLabel } from './backlinkGroupLabels'
 
 export type ContentResolver = (docKey: DocKey) => Promise<string | null>
 
@@ -134,9 +135,15 @@ function groupBacklinkItems(items: BacklinkSurfaceItem[]): BacklinkSurfaceGroup[
   const embed = items.filter((i) => i.group === 'embed')
   const mention = items.filter((i) => i.group === 'mention')
   const groups: BacklinkSurfaceGroup[] = []
-  if (direct.length) groups.push({ id: 'direct', label: 'Links', items: direct })
-  if (embed.length) groups.push({ id: 'embed', label: 'Embeds', items: embed })
-  if (mention.length) groups.push({ id: 'mention', label: 'Mentions', items: mention })
+  if (direct.length) {
+    groups.push({ id: 'direct', label: resolveBacklinkGroupLabel('direct'), items: direct })
+  }
+  if (embed.length) {
+    groups.push({ id: 'embed', label: resolveBacklinkGroupLabel('embed'), items: embed })
+  }
+  if (mention.length) {
+    groups.push({ id: 'mention', label: resolveBacklinkGroupLabel('mention'), items: mention })
+  }
   return groups
 }
 

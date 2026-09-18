@@ -3,8 +3,9 @@ import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 
 import './styles/dialogs-app.css'
 import './styles/editor-document-history.css'
 import { DocumentHistoryDialog } from './components/DocumentHistoryDialog'
-import { setTabBody } from '../app/document/tabBodiesStore'
-import { resolveDocumentBody } from '../documentRuntime/documentAuthority'
+import { setTabBody, getTabBody, installTabBodiesKernelSync } from '../app/document/tabBodiesStore'
+import { resolveDocumentBody, resolveLatestDocumentBody } from '../documentRuntime/documentAuthority'
+import { projectDocumentMemorySurfaces } from '../lib/editorContentSync'
 import {
   dispatchDocumentCommand,
   getDocumentRuntimeSnapshot,
@@ -17,7 +18,8 @@ import {
   restoreSnapshotToEditor,
 } from '../documentHistory/historyService'
 import type { DocumentHistoryEntry, DocumentHistorySnapshot } from '../documentHistory/types'
-import { getHistoryRestoreState } from '../documentHistory/historyRestoreState'
+import { getHistoryRestoreState, isAutosaveSuspended } from '../documentHistory/historyRestoreState'
+import { pathsEqual } from '../lib/workspacePathUtils'
 import { markAppSettingsHydratedForTests } from '../settings/appSettingsStore'
 import { DEFAULT_APP_SETTINGS } from '../settings/appSettingsTypes'
 import { setSetting } from '../settings-runtime/settingsRuntime'
@@ -42,7 +44,13 @@ declare global {
       getThemeMode: () => 'light' | 'dark'
       previewHeadingColor: () => string
       openHistoryDialog: () => void
+      openHistoryForPath: (path: string) => void
+      setTabBodyForPath: (path: string, body: string) => void
       setPendingEditorBody: (body: string) => void
+      getActivePath: () => string
+      activateTab: (path: string) => Promise<void>
+      getTabBodyForPath: (path: string) => string | undefined
+      hasHistoryRestorePending: (path?: string) => boolean
       clearSnapshots: () => void
       getFlushCount: () => number
       resetFlushCount: () => void
@@ -52,7 +60,9 @@ declare global {
 
 const QA_ROOT = '/qa-vault'
 const QA_PATH = '/qa-vault/note.md'
+const QA_PATH_B = '/qa-vault/other.md'
 const QA_INITIAL_BODY = '# Current Editor\nLive body\n'
+const QA_INITIAL_BODY_B = '# Other Editor\nOther live body\n'
 
 const QA_APP_SETTINGS = {
   ...DEFAULT_APP_SETTINGS,
@@ -109,6 +119,7 @@ function t(key: string, vars?: Record<string, string | number>): string {
 
 function createEntry(
   id: string,
+  path: string,
   createdAt: number,
   content: string,
   source: 'manual' | 'pre_restore' = 'manual',
@@ -116,7 +127,7 @@ function createEntry(
   return {
     id,
     workspaceId: 'qa-vault',
-    path: QA_PATH,
+    path,
     createdAt,
     source,
     title: content.split('\n')[0]?.replace(/^#\s*/, '') || null,
@@ -127,13 +138,20 @@ function createEntry(
 }
 
 function createInitialStore(): HistoryStore {
-  const first = createEntry('snap-qa-1', Date.now() - 60_000, '# Snapshot One\nBody one\n')
-  const second = createEntry('snap-qa-2', Date.now() - 30_000, '# Snapshot Two\nBody two\n')
+  const first = createEntry('snap-qa-1', QA_PATH, Date.now() - 60_000, '# Snapshot One\nBody one\n')
+  const second = createEntry('snap-qa-2', QA_PATH, Date.now() - 30_000, '# Snapshot Two\nBody two\n')
+  const other = createEntry(
+    'snap-other-1',
+    QA_PATH_B,
+    Date.now() - 45_000,
+    '# Other Snapshot\nOther body\n',
+  )
   return {
-    entries: [second, first],
+    entries: [second, first, other],
     snapshots: {
       [first.id]: { entry: first, content: '# Snapshot One\nBody one\n' },
       [second.id]: { entry: second, content: '# Snapshot Two\nBody two\n' },
+      [other.id]: { entry: other, content: '# Other Snapshot\nOther body\n' },
     },
   }
 }
@@ -145,8 +163,10 @@ function installTauriHistoryMock(storeRef: MutableRefObject<HistoryStore>, onSto
       const payload = (args?.payload as Record<string, unknown> | undefined) ?? {}
       const snapshotId = String(payload.snapshotId ?? '')
       switch (cmd) {
-        case 'list_document_snapshots':
-          return [...storeRef.current.entries]
+        case 'list_document_snapshots': {
+          const listPath = String(payload.path ?? '')
+          return storeRef.current.entries.filter((entry) => entry.path === listPath)
+        }
         case 'read_document_snapshot': {
           const snapshot = storeRef.current.snapshots[snapshotId]
           if (!snapshot) throw new Error(`missing snapshot ${snapshotId}`)
@@ -157,6 +177,7 @@ function installTauriHistoryMock(storeRef: MutableRefObject<HistoryStore>, onSto
           const id = `snap-qa-${Date.now()}`
           const entry = createEntry(
             id,
+            String(payload.path ?? QA_PATH),
             Date.now(),
             content,
             (payload.source as 'manual' | 'pre_restore' | undefined) ?? 'manual',
@@ -190,8 +211,8 @@ function installTauriHistoryMock(storeRef: MutableRefObject<HistoryStore>, onSto
   }
 }
 
-function installDocumentRuntime(initialBody: string): DocumentRuntimeCapabilities {
-  const disk = new Map<string, string>([[QA_PATH, initialBody]])
+function installDocumentRuntime(initialBodies: Record<string, string>): DocumentRuntimeCapabilities {
+  const disk = new Map<string, string>(Object.entries(initialBodies))
 
   const capabilities: DocumentRuntimeCapabilities = {
     readDocument: async (_root, path) => disk.get(path) ?? '',
@@ -212,11 +233,42 @@ export function QaSnapshotPlayground() {
   const flushCountRef = useRef(0)
   const [status, setStatus] = useState('booting')
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyPath, setHistoryPath] = useState(QA_PATH)
+  const [activePath, setActivePath] = useState(QA_PATH)
   const [editorBody, setEditorBody] = useState(QA_INITIAL_BODY)
   const [, bumpStore] = useState(0)
+  const openedTabsRef = useRef([QA_PATH, QA_PATH_B])
+  const activePathRef = useRef(QA_PATH)
+  activePathRef.current = activePath
 
   const syncEditorFromRuntime = useCallback(() => {
-    setEditorBody(resolveDocumentBody(QA_PATH) ?? getDocumentRuntimeSnapshot().content)
+    const path = activePathRef.current
+    setEditorBody(resolveDocumentBody(path) ?? getDocumentRuntimeSnapshot().content)
+  }, [])
+
+  const activateTab = useCallback(async (path: string) => {
+    if (pathsEqual(path, activePathRef.current)) return
+    const body =
+      resolveLatestDocumentBody(path) ??
+      getTabBody(path) ??
+      resolveDocumentBody(path) ??
+      ''
+    const projected = projectDocumentMemorySurfaces(path, body)
+    await dispatchDocumentCommand({
+      type: 'SET_TABS',
+      tabs: openedTabsRef.current,
+      activePath: path,
+      source: 'qa-snapshot-activate',
+    })
+    await dispatchDocumentCommand({
+      type: 'REPLACE_ACTIVE_DOCUMENT',
+      path,
+      content: projected.editorSurface,
+      source: 'qa-snapshot-activate',
+    })
+    setActivePath(path)
+    setEditorBody(projected.editorSurface)
+    setStatus(`activated:${path.split('/').pop() ?? path}`)
   }, [])
 
   useEffect(() => {
@@ -224,8 +276,12 @@ export function QaSnapshotPlayground() {
     refreshThemeFromSettings()
 
     resetDocumentRuntimeKernel()
-    installDocumentRuntime(QA_INITIAL_BODY)
+    installDocumentRuntime({
+      [QA_PATH]: QA_INITIAL_BODY,
+      [QA_PATH_B]: QA_INITIAL_BODY_B,
+    })
     installTauriHistoryMock(storeRef, () => bumpStore((n) => n + 1))
+    const unsubBodies = installTabBodiesKernelSync()
 
     void (async () => {
       await dispatchDocumentCommand({
@@ -240,23 +296,37 @@ export function QaSnapshotPlayground() {
         content: QA_INITIAL_BODY,
         source: 'qa-snapshot-boot',
       })
-      syncEditorFromRuntime()
+      await dispatchDocumentCommand({
+        type: 'SET_TABS',
+        tabs: [QA_PATH, QA_PATH_B],
+        activePath: QA_PATH,
+        source: 'qa-snapshot-boot-tabs',
+      })
+      setTabBody(QA_PATH_B, QA_INITIAL_BODY_B)
+      setEditorBody(resolveDocumentBody(QA_PATH) ?? getDocumentRuntimeSnapshot().content)
       setStatus('ready')
     })()
 
     return () => {
+      unsubBodies()
       registerDocumentRuntimeCapabilities(null)
       resetDocumentRuntimeKernel()
       delete window.__QA_SNAPSHOT__
     }
-  }, [syncEditorFromRuntime])
+  }, [])
 
   useEffect(() => {
     window.__QA_SNAPSHOT__ = {
-      getEditorBody: () => resolveDocumentBody(QA_PATH) ?? getDocumentRuntimeSnapshot().content,
-      listSnapshotIds: () => storeRef.current.entries.map((entry) => entry.id),
+      getEditorBody: () => {
+        const runtime = getDocumentRuntimeSnapshot()
+        return resolveDocumentBody(runtime.activePath) ?? runtime.content
+      },
+      getActivePath: () => getDocumentRuntimeSnapshot().activePath,
+      getTabBodyForPath: (path: string) => getTabBody(path),
+      listSnapshotIds: () =>
+        storeRef.current.entries.filter((entry) => entry.path === historyPath).map((entry) => entry.id),
       getSnapshotContent: (id) => storeRef.current.snapshots[id]?.content ?? null,
-      getRestoredSnapshotId: () => getHistoryRestoreState(QA_PATH)?.snapshotId ?? null,
+      getRestoredSnapshotId: () => getHistoryRestoreState(historyPath)?.snapshotId ?? null,
       setThemeMode: async (mode) => {
         await setSetting('theme.active', mode === 'light' ? 'github-light' : 'github-dark')
         refreshThemeFromSettings()
@@ -266,9 +336,20 @@ export function QaSnapshotPlayground() {
         const el = document.querySelector('.document-history-preview-content h1')
         return el ? getComputedStyle(el).color : ''
       },
-      openHistoryDialog: () => setHistoryOpen(true),
+      openHistoryDialog: () => {
+        setHistoryPath(activePath)
+        setHistoryOpen(true)
+      },
+      openHistoryForPath: (path: string) => {
+        setHistoryPath(path)
+        setHistoryOpen(true)
+      },
+      setTabBodyForPath: (path: string, body: string) => {
+        setTabBody(path, body)
+        if (path === activePath) setEditorBody(body)
+      },
       setPendingEditorBody: (body: string) => {
-        setTabBody(QA_PATH, body)
+        setTabBody(activePath, body)
         setEditorBody(body)
       },
       clearSnapshots: () => {
@@ -279,6 +360,8 @@ export function QaSnapshotPlayground() {
       resetFlushCount: () => {
         flushCountRef.current = 0
       },
+      activateTab,
+      hasHistoryRestorePending: (path) => isAutosaveSuspended(path ?? activePathRef.current),
     }
   })
 
@@ -290,36 +373,47 @@ export function QaSnapshotPlayground() {
   const onCreateSnapshot = useCallback(async () => {
     const entry = await createManualSnapshotForDocument({
       rootDir: QA_ROOT,
-      path: QA_PATH,
+      path: historyPath,
       flushEditorToMemory,
     })
     if (entry) setStatus(`created:${entry.id}`)
     return entry
-  }, [flushEditorToMemory])
+  }, [flushEditorToMemory, historyPath])
 
   const onRestore = useCallback(
-    async (snapshotId: string) => {
+    async (snapshotId: string, context: { rootDir: string; path: string }) => {
       await restoreSnapshotToEditor({
-        rootDir: QA_ROOT,
-        path: QA_PATH,
+        rootDir: context.rootDir,
+        path: context.path,
         snapshotId,
-        flushEditorToMemory,
+        flushEditorToMemory: pathsEqual(context.path, activePathRef.current)
+          ? flushEditorToMemory
+          : undefined,
         dispatchDocumentCommand,
       })
-      syncEditorFromRuntime()
+      if (pathsEqual(context.path, activePathRef.current)) {
+        syncEditorFromRuntime()
+      }
       setStatus(`restored:${snapshotId}`)
     },
     [flushEditorToMemory, syncEditorFromRuntime],
   )
 
   return (
-    <div style={{ padding: 24, background: 'var(--surface-app, #0f1115)', minHeight: '100vh' }}>
+    <div style={{ padding: 24, background: 'var(--surface-app)', minHeight: '100vh' }}>
       <h1 data-testid="qa-ready">Snapshot QA</h1>
       <p data-testid="qa-status">{status}</p>
-      <pre data-testid="qa-editor-body" style={{ whiteSpace: 'pre-wrap', color: 'var(--text-primary, #e2e8f0)' }}>
+      <pre data-testid="qa-editor-body" style={{ whiteSpace: 'pre-wrap', color: 'var(--text-primary)' }}>
         {editorBody}
       </pre>
-      <button type="button" data-testid="open-history" onClick={() => setHistoryOpen(true)}>
+      <button
+        type="button"
+        data-testid="open-history"
+        onClick={() => {
+          setHistoryPath(activePath)
+          setHistoryOpen(true)
+        }}
+      >
         Open history
       </button>
 
@@ -327,7 +421,8 @@ export function QaSnapshotPlayground() {
         t={t}
         open={historyOpen}
         rootDir={QA_ROOT}
-        path={QA_PATH}
+        path={historyPath}
+        activePath={activePath}
         onClose={() => {
           setHistoryOpen(false)
           syncEditorFromRuntime()

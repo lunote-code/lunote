@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { Icon } from '../../design-system/icons'
 import { clampMenuElementPosition } from '../../lib/contextMenuPosition'
 import type { TranslateFn } from '../../i18n'
+import { useFocusTrap } from '../../lib/useFocusTrap'
 import type { ToolbarCommandDef } from '../../menu/menu.types'
 import { resolveMenuCommandSemanticIcon } from '../../menu/menuSemanticIcons'
 import { resolveEditorFormatToolbarIcon } from './editorFormatToolbarIcons'
@@ -21,6 +22,7 @@ export function EditorCalloutToolbarDropdown({ t, label, title, items, onCommand
   const menuId = useId()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const [panelEl, setPanelEl] = useState<HTMLDivElement | null>(null)
   const [open, setOpen] = useState(false)
   const [panelStyle, setPanelStyle] = useState<CSSProperties>({
     visibility: 'hidden',
@@ -74,6 +76,10 @@ export function EditorCalloutToolbarDropdown({ t, label, title, items, onCommand
     onOpenChange?.(open)
   }, [onOpenChange, open])
 
+  useFocusTrap(open, panelEl, {
+    onEscape: closePanel,
+  })
+
   useEffect(() => {
     if (!open) return
     const onDocMouseDown = (e: MouseEvent) => {
@@ -83,14 +89,9 @@ export function EditorCalloutToolbarDropdown({ t, label, title, items, onCommand
       if (panelRef.current?.contains(target)) return
       closePanel()
     }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closePanel()
-    }
     document.addEventListener('mousedown', onDocMouseDown)
-    document.addEventListener('keydown', onKey, true)
     return () => {
       document.removeEventListener('mousedown', onDocMouseDown)
-      document.removeEventListener('keydown', onKey, true)
     }
   }, [open, closePanel])
 
@@ -107,6 +108,7 @@ export function EditorCalloutToolbarDropdown({ t, label, title, items, onCommand
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
+        onMouseDown={(event) => event.preventDefault()}
         onClick={() => setOpen((v) => !v)}
       >
         <Icon name={triggerIcon} className="editor-format-btn-icon" size="sm" stroke="strong" />
@@ -117,7 +119,10 @@ export function EditorCalloutToolbarDropdown({ t, label, title, items, onCommand
         open &&
         createPortal(
           <div
-            ref={panelRef}
+            ref={(node) => {
+              panelRef.current = node
+              setPanelEl(node)
+            }}
             id={menuId}
             className="editor-format-callout-menu"
             style={panelStyle}
@@ -133,6 +138,7 @@ export function EditorCalloutToolbarDropdown({ t, label, title, items, onCommand
                   className="editor-format-callout-menu-item"
                   role="menuitem"
                   title={item.shortcut ? `${item.title} (${item.shortcut})` : item.title}
+                  onMouseDown={(event) => event.preventDefault()}
                   onClick={() => {
                     closePanel()
                     onCommand(item.id)

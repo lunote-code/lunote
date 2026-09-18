@@ -1,0 +1,190 @@
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-root {
+  display: block;
+  margin: 0.75rem 0;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 88%, var(--accent) 12%);
+  border-radius: var(--radius-md, 10px);
+  background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-editor) 8%);
+  overflow: hidden;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-root--inline {
+  display: block;
+  width: 100%;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0.65rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-panel) 84%, var(--accent) 6%);
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-chrome * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-chrome-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-collapse:hover {
+  background: color-mix(in srgb, var(--surface-hover) 88%, var(--accent) 8%);
+  color: var(--text-primary);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-root--collapsed .pm-wiki-embed-chrome {
+  border-bottom: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-root--collapsed .pm-wiki-embed-surface,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-root--collapsed .pm-wiki-embed-image-wrap,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-root--collapsed .pm-wiki-embed-status {
+  display: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-title {
+  border: 0;
+  background: transparent;
+  color: var(--link);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-title:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-raw {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-surface {
+  padding: 0.65rem 0.85rem 0.85rem;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-surface * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-image-wrap {
+  padding: 0.65rem 0.85rem 0.85rem;
+  text-align: center;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-image {
+  max-width: 100%;
+  height: auto;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-surface .pm-drawing-preview-wrap {
+  margin: 0.65rem 0 0.85rem;
+  border: var(--hairline, 1px solid) solid color-mix(in srgb, var(--border-subtle, #cbd5e1) 82%, transparent);
+  border-radius: 8px;
+  overflow: auto;
+  background: var(--surface-app, #fff);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-surface .pm-drawing-preview-stage {
+  display: inline-block;
+  min-width: min(100%, 240px);
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-surface .pm-drawing-preview-canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-wiki-embed-status {
+  padding: 0.5rem 0.85rem 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-hidden-comment,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-hidden-comment-block {
+  display: none;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-hidden-comment:hover,
+.preview-pane.markdown-visual-editor .ProseMirror .pm-hidden-comment-block:hover,
+.preview-pane.markdown-visual-editor .ProseMirror .ProseMirror-selectednode .pm-hidden-comment,
+.preview-pane.markdown-visual-editor .ProseMirror .ProseMirror-selectednode .pm-hidden-comment-block {
+  display: inline-flex;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-hidden-comment-block {
+  display: none;
+  margin: 0.35rem 0;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-hidden-comment-block:hover,
+.preview-pane.markdown-visual-editor .ProseMirror .ProseMirror-selectednode .pm-hidden-comment-block {
+  display: flex;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-hidden-comment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px dashed color-mix(in srgb, var(--border-subtle) 70%, var(--text-muted) 30%);
+  background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-editor) 12%);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.preview-pane.markdown-visual-editor .ProseMirror .pm-inline-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.02rem 0.4rem;
+  margin: 0 0.08rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface-panel) 84%);
+  color: var(--link);
+  font-size: 0.92em;
+  line-height: 1.35;
+  white-space: nowrap;
+}

@@ -6,13 +6,17 @@
 @import './app/styles/fields-app.css';    /* input field tiers */
 @import './app/styles/buttons-app.css';    /* icon + text button tiers */
 @import './app/styles/dialogs-app.css';   /* modal backdrop + panel shell */
+@import './app/styles/command-palette.css'; /* command palette + workspace search shell */
 @import './app/styles/scrollbars-app.css'; /* global scrollbar tiers */
 @import './design-system/empty-state.css';
 @import './app/styles/layout-sidebar-outline.css';
-@import './app/styles/command-palette.css';
+@import './app/styles/sidebar-note-calendar.css';
+@import './components/shortcuts-cheatsheet.css';
 @import './app/styles/sidebar-files-chrome.css';
 @import './app/styles/editor-pane-codemirror.css';
 @import './app/styles/editor-find-bar.css';
 @import './app/styles/editor-visual-core.css';
 @import './app/styles/editor-visual-nodes.css';
 @import './app/styles/editor-misc.css';
+@import './app/styles/app-toast.css';
+@import './app/styles/editor-right-rail-tabs.css';

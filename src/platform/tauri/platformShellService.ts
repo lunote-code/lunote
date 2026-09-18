@@ -13,8 +13,8 @@ export async function openTrustedPath(path: string, root: string): Promise<void>
   await invoke('open_trusted_path', scopedPathPayload(path, root))
 }
 
-export async function syncRecentMenu(paths: string[]): Promise<void> {
-  await invoke('sync_recent_menu', { paths })
+export async function syncRecentMenu(workspaces: string[], files: string[]): Promise<void> {
+  await invoke('sync_recent_menu', { workspaces, files })
 }
 
 export async function syncThemeCssMenu(names: string[]): Promise<void> {

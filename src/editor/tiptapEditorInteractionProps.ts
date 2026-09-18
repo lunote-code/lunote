@@ -11,6 +11,11 @@ import type { WikiLinkTarget } from './knowledgeRuntime/types'
 import { isWikiSuggestItemSelectable } from './lunaWikiLinkSuggest'
 import { isMermaidSourceFocused } from './mermaid/mermaidSourceDom'
 import { isOpenableExternalHref, openExternalUrlInSystemBrowser } from './openExternalLink'
+import {
+  isEmbeddedHtmlLinkSurface,
+  resolveWorkspaceMarkdownHref,
+  type EmbeddedHtmlWorkspaceNoteTarget,
+} from './resolveWorkspaceMarkdownHref'
 import { clearTiptapSearch } from './search/editorSearchBindings'
 import {
   stepExecutableSlashRowIndex,
@@ -76,6 +81,10 @@ type TiptapEditorInteractionPropsArgs = {
   onLunaAssetLinkClickRef: MutableRefObject<
     ((href: string, event: MouseEvent) => void) | undefined
   >
+  onEmbeddedHtmlLinkNavigateRef: MutableRefObject<
+    ((target: EmbeddedHtmlWorkspaceNoteTarget) => void) | undefined
+  >
+  onEmbeddedHtmlHashNavigateRef: MutableRefObject<((fragment: string) => void) | undefined>
   reportLinkOpenFailed: (error: unknown) => void
   markUserEditIntent: () => void
 }
@@ -235,8 +244,21 @@ export function createTiptapEditorInteractionProps(
           'a[href]',
         ) as HTMLAnchorElement | null
         if (!anchor || !args.shellRef.current?.contains(anchor)) return false
-        if (!(event.metaKey || event.ctrlKey)) return false
         const href = anchor.getAttribute('href') || ''
+        if (isEmbeddedHtmlLinkSurface(anchor)) {
+          if (isLunaAssetHref(href) || isOpenableExternalHref(href)) {
+            if (!(event.metaKey || event.ctrlKey)) return false
+            event.preventDefault()
+            return true
+          }
+          if (resolveWorkspaceMarkdownHref(href, args.activePathRef.current, args.rootDirRef.current)) {
+            event.preventDefault()
+            return true
+          }
+          event.preventDefault()
+          return true
+        }
+        if (!(event.metaKey || event.ctrlKey)) return false
         if (!isOpenableExternalHref(href) && !isLunaAssetHref(href)) return false
         event.preventDefault()
         return true
@@ -286,7 +308,7 @@ export function createTiptapEditorInteractionProps(
             rootDir: args.rootDirRef.current,
             activePath: args.activePathRef.current,
           })
-          if (wikiHit && args.onWikiLinkNavigateRef.current && mod) {
+          if (wikiHit && args.onWikiLinkNavigateRef.current) {
             event.preventDefault()
             event.stopPropagation()
             args.onWikiLinkNavigateRef.current(wikiHit.target)
@@ -299,6 +321,39 @@ export function createTiptapEditorInteractionProps(
         const shell = args.shellRef.current
         if (!anchor || !shell?.contains(anchor)) {
           return false
+        }
+
+        if (isEmbeddedHtmlLinkSurface(anchor)) {
+          const href = anchor.getAttribute('href') || ''
+          event.preventDefault()
+          event.stopPropagation()
+
+          if (isLunaAssetHref(href)) {
+            if (mod) {
+              args.onLunaAssetLinkClickRef.current?.(href, event)
+            }
+            return true
+          }
+
+          if (mod && isOpenableExternalHref(href)) {
+            void openExternalUrlInSystemBrowser(href).catch(args.reportLinkOpenFailed)
+            return true
+          }
+
+          const resolved = resolveWorkspaceMarkdownHref(
+            href,
+            args.activePathRef.current,
+            args.rootDirRef.current,
+          )
+          if (!resolved) return true
+
+          if (resolved.kind === 'same-doc-hash') {
+            args.onEmbeddedHtmlHashNavigateRef.current?.(resolved.fragment)
+            return true
+          }
+
+          args.onEmbeddedHtmlLinkNavigateRef.current?.(resolved)
+          return true
         }
 
         const coords = view.posAtCoords({ left: event.clientX, top: event.clientY })

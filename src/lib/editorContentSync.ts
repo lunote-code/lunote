@@ -78,6 +78,14 @@ export function canSafelyReadEditorForDocumentKey(
   return isVisualEditorBoundToDocumentKey(visualEditor, documentKey)
 }
 
+export type ResolveBoundEditorMarkdownOptions = {
+  preserveCodeBlockEditing?: boolean
+}
+
+export type FlushEditorToMemoryOptions = ResolveBoundEditorMarkdownOptions & {
+  skipTabSessionCapture?: boolean
+}
+
 /**
  * Read markdown for save/flush when the editor must still be bound to `documentKey`.
  * Returns null if the tab or editor binding changed during await (e.g. composition end).
@@ -88,6 +96,7 @@ export async function tryResolveBoundEditorMarkdown(
   kernelContent: string,
   documentKey: string,
   getActivePath: () => string | null | undefined,
+  options?: ResolveBoundEditorMarkdownOptions,
 ): Promise<string | null> {
   if (!canSafelyReadEditorForDocumentKey(mainPaneMode, documentKey, getActivePath(), visualEditor)) {
     return null
@@ -102,7 +111,7 @@ export async function tryResolveBoundEditorMarkdown(
   }
   const markdown =
     typeof visualEditor.flushPendingMarkdownSync === 'function'
-      ? visualEditor.flushPendingMarkdownSync(true, false)
+      ? visualEditor.flushPendingMarkdownSync(true, false, options)
       : visualEditor.getMarkdown(true)
   if (!canSafelyReadEditorForDocumentKey(mainPaneMode, documentKey, getActivePath(), visualEditor)) {
     return null

@@ -6,12 +6,14 @@ export function FileContextMenuItem({
   label,
   disabled,
   danger,
+  testId,
   onClick,
 }: {
   icon: SemanticIconName
   label: string
   disabled?: boolean
   danger?: boolean
+  testId?: string
   onClick: () => void
 }) {
   return (
@@ -20,6 +22,7 @@ export function FileContextMenuItem({
       role="menuitem"
       className={['file-ctx-item', danger ? 'file-ctx-item-danger' : ''].filter(Boolean).join(' ')}
       disabled={disabled}
+      data-testid={testId}
       onClick={onClick}
     >
       <span className="file-ctx-item-leading" aria-hidden>

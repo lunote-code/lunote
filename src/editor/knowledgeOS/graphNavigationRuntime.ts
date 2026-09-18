@@ -9,8 +9,9 @@ import {
 } from './graphReadinessRuntime'
 import { getNoteGraphTopology } from './noteGraphRuntime'
 import { getPanelLayoutForType } from './surfaceLayoutRuntime'
+import { buildGraphFitNodeBounds } from './layout/graphFitBounds'
 import { preserveViewportBasis } from './graphViewportFocusRuntime'
-import { centerGraphOnBoundsCenter, centerGraphOnNode, getGraphViewport } from './graphViewportRuntime'
+import { centerGraphOnNode, fitGraphViewToNodes, getGraphViewport } from './graphViewportRuntime'
 import type { NoteGraphNode } from './types'
 
 export type PendingGraphCenter = {
@@ -42,21 +43,17 @@ function schedulePendingFlushWarn(): void {
 
 /** A. Doc-level coarse positioning (excluding node highlighting/fine focusing).*/
 export function applyNavigationCoarseCenter(
-  pending: PendingGraphCenter,
+  _pending: PendingGraphCenter,
   nodes: readonly NoteGraphNode[],
   width: number,
   height: number,
 ): boolean {
   if (width <= 0 || height <= 0) return false
 
-  const docNeighbors = nodes.filter(
-    (n) => n.docKey === pending.docKey || n.id === pending.nodeId,
-  )
-  const graphScope = docNeighbors.length > 0 ? docNeighbors : nodes
-  if (graphScope.length === 0) return false
+  if (nodes.length === 0) return false
 
   overrideCameraLockForNavigationBurst(1)
-  centerGraphOnBoundsCenter(graphScope, width, height, 'navigation')
+  fitGraphViewToNodes(buildGraphFitNodeBounds(nodes), width, height, 48)
   return true
 }
 
@@ -121,7 +118,7 @@ function attemptCoarseCenterFlush(
 }
 
 subscribeGraphReadiness(() => {
-  attemptCoarseCenterFlush(undefined, undefined, undefined, { force: false })
+  attemptCoarseCenterFlush(undefined, undefined, undefined, { force: true })
 })
 
 export function setPendingGraphCenter(docKey: DocKey, nodeId: string): void {
@@ -129,6 +126,9 @@ export function setPendingGraphCenter(docKey: DocKey, nodeId: string): void {
   pendingGraphCenter = { docKey, nodeId: resolvedNodeId }
   beginGraphNavigationReadiness()
   schedulePendingFlushWarn()
+  queueMicrotask(() => {
+    attemptCoarseCenterFlush(undefined, undefined, undefined, { force: true })
+  })
 }
 
 export function getPendingGraphCenter(): PendingGraphCenter | null {

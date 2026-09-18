@@ -72,6 +72,10 @@ export function useAssetHandlers(deps: AssetHandlersDeps) {
     setPasteIssueReporter((code) => {
       if (code === 'heic_unsupported') {
         setStatus(t('app.paste.imageHeicUnsupported'))
+        return
+      }
+      if (code === 'read_failed') {
+        setStatus(t('app.status.clipboardReadFailed'))
       }
     })
     return () => setPasteIssueReporter(null)
@@ -110,10 +114,13 @@ export function useAssetHandlers(deps: AssetHandlersDeps) {
   const pickAndImportLunaAsset = useCallback(async () => {
     return withLunaAssetPickInFlight(async () => {
       if (!rootDir) {
-        setStatus('Open a workspace first')
+        setStatus(t('app.asset.needWorkspace'))
         return null
       }
-      const file = await pickLocalAssetFile({ title: 'Choose attachment' })
+      const file = await pickLocalAssetFile({
+        title: t('app.asset.chooseAttachment'),
+        filterName: t('app.dialog.filter.files'),
+      })
       if (!file) return null
       const workspaceId = workspaceIdFromRoot(rootDir)
       const documentPath = activePath || `${rootDir.replace(/[/\\]+$/u, '')}/Untitled.md`
@@ -132,10 +139,10 @@ export function useAssetHandlers(deps: AssetHandlersDeps) {
         content: contentRef.current,
         source: 'luna-asset-link',
       })
-      setStatus(`Attachment added: ${asset.originalName}`)
+      setStatus(t('app.asset.added', { name: asset.originalName }))
       return asset
     })
-  }, [activePath, assetStorageConfig, contentRef, rootDir, setStatus])
+  }, [activePath, assetStorageConfig, contentRef, rootDir, setStatus, t])
 
   const importDroppedAssets = useCallback(
     async (files: File[], options?: { quiet?: boolean }): Promise<AssetMeta[]> => {
@@ -209,12 +216,12 @@ export function useAssetHandlers(deps: AssetHandlersDeps) {
       void (async () => {
         const asset = await getAssetMeta(assetId)
         if (!asset) {
-          setStatus('File reference missing or index not rebuilt yet')
+          setStatus(t('app.asset.referenceMissing'))
           return
         }
         if (event.metaKey || event.ctrlKey) {
           if (!rootDir) {
-            setStatus('Open a workspace first')
+            setStatus(t('app.asset.needWorkspace'))
             return
           }
           await revealAssetInFolder(asset, rootDir)
@@ -222,10 +229,14 @@ export function useAssetHandlers(deps: AssetHandlersDeps) {
         }
         previewAsset(asset)
       })().catch((error) => {
-        setStatus(`Failed to open file reference: ${error instanceof Error ? error.message : String(error)}`)
+        setStatus(
+          t('app.asset.openReferenceFailed', {
+            detail: error instanceof Error ? error.message : String(error),
+          }),
+        )
       })
     },
-    [rootDir, setStatus],
+    [rootDir, setStatus, t],
   )
 
   const getLunaAssetTooltip = useCallback(

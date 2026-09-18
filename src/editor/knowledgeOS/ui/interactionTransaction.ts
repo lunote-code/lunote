@@ -3,6 +3,13 @@
  */
 import type { DocKey, SearchHit, WikiLinkTarget } from '../../knowledgeRuntime/types'
 import {
+  seedHistoryFromActiveContext,
+  navigateBack,
+  navigateForward,
+  pushHistory,
+  type NavigationTarget,
+} from '../../knowledgeInteractionRuntime/knowledgeNavigationRuntime'
+import {
   dispatchBacklinkFocusNavigation,
   dispatchGraphFocusNavigation,
   dispatchOpenNoteNavigation,
@@ -86,7 +93,7 @@ export function assertNavigationAuthority(target: NavigationAuthorityTarget): as
 
 type GraphClickNavigatePayload = {
   intent: NavigationClickIntent
-  hit: { docKey: DocKey; heading?: string } | null
+  hit: { docKey: DocKey; heading?: string; linkBodyOffset?: number } | null
   traceId?: string
 }
 
@@ -158,6 +165,7 @@ export function dispatchKnowledgeNavigate(
   source: InteractionSource,
   targetOrPayload: MetadataResolvedTarget | ClickNavigatePayload,
 ): boolean {
+  seedHistoryFromActiveContext()
   if ('intent' in targetOrPayload) {
     const { intent } = targetOrPayload
     const traceId = targetOrPayload.traceId ?? `nav-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -177,6 +185,7 @@ export function dispatchKnowledgeNavigate(
         heading: target.heading,
         blockId: target.blockId,
         alias: target.alias,
+        linkBodyOffset: (targetOrPayload as GraphClickNavigatePayload).hit?.linkBodyOffset,
         intentType: intent.type,
         intentReason: intent.reason,
         traceId,
@@ -209,6 +218,12 @@ export function dispatchKnowledgeNavigate(
         setPendingGraphCenter(wikiResolved.resolvedDocKey, nodeId)
       }
     }
+    pushHistory({
+      docKey: target.docKey,
+      absolutePath: target.docKey ? resolveWikiTarget(target).absolutePath ?? '' : '',
+      heading: target.heading,
+      blockId: target.blockId,
+    })
     return true
   }
 
@@ -227,6 +242,13 @@ export function dispatchKnowledgeNavigate(
     docKey: target.docKey,
     meta: { interactionSource: source },
   })
+  const resolved = resolveWikiTarget(target)
+  pushHistory({
+    docKey: target.docKey,
+    absolutePath: resolved.absolutePath ?? '',
+    heading: target.heading,
+    blockId: target.blockId,
+  })
   return true
 }
 
@@ -234,11 +256,49 @@ export function dispatchKnowledgeNavigateHit(
   source: InteractionSource,
   hit: SearchHit,
 ): boolean {
+  seedHistoryFromActiveContext()
   dispatchOpenNoteNavigation(hit.absolutePath, source === 'search' ? 'search' : 'system', {
     docKey: hit.docKey,
     interactionSource: source,
   })
+  pushHistory({
+    docKey: hit.docKey,
+    absolutePath: hit.absolutePath,
+  })
   return true
+}
+
+function dispatchNavigationHistoryTarget(source: InteractionSource, target: NavigationTarget): boolean {
+  const navEvent = dispatchOpenNoteNavigation(target.absolutePath || undefined, 'system', {
+    docKey: target.docKey,
+    interactionSource: source,
+    heading: target.heading,
+    blockId: target.blockId,
+  })
+  recordNavigationSideEffect(navEvent.id, {
+    kind: 'dispatchKnowledgeNavigate',
+    source: 'system',
+    docKey: target.docKey,
+    meta: {
+      interactionSource: source,
+      historyJump: true,
+      heading: target.heading,
+      blockId: target.blockId,
+    },
+  })
+  return true
+}
+
+export function dispatchKnowledgeNavigateBack(source: InteractionSource = 'command'): boolean {
+  const target = navigateBack()
+  if (!target) return false
+  return dispatchNavigationHistoryTarget(source, target)
+}
+
+export function dispatchKnowledgeNavigateForward(source: InteractionSource = 'command'): boolean {
+  const target = navigateForward()
+  if (!target) return false
+  return dispatchNavigationHistoryTarget(source, target)
 }
 
 export function dispatchOpenKnowledgeSearch(): boolean {

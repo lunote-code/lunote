@@ -1,5 +1,6 @@
 import type { RefObject } from 'react'
 import { useI18n } from '../../i18n'
+import { useContextMenuKeyboardNav } from '../../lib/useContextMenuKeyboardNav'
 import { useClampedMenuPosition } from '../../lib/useClampedMenuPosition'
 import { FileContextMenuItem } from './FileContextMenuItem'
 import type { FileContextMenuPick, FileContextMenuState, FileContextTarget } from '../workspace/contextMenuTypes'
@@ -18,15 +19,18 @@ export function WorkspaceFileContextMenu({
   const bulkCount = bulkDeletePaths?.length ?? 0
   const ctx: FileContextTarget = { path, isDirectory, variant, bulkDeletePaths }
   const openKey = `${x}:${y}:${path}:${isDirectory}:${variant}`
+  const { onKeyDown } = useContextMenuKeyboardNav(menuRef, openKey, { autoFocusOnOpen: false })
   const { x: menuX, y: menuY } = useClampedMenuPosition(menuRef, { x, y }, openKey)
   if (variant === 'blank') {
     return (
       <div
         ref={menuRef}
         role="menu"
+        tabIndex={-1}
         className="file-ctx-menu"
         style={{ left: menuX, top: menuY }}
         onContextMenu={(e) => e.preventDefault()}
+        onKeyDown={onKeyDown}
       >
         <FileContextMenuItem icon="note-new" label={t('ctx.file.newFile')} onClick={() => onPick('newFile', ctx)} />
         <FileContextMenuItem
@@ -46,9 +50,11 @@ export function WorkspaceFileContextMenu({
     <div
       ref={menuRef}
       role="menu"
+      tabIndex={-1}
       className="file-ctx-menu"
       style={{ left: menuX, top: menuY }}
       onContextMenu={(e) => e.preventDefault()}
+      onKeyDown={onKeyDown}
     >
       {!isDirectory ? (
         <FileContextMenuItem icon="tab-new" label={t('ctx.file.openTab')} onClick={() => onPick('openTab', ctx)} />

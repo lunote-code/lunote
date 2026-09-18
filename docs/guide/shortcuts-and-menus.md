@@ -35,7 +35,23 @@ Search **across files and note content** in the current workspace.
 |--------|------------------|
 | Global search | `Cmd+Shift+F` · `Ctrl+Shift+F` |
 
-The search UI also reminds you of the Command Palette and in-document find shortcuts.
+The search UI also reminds you of the **Quick switcher** (file names) and **Command Palette** shortcuts.
+
+---
+
+## Quick switcher
+
+Jump to **any note by file name or path** in the open workspace—open or not yet open in a tab. Similar to Obsidian’s quick switcher.
+
+| Action | Default shortcut |
+|--------|------------------|
+| Quick switcher | `Cmd+O` · `Ctrl+O` |
+
+1. Press the shortcut (or **View → Quick switcher**).
+2. Type part of a file name or folder path, or leave the field empty to browse recent and all workspace files.
+3. **↑ / ↓** to move, **Enter** to open in a tab, **Esc** to close.
+
+**Quick switcher vs global search:** use **Quick switcher** when you know the file name; use **global search** when you need to find text *inside* notes.
 
 ---
 
@@ -76,6 +92,7 @@ Some entries are **read-only** (system defaults). A few commands use different k
 | Preferences | `Cmd+,` | `Ctrl+,` |
 | Save | `Cmd+S` | `Ctrl+S` |
 | Command Palette | `Cmd+Shift+P` | `Ctrl+Shift+P` |
+| Quick switcher | `Cmd+O` | `Ctrl+O` |
 | Global search | `Cmd+Shift+F` | `Ctrl+Shift+F` |
 | Find in document | `Cmd+F` | `Ctrl+F` |
 | Find & replace | `Cmd+Option+F` | `Ctrl+H` |
@@ -85,6 +102,8 @@ Some entries are **read-only** (system defaults). A few commands use different k
 | Bold / Italic / Underline | `Cmd+B` / `Cmd+I` / `Cmd+U` | `Ctrl+B` / `Ctrl+I` / `Ctrl+U` |
 
 See **Preferences → Shortcuts** for the complete list.
+
+**Source / visual toggle:** `Cmd+/` / `Ctrl+/` always switches the **whole document** between visual and source mode. It does not toggle a local code/Mermaid island.
 
 ### Quick capture (desktop tray)
 
@@ -133,19 +152,28 @@ These are the commands registered in the visual editor slash menu. Type `/` plus
 
 | Command | What it does | Filter examples |
 |---------|----------------|-----------------|
+| **AI continue** | Continue writing from the caret using the AI assistant | `ai`, `continue` |
+| **AI summarize** | Summarize the note or selection | `summarize`, `summary` |
+| **AI improve** | Rewrite / improve the selection | `improve`, `rewrite` |
 | **bold** | Starts inline **bold** editing with placeholder text; press **Enter** to finish the formatted span | `bold` |
 | **italic** | Starts inline *italic* editing (same Enter-to-finish behavior) | `italic` |
 | **heading 1** | Turn the block into a level-1 heading | `h1`, `heading1`, `title` |
 | **heading 2** | Turn the block into a level-2 heading | `h2`, `heading2` |
+| **heading 3** | Turn the block into a level-3 heading | `h3`, `heading3` |
+| **heading 4** | Turn the block into a level-4 heading | `h4`, `heading4` |
+| **heading 5** | Turn the block into a level-5 heading | `h5`, `heading5` |
+| **heading 6** | Turn the block into a level-6 heading | `h6`, `heading6` |
 | **bullet list** | Start an unordered list | `list`, `ul`, `bullet` |
 | **ordered list** | Start a numbered list | `ol`, `ordered` |
 | **task list** | Start a checklist / task list | `task`, `todo`, `checkbox` |
 | **code block** | Insert a fenced code block (default language `text`) | `code`, `codeblock`, `fence` |
+| **drawing canvas** | Insert an in-note drawing block | `drawing`, `draw`, `canvas` |
 | **table** | Insert a **3×3** table with a header row (or open the table insert UI if the advanced inserter is used) | `table`, `tbl` |
 | **Knowledge base** | Insert `[[` and open the **wiki link** suggest menu to pick a note in the workspace | `wiki`, `link`, `doc`, `wikilink`, `kb` |
 | **File link** | Open a file picker and insert a link to a local file in the workspace | `file`, `attach`, `attachment`, `filelink` |
 | **footnote** | Insert a footnote reference | `footnote`, `fn`, `note` |
-| **mermaid** | Insert a Mermaid diagram block with a small starter `graph TD` example | `mermaid`, `mmd` |
+| **mermaid** | Insert a Mermaid flowchart block with a small starter `graph TD` example | `mermaid`, `mmd` |
+| **mindmap** | Insert a Mermaid **mindmap** block | `mindmap` |
 | **callout — tip** | Insert a tip-style callout block | `tip`, `hint`, `callout` |
 | **callout — caution** | Insert a caution callout block | `caution`, `attention` |
 | **callout — important** | Insert an important callout block | `important`, `critical` |
@@ -155,7 +183,7 @@ These are the commands registered in the visual editor slash menu. Type `/` plus
 
 **File link:** Choosing **File link** opens the system file picker for a file in (or for) your workspace. If you cancel the picker, the `/` trigger is left intact so you can try again.
 
-**Headings in the menu:** Only **heading 1** and **heading 2** appear in the slash menu. Use the **Paragraph** menu or **Preferences → Shortcuts** for H3–H6 and other block types (quote, horizontal rule, etc.).
+**Headings in the menu:** All six heading levels (**heading 1**–**heading 6**) are slash commands. **Heading 1** and **heading 2** are the most common picks; for **H3–H6**, type filter aliases such as `/h3` or `/heading4` to narrow the list (the menu shows matching commands as you type). You can also use the **Paragraph** menu or **Preferences → Shortcuts** for headings and other block types (quote, horizontal rule, etc.).
 
 ### `/table` text command (not the slash menu)
 
@@ -182,8 +210,13 @@ In **visual** mode, the format toolbar includes a **Callout** dropdown (tip, sug
 | Goal | Use |
 |------|-----|
 | Save, export, preferences, view layout | **Command Palette** or **menu bar** |
-| Search all notes in the workspace | **Global search** |
+| Open a note by file name or path | **Quick switcher** (`Cmd+O` / `Ctrl+O`) |
+| Search text inside notes across the workspace | **Global search** (`Cmd+Shift+F` / `Ctrl+Shift+F`) |
+| Filter file names in the sidebar tree | **Sidebar search** (files panel) |
+| Search titles, body, and tags in the knowledge rail | **Knowledge panel search** |
 | Insert a block while writing in visual mode | **Slash menu** (`/`) |
+| Continue, summarize, or improve with AI | **Slash → AI continue / summarize / improve** (requires **Preferences → AI**) |
+| Insert a drawing or mindmap | **Slash → drawing canvas** / **mindmap** |
 | Quick 3×3 table from the menu | **Slash → table** |
 | Table from `/table` DSL text | Type `/table` … then **Enter** at line end |
 | Link to another note | **Slash → Knowledge base** or type `[[` |

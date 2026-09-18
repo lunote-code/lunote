@@ -12,7 +12,7 @@ import {
 } from 'react'
 
 import type { TranslateFn } from '../../i18n'
-import { setWikiLinkSuggestPathProvider, setWikiLinkSuggestTemplatesFolderProvider } from '../../editor/lunaWikiLinkSuggest'
+import { setWikiLinkSuggestPathProvider, setWikiLinkSuggestTemplatesFolderProvider, setWikiLinkSuggestEmptyLabels } from '../../editor/lunaWikiLinkSuggest'
 import { isWorkspaceTemplateDocKey } from '../../templates/templatePathMatch'
 import { pathInList, pathsEqual } from '../../lib/workspacePathUtils'
 import { readWorkspaceConfig } from '../../workspace/workspaceConfig'
@@ -40,6 +40,7 @@ import {
 import type { FileSortMode, FsTreeNode } from '../workspace/types'
 import type { EditorDocMenuState, FileContextMenuState } from '../workspace/contextMenuTypes'
 import { deriveWindowTitleParts } from '../../platform/tauri/windowTitleModel'
+import type { SidebarListMode } from '../workspace/sidebarPanelView'
 
 export type WorkspaceSidebarDeps = {
   t: TranslateFn
@@ -49,7 +50,7 @@ export type WorkspaceSidebarDeps = {
   fileTree: FsTreeNode[]
   fileSortMode: FileSortMode
   searchText: string
-  sidebarListMode: 'files' | 'outline'
+  sidebarListMode: SidebarListMode
   sidebarFileView: 'tree' | 'list'
   expandedDirs: Set<string>
   draggingWorkspaceFile: string[] | null
@@ -134,6 +135,14 @@ export function useWorkspaceSidebar(deps: WorkspaceSidebarDeps) {
     () => (rootDir && fileTree.length > 0 ? flattenWorkspaceFiles(fileTree, rootDir) : []),
     [fileTree, rootDir],
   )
+
+  useEffect(() => {
+    setWikiLinkSuggestEmptyLabels({
+      title: t('editor.wikiSuggest.emptyTitle'),
+      hint: t('editor.wikiSuggest.emptyHint'),
+    })
+    return () => setWikiLinkSuggestEmptyLabels(null)
+  }, [t])
 
   useEffect(() => {
     if (!rootDir) {

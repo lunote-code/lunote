@@ -7,7 +7,9 @@ import type {
   DeleteConfirmDialogState,
   UnsavedChangesChoice,
   UnsavedChangesDialogState,
+  WorkspacePasswordDialogState,
 } from '../workspace/types'
+import type { WorkspacePasswordPromptOptions } from '../../workspace/workspaceEncryptionRuntime'
 
 export function useAppDialogs(t: TranslateFn) {
   const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<DeleteConfirmDialogState | null>(null)
@@ -27,6 +29,11 @@ export function useAppDialogs(t: TranslateFn) {
   >(async () => false)
   const [alertDialog, setAlertDialog] = useState<AlertDialogState | null>(null)
   const alertDialogResolverRef = useRef<(() => void) | null>(null)
+  const [workspacePasswordDialog, setWorkspacePasswordDialog] = useState<WorkspacePasswordDialogState | null>(null)
+  const workspacePasswordResolverRef = useRef<
+    ((value: { password: string; confirmPassword?: string } | null) => void) | null
+  >(null)
+  const workspacePasswordErrorRef = useRef<string | undefined>(undefined)
 
   const confirmDeleteFile = useCallback(
     (options: DeleteConfirmDialogState) =>
@@ -117,6 +124,35 @@ export function useAppDialogs(t: TranslateFn) {
     setAlertDialog(null)
   }, [])
 
+  const promptWorkspacePassword = useCallback(
+    (options: WorkspacePasswordPromptOptions) =>
+      new Promise<{ password: string; confirmPassword?: string } | null>((resolve) => {
+        workspacePasswordResolverRef.current = resolve
+        workspacePasswordErrorRef.current = options.initialError
+        setWorkspacePasswordDialog({
+          title: options.title,
+          message: options.message,
+          passwordLabel: t('workspace.encryption.password'),
+          confirmLabel: options.confirmLabel,
+          cancelLabel: options.cancelLabel,
+          requireConfirm: options.requireConfirm,
+          confirmPasswordLabel: options.requireConfirm ? t('workspace.encryption.confirmPassword') : undefined,
+          error: options.initialError,
+        })
+      }),
+    [t],
+  )
+
+  const closeWorkspacePasswordDialog = useCallback(
+    (result: { password: string; confirmPassword?: string } | null) => {
+      workspacePasswordResolverRef.current?.(result)
+      workspacePasswordResolverRef.current = null
+      workspacePasswordErrorRef.current = undefined
+      setWorkspacePasswordDialog(null)
+    },
+    [],
+  )
+
   return {
     deleteConfirmDialog,
     confirmDialog,
@@ -131,5 +167,8 @@ export function useAppDialogs(t: TranslateFn) {
     closeUnsavedDialog,
     showAppAlert,
     closeAlertDialog,
+    workspacePasswordDialog,
+    promptWorkspacePassword,
+    closeWorkspacePasswordDialog,
   }
 }

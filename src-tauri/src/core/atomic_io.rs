@@ -1,28 +1,35 @@
 use std::io::Write;
 use std::path::Path;
 
+use uuid::Uuid;
+
 /// Rename the temporary file after writing it to avoid half-write damage caused by crash.
 pub fn atomic_write(path: &Path, content: &[u8]) -> Result<(), String> {
+  atomic_write_inner(path, content, true)
+}
+
+/// Same atomic rename semantics as [`atomic_write`], but skips fsync on the temp file.
+/// Intended for bulk workspace encryption migrations where per-file fsync is too slow.
+pub fn atomic_write_bulk(path: &Path, content: &[u8]) -> Result<(), String> {
+  atomic_write_inner(path, content, false)
+}
+
+fn atomic_write_inner(path: &Path, content: &[u8], sync_tmp: bool) -> Result<(), String> {
   let parent = path
     .parent()
     .ok_or_else(|| "Invalid destination path".to_string())?;
   std::fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {e}"))?;
-  let tmp_name = format!(
-    ".luna-write-{}-{}.tmp",
-    std::process::id(),
-    std::time::SystemTime::now()
-      .duration_since(std::time::UNIX_EPOCH)
-      .map(|d| d.as_nanos())
-      .unwrap_or(0)
-  );
+  let tmp_name = format!(".luna-write-{}.tmp", Uuid::new_v4());
   let tmp_path = parent.join(tmp_name);
   {
     let mut file =
       std::fs::File::create(&tmp_path).map_err(|e| format!("Failed to create temporary file: {e}"))?;
     file.write_all(content)
       .map_err(|e| format!("Failed to write to temporary file: {e}"))?;
-    file.sync_all()
-      .map_err(|e| format!("Failed to synchronize temporary files: {e}"))?;
+    if sync_tmp {
+      file.sync_all()
+        .map_err(|e| format!("Failed to synchronize temporary files: {e}"))?;
+    }
   }
   commit_atomic_file(&tmp_path, path)
 }

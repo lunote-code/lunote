@@ -151,6 +151,8 @@ export function WorkspaceNotesSettings({
   const dailyTemplateLabel = t('settings.workspaceNotes.dailyTemplate.label')
   const openOnStartupLabel = t('settings.workspaceNotes.openOnStartup.label')
   const openOnStartupDescription = t('settings.workspaceNotes.openOnStartup.description')
+  const templatesEnabledLabel = t('settings.workspaceNotes.templatesEnabled.label')
+  const templatesEnabledDescription = t('settings.workspaceNotes.templatesEnabled.description')
   const templatesFolderLabel = t('settings.workspaceNotes.templatesFolder.label')
   const templatesFolderDescription = t('settings.workspaceNotes.templatesFolder.description')
   const defaultTemplateLabel = t('settings.workspaceNotes.defaultTemplate.label')
@@ -161,6 +163,8 @@ export function WorkspaceNotesSettings({
   const templatesSectionTitle = hideSectionHeaders
     ? undefined
     : t('settings.workspaceNotes.templatesSectionTitle')
+  const templatesEnabled = config.templates?.enabled !== false
+  const templatesControlsDisabled = saving || !templatesEnabled
 
   return (
     <div
@@ -283,6 +287,24 @@ export function WorkspaceNotesSettings({
       {showTemplates ? (
       <SettingsSection title={templatesSectionTitle} className="workspace-notes-section">
         <SettingsRow
+          label={templatesEnabledLabel}
+          description={templatesEnabledDescription}
+          className={rowHighlight(templatesEnabledLabel, templatesEnabledDescription, highlightQuery)}
+        >
+          <SettingsSwitch
+            checked={templatesEnabled}
+            ariaLabel={templatesEnabledLabel}
+            disabled={saving}
+            onCheckedChange={(checked) => {
+              void persist({
+                ...config,
+                templates: { ...config.templates, enabled: checked },
+              })
+            }}
+          />
+        </SettingsRow>
+
+        <SettingsRow
           label={templatesFolderLabel}
           description={templatesFolderDescription}
           className={rowHighlight(templatesFolderLabel, templatesFolderDescription, highlightQuery)}
@@ -291,7 +313,7 @@ export function WorkspaceNotesSettings({
             <SettingsInput
               data-testid="workspace-templates-folder-input"
               value={templatesFolderPath}
-              disabled={saving}
+              disabled={templatesControlsDisabled}
               onChange={(e) => {
                 setConfig({
                   ...config,
@@ -309,7 +331,7 @@ export function WorkspaceNotesSettings({
               <SettingsButton
                 type="button"
                 variant="secondary"
-                disabled={saving}
+                disabled={templatesControlsDisabled}
                 onClick={() =>
                   void runQuickAction(async () => {
                     await revealWorkspaceTemplatesFolder(rootDir)
@@ -332,7 +354,7 @@ export function WorkspaceNotesSettings({
             rootDir={rootDir}
             templatesFolder={committedTemplatesFolder}
             value={defaultTemplatePath}
-            disabled={saving}
+            disabled={templatesControlsDisabled}
             ariaLabel={defaultTemplateLabel}
             t={t}
             onValueChange={(path) => {

@@ -13,6 +13,19 @@ export const EMOJI_PICKER_I18N_KEYS = {
   noMatches: 'editor.emoji.noMatches',
 } as const
 
+/** gemoji category id → i18n key for tab label */
+export const EMOJI_CATEGORY_I18N_KEYS: Record<string, string> = {
+  'Smileys & Emotion': 'editor.emoji.category.smileys',
+  'People & Body': 'editor.emoji.category.people',
+  'Animals & Nature': 'editor.emoji.category.animals',
+  'Food & Drink': 'editor.emoji.category.food',
+  'Travel & Places': 'editor.emoji.category.travel',
+  Activities: 'editor.emoji.category.activities',
+  Objects: 'editor.emoji.category.objects',
+  Symbols: 'editor.emoji.category.symbols',
+  Flags: 'editor.emoji.category.flags',
+}
+
 export type EmojiPickerCopy = {
   title: string
   searchPlaceholder: string
@@ -27,6 +40,21 @@ function resolveUiLocale(): UiLocaleId {
 function readMessage(messages: Record<string, string>, en: Record<string, string>, key: string): string {
   const template = messages[key] ?? en[key] ?? ''
   return formatMessage(template, {})
+}
+
+/** Localized tab label for a gemoji category id. */
+export function readEmojiCategoryLabel(category: string): string {
+  const locale = resolveUiLocale()
+  const en = getEnMessagesSnapshot()
+  let messages = en
+  try {
+    messages = getLocaleMessagesSnapshot(locale)
+  } catch {
+    /* locale not warmed yet — fall back to en copy */
+  }
+  const key = EMOJI_CATEGORY_I18N_KEYS[category]
+  if (!key) return category.split(' ')[0] ?? category
+  return readMessage(messages, en, key) || category.split(' ')[0] || category
 }
 
 /** Localized copy for the built-in emoji picker dialog. */

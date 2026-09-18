@@ -17,7 +17,7 @@ export const ICON_TONE_TOKENS = {
   default: 'var(--color-text-primary, var(--text-primary))',
   muted: 'var(--color-text-muted, var(--text-muted))',
   accent: 'var(--color-accent-primary, var(--accent))',
-  inverse: '#fff',
+  inverse: 'var(--luna-on-accent, #fff)',
 } as const
 
 export type IconSizeToken = keyof typeof ICON_SIZE_TOKENS

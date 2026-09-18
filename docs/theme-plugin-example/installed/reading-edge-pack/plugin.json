@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 2,
+  "id": "reading-edge-pack",
+  "name": "Reading Edge Pack",
+  "version": "1.0.0",
+  "entry": null,
+  "pluginType": "ui-snippet",
+  "capabilities": [
+    "theme.snippet"
+  ],
+  "platforms": [
+    "desktop",
+    "web"
+  ],
+  "requiresRestart": false,
+  "experimental": false,
+  "minAppVersion": "0.6.0",
+  "maxAppVersion": null,
+  "permissions": {
+    "theme": {
+      "register": true
+    }
+  },
+  "contributes": {
+    "theme": {
+      "style": [],
+      "snippets": [
+        {
+          "file": "theme/snippets/reading-edge-pack.css",
+          "id": "reading-edge-pack",
+          "label": "Reading Edge Fade",
+          "description": "Subtle top/bottom viewport fade while scrolling.",
+          "defaultEnabled": true
+        }
+      ],
+      "tokens": [],
+      "defaultEnable": {
+        "snippets": [
+          "reading-edge-pack"
+        ]
+      }
+    },
+    "commands": [],
+    "preferencesSections": [],
+    "panels": []
+  }
+}

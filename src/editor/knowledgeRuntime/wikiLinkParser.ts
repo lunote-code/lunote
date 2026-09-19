@@ -136,6 +136,20 @@ export function parseWikiLinksInText(
   return { links, embeds }
 }
 
+/**
+ * Hit-test a wiki `[[target]]` / `![[embed]]` token at a text offset.
+ * Range is start-inclusive and end-exclusive so a click on the character
+ * after `]]` (image, autolink URL, following text) is not a wiki hit.
+ */
+export function findWikiLinkAtOffset(text: string, offset: number): ParsedWikiLink | null {
+  if (!Number.isFinite(offset) || offset < 0) return null
+  const { links, embeds } = parseWikiLinksInText(text)
+  for (const entry of [...links, ...embeds]) {
+    if (offset >= entry.start && offset < entry.end) return entry
+  }
+  return null
+}
+
 export function parseBlockRefsInText(text: string, baseOffset = 0): ParsedBlockRef[] {
   const refs: ParsedBlockRef[] = []
   const lineStarts: number[] = [0]

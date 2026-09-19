@@ -1,11 +1,12 @@
 import { buildWorkspaceSnapshot } from './persistWorkspaceSnapshot'
 import {
   dispatchDocumentCommand,
+  getDocumentRuntimeSnapshot,
   registerDocumentRuntimeCapabilities,
   resetDocumentRuntimeKernel,
 } from './documentKernel'
 import type { DocumentRuntimeCapabilities } from './documentTypes'
-import { clearTabBodies, setTabBody } from './tabBodiesStore'
+import { clearTabBodies, getTabBody, setTabBody } from './tabBodiesStore'
 
 type Case = {
   readonly name: string
@@ -129,6 +130,75 @@ const CASES: readonly Case[] = Object.freeze([
         'cleared snapshot should not keep recovery drafts',
       )
     }),
+  },
+  {
+    name: 'workspace restore ignores empty tab cache and reads disk',
+    run: async () =>
+      withRuntime(async () => {
+        const diskByPath: Record<string, string> = {
+          '/vault/note.md': '# 产品研发\n\n从磁盘加载\n',
+        }
+        const reads: string[] = []
+        setTabBody('/vault/note.md', '')
+        const capabilities: DocumentRuntimeCapabilities = {
+          readDocument: async (_root, path) => {
+            reads.push(path)
+            return diskByPath[path] ?? ''
+          },
+          writeDocument: async (_root, path, content) => {
+            diskByPath[path] = content
+          },
+          setActiveDocument: () => {},
+          renderContent: () => {},
+          setTabs: () => {},
+          readCachedDocumentForRestore: (path) => getTabBody(path),
+        }
+        registerDocumentRuntimeCapabilities(capabilities)
+        await dispatchDocumentCommand({
+          type: 'RESTORE_WORKSPACE',
+          root: '/vault',
+          activePath: '/vault/note.md',
+          openTabs: ['/vault/note.md'],
+          source: 'workspace-restore',
+        })
+        assert(reads.includes('/vault/note.md'), 'empty cache must not skip the disk read')
+        assert(
+          getDocumentRuntimeSnapshot().content.includes('从磁盘加载'),
+          'restored editor content must come from disk, not an empty hang-poisoned cache',
+        )
+      }),
+  },
+  {
+    name: 'workspace restore reuses non-empty tab cache without a disk read',
+    run: async () =>
+      withRuntime(async () => {
+        const reads: string[] = []
+        setTabBody('/vault/note.md', '# unsaved live\n')
+        const capabilities: DocumentRuntimeCapabilities = {
+          readDocument: async (_root, path) => {
+            reads.push(path)
+            return '# stale disk\n'
+          },
+          writeDocument: async () => {},
+          setActiveDocument: () => {},
+          renderContent: () => {},
+          setTabs: () => {},
+          readCachedDocumentForRestore: (path) => getTabBody(path),
+        }
+        registerDocumentRuntimeCapabilities(capabilities)
+        await dispatchDocumentCommand({
+          type: 'RESTORE_WORKSPACE',
+          root: '/vault',
+          activePath: '/vault/note.md',
+          openTabs: ['/vault/note.md'],
+          source: 'workspace-restore',
+        })
+        assertEqual(reads.length, 0, 'non-empty cache must skip the disk read')
+        assert(
+          getDocumentRuntimeSnapshot().content.includes('unsaved live'),
+          'non-empty cache must win over disk',
+        )
+      }),
   },
 ])
 

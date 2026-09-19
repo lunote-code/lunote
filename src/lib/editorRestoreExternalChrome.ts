@@ -6,6 +6,25 @@ export type EditorOverlayChromeInput = {
   externalDrift: boolean
 }
 
+export function shouldShowDocumentLoadingOverlay(input: {
+  workspaceLoading: boolean
+  documentLoading: boolean
+  showEmptyState: boolean
+}): boolean {
+  if (input.workspaceLoading) return true
+  if (input.showEmptyState) return false
+  return input.documentLoading
+}
+
+/** Keep TipTap/CodeMirror unmounted until workspace restore finishes so `new Editor()` cannot stall the document-read IPC. */
+export function shouldMountDocumentEditor(input: {
+  workspaceLoading: boolean
+  showEmptyState: boolean
+}): boolean {
+  if (input.workspaceLoading) return false
+  return !input.showEmptyState
+}
+
 export function resolveEditorOverlayChrome(input: EditorOverlayChromeInput) {
   const showBothRestoreAndExternal = input.historyRestorePending && input.externalDrift
   return {

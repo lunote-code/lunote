@@ -1,10 +1,11 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model'
 import {
   absolutePathToDocKey,
+  findWikiLinkAtOffset,
   getOutgoingLinkRefs,
   normalizeDocKeyForNavigation,
 } from '../knowledgeRuntime'
-import type { DocKey, WikiLinkTarget } from '../knowledgeRuntime/types'
+import type { DocKey, ParsedWikiLink, WikiLinkTarget } from '../knowledgeRuntime/types'
 
 export type WikiLinkHit = {
   target: WikiLinkTarget
@@ -24,11 +25,25 @@ function resolveActiveDocKey(ctx: WikiInteractionDocContext): DocKey | null {
   return absolutePathToDocKey(rootDir, activePath)
 }
 
-function findWikiLinkHitAtOffset(sourceDocKey: DocKey, offset: number): WikiLinkHit | null {
+function wikiHitFromParsed(entry: ParsedWikiLink): WikiLinkHit {
+  return {
+    raw: entry.raw,
+    start: entry.start,
+    end: entry.end,
+    target: {
+      docKey: normalizeDocKeyForNavigation(entry.target.docKey),
+      heading: entry.target.heading,
+      blockId: entry.target.blockId,
+      alias: entry.target.alias,
+    },
+  }
+}
+
+function findWikiLinkHitAtSourceOffset(sourceDocKey: DocKey, offset: number): WikiLinkHit | null {
   const refs = getOutgoingLinkRefs(sourceDocKey)
   if (!refs.length) return null
   for (const ref of refs) {
-    if (offset < ref.start || offset > ref.end) continue
+    if (offset < ref.start || offset >= ref.end) continue
     return {
       raw: ref.raw,
       start: ref.start,
@@ -77,7 +92,8 @@ export function resolveWikiLinkTargetAtPmPos(
   const sourceDocKey = resolveActiveDocKey(ctx)
   if (!sourceDocKey) return null
   const offset = pmPosToTextOffset(doc, pos)
-  return findWikiLinkHitAtOffset(sourceDocKey, offset)
+  const token = findWikiLinkAtOffset(doc.textContent, offset)
+  return token ? wikiHitFromParsed(token) : null
 }
 
 export function resolveWikiLinkTargetAtCmPos(
@@ -86,6 +102,6 @@ export function resolveWikiLinkTargetAtCmPos(
 ): WikiLinkHit | null {
   const sourceDocKey = resolveActiveDocKey(ctx)
   if (!sourceDocKey) return null
-  return findWikiLinkHitAtOffset(sourceDocKey, pos)
+  return findWikiLinkHitAtSourceOffset(sourceDocKey, pos)
 }
 

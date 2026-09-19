@@ -42,13 +42,15 @@ function collectScrollParents(el: HTMLElement): Array<HTMLElement | Window> {
   return roots
 }
 
+export type LunaCodeLanguagePaletteCloseReason = 'escape' | 'outside' | 'placement'
+
 export type LunaCodeLanguagePaletteProps = {
   open: boolean
   anchorEl: HTMLElement | null
   languages: LunaCodeLanguage[]
   currentLanguageId?: string | null
   onPick: (id: string) => void
-  onClose: () => void
+  onClose: (reason?: LunaCodeLanguagePaletteCloseReason) => void
 }
 
 /**
@@ -110,7 +112,7 @@ export function LunaCodeLanguagePalette({
     const syncPlacement = () => {
       const next = computePanelPlacement(anchorEl)
       if (!next) {
-        onClose()
+        onClose('placement')
         return
       }
       setPlacement(next)
@@ -149,11 +151,23 @@ export function LunaCodeLanguagePalette({
       if (!t) return
       if (anchorEl?.contains(t as Node)) return
       if ((t as HTMLElement).closest?.('.luna-code-lang-palette')) return
-      onClose()
+      onClose('outside')
     }
     document.addEventListener('pointerdown', onDoc, true)
     return () => document.removeEventListener('pointerdown', onDoc, true)
   }, [open, anchorEl, onClose])
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      onClose('escape')
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [open, onClose])
 
   const commit = useCallback(
     (id: string) => {
@@ -169,7 +183,8 @@ export function LunaCodeLanguagePalette({
       if (e.nativeEvent.isComposing || e.keyCode === 229) return
       if (e.key === 'Escape') {
         e.preventDefault()
-        onClose()
+        e.stopPropagation()
+        onClose('escape')
         return
       }
       if (e.key === 'ArrowDown') {

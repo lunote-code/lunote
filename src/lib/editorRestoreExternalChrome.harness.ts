@@ -1,6 +1,8 @@
 import {
   resolveEditorOverlayChrome,
   resolveEditorPersistentStatusMessage,
+  shouldMountDocumentEditor,
+  shouldShowDocumentLoadingOverlay,
 } from './editorRestoreExternalChrome'
 import { filterAutosaveEligibleDirtyPaths } from './autosavePathEligibility'
 
@@ -63,6 +65,87 @@ const CASES: readonly Case[] = Object.freeze([
       })
       assert(message.includes('app.tabs.historyRestoreAria'), 'should include history aria')
       assert(message.includes('app.tabs.externalAria'), 'should include external aria')
+    },
+  },
+  {
+    name: 'workspace open overlay stays up without mounting the editor',
+    run: () => {
+      assert(
+        shouldShowDocumentLoadingOverlay({
+          workspaceLoading: true,
+          documentLoading: false,
+          showEmptyState: false,
+        }),
+        'restored tabs must still show opening overlay',
+      )
+      assert(
+        shouldShowDocumentLoadingOverlay({
+          workspaceLoading: true,
+          documentLoading: false,
+          showEmptyState: true,
+        }),
+        'opening overlay must show even before tabs exist',
+      )
+      assert(
+        !shouldMountDocumentEditor({ workspaceLoading: true, showEmptyState: false }),
+        'must not mount TipTap while the initial document is still opening',
+      )
+    },
+  },
+  {
+    name: 'ready workspace mounts the editor and hides the opening overlay',
+    run: () => {
+      assert(
+        shouldMountDocumentEditor({ workspaceLoading: false, showEmptyState: false }),
+        'ready document pane must mount the editor',
+      )
+      assert(
+        !shouldShowDocumentLoadingOverlay({
+          workspaceLoading: false,
+          documentLoading: false,
+          showEmptyState: false,
+        }),
+        'ready document pane must not keep the opening overlay',
+      )
+    },
+  },
+  {
+    name: 'later document load keeps the editor mounted under the overlay',
+    run: () => {
+      assert(
+        shouldMountDocumentEditor({ workspaceLoading: false, showEmptyState: false }),
+        'tab switches must not unmount the editor',
+      )
+      assert(
+        shouldShowDocumentLoadingOverlay({
+          workspaceLoading: false,
+          documentLoading: true,
+          showEmptyState: false,
+        }),
+        'tab-switch overlay must still show',
+      )
+    },
+  },
+  {
+    name: 'workspace restore hang class: overlay until ready, then editor, never both stuck',
+    run: () => {
+      const opening = {
+        workspaceLoading: true,
+        documentLoading: false,
+        showEmptyState: false,
+      }
+      assert(shouldShowDocumentLoadingOverlay(opening), 'opening must show overlay')
+      assert(
+        !shouldMountDocumentEditor({ workspaceLoading: true, showEmptyState: false }),
+        'opening must not mount TipTap over in-flight read_note',
+      )
+      const ready = {
+        workspaceLoading: false,
+        documentLoading: false,
+        showEmptyState: false,
+      }
+      assert(shouldMountDocumentEditor({ workspaceLoading: false, showEmptyState: false }), 'ready must mount editor')
+      assert(!shouldShowDocumentLoadingOverlay(ready), 'ready must drop overlay so content can appear')
     },
   },
   {

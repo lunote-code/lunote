@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Lunote",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "identifier": "com.lunote.app",
   "build": {
     "frontendDist": "../dist",
@@ -20,7 +20,7 @@
         "minHeight": 620,
         "resizable": true,
         "fullscreen": false,
-        "devtools": true
+        "devtools": false
       }
     ],
     "security": {
@@ -85,7 +85,7 @@
         "silent": true
       },
       "wix": {
-        "version": "1.0.3.0"
+        "version": "1.0.4.0"
       }
     }
   }

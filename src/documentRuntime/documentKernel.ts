@@ -812,8 +812,9 @@ async function dispatchDocumentCommandInner(command: DocumentCommand): Promise<s
         const readStartedAt = perfNowMs()
         const cachedContent = capabilities.readCachedDocumentForRestore?.(command.activePath)
         const content =
-          cachedContent ??
-          (await capabilities.readDocument(command.root, command.activePath))
+          typeof cachedContent === 'string' && cachedContent.length > 0
+            ? cachedContent
+            : await capabilities.readDocument(command.root, command.activePath)
         capabilities.invalidateEditorBootstrapBeforeDocumentRead?.(command.activePath, {
           bumpColdOpen: pathsEqual(snapshot.activePath, command.activePath),
         })

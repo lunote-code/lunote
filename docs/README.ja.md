@@ -85,7 +85,7 @@ Lunote は **AI ネイティブの知識管理ワークスペース** — 個人
 | **Export** | PDF, Word (DOCX), HTML, PNG · print |
 | **Security** | Optional workspace encryption (AES-256-GCM) · passwords never saved on disk |
 
-リリースノートは [CHANGELOG.md](../CHANGELOG.md)。**v1.0.3**：暗号化ワークスペースのアイドル自動ロック、新規ノートテンプレートの任意化、キャレット／ソースモード／履歴の修正。
+リリースノートは [CHANGELOG.md](../CHANGELOG.md)。**v1.0.4**：ワークスペースを開いたときに読み込みオーバーレイで止まらないようにしました。ビジュアルエディタは TipTap 3.23.1 のままです（3.30/3.31 では編集が壊れます）。
 
 ---
 

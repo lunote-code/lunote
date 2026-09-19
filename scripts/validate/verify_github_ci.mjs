@@ -3,13 +3,14 @@
  * Local mirror of .github/workflows/ci.yml.
  *
  * Usage:
- *   npm run verify:ci          # Linux build job (default, matches GitHub CI)
- *   npm run verify:ci:locale   # locale-check job (matches GitHub CI)
- *   npm run verify:ci:checks   # optional local validation suite (not run on GitHub)
- *   npm run verify:ci:all      # build + locale + optional checks
+ *   npm run verify:ci            # Linux build job (default, matches GitHub CI)
+ *   npm run verify:ci:locale     # locale-check job (matches GitHub CI)
+ *   npm run verify:ci:contracts  # published-contracts job (matches GitHub CI)
+ *   npm run verify:ci:checks     # optional local validation suite (extra vs GitHub)
+ *   npm run verify:ci:all        # build + locale + contracts + optional checks
  *
  * Options:
- *   --job build | locale | checks | all
+ *   --job build | locale | contracts | checks | all
  */
 import {
   npmRun,
@@ -47,8 +48,19 @@ function runLocaleCheckJob() {
   console.log('\nverify:ci — locale-check job passed.')
 }
 
+function runContractsJob() {
+  console.log('\n=== CI job: test-contracts (.github/workflows/ci.yml) ===')
+
+  runNpmCi()
+  npmRun('validate:qa-parity')
+  npmRun('validate:platform-ci-contract')
+  npmRun('validate:git-publish-paths')
+
+  console.log('\nverify:ci — published contracts job passed.')
+}
+
 function runChecksJob() {
-  console.log('\n=== Optional local checks (not run on GitHub CI) ===')
+  console.log('\n=== Optional local checks (extra vs GitHub CI) ===')
 
   npmRun('version:check')
   runLocalePipelineFull()
@@ -74,16 +86,20 @@ switch (job) {
   case 'locale':
     runLocaleCheckJob()
     break
+  case 'contracts':
+    runContractsJob()
+    break
   case 'checks':
     runChecksJob()
     break
   case 'all':
     runBuildJob()
     runLocaleCheckJob()
+    runContractsJob()
     runChecksJob()
-    console.log('\nverify:ci — build + locale + optional checks passed.')
+    console.log('\nverify:ci — build + locale + contracts + optional checks passed.')
     break
   default:
-    console.error(`Unknown --job "${job}". Use build, locale, checks, or all.`)
+    console.error(`Unknown --job "${job}". Use build, locale, contracts, checks, or all.`)
     process.exit(2)
 }

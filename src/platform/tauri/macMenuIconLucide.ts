@@ -49,7 +49,7 @@ export const MAC_MENU_SEMANTIC_LUCIDE_STEM: Partial<Record<SemanticIconName, str
   privacy: 'shield',
   save: 'save',
   print: 'printer',
-  delete: 'trash-2',
+  delete: 'trash',
   undo: 'undo-2',
   redo: 'redo-2',
   cut: 'scissors',

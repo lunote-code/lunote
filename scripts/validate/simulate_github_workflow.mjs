@@ -10,8 +10,9 @@
  *   1. git snapshot — rsync + git init/add/commit/archive (mirrors checkout)
  *   2. ci-build     — npm ci, npm run build, cargo build
  *   3. ci-locale    — locale-pipeline (validation + git clean)
- *   4. release-validate — version:check + validate:release-config
- *   5. plan-release — scenario tests for plan_release.mjs
+ *   4. ci-contracts — published validate:* (qa-parity, platform-ci, git-publish-paths)
+ *   5. release-validate — version:check + validate:release-config
+ *   6. plan-release — scenario tests for plan_release.mjs
  */
 import { execSync, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -181,12 +182,15 @@ function main() {
       execIn(checkoutDir, 'npm run verify:locale-pipeline')
     })
 
+    runStep('CI published-contracts job', () => {
+      execIn(checkoutDir, 'npm run validate:qa-parity')
+      execIn(checkoutDir, 'npm run validate:platform-ci-contract')
+      execIn(checkoutDir, 'python3 scripts/validate/validate_git_publish_paths.py')
+    })
+
     runStep('Release validate-release job', () => {
       execIn(checkoutDir, 'npm run version:check')
       execIn(checkoutDir, 'node scripts/release/validate_release_config.mjs')
-      execIn(checkoutDir, 'node scripts/validate/run_platform_ci_contract_tests.mjs')
-      execIn(checkoutDir, 'python3 scripts/validate/validate_git_publish_paths.py')
-      execIn(checkoutDir, 'npm run test:release')
     })
 
     runStep('plan-release scenario tests', () => {

@@ -62,6 +62,11 @@ function testCiWorkflow() {
   assert(text.includes('locale-check:'), 'ci.yml: must run locale-check job')
   assert(text.includes('plan_release.mjs'), 'ci.yml: must use shared plan_release script')
   assert(text.includes('release-build.yml'), 'ci.yml: must auto-publish release after compile')
+  assert(!text.includes('scripts/test/'), 'ci.yml: must not invoke gitignored scripts/test')
+  assert(!text.includes('npm run test:contracts'), 'ci.yml: must not run local-only test:contracts')
+  assert(text.includes('validate:qa-parity'), 'ci.yml: must run published QA parity contract')
+  assert(text.includes('validate:platform-ci-contract'), 'ci.yml: must run published platform CI contract')
+  assert(text.includes('validate:git-publish-paths'), 'ci.yml: must run published git-publish-paths check')
 }
 
 function testRootTsconfig() {

@@ -51,7 +51,7 @@ Create matching labels in the GitHub repo (**Settings → Labels**) if they do n
 
 ## CI alignment
 
-Push/PR runs [`.github/workflows/ci.yml`](../.github/workflows/ci.yml): Linux 上完整编译；`build-matrix` 在四个发布目标 runner 上做跨平台 `cargo check` 冒烟。Release 流水线在打包前运行 locale pipeline。
+Push/PR runs [`.github/workflows/ci.yml`](../.github/workflows/ci.yml): Linux 上完整编译；`build-matrix` 在四个发布目标 runner 上做跨平台 `cargo check` 冒烟。`test-contracts` 只跑已发布的 `validate:*`（不调用 gitignored 的 `scripts/test/`）。Release 流水线在打包前运行 locale pipeline。
 
 - `npm run validate:git-publish-paths` — fail if local-only paths (e.g. `scripts/maintenance/`) are tracked
 - `npm run validate:mac-menu-assets` — fail if `public/mac-menu-icons/` PNGs are missing or out of sync

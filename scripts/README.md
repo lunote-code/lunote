@@ -121,7 +121,7 @@ Required by [`.github/workflows/ci.yml`](../.github/workflows/ci.yml), [release]
 | `validate/validate_mac_menu_boot.mjs` | mac-menu-boot.json macOS accelerators |
 | `validate/run_platform_ci_contract_tests.mjs` | Platform/CI contract tests |
 | `validate/verify_locale_pipeline.mjs` | Locale pipeline + git cleanliness |
-| `validate/verify_github_ci.mjs` | Local CI mirror (`npm run verify:ci` = compile-only; `verify:ci:checks` = optional validations) |
+| `validate/verify_github_ci.mjs` | Local CI mirror (`npm run verify:ci` = compile; `verify:ci:contracts` = published validators; `verify:ci:checks` = extra local validations) |
 
 ---
 
@@ -142,8 +142,8 @@ Required by [`.github/workflows/ci.yml`](../.github/workflows/ci.yml), [release]
 ```bash
 python3 scripts/locale/build_ui_locales.py
 python3 scripts/locale/validate_locale.py --strict
-npm run verify:ci              # mirrors GitHub CI (npm run build + cargo build)
-npm run verify:ci:checks       # optional local validations (not on GitHub)
+npm run verify:ci              # mirrors GitHub CI compile job
+npm run verify:ci:contracts    # mirrors GitHub published-contracts job (no scripts/test)
 python3 scripts/validate/validate_git_publish_paths.py
 npm run validate:mac-menu-assets
 npm run test:codeblock             # Playwright: code block

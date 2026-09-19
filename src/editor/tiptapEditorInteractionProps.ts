@@ -280,7 +280,13 @@ export function createTiptapEditorInteractionProps(
           event.ctrlKey
         args.updateLinkModifierHint(args.pointerLinkRef.current, mod)
         const coords = view.posAtCoords({ left: event.clientX, top: event.clientY })
-        if (coords != null) {
+        const hoverEl = event.target as HTMLElement | null
+        const wikiHoverBlocked = Boolean(
+          hoverEl?.closest(
+            'img, video, a[href], .pm-image-node-root, .pm-image-card, .pm-wiki-embed-root',
+          ),
+        )
+        if (coords != null && !wikiHoverBlocked) {
           const hit = resolveWikiLinkTargetAtPmPos(view.state.doc, coords.pos, {
             rootDir: args.rootDirRef.current,
             activePath: args.activePathRef.current,
@@ -302,8 +308,14 @@ export function createTiptapEditorInteractionProps(
       },
       click: (view: Editor['view'], event: MouseEvent) => {
         const mod = event.metaKey || event.ctrlKey
+        const clickEl = event.target as HTMLElement | null
+        const wikiClickBlocked = Boolean(
+          clickEl?.closest(
+            'img, video, a[href], .pm-image-node-root, .pm-image-card, .pm-wiki-embed-root',
+          ),
+        )
         const coordsEarly = view.posAtCoords({ left: event.clientX, top: event.clientY })
-        if (coordsEarly != null) {
+        if (!wikiClickBlocked && coordsEarly != null) {
           const wikiHit = resolveWikiLinkTargetAtPmPos(view.state.doc, coordsEarly.pos, {
             rootDir: args.rootDirRef.current,
             activePath: args.activePathRef.current,

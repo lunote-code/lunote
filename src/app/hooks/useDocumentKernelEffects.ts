@@ -129,7 +129,7 @@ export function useDocumentKernelEffects(deps: DocumentKernelEffectsDeps) {
       },
       readCachedDocumentForRestore: (path) => {
         const cachedBody = getTabBody(path)
-        if (cachedBody == null) return undefined
+        if (cachedBody == null || cachedBody.length === 0) return undefined
         return diskMarkdownForDocumentSave(path, cachedBody)
       },
       projectOpenDocumentBody: projectTabBodyFromKernel,

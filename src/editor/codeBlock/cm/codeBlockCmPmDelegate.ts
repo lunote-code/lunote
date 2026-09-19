@@ -16,6 +16,7 @@ import { getCodeBlockCmViewInWrap } from './codeBlockCmFocus'
 import { findAdjacentCodeBlockPos } from '../../lunaBlockVerticalNavUtils'
 import { requestCodeBlockCmEdit } from '../boundary/codeBlockBoundaryActions'
 import { prepareCodeBlockCmFocusTransfer } from './codeBlockCmPmFocusReconcile'
+import { ensurePmEditableForCodeBlockInteraction } from './codeBlockCmPmFocusLock'
 
 const NAVIGATION_KEYS = new Set([
   'ArrowDown',
@@ -55,6 +56,7 @@ function codeBlockPosBeforeTextblock(view: PmEditorView, $from: ResolvedPos): nu
 
 function prepareKeyboardCmFocusTransfer(editor: Editor | null | undefined, wrap: HTMLElement): void {
   if (!editor) return
+  ensurePmEditableForCodeBlockInteraction(editor)
   prepareCodeBlockCmFocusTransfer(editor, wrap)
 }
 

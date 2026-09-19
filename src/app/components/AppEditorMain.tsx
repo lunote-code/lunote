@@ -56,6 +56,8 @@ import { hasExternalDiskDriftInState } from '../../lib/externalDiskDriftState'
 import {
   resolveEditorOverlayChrome,
   resolveEditorPersistentStatusMessage,
+  shouldMountDocumentEditor,
+  shouldShowDocumentLoadingOverlay,
 } from '../../lib/editorRestoreExternalChrome'
 import type { SidebarListMode } from '../workspace/sidebarPanelView'
 
@@ -345,8 +347,15 @@ export function AppEditorMain(props: AppEditorMainProps) {
   const prevMainPaneModeRef = useRef(mainPaneMode)
   const sourceModeBlockAiHintShownRef = useRef(false)
   const showDocumentLoadingOverlay = editorDocumentLoading || modeSwitchLoading
-  const showLoadingOverlay =
-    (showWorkspaceLoadingOverlay || showDocumentLoadingOverlay) && !showEmptyState
+  const showLoadingOverlay = shouldShowDocumentLoadingOverlay({
+    workspaceLoading: showWorkspaceLoadingOverlay,
+    documentLoading: showDocumentLoadingOverlay,
+    showEmptyState,
+  })
+  const mountDocumentEditor = shouldMountDocumentEditor({
+    workspaceLoading: showWorkspaceLoadingOverlay,
+    showEmptyState,
+  })
   useEffect(() => {
     const prev = prevMainPaneModeRef.current
     prevMainPaneModeRef.current = mainPaneMode
@@ -581,7 +590,7 @@ export function AppEditorMain(props: AppEditorMainProps) {
               showProgress={showDocumentLoadingOverlay || showWorkspaceLoadingOverlay}
               prominent={editorDocumentLoading && !modeSwitchLoading && !showWorkspaceLoadingOverlay}
             />
-            {showEmptyState ? (
+            {showEmptyState && !showWorkspaceLoadingOverlay ? (
               <EmptyState
                 variant="page"
                 icon={rootDir ? 'note' : 'workspace-open'}
@@ -607,7 +616,7 @@ export function AppEditorMain(props: AppEditorMainProps) {
                   )
                 }
               />
-            ) : mainPaneMode === 'visual' ? (
+            ) : mountDocumentEditor && mainPaneMode === 'visual' ? (
               <TiptapMarkdownEditor
                 key={visualMountKey}
                 ref={visualEditorRef}
@@ -635,7 +644,7 @@ export function AppEditorMain(props: AppEditorMainProps) {
                 onWikiLinkHover={handleWikiHover}
                 suppressMarkdownSyncRef={suppressMarkdownSerdeRef}
               />
-            ) : (
+            ) : mountDocumentEditor ? (
               <SourceCodeMirrorPane
                 mountKey={cmMountKey}
                 doc={getSourceModeIdentity(activePath || 'scratch') ?? content}
@@ -657,7 +666,7 @@ export function AppEditorMain(props: AppEditorMainProps) {
                 className="source-cm-pane markdown-source-view mod-cm6"
                 style={{ height: '100%' }}
               />
-            )}
+            ) : null}
             <EditorAiSelectionToolbar
               t={t}
               visualEditorRef={visualEditorRef}

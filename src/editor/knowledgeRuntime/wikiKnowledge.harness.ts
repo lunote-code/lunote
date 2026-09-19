@@ -16,6 +16,7 @@ import {
   parseFrontmatter,
   parseInlineTags,
   parseWikiLinksInText,
+  findWikiLinkAtOffset,
   unescapeWikiLinksInMarkdown,
   wikiLinkInnerTargetText,
 } from './wikiLinkParser'
@@ -121,6 +122,52 @@ empty:
       assertEqual(links[0]?.target.blockId, 'block-id', 'block id')
       assertEqual(links[0]?.target.alias, 'Alias', 'alias')
       assertEqual(embeds[0]?.kind, 'embed', 'embed kind')
+    },
+  },
+  {
+    name: 'findWikiLinkAtOffset does not treat the character after ]] as a wiki hit',
+    run: () => {
+      const wiki = '[[当前文档]]'
+      const url = 'https://picsum.photos/id/237/536/354'
+      const pmText = `${wiki}${url}`
+      const lastBracket = wiki.length - 1
+      const urlStart = wiki.length
+      assertEqual(findWikiLinkAtOffset(pmText, 0)?.target.docKey, '当前文档', 'start of wiki')
+      assertEqual(
+        findWikiLinkAtOffset(pmText, lastBracket)?.target.docKey,
+        '当前文档',
+        'closing bracket stays inside wiki',
+      )
+      assertEqual(findWikiLinkAtOffset(pmText, urlStart), null, 'image/url offset after wiki is not a hit')
+      assertEqual(findWikiLinkAtOffset(pmText, urlStart + 8), null, 'mid-url is not a wiki hit')
+      assertEqual(findWikiLinkAtOffset(pmText, -1), null, 'negative offset')
+    },
+  },
+  {
+    name: 'findWikiLinkAtOffset uses visual text offsets not markdown image source offsets',
+    run: () => {
+      const markdown = '# Title\n\n[[当前文档]]\n\n![](https://picsum.photos/id/237/536/354)'
+      const { links } = parseWikiLinksInText(markdown)
+      const sourceWiki = links[0]
+      assert(sourceWiki, 'parsed markdown wiki')
+      const pmText = 'Title[[当前文档]]'
+      const imageClickOffset = pmText.length
+      const sourceWouldHit =
+        imageClickOffset >= sourceWiki.start && imageClickOffset <= sourceWiki.end
+      assert(sourceWouldHit, 'precondition: markdown source range would steal the image click')
+      assertEqual(
+        findWikiLinkAtOffset(pmText, imageClickOffset),
+        null,
+        'visual image click must not use markdown source range',
+      )
+      const urlMarkdown = '# Title\n\n[[当前文档]]\n\nhttps://picsum.photos/id/237/536/354'
+      const urlLinks = parseWikiLinksInText(urlMarkdown).links[0]
+      assert(urlLinks, 'parsed url-doc wiki')
+      const pmWithUrl = 'Title[[当前文档]]https://picsum.photos/id/237/536/354'
+      const urlOffset = pmWithUrl.indexOf('https://')
+      const sourceWouldHitUrl = urlOffset >= urlLinks.start && urlOffset <= urlLinks.end
+      assert(sourceWouldHitUrl, 'precondition: markdown source range would steal the url click')
+      assertEqual(findWikiLinkAtOffset(pmWithUrl, urlOffset), null, 'visual url click is not a wiki hit')
     },
   },
   {

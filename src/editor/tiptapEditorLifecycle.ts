@@ -111,11 +111,10 @@ export function createTiptapEditorLifecycleHandlers(args: TiptapEditorLifecycleA
         }
       }
 
-      args.pendingInitialHydrationRef.current = { documentKey, markdown: md }
-
       runAfterReactCommit(() => {
         if (editor.isDestroyed || !editor.view?.dom) return
         editor.view.dispatch(tr)
+        args.pendingInitialHydrationRef.current = { documentKey, markdown: md }
         if (tabRestore) {
           args.applyVisualTabViewportRestore(editor, tabRestore)
         }

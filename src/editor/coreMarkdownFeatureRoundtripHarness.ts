@@ -150,6 +150,18 @@ export function runCoreMarkdownFeatureRoundtripHarness(): void {
     throw new Error('combined doc should contain one mermaid block')
   }
   assertRoundTrip(combinedMarkdown, schema, 'combined core markdown features')
+
+  const chineseProductMarkdown = [
+    '# AI产品研发',
+    '',
+    '这是启动恢复后必须能看见的正文。',
+    '',
+  ].join('\n')
+  const chineseDoc = parseMarkdownToDoc(chineseProductMarkdown, schema)
+  if (!chineseDoc.textContent.includes('AI产品研发') || !chineseDoc.textContent.includes('必须能看见')) {
+    throw new Error('TipTap schema must still parse Chinese product-note markdown into visible text')
+  }
+  assertRoundTrip(chineseProductMarkdown, schema, 'chinese product note')
 }
 
 if (import.meta.url.endsWith(process.argv[1] ?? '')) {

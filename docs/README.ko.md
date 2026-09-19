@@ -85,7 +85,7 @@ Lunote는 **AI 네이티브 지식 관리 워크스페이스** — 아이디어�
 | **Export** | PDF, Word (DOCX), HTML, PNG · print |
 | **Security** | Optional workspace encryption (AES-256-GCM) · passwords never saved on disk |
 
-릴리스 노트는 [CHANGELOG.md](../CHANGELOG.md). **v1.0.3**: 암호화 작업 공간 유휴 자동 잠금, 새 노트 템플릿 선택 사용, 캐럿/소스 모드/버전 기록 수정.
+릴리스 노트는 [CHANGELOG.md](../CHANGELOG.md). **v1.0.4**: 작업 공간을 열 때 로딩 오버레이에서 멈추지 않습니다. 시각 편집기는 TipTap 3.23.1을 유지합니다(3.30/3.31은 편집을 깨뜨립니다).
 
 ---
 

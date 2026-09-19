@@ -19,6 +19,20 @@ type PendingInitialHydration = {
   markdown: string
 }
 
+/** Skip a second hydrate only when onCreate already applied this markdown into a non-empty editor. */
+export function shouldSkipOnCreateOwnedHydration(input: {
+  pending: PendingInitialHydration | null
+  documentKey: string
+  markdown: string
+  editorIsEmpty: boolean
+}): boolean {
+  if (input.pending == null) return false
+  if (input.pending.documentKey !== input.documentKey) return false
+  if (input.pending.markdown !== input.markdown) return false
+  if (input.editorIsEmpty && input.markdown.trim().length > 0) return false
+  return true
+}
+
 type TiptapEditorPropSyncArgs = {
   editor: Editor
   documentKey: string
@@ -72,9 +86,12 @@ export function syncTiptapEditorFromProps(args: TiptapEditorPropSyncArgs): void 
 
   const pendingInitialHydration = args.pendingInitialHydrationRef.current
   if (
-    pendingInitialHydration != null &&
-    pendingInitialHydration.documentKey === args.documentKey &&
-    pendingInitialHydration.markdown === args.markdown
+    shouldSkipOnCreateOwnedHydration({
+      pending: pendingInitialHydration,
+      documentKey: args.documentKey,
+      markdown: args.markdown,
+      editorIsEmpty: args.editor.isEmpty || args.editor.state.doc.textContent.trim().length === 0,
+    })
   ) {
     args.pendingInitialHydrationRef.current = null
     args.syncExternalMarkdownRefs(args.markdown, args.editor)

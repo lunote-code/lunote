@@ -92,6 +92,11 @@ function shouldKeepCodeBlockCmFocus(
   blurSuppressed: boolean,
   blurReason: 'cm' | 'toolbar' | null,
 ): boolean {
+  if (ownedBlockPos == null) return false
+  // Toolbar dismiss (palette / copy) must re-acquire CM even if PM selection drifted.
+  if (blurSuppressed && blurReason === 'toolbar') return true
+  const range = resolveCodeBlockTextRange(editor.state.selection.$from)
+  if (range?.blockPos !== ownedBlockPos) return false
   const active = document.activeElement
   if (active instanceof HTMLElement && wrap?.contains(active)) return true
   if (
@@ -100,10 +105,8 @@ function shouldKeepCodeBlockCmFocus(
   ) {
     return true
   }
-  if (blurSuppressed && (blurReason === 'cm' || blurReason === 'toolbar')) return true
-  if (ownedBlockPos == null) return false
-  const range = resolveCodeBlockTextRange(editor.state.selection.$from)
-  return range?.blockPos === ownedBlockPos
+  if (blurSuppressed && blurReason === 'cm') return true
+  return true
 }
 
 export function CodeBlockNodeController(props: ReactNodeViewProps) {
@@ -527,7 +530,7 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
   activateCmEditingRef.current = activateCmEditing
   const warmRefocusCmEditingRef = useRef(warmRefocusCmEditing)
   warmRefocusCmEditingRef.current = warmRefocusCmEditing
-  const scheduleFocusCmRef = useRef<() => void>(() => {})
+  const scheduleFocusCmRef = useRef<(force?: boolean) => void>(() => {})
 
   useEffect(() => {
     if (!cmAvailable) return
@@ -582,7 +585,7 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
   const cmRefocusGuardRef = useRef(0)
   const scheduleFocusCmGenerationRef = useRef(0)
 
-  const scheduleFocusCm = useCallback(() => {
+  const scheduleFocusCm = useCallback((force = false) => {
     if (!boundary.canAcquireCmEditing(isOwnedBlockFoldedInPm)) {
       const snap = boundary.snapshot()
       debugCodeBlockCmFocus('controller-scheduleFocusCm-skipped', {
@@ -597,20 +600,27 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
       hasView: !!cmViewRef.current,
       sessionMode: sessionModeRef.current,
       pmSelection: describePmSelection(editor.view),
+      force,
     })
     const generation = ++scheduleFocusCmGenerationRef.current
     const pmDom = editor.view.dom
+    const releaseIfSelectionLeft = () => {
+      const view = cmViewRef.current
+      if (view?.hasFocus) view.contentDOM.blur()
+    }
+    const keepFocus = () =>
+      force ||
+      shouldKeepCodeBlockCmFocus(
+        editor,
+        wrapRef.current,
+        ownedBlockPos,
+        boundary.isBlurSuppressed(),
+        boundary.getBlurSuppressReason(),
+      )
     const focusNow = () => {
       if (generation !== scheduleFocusCmGenerationRef.current) return
-      if (
-        !shouldKeepCodeBlockCmFocus(
-          editor,
-          wrapRef.current,
-          ownedBlockPos,
-          boundary.isBlurSuppressed(),
-          boundary.getBlurSuppressReason(),
-        )
-      ) {
+      if (!keepFocus()) {
+        releaseIfSelectionLeft()
         return
       }
       boundary.consumeFocusCmAfterRender()
@@ -641,15 +651,8 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
     }
     const attempt = (tryCount = 0) => {
       if (generation !== scheduleFocusCmGenerationRef.current) return
-      if (
-        !shouldKeepCodeBlockCmFocus(
-          editor,
-          wrapRef.current,
-          ownedBlockPos,
-          boundary.isBlurSuppressed(),
-          boundary.getBlurSuppressReason(),
-        )
-      ) {
+      if (!keepFocus()) {
+        releaseIfSelectionLeft()
         return
       }
       if (cmViewRef.current) {
@@ -664,12 +667,30 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
   scheduleFocusCmRef.current = scheduleFocusCm
 
   const refocusAfterToolbarDismiss = useCallback(() => {
-    if (sessionModeRef.current === 'editing' && cmAvailable) {
-      scheduleFocusCm()
+    if (!cmAvailable || isOwnedBlockFoldedInPm()) {
+      requestAnimationFrame(() => chipRef.current?.focus({ preventScroll: true }))
       return
     }
-    requestAnimationFrame(() => chipRef.current?.focus({ preventScroll: true }))
-  }, [cmAvailable, scheduleFocusCm])
+    if (sessionModeRef.current !== 'editing') {
+      dispatchSession({ type: 'enter-editing' })
+    }
+    pendingCmSelectionRef.current = (() => {
+      const range = resolveCodeBlockTextRange(editor.state.selection.$from)
+      if (range?.blockPos !== ownedBlockPos || ownedBlockPos == null) return blockText.length
+      return Math.max(0, editor.state.selection.to - range.contentFrom)
+    })()
+    boundary.suppressBlurForToolbar(400)
+    scheduleFocusCm(true)
+  }, [
+    blockText.length,
+    boundary,
+    cmAvailable,
+    dispatchSession,
+    editor,
+    isOwnedBlockFoldedInPm,
+    ownedBlockPos,
+    scheduleFocusCm,
+  ])
 
   const suppressBlurForToolbar = useCallback(() => {
     boundary.suppressBlurForToolbar()
@@ -747,6 +768,10 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
 
     const focusCmWhenSelectionEntered = () => {
       if (editor.view.composing) return
+      if (resolveCmOffsetFromPmSelection() == null) {
+        scheduleFocusCmGenerationRef.current += 1
+        return
+      }
       const active = document.activeElement
       const activeOnToolbar =
         active instanceof HTMLElement &&
@@ -764,7 +789,6 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
         return
       }
       if (sessionModeRef.current === 'editing' && isOwnedCmFocused()) return
-      if (resolveCmOffsetFromPmSelection() == null) return
       enterEditing()
     }
 
@@ -1038,8 +1062,8 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
   const onDeleteEmptyBlock = useCallback(() => {
     const pos = resolveOwnedCodeBlockPos(editor, getPos?.() ?? null, node)
     if (pos == null) return false
+    scheduleFocusCmGenerationRef.current += 1
     boundary.clearAllTimers()
-    boundary.suppressBlurForCm(400)
     dispatchSession({ type: 'exit-editing' })
     cmViewRef.current?.contentDOM.blur()
     boundary.unlockPmIfLocked()
@@ -1217,7 +1241,9 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
     suppressBlurForToolbar()
     boundary.releasePmForToolbar()
     void copyAllCode().finally(() => {
-      if (cmAvailable) scheduleFocusCm()
+      if (!cmAvailable) return
+      boundary.suppressBlurForToolbar(400)
+      scheduleFocusCm(true)
     })
   }, [boundary, cmAvailable, copyAllCode, scheduleFocusCm, suppressBlurForToolbar])
 
@@ -1510,6 +1536,13 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
         dispatchSession({ type: 'open-palette' })
         return
       }
+      if (event.key === 'Escape' && sessionState.paletteOpen) {
+        event.preventDefault()
+        dispatchSession({ type: 'close-palette' })
+        boundary.suppressBlurForToolbar(400)
+        refocusAfterToolbarDismiss()
+        return
+      }
       if (event.key === 'ArrowDown') {
         event.preventDefault()
         if (sessionState.paletteOpen) {
@@ -1549,7 +1582,7 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
         exitCodeBlockBackward(editor, pos)
       }
     },
-    [boundary, cmEnabled, dispatchSession, editor, enterEditing, focusLegacyBody, folded, getPos, node, sessionState.paletteOpen, suppressBlurForToolbar],
+    [boundary, cmEnabled, dispatchSession, editor, enterEditing, focusLegacyBody, folded, getPos, node, refocusAfterToolbarDismiss, sessionState.paletteOpen, suppressBlurForToolbar],
   )
 
   const languageClassName = useMemo(() => {
@@ -1585,11 +1618,22 @@ export function CodeBlockNodeController(props: ReactNodeViewProps) {
         languages={langs}
         currentLanguageId={(resolveCanonicalLanguageId(attrLang) ?? attrLang) || null}
         onPick={commitLanguage}
-        onClose={() => {
+        onClose={(reason) => {
           boundary.clearBlurExitTimer()
-          boundary.releasePmForToolbar()
           dispatchSession({ type: 'close-palette' })
-          refocusAfterToolbarDismiss()
+          if (reason === 'outside' || reason === 'placement') {
+            boundary.releasePmForToolbar()
+            return
+          }
+          boundary.suppressBlurForToolbar(400)
+          if (sessionModeRef.current !== 'editing') {
+            dispatchSession({ type: 'enter-editing' })
+          }
+          queueMicrotask(() => {
+            requestAnimationFrame(() => {
+              refocusAfterToolbarDismiss()
+            })
+          })
         }}
       />
       <div className="pm-code-block-surface" onPointerDown={onSurfacePointerDown}>

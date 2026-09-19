@@ -120,15 +120,13 @@ export function EditorBlockAiHandle({
   useEffect(() => {
     if (!menuOpen) return
     const onKey = (event: KeyboardEvent) => {
-      const activeElement = document.activeElement
-      const focusInsideMenu =
-        activeElement instanceof HTMLElement && Boolean(menuRef.current?.contains(activeElement))
-      if (!focusInsideMenu) return
       const items = menuRef.current
         ? [...menuRef.current.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not([disabled])')]
         : []
       if (items.length === 0) return
 
+      // Click-open uses preventDefault on the handle, so focus can lag behind the open
+      // menu. Arrow keys must still move the active item while the menu is visible.
       if (event.key === 'ArrowDown') {
         event.preventDefault()
         setActiveMenuIndex((index) => {

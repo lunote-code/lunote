@@ -264,6 +264,10 @@ export function useWorkspaceLoader(deps: WorkspaceLoaderDeps) {
           })
           throwIfSuperseded('after_workspace_plan')
 
+          const commitRootStartedAt = perfNowMs()
+          await commitWorkspaceRoot()
+          logLoadNotesStage('commitWorkspaceRoot', { durationMs: perfDurationMs(commitRootStartedAt) })
+
           if (tabPaths.length > 0) {
             await dispatchDocumentCommand({
               type: 'SET_TABS',
@@ -307,9 +311,6 @@ export function useWorkspaceLoader(deps: WorkspaceLoaderDeps) {
               source: 'workspace-restore',
             })
             throwIfSuperseded('after_restore_empty_workspace')
-            const commitRootStartedAt = perfNowMs()
-            await commitWorkspaceRoot()
-            logLoadNotesStage('commitWorkspaceRoot', { durationMs: perfDurationMs(commitRootStartedAt) })
             transitionWorkspaceSession({ state: 'ready', rootDir: root, activePath: null, openTabs: [] })
             if (!isQaAppRootOutlineMode()) {
               startBackgroundWorkspaceIndexing(root, flat.map((f) => f.path), {
@@ -347,24 +348,37 @@ export function useWorkspaceLoader(deps: WorkspaceLoaderDeps) {
               })
             }
             const restoreWorkspaceStartedAt = perfNowMs()
-            await dispatchDocumentCommand({
-              type: 'RESTORE_WORKSPACE',
-              root,
-              activePath: activeToOpen,
-              openTabs: tabPaths.length > 0 ? tabPaths : [activeToOpen],
-              source: 'workspace-restore',
-            })
-            throwIfSuperseded('after_restore_workspace')
-            logLoadNotesStage('restoreActiveDocument', {
-              durationMs: perfDurationMs(restoreWorkspaceStartedAt),
-              activePath: activeToOpen,
-              restoredTabCount: tabPaths.length > 0 ? tabPaths.length : 1,
-            })
+            try {
+              await dispatchDocumentCommand({
+                type: 'RESTORE_WORKSPACE',
+                root,
+                activePath: activeToOpen,
+                openTabs: tabPaths.length > 0 ? tabPaths : [activeToOpen],
+                source: 'workspace-restore',
+              })
+              throwIfSuperseded('after_restore_workspace')
+              logLoadNotesStage('restoreActiveDocument', {
+                durationMs: perfDurationMs(restoreWorkspaceStartedAt),
+                activePath: activeToOpen,
+                restoredTabCount: tabPaths.length > 0 ? tabPaths.length : 1,
+              })
+            } catch (restoreError) {
+              if (isWorkspaceLoadSupersededError(restoreError)) throw restoreError
+              logError('[LAUNCH] restoreActiveDocument failed', {
+                root,
+                requestVersion,
+                activePath: activeToOpen,
+                error: restoreError instanceof Error ? restoreError.message : String(restoreError),
+              })
+              setStatus(
+                t('app.status.openFailed', {
+                  message: restoreError instanceof Error ? restoreError.message : String(restoreError),
+                }),
+                'error',
+              )
+            }
           }
 
-          const commitRootStartedAt = perfNowMs()
-          await commitWorkspaceRoot()
-          logLoadNotesStage('commitWorkspaceRoot', { durationMs: perfDurationMs(commitRootStartedAt) })
           transitionWorkspaceSession({
             state: 'ready',
             rootDir: root,

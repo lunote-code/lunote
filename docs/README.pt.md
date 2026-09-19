@@ -85,7 +85,7 @@ Lunote é um **workspace de gestão do conhecimento nativo em IA** — uma base 
 | **Export** | PDF, Word (DOCX), HTML, PNG · print |
 | **Security** | Optional workspace encryption (AES-256-GCM) · passwords never saved on disk |
 
-Notas de versão em [CHANGELOG.md](../CHANGELOG.md). **v1.0.3**: bloqueio automático por inatividade, modelos de nova nota opcionais, correções de cursor / modo fonte / histórico.
+Notas de versão em [CHANGELOG.md](../CHANGELOG.md). **v1.0.4**: abrir um espaço de trabalho não fica mais preso no overlay de carregamento; o editor visual permanece no TipTap 3.23.1 (3.30/3.31 quebrava a edição).
 
 ---
 

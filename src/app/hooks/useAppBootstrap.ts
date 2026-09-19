@@ -4,6 +4,7 @@ import { isTauri } from '@tauri-apps/api/core'
 
 import type { TranslateFn } from '../../i18n'
 import { dispatchDocumentCommand } from '../../documentRuntime/documentKernel'
+import { transitionWorkspaceSession } from '../../documentRuntime/workspaceSessionRuntime'
 import { hasAnyDirtyDocument, listDirtyDocumentPaths } from '../../lib/documentDirty'
 import type { AppStatusTone } from './useAppStatus'
 import { installNavigationRuntimeFirewall } from '../../navigation/navigationRuntimeFirewall'
@@ -27,6 +28,7 @@ import { markBootPhase, measureBootSince } from '../bootPerf'
 import { persistWorkspaceSnapshotNow } from '../../documentRuntime/persistWorkspaceSnapshot'
 import { readNote, statNoteFile } from '../../platform/tauri/documentService'
 import { shouldRestoreRecoveryDraft } from '../workspace/recoveryDraftRestore'
+import { INITIAL_NOTE_MD } from '../workspace/constants'
 import { isWorkspaceLoadSupersededError } from './useWorkspaceLoader'
 
 export type AppBootstrapDeps = {
@@ -310,6 +312,17 @@ export function useAppBootstrap(deps: AppBootstrapDeps) {
         }
         pendingRestoreEventIdRef.current = null
         setRootDir('')
+        await dispatchDocumentCommand({
+          type: 'RESTORE_WORKSPACE',
+          root: '',
+          activePath: null,
+          openTabs: [],
+          emptyContent: INITIAL_NOTE_MD,
+          source: 'workspace-restore-failed',
+        }).catch((clearError) => {
+          logWarn('[LAUNCH] workspace_restore_tabs_clear_failed', clearError)
+        })
+        transitionWorkspaceSession({ state: 'idle', rootDir: null, activePath: null, openTabs: [] })
         setStatus(
           unavailable
             ? tRef.current('app.status.workspaceRestoreFailed')

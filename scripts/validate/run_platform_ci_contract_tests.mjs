@@ -42,6 +42,22 @@ function testCiBuildJob() {
   assert(ci.includes('plan-release'), 'ci.yml must plan auto-release after compile')
 }
 
+function testCiUsesPublishedValidatorsOnly() {
+  const ci = read('.github/workflows/ci.yml')
+  assert(ci.includes('test-contracts:'), 'ci.yml must define a test-contracts job')
+  assert(!ci.includes('scripts/test/'), 'ci.yml must not invoke gitignored scripts/test')
+  assert(!ci.includes('npm run test:contracts'), 'ci.yml must not run local-only test:contracts')
+  assert(ci.includes('validate:qa-parity'), 'ci.yml must run published QA parity contract')
+  assert(ci.includes('validate:platform-ci-contract'), 'ci.yml must run published platform CI contract')
+  assert(ci.includes('validate:git-publish-paths'), 'ci.yml must run published git-publish-paths check')
+  assert(ci.includes('windows-2022'), 'CI build-matrix must compile on Windows')
+  assert(ci.includes('ubuntu-22.04'), 'CI build-matrix must compile on Linux')
+  assert(ci.includes('cargo check'), 'CI build-matrix must cargo-check Tauri on Windows/Linux/macOS')
+
+  const pkg = read('package.json')
+  assert(pkg.includes('test:linux-export'), 'package.json must expose Linux export contract script')
+}
+
 function testMacMenuBootPipeline() {
   const gen = read('scripts/build/generate_mac_menu_boot.mjs')
   assert(
@@ -152,9 +168,22 @@ function testUiLocaleParityContractExists() {
   assert(ci.includes('validate:ui-locale-parity'), 'verify:ci checks must run ui locale parity contract')
 }
 
+function testSimulateUsesPublishedCheckoutOnly() {
+  const sim = read('scripts/validate/simulate_github_workflow.mjs')
+  assert(!sim.includes('npm run test:release'), 'simulate must not run local-only test:release on published snapshot')
+  assert(!sim.includes('npm run test:contracts'), 'simulate must not run local-only test:contracts')
+  assert(sim.includes('validate:qa-parity'), 'simulate must run published qa-parity on checkout')
+  assert(sim.includes('validate:platform-ci-contract'), 'simulate must run published platform CI contract on checkout')
+  assert(sim.includes('validate_git_publish_paths.py'), 'simulate must run git-publish-paths on checkout')
+}
+
 function testVerifyCiMirrorsNpmCi() {
   const verify = read('scripts/validate/verify_github_ci.mjs')
   assert(verify.includes('runNpmCi()'), 'verify:ci must run npm ci before build/locale jobs')
+  assert(verify.includes("case 'contracts':"), 'verify:ci must mirror the published-contracts CI job')
+  assert(verify.includes("npmRun('validate:qa-parity')"), 'verify:ci contracts job must run qa-parity')
+  assert(verify.includes("npmRun('validate:platform-ci-contract')"), 'verify:ci contracts job must run platform CI contract')
+  assert(verify.includes("npmRun('validate:git-publish-paths')"), 'verify:ci contracts job must run git-publish-paths')
   const runner = read('scripts/validate/lib/ci_job_runner.mjs')
   assert(runner.includes("runStep('npm ci', 'npm', ['ci'])"), 'ci_job_runner must define runNpmCi helper')
 }
@@ -162,7 +191,9 @@ function testVerifyCiMirrorsNpmCi() {
 const tests = [
   ['playwright scope and modKey', testPlaywrightScopeAndModKey],
   ['ci build job', testCiBuildJob],
+  ['ci uses published validators only', testCiUsesPublishedValidatorsOnly],
   ['verify:ci mirrors npm ci', testVerifyCiMirrorsNpmCi],
+  ['simulate uses published checkout only', testSimulateUsesPublishedCheckoutOnly],
   ['mac-menu-boot pipeline', testMacMenuBootPipeline],
   ['contract tests use published paths only', testContractTestsUsePublishedPathsOnly],
   ['workspace watch path normalization', testWorkspaceWatchNormalizesSeparators],

@@ -1,0 +1,19 @@
+name: Install Rocky Linux Tauri dependencies
+description: RHEL/CentOS/Rocky/Alma packages for Tauri v2 Linux builds (WebKitGTK 4.1 + RPM tooling)
+runs:
+  using: composite
+  steps:
+    - name: dnf install
+      shell: bash
+      run: |
+        dnf install -y epel-release || true
+        dnf install -y \
+          gcc gcc-c++ make pkgconfig git \
+          gtk3-devel \
+          webkit2gtk4.1-devel \
+          openssl-devel \
+          curl wget file \
+          libappindicator-gtk3-devel \
+          librsvg2-devel \
+          patchelf \
+          rpm-build

@@ -1,0 +1,252 @@
+# Reusable release pipeline — build installers and publish GitHub Release.
+# Targets: macOS (.dmg arm64) · Windows (.msi x86_64 + ARM64) · Linux (.deb only)
+name: Release build
+
+on:
+  workflow_call:
+    inputs:
+      release_ref:
+        description: Git ref to build (e.g. refs/tags/v0.5.0)
+        required: true
+        type: string
+      tag:
+        description: Release tag name (e.g. v0.5.0)
+        required: true
+        type: string
+      draft:
+        description: Create as draft release
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_REF: ${{ inputs.release_ref }}
+  RELEASE_TAG: ${{ inputs.tag }}
+
+jobs:
+  validate-release:
+    name: Validate release tag & version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify tag matches version.json
+        run: |
+          TAG="${{ env.RELEASE_TAG }}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid tag format: $TAG (expected vX.Y.Z)"
+            exit 1
+          fi
+          VERSION="${TAG#v}"
+          CANONICAL=$(node -p "require('./version.json').version")
+          if [ "$VERSION" != "$CANONICAL" ]; then
+            echo "Tag $TAG does not match version.json ($CANONICAL)"
+            echo "Update version.json, then run: npm run version:sync"
+            exit 1
+          fi
+          echo "Tag $TAG matches version.json ($CANONICAL)"
+
+      - name: Check version sync across manifests
+        run: npm run version:check
+
+  build-dmg:
+    needs: validate-release
+    runs-on: macos-14
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
+
+      - name: Setup Node and Rust
+        uses: ./.github/actions/setup-node-rust
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync app version
+        run: npm run version:sync
+
+      - name: Locale & menu pipeline (build inputs)
+        uses: ./.github/actions/locale-pipeline
+        with:
+          run-validation: "true"
+          check-git-clean: "true"
+
+      - name: Build DMG (arm64)
+        run: npm run tauri:bundle:dmg
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lunote-dmg-arm64
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+
+  build-msi:
+    needs: validate-release
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2022
+            arch: x86_64
+            artifact: lunote-msi-x64
+          - runner: windows-11-arm
+            arch: aarch64
+            artifact: lunote-msi-arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
+
+      - name: Setup Node and Rust
+        uses: ./.github/actions/setup-node-rust
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync app version
+        run: npm run version:sync
+
+      - name: Locale & menu pipeline (build inputs)
+        uses: ./.github/actions/locale-pipeline
+        with:
+          run-validation: "true"
+          check-git-clean: "true"
+
+      - name: Build MSI (${{ matrix.arch }})
+        run: npm run tauri:bundle:msi
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+
+  build-deb:
+    needs: validate-release
+    runs-on: ubuntu-22.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
+
+      - name: Setup Node and Rust
+        uses: ./.github/actions/setup-node-rust
+
+      - name: Install Linux build dependencies
+        uses: ./.github/actions/install-linux-tauri-deps
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync app version
+        run: npm run version:sync
+
+      - name: Locale & menu pipeline (build inputs)
+        uses: ./.github/actions/locale-pipeline
+        with:
+          run-validation: "true"
+          check-git-clean: "true"
+
+      - name: Build DEB
+        run: npm run tauri:bundle:deb
+
+      - name: Collect DEB release assets
+        run: |
+          mkdir -p release-assets/deb
+          cp src-tauri/target/release/bundle/deb/*.deb release-assets/deb/
+
+      - name: Upload DEB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lunote-deb
+          path: release-assets/deb/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: [validate-release, build-dmg, build-msi, build-deb]
+    if: always() && needs.validate-release.result == 'success' && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
+
+      - name: Report build job results
+        run: |
+          echo "build-dmg: ${{ needs.build-dmg.result }}"
+          echo "build-msi: ${{ needs.build-msi.result }}"
+          echo "build-deb: ${{ needs.build-deb.result }}"
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Require at least one release artifact
+        run: |
+          shopt -s globstar nullglob
+          files=(release-assets/**/*.dmg release-assets/**/*.msi release-assets/**/*.deb)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No release artifacts were produced; refusing to publish an empty release."
+            exit 1
+          fi
+          printf 'Release artifacts (%s):\n' "${#files[@]}"
+          printf ' - %s\n' "${files[@]}"
+
+      - name: List release assets
+        run: find release-assets -type f | sort | xargs ls -lah
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: Lunote ${{ env.RELEASE_TAG }}
+          draft: ${{ inputs.draft }}
+          generate_release_notes: true
+          files: |
+            release-assets/**/*.dmg
+            release-assets/**/*.msi
+            release-assets/**/*.deb
+          body: |
+            ## Downloads
+
+            | Platform | File | Notes |
+            |----------|------|-------|
+            | macOS (Apple Silicon) | `.dmg` (arm64) | Built on macOS 14 |
+            | Windows (x86_64) | `.msi` (x64) | Intel/AMD PCs |
+            | Windows (ARM64) | `.msi` (arm64) | ARM PCs |
+            | Linux (Debian/Ubuntu) | `.deb` | Built on Ubuntu 22.04 |
+
+            ---
+
+            ## What's Changed
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

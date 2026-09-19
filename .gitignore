@@ -66,6 +66,9 @@ Thumbs.db
 *.sln
 *.sw?
 
+# Local release notes (not published)
+/CHANGELOG.md
+
 # --- Docs: local / maintainer only (app + CI do not need these) ---
 docs/compatibility/
 docs/qa/

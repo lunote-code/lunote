@@ -80,7 +80,7 @@ Lunote ist ein **KI-nativer Wissensmanagement-Workspace** — eine persönliche 
 | **Export** | PDF, Word (DOCX), HTML, PNG · print |
 | **Security** | Optional workspace encryption (AES-256-GCM) · passwords never saved on disk |
 
-Versionshinweise in [CHANGELOG.md](../CHANGELOG.md). **v1.0.4**: Workspace öffnet nicht mehr hängend am Lade-Overlay; der visuelle Editor bleibt bei TipTap 3.23.1 (3.30/3.31 störte die Bearbeitung).
+**v1.0.4**: Workspace öffnet nicht mehr hängend am Lade-Overlay; der visuelle Editor bleibt bei TipTap 3.23.1 (3.30/3.31 störte die Bearbeitung).
 
 ---
 

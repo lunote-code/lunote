@@ -1286,5 +1286,6 @@
   "settings.theme.importSnippets.tabTitle": "Extraits d’interface",
   "settings.window.closeToTrayEnabled.description": "Si activé, le bouton de fermeture de la fenêtre masque Lunote en arrière-plan au lieu de quitter l’application.",
   "settings.window.closeToTrayEnabled.label": "Continuer en arrière-plan à la fermeture de la fenêtre",
-  "settings.window.title": "Fenêtre"
+  "settings.window.title": "Fenêtre",
+  "settings.ai.provider.local": "Modèles locaux"
 }

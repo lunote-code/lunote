@@ -1110,5 +1110,6 @@
   "editor.emoji.noMatches": "Нет совпадений",
   "editor.emoji.searchPlaceholder": "Поиск эмодзи или символов…",
   "editor.status.visualOpImeComposing": "Завершите ввод текста перед выполнением этой команды.",
-  "editor.status.visualOpInCodeContext": "Это действие недоступно внутри кода. Переместите курсор за пределы блока или переключитесь в режим исходника (⌘/Ctrl+/)."
+  "editor.status.visualOpInCodeContext": "Это действие недоступно внутри кода. Переместите курсор за пределы блока или переключитесь в режим исходника (⌘/Ctrl+/).",
+  "settings.ai.provider.local": "Локальные модели"
 }

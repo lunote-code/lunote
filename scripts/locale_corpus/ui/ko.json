@@ -1292,5 +1292,6 @@
   "settings.theme.importSnippets.tabTitle": "UI 스니펫",
   "settings.window.closeToTrayEnabled.description": "활성화하면 창 닫기 버튼이 앱을 종료하는 대신 Lunote를 백그라운드로 숨깁니다.",
   "settings.window.closeToTrayEnabled.label": "창을 닫아도 백그라운드에서 계속 실행",
-  "settings.window.title": "창"
+  "settings.window.title": "창",
+  "settings.ai.provider.local": "로컬 모델"
 }

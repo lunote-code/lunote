@@ -1287,5 +1287,6 @@
   "settings.theme.importSnippets.tabTitle": "UI-Snippets",
   "settings.window.closeToTrayEnabled.description": "Wenn aktiviert, blendet der Fenster-Schließen-Button Lunote in den Hintergrund aus, statt die App zu beenden.",
   "settings.window.closeToTrayEnabled.label": "Im Hintergrund weiterlaufen, wenn das Fenster geschlossen wird",
-  "settings.window.title": "Fenster"
+  "settings.window.title": "Fenster",
+  "settings.ai.provider.local": "Lokale Modelle"
 }

@@ -134,7 +134,7 @@ def main() -> int:
         for k in en:
             if k.startswith(META_PREFIX):
                 continue
-            if k in corpus and (corpus[k] != en[k] or k in ALWAYS_MATERIALIZE_KEYS):
+            if k in corpus:
                 sparse[k] = corpus[k]
 
         ordered: dict[str, str] = {}

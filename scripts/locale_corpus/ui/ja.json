@@ -1284,5 +1284,6 @@
   "settings.theme.importSnippets.tabTitle": "UI スニペット",
   "settings.window.closeToTrayEnabled.description": "有効にすると、ウィンドウの閉じるボタンで Lunote を終了せずバックグラウンドに隠します。",
   "settings.window.closeToTrayEnabled.label": "ウィンドウを閉じてもバックグラウンドで実行を続ける",
-  "settings.window.title": "ウィンドウ"
+  "settings.window.title": "ウィンドウ",
+  "settings.ai.provider.local": "ローカルモデル"
 }

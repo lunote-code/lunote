@@ -1112,5 +1112,6 @@
   "editor.emoji.noMatches": "Sem correspondências",
   "editor.emoji.searchPlaceholder": "Pesquisar emoji ou símbolos…",
   "editor.status.visualOpImeComposing": "Termine a composição de texto antes de executar este comando.",
-  "editor.status.visualOpInCodeContext": "Esta ação não está disponível dentro do código. Mova o cursor para fora do bloco ou mude para o modo fonte (⌘/Ctrl+/)."
+  "editor.status.visualOpInCodeContext": "Esta ação não está disponível dentro do código. Mova o cursor para fora do bloco ou mude para o modo fonte (⌘/Ctrl+/).",
+  "settings.ai.provider.local": "Modelos locais"
 }

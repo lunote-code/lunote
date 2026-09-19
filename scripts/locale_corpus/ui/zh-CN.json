@@ -454,6 +454,8 @@
   "menu.file.newFromTemplate": "从模板新建…",
   "menu.file.newTab": "新建标签页",
   "menu.file.newWindow": "新建窗口",
+  "menu.file.noteCalendar": "笔记日历",
+  "menu.file.noteCalendarOpen": "打开笔记日历",
   "menu.file.open": "打开",
   "menu.file.openFile": "打开文件",
   "menu.file.openFolder": "打开目录",
@@ -545,6 +547,7 @@
   "menu.para.codeTools.copy": "复制代码块内容",
   "menu.para.codeTools.indentBlock": "为整个代码块调整缩进",
   "menu.para.codeTools.indentSel": "为选中内容调整缩进",
+  "menu.para.drawing": "手绘画布",
   "menu.para.footnote": "脚注",
   "menu.para.h1": "一级标题",
   "menu.para.h2": "二级标题",
@@ -582,6 +585,7 @@
   "menu.view.focus": "专注模式",
   "menu.view.fullscreen": "全屏",
   "menu.view.livePreview": "专注写作（可视化）",
+  "menu.view.noteCalendar": "笔记日历",
   "menu.view.outline": "大纲",
   "menu.view.search": "工作区搜索",
   "menu.view.sidebar": "显示/隐藏侧边栏",
@@ -1325,5 +1329,6 @@
   "settings.theme.exportCssFile.selectDescription": "选择已导入的导出样式，或保持禁用以不附加 CSS 导出。",
   "settings.window.closeToTrayEnabled.description": "启用后，点击窗口关闭按钮会将 Lunote 隐藏到后台，而不是退出应用。",
   "settings.window.closeToTrayEnabled.label": "关闭窗口时继续在后台运行",
-  "settings.window.title": "窗口"
+  "settings.window.title": "窗口",
+  "settings.ai.provider.local": "本地模型"
 }

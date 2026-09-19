@@ -80,7 +80,7 @@ Lunote is an **AI-native knowledge management workspace** — a personal knowled
 | **Export** | PDF, Word (DOCX), HTML, PNG · print |
 | **Security** | Optional workspace encryption (AES-256-GCM) · passwords never saved on disk |
 
-See [CHANGELOG.md](CHANGELOG.md) for release notes. **v1.0.4** patch: opening a workspace no longer hangs on the loading overlay; the visual editor stays on TipTap 3.23.1 after 3.30/3.31 broke editing.
+**v1.0.4** patch: opening a workspace no longer hangs on the loading overlay; the visual editor stays on TipTap 3.23.1 after 3.30/3.31 broke editing.
 
 ---
 
